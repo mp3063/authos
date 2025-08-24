@@ -84,6 +84,8 @@ return [
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
+    'security_headers_enabled' => env('SECURITY_HEADERS_ENABLED', true),
+
     /*
     |--------------------------------------------------------------------------
     | Encryption Key

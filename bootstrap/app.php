@@ -11,7 +11,27 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->web(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
+        
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+        
+        $middleware->web(append: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+        
+        $middleware->api(append: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
+        $middleware->throttleApi();
+        
+        $middleware->alias([
+            'auth.passport' => \Laravel\Passport\Http\Middleware\CheckClientCredentials::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
