@@ -38,8 +38,8 @@ class AdminPanelProvider extends PanelProvider
                 'info' => Color::Sky,
             ])
             ->brandName('AuthOS')
-            ->brandLogo(asset('images/autheos-logo.svg'))
-            ->brandLogoHeight('2rem')
+            ->brandLogo(asset('images/logo/authos-logo.svg'))
+            ->brandLogoHeight('3rem')
             ->favicon(asset('images/favicon.ico'))
             ->maxContentWidth('7xl')
             ->sidebarCollapsibleOnDesktop()

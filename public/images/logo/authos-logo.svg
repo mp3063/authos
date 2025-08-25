@@ -1,0 +1,100 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Strong gradient that works on both backgrounds -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Darker gradient for contrast -->
+    <linearGradient id="darkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- White stroke for dark backgrounds (will be invisible on light) -->
+    <filter id="whiteOutline">
+      <feMorphology operator="dilate" radius="0.5"/>
+      <feComposite operator="out" in2="SourceGraphic"/>
+      <feColorMatrix values="0 0 0 0 1
+                             0 0 0 0 1
+                             0 0 0 0 1
+                             0 0 0 1 0"/>
+      <feGaussianBlur stdDeviation="0.5"/>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  
+  <g transform="translate(50, 50)">
+    <!-- White background circle for contrast on dark themes -->
+    <circle cx="0" cy="0" r="45" fill="white" opacity="0.1"/>
+    
+    <!-- Shield base with strong colors -->
+    <path d="M 0 -30 
+             C -20 -30, -25 -25, -25 -15
+             L -25 8
+             C -25 20, -18 28, 0 38
+             C 18 28, 25 20, 25 8
+             L 25 -15
+             C 25 -25, 20 -30, 0 -30 Z" 
+          fill="url(#mainGradient)" 
+          stroke="white"
+          stroke-width="2"
+          stroke-opacity="0.2"/>
+    
+    <!-- Inner shield border for definition -->
+    <path d="M 0 -24
+             C -15 -24, -19 -20, -19 -12
+             L -19 6
+             C -19 15, -14 22, 0 30
+             C 14 22, 19 15, 19 6
+             L 19 -12
+             C 19 -20, 15 -24, 0 -24 Z" 
+          fill="none" 
+          stroke="url(#darkGradient)" 
+          stroke-width="2"/>
+    
+    <!-- Lock icon - white with dark outline for universal visibility -->
+    <g transform="scale(1.4)">
+      <!-- Lock shackle -->
+      <path d="M -7 -3 L -7 -10 Q 0 -17, 7 -10 L 7 -3" 
+            fill="none" 
+            stroke="white" 
+            stroke-width="4" 
+            stroke-linecap="round"/>
+      <path d="M -7 -3 L -7 -10 Q 0 -17, 7 -10 L 7 -3" 
+            fill="none" 
+            stroke="url(#darkGradient)" 
+            stroke-width="2.5" 
+            stroke-linecap="round"/>
+      
+      <!-- Lock body -->
+      <rect x="-10" y="-4" width="20" height="16" rx="2" fill="white"/>
+      <rect x="-10" y="-4" width="20" height="16" rx="2" fill="url(#darkGradient)" opacity="0.9"/>
+      
+      <!-- Keyhole -->
+      <circle cx="0" cy="4" r="2.5" fill="white"/>
+      <rect x="-1" y="4" width="2" height="5" fill="white"/>
+    </g>
+    
+    <!-- Connection dots with strong colors -->
+    <g>
+      <!-- Top node -->
+      <circle cx="0" cy="-40" r="5" fill="url(#darkGradient)"/>
+      <circle cx="0" cy="-40" r="2.5" fill="white"/>
+      
+      <!-- Left node -->
+      <circle cx="-35" cy="-5" r="5" fill="url(#darkGradient)"/>
+      <circle cx="-35" cy="-5" r="2.5" fill="white"/>
+      
+      <!-- Right node -->
+      <circle cx="35" cy="-5" r="5" fill="url(#darkGradient)"/>
+      <circle cx="35" cy="-5" r="2.5" fill="white"/>
+      
+      <!-- Connection lines with good contrast -->
+      <line x1="0" y1="-30" x2="0" y2="-35" stroke="url(#darkGradient)" stroke-width="2" opacity="0.6"/>
+      <line x1="-25" y1="-15" x2="-30" y2="-8" stroke="url(#darkGradient)" stroke-width="2" opacity="0.6"/>
+      <line x1="25" y1="-15" x2="30" y2="-8" stroke="url(#darkGradient)" stroke-width="2" opacity="0.6"/>
+    </g>
+  </g>
+</svg>
