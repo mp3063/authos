@@ -27,10 +27,28 @@ class Organization extends Model
         return $this->hasMany(Application::class);
     }
 
+    /**
+     * Get all users who have access to any application in this organization
+     */
     public function users()
     {
-        return $this->hasManyThrough(User::class, Application::class, 'organization_id', 'id', 'id', 'id')
-            ->join('user_applications', 'users.id', '=', 'user_applications.user_id')
-            ->where('user_applications.application_id', '=', 'applications.id');
+        return User::whereHas('applications', function ($query) {
+            $query->where('organization_id', $this->id);
+        })->distinct();
+    }
+
+    /**
+     * Get users with their application access details for this organization
+     */
+    public function usersWithApplications()
+    {
+        return $this->applications()
+            ->with(['users' => function ($query) {
+                $query->withPivot(['granted_at', 'last_login_at', 'login_count']);
+            }])
+            ->get()
+            ->pluck('users')
+            ->flatten()
+            ->unique('id');
     }
 }

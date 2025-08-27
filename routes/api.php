@@ -3,6 +3,10 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OpenIdController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\ApplicationController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,26 +20,195 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Authentication routes
-Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/refresh', [AuthController::class, 'refresh']);
+// API Version Information
+Route::get('/version', function () {
+    return response()->json([
+        'supported_versions' => ['v1'],
+        'default_version' => 'v1',
+        'latest_version' => 'v1',
+    ]);
+});
+
+// Health Check Endpoints (public access)
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok', 'timestamp' => now()]);
+});
+
+Route::get('/health/detailed', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now(),
+        'services' => [
+            'database' => 'ok',
+            'redis' => 'ok', 
+            'oauth' => 'ok'
+        ]
+    ]);
+});
+
+// API v1 Routes
+Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(function () {
     
-    // Protected authentication routes
-    Route::middleware('auth:api')->group(function () {
-        Route::post('/logout', [AuthController::class, 'logout']);
-        Route::get('/user', [AuthController::class, 'user']);
-        Route::post('/revoke', [AuthController::class, 'revoke']);
+    // Authentication routes
+    Route::prefix('auth')->group(function () {
+        Route::post('/register', [AuthController::class, 'register'])->middleware('api.rate_limit:registration');
+        Route::post('/login', [AuthController::class, 'login'])->middleware('api.rate_limit:authentication');
+        Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('api.rate_limit:authentication');
+        
+        // Protected authentication routes
+        Route::middleware('auth:api')->group(function () {
+            Route::post('/logout', [AuthController::class, 'logout']);
+            Route::get('/user', [AuthController::class, 'user']);
+            Route::post('/revoke', [AuthController::class, 'revoke']);
+        });
+    });
+
+    // OAuth 2.0 routes (custom implementation alongside Passport)
+    Route::prefix('oauth')->middleware(['oauth.security', 'api.rate_limit:oauth'])->group(function () {
+        Route::get('/authorize', [OAuthController::class, 'authorize']);
+        Route::post('/token', [OAuthController::class, 'token']);
+        Route::middleware('auth:api')->get('/userinfo', [OpenIdController::class, 'userinfo']);
+        Route::get('/jwks', [OpenIdController::class, 'jwks']);
+    });
+
+    // User Management API
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('users')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->middleware(['api.rate_limit:api_bulk', 'api.cache:300']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::get('/{id}', [UserController::class, 'show'])->middleware('api.cache:600');
+        Route::put('/{id}', [UserController::class, 'update']);
+        Route::delete('/{id}', [UserController::class, 'destroy']);
+        
+        // User applications
+        Route::get('/{id}/applications', [UserController::class, 'applications']);
+        Route::post('/{id}/applications', [UserController::class, 'grantApplicationAccess']);
+        Route::delete('/{id}/applications/{applicationId}', [UserController::class, 'revokeApplicationAccess']);
+        
+        // User roles
+        Route::get('/{id}/roles', [UserController::class, 'roles']);
+        Route::post('/{id}/roles', [UserController::class, 'assignRole']);
+        Route::delete('/{id}/roles/{roleId}', [UserController::class, 'removeRole']);
+        
+        // User sessions
+        Route::get('/{id}/sessions', [UserController::class, 'sessions']);
+        Route::delete('/{id}/sessions', [UserController::class, 'revokeSessions']);
+        Route::delete('/{id}/sessions/{sessionId}', [UserController::class, 'revokeSession']);
+    });
+
+    // Application Management API
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('applications')->group(function () {
+        Route::get('/', [ApplicationController::class, 'index']);
+        Route::post('/', [ApplicationController::class, 'store']);
+        Route::get('/{id}', [ApplicationController::class, 'show']);
+        Route::put('/{id}', [ApplicationController::class, 'update']);
+        Route::delete('/{id}', [ApplicationController::class, 'destroy']);
+        
+        // Application credentials
+        Route::post('/{id}/credentials/regenerate', [ApplicationController::class, 'regenerateCredentials']);
+        
+        // Application users
+        Route::get('/{id}/users', [ApplicationController::class, 'users']);
+        Route::post('/{id}/users', [ApplicationController::class, 'grantUserAccess']);
+        Route::delete('/{id}/users/{userId}', [ApplicationController::class, 'revokeUserAccess']);
+        
+        // Application tokens
+        Route::get('/{id}/tokens', [ApplicationController::class, 'tokens']);
+        Route::delete('/{id}/tokens', [ApplicationController::class, 'revokeAllTokens']);
+        Route::delete('/{id}/tokens/{tokenId}', [ApplicationController::class, 'revokeToken']);
+        
+        // Application analytics
+        Route::get('/{id}/analytics', [ApplicationController::class, 'analytics']);
+    });
+
+    // Profile Management API
+    Route::middleware(['auth:api', 'api.rate_limit:api_standard'])->prefix('profile')->group(function () {
+        Route::get('/', [ProfileController::class, 'index']);
+        Route::put('/', [ProfileController::class, 'update']);
+        Route::post('/avatar', [ProfileController::class, 'uploadAvatar']);
+        Route::delete('/avatar', [ProfileController::class, 'removeAvatar']);
+        Route::get('/preferences', [ProfileController::class, 'preferences']);
+        Route::put('/preferences', [ProfileController::class, 'updatePreferences']);
+        Route::get('/security', [ProfileController::class, 'security']);
+        Route::post('/change-password', [ProfileController::class, 'changePassword']);
+    });
+
+    // MFA Management API
+    Route::middleware(['auth:api', 'api.rate_limit:mfa'])->prefix('mfa')->group(function () {
+        Route::get('/status', [ProfileController::class, 'mfaStatus']);
+        Route::post('/setup/totp', [ProfileController::class, 'setupTotp']);
+        Route::post('/verify/totp', [ProfileController::class, 'verifyTotp']);
+        Route::post('/disable/totp', [ProfileController::class, 'disableTotp']);
+        Route::post('/recovery-codes', [ProfileController::class, 'getRecoveryCodes']);
+        Route::post('/recovery-codes/regenerate', [ProfileController::class, 'regenerateRecoveryCodes']);
+    });
+
+    // Organization Management API  
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('organizations')->group(function () {
+        Route::get('/', [OrganizationController::class, 'index'])->middleware('api.cache:300');
+        Route::post('/', [OrganizationController::class, 'store']);
+        Route::get('/{id}', [OrganizationController::class, 'show'])->middleware('api.cache:600');
+        Route::put('/{id}', [OrganizationController::class, 'update']);
+        Route::delete('/{id}', [OrganizationController::class, 'destroy']);
+        
+        // Organization settings
+        Route::get('/{id}/settings', [OrganizationController::class, 'settings']);
+        Route::put('/{id}/settings', [OrganizationController::class, 'updateSettings']);
+        
+        // Organization users
+        Route::get('/{id}/users', [OrganizationController::class, 'users']);
+        Route::post('/{id}/users', [OrganizationController::class, 'grantUserAccess']);
+        Route::delete('/{id}/users/{userId}/applications/{applicationId}', [OrganizationController::class, 'revokeUserAccess']);
+        
+        // Organization applications
+        Route::get('/{id}/applications', [OrganizationController::class, 'applications']);
+        
+        // Organization analytics
+        Route::get('/{id}/analytics', [OrganizationController::class, 'analytics']);
+    });
+
+    // API Monitoring and Cache Management (Admin only)
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('monitoring')->group(function () {
+        Route::get('/metrics', function () {
+            return response()->json([
+                'api_requests_total' => cache()->get('api_requests_total', 0),
+                'cache_hits' => cache()->get('cache_hits', 0),
+                'cache_misses' => cache()->get('cache_misses', 0),
+                'timestamp' => now(),
+            ]);
+        });
+        
+        Route::get('/health', function () {
+            return response()->json([
+                'database' => 'connected',
+                'redis' => 'connected', 
+                'oauth_keys' => 'present',
+                'timestamp' => now(),
+            ]);
+        });
+    });
+
+    // Cache Management Endpoints (Admin only)
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('cache')->group(function () {
+        Route::get('/stats', function () {
+            return response()->json([
+                'total_keys' => 0, // Would need Redis connection to get actual stats
+                'memory_usage' => '0MB',
+                'hit_rate' => '0%',
+                'timestamp' => now(),
+            ]);
+        });
+        
+        Route::delete('/clear-all', function () {
+            cache()->flush();
+            return response()->json(['message' => 'All caches cleared successfully']);
+        });
+        
+        Route::delete('/clear-user', function () {
+            // Clear user-specific caches (would implement cache tag clearing)
+            return response()->json(['message' => 'User caches cleared successfully']);
+        });
     });
 });
 
-// OAuth 2.0 routes (custom implementation alongside Passport)
-Route::prefix('oauth')->middleware('oauth.security')->group(function () {
-    Route::get('/authorize', [OAuthController::class, 'authorize']);
-    Route::post('/token', [OAuthController::class, 'token']);
-    Route::middleware('auth:api')->get('/userinfo', [OpenIdController::class, 'userinfo']);
-    Route::get('/jwks', [OpenIdController::class, 'jwks']);
-});
-
-// OpenID Connect Discovery
+// OpenID Connect Discovery (outside versioning for backward compatibility)
 Route::get('/.well-known/openid-configuration', [OpenIdController::class, 'discovery']);

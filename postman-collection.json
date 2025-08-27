@@ -1,0 +1,1174 @@
+{
+  "info": {
+    "name": "AuthOS API",
+    "description": "Comprehensive Laravel 12 authentication service API - An Auth0 alternative providing OAuth 2.0, OpenID Connect, multi-factor authentication, and single sign-on capabilities.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://authos.test/api/v1",
+      "description": "Base URL for the API"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "Bearer token for authentication"
+    },
+    {
+      "key": "clientId",
+      "value": "",
+      "description": "OAuth Client ID"
+    },
+    {
+      "key": "clientSecret",
+      "value": "",
+      "description": "OAuth Client Secret"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "description": "User ID for testing"
+    },
+    {
+      "key": "applicationId",
+      "value": "1",
+      "description": "Application ID for testing"
+    },
+    {
+      "key": "organizationId",
+      "value": "1",
+      "description": "Organization ID for testing"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Auto-set content type for POST/PUT requests",
+          "if (request.method === 'POST' || request.method === 'PUT') {",
+          "    if (!pm.request.headers.has('Content-Type')) {",
+          "        pm.request.headers.add({",
+          "            key: 'Content-Type',",
+          "            value: 'application/json'",
+          "        });",
+          "    }",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "// Global test for rate limiting headers",
+          "if (pm.response.headers.has('X-RateLimit-Limit')) {",
+          "    pm.test('Rate limiting headers present', function () {",
+          "        pm.response.to.have.header('X-RateLimit-Limit');",
+          "        pm.response.to.have.header('X-RateLimit-Remaining');",
+          "        pm.response.to.have.header('X-RateLimit-Reset');",
+          "    });",
+          "}",
+          "",
+          "// Auto-extract access token from authentication responses",
+          "if (pm.response.code === 200 || pm.response.code === 201) {",
+          "    const responseJson = pm.response.json();",
+          "    if (responseJson.access_token || (responseJson.data && responseJson.data.access_token)) {",
+          "        const token = responseJson.access_token || responseJson.data.access_token;",
+          "        pm.collectionVariables.set('accessToken', token);",
+          "        console.log('Access token extracted and saved to collection variables');",
+          "    }",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "User Registration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"StrongP@ss123\",\n    \"password_confirmation\": \"StrongP@ss123\",\n    \"organization_slug\": \"techcorp\",\n    \"profile\": {\n        \"timezone\": \"America/New_York\",\n        \"language\": \"en\"\n    },\n    \"terms_accepted\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user account with optional organization association"
+          },
+          "response": []
+        },
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"StrongP@ss123\",\n    \"scopes\": [\"openid\", \"profile\", \"email\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user and return access token"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/user",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "user"]
+            },
+            "description": "Retrieve authenticated user information based on token scopes"
+          },
+          "response": []
+        },
+        {
+          "name": "User Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout user and revoke access token"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "revoke"]
+            },
+            "description": "Revoke the current access token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OAuth 2.0 & OpenID Connect",
+      "item": [
+        {
+          "name": "OAuth Authorization",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oauth/authorize?response_type=code&client_id={{clientId}}&redirect_uri=https://app.example.com/callback&scope=openid profile email&state=xyz123",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "authorize"],
+              "query": [
+                {
+                  "key": "response_type",
+                  "value": "code"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "https://app.example.com/callback"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid profile email"
+                },
+                {
+                  "key": "state",
+                  "value": "xyz123"
+                }
+              ]
+            },
+            "description": "OAuth 2.0 authorization endpoint supporting authorization code and implicit flows"
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth Token Exchange",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{clientSecret}}",
+                  "type": "text"
+                },
+                {
+                  "key": "code",
+                  "value": "AUTHORIZATION_CODE_HERE",
+                  "type": "text"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "https://app.example.com/callback",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/oauth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "token"]
+            },
+            "description": "Exchange authorization code for access token"
+          },
+          "response": []
+        },
+        {
+          "name": "Client Credentials Grant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{clientSecret}}",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "read write",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/oauth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "token"]
+            },
+            "description": "Get access token using client credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Get UserInfo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oauth/userinfo",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "userinfo"]
+            },
+            "description": "Get user information based on access token scopes"
+          },
+          "response": []
+        },
+        {
+          "name": "Get JWKS",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oauth/jwks",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "jwks"]
+            },
+            "description": "Get public keys for JWT token verification"
+          },
+          "response": []
+        },
+        {
+          "name": "OpenID Connect Discovery",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/.well-known/openid-configuration",
+              "host": ["{{baseUrl}}"],
+              "path": [".well-known", "openid-configuration"]
+            },
+            "description": "Get OpenID Connect server configuration"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?page=1&per_page=15&search=john&sort=name&order=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                },
+                {
+                  "key": "search",
+                  "value": "john"
+                },
+                {
+                  "key": "sort",
+                  "value": "name"
+                },
+                {
+                  "key": "order",
+                  "value": "asc"
+                }
+              ]
+            },
+            "description": "Get paginated list of users with filtering and search capabilities"
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Jane Smith\",\n    \"email\": \"jane.smith@example.com\",\n    \"password\": \"SecureP@ss456\",\n    \"organization_id\": 1,\n    \"profile\": {\n        \"timezone\": \"America/Los_Angeles\",\n        \"language\": \"en\"\n    },\n    \"roles\": [\"user\"],\n    \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Retrieve detailed information about a specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe Updated\",\n    \"email\": \"john.doe.updated@example.com\",\n    \"profile\": {\n        \"timezone\": \"America/Chicago\",\n        \"language\": \"es\"\n    },\n    \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Update user information"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Delete a user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "applications"]
+            },
+            "description": "List applications that the user has access to"
+          },
+          "response": []
+        },
+        {
+          "name": "Grant Application Access",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"application_id\": 1,\n    \"metadata\": {\n        \"role\": \"viewer\",\n        \"department\": \"IT\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "applications"]
+            },
+            "description": "Grant user access to an application"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Application Access",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "applications", "{{applicationId}}"]
+            },
+            "description": "Revoke user access to an application"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Application Management",
+      "item": [
+        {
+          "name": "List Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications?page=1&per_page=15&organization_id={{organizationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                },
+                {
+                  "key": "organization_id",
+                  "value": "{{organizationId}}"
+                }
+              ]
+            },
+            "description": "Get paginated list of OAuth applications"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Application",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"My New App\",\n    \"organization_id\": 1,\n    \"redirect_uris\": [\n        \"https://app.example.com/callback\",\n        \"https://app.example.com/auth/callback\"\n    ],\n    \"allowed_origins\": [\n        \"https://app.example.com\"\n    ],\n    \"allowed_grant_types\": [\n        \"authorization_code\",\n        \"client_credentials\"\n    ],\n    \"webhook_url\": \"https://app.example.com/webhooks/auth\",\n    \"settings\": {\n        \"require_pkce\": true,\n        \"token_lifetime\": 3600\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            },
+            "description": "Create a new OAuth application"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Application Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            },
+            "description": "Retrieve detailed information about an application"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Application",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Updated App Name\",\n    \"redirect_uris\": [\n        \"https://app.example.com/callback\",\n        \"https://app.example.com/auth/callback\",\n        \"https://app.example.com/new-callback\"\n    ],\n    \"allowed_origins\": [\n        \"https://app.example.com\",\n        \"https://staging.app.example.com\"\n    ],\n    \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            },
+            "description": "Update application information"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Application",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}"]
+            },
+            "description": "Delete an OAuth application"
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Credentials",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/credentials/regenerate",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "credentials", "regenerate"]
+            },
+            "description": "Regenerate application client credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Application Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "users"]
+            },
+            "description": "List users who have access to this application"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Application Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/{{applicationId}}/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", "{{applicationId}}", "analytics"]
+            },
+            "description": "Get usage analytics for the application"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profile Management",
+      "item": [
+        {
+          "name": "Get Current Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            },
+            "description": "Get the authenticated user's profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe Updated\",\n    \"profile\": {\n        \"timezone\": \"America/New_York\",\n        \"language\": \"en\",\n        \"bio\": \"Software developer with 10+ years of experience\",\n        \"location\": \"New York, NY\",\n        \"website\": \"https://johndoe.dev\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            },
+            "description": "Update the authenticated user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "avatar"]
+            },
+            "description": "Upload user avatar image"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Avatar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profile/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "avatar"]
+            },
+            "description": "Remove user avatar image"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profile/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "preferences"]
+            },
+            "description": "Get user preferences"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notifications\": {\n        \"email\": true,\n        \"push\": false\n    },\n    \"theme\": \"dark\",\n    \"language\": \"en\",\n    \"timezone\": \"America/New_York\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "preferences"]
+            },
+            "description": "Update user preferences"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"current_password\": \"StrongP@ss123\",\n    \"password\": \"NewStrongP@ss456\",\n    \"password_confirmation\": \"NewStrongP@ss456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "change-password"]
+            },
+            "description": "Change the authenticated user's password"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MFA Management",
+      "item": [
+        {
+          "name": "Get MFA Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mfa/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "status"]
+            },
+            "description": "Get the current MFA configuration status"
+          },
+          "response": []
+        },
+        {
+          "name": "Setup TOTP MFA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mfa/setup/totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "setup", "totp"]
+            },
+            "description": "Setup Time-based One-Time Password authentication"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify TOTP Setup",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mfa/verify/totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "verify", "totp"]
+            },
+            "description": "Verify and confirm TOTP authentication setup"
+          },
+          "response": []
+        },
+        {
+          "name": "Disable TOTP MFA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mfa/disable/totp",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "disable", "totp"]
+            },
+            "description": "Disable TOTP authentication"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recovery Codes",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mfa/recovery-codes",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "recovery-codes"]
+            },
+            "description": "Get current recovery codes"
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Recovery Codes",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mfa/recovery-codes/regenerate",
+              "host": ["{{baseUrl}}"],
+              "path": ["mfa", "recovery-codes", "regenerate"]
+            },
+            "description": "Regenerate recovery codes"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Organization Management",
+      "item": [
+        {
+          "name": "List Organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations?page=1&per_page=15",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                }
+              ]
+            },
+            "description": "Get paginated list of organizations"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Organization",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"New Organization\",\n    \"slug\": \"new-organization\",\n    \"settings\": {\n        \"require_mfa\": true,\n        \"session_timeout\": 720,\n        \"password_policy\": {\n            \"min_length\": 10,\n            \"require_uppercase\": true,\n            \"require_lowercase\": true,\n            \"require_numbers\": true,\n            \"require_symbols\": true\n        }\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/organizations",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations"]
+            },
+            "description": "Create a new organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}"]
+            },
+            "description": "Get detailed organization information"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Organization",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Updated Organization Name\",\n    \"settings\": {\n        \"require_mfa\": false,\n        \"session_timeout\": 1440\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}"]
+            },
+            "description": "Update organization information"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "settings"]
+            },
+            "description": "Get organization settings"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Organization Settings",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"require_mfa\": true,\n    \"session_timeout\": 480,\n    \"password_policy\": {\n        \"min_length\": 12,\n        \"require_uppercase\": true,\n        \"require_lowercase\": true,\n        \"require_numbers\": true,\n        \"require_symbols\": true\n    },\n    \"allowed_domains\": [\n        \"example.com\",\n        \"company.com\"\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "settings"]
+            },
+            "description": "Update organization settings"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "users"]
+            },
+            "description": "Get users in the organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "applications"]
+            },
+            "description": "Get applications in the organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "analytics"]
+            },
+            "description": "Get organization usage analytics"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "System Information",
+      "item": [
+        {
+          "name": "Get API Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/../../version",
+              "host": ["{{baseUrl}}"],
+              "path": ["../..", "version"]
+            },
+            "description": "Retrieve API version and system information"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

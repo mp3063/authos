@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,10 +21,14 @@ class User extends Authenticatable
         'password',
         'avatar',
         'profile',
+        'organization_id',
+        'email_verified_at',
+        'password_changed_at',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
         'mfa_methods',
+        'is_active',
     ];
 
     protected $hidden = [
@@ -42,6 +47,11 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
             'mfa_methods' => 'array',
         ];
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     public function applications(): BelongsToMany

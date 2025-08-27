@@ -54,7 +54,7 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'channels' => explode(',', (string) env('LOG_STACK', 'single,api,security')),
             'ignore_exceptions' => false,
         ],
 
@@ -118,24 +118,48 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'auth' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/auth.log'),
-            'level' => env('LOG_LEVEL', 'info'),
+        // API Request/Response Logging
+        'api' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/api.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_API_DAYS', 30),
             'replace_placeholders' => true,
         ],
 
-        'oauth' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/oauth.log'),
-            'level' => env('LOG_LEVEL', 'info'),
-            'replace_placeholders' => true,
-        ],
-
+        // Security Events Logging
         'security' => [
-            'driver' => 'single',
+            'driver' => 'daily',
             'path' => storage_path('logs/security.log'),
-            'level' => env('LOG_LEVEL', 'warning'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_SECURITY_DAYS', 90),
+            'replace_placeholders' => true,
+        ],
+
+        // OAuth/Authentication Logging
+        'oauth' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/oauth.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_OAUTH_DAYS', 60),
+            'replace_placeholders' => true,
+        ],
+
+        // Performance Monitoring
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_PERFORMANCE_DAYS', 7),
+            'replace_placeholders' => true,
+        ],
+
+        // System Monitoring & Alerts
+        'monitoring' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/monitoring.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_MONITORING_DAYS', 30),
             'replace_placeholders' => true,
         ],
 

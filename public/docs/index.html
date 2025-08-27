@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuthOS API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" />
+    <link rel="icon" type="image/png" href="../favicon.ico" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+
+        .swagger-ui .topbar {
+            background-color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .swagger-ui .topbar .topbar-wrapper .link {
+            content: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='white' class='w-6 h-6'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.623 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z' /%3e%3c/svg%3e");
+            width: 30px;
+            height: 30px;
+        }
+
+        .swagger-ui .info .title {
+            color: #1f2937;
+        }
+
+        .custom-header {
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .custom-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .custom-header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .custom-links {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem auto;
+            max-width: 800px;
+        }
+
+        .custom-links h3 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+
+        .custom-links a {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            transition: background-color 0.2s;
+        }
+
+        .custom-links a:hover {
+            background: #2563eb;
+        }
+
+        .custom-links a.postman {
+            background: #ff6c37;
+        }
+
+        .custom-links a.postman:hover {
+            background: #e55a2b;
+        }
+
+        .custom-links a.openapi {
+            background: #6b7280;
+        }
+
+        .custom-links a.openapi:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="custom-header">
+        <h1>🔐 AuthOS API Documentation</h1>
+        <p>Comprehensive Laravel 12 Authentication Service - An Auth0 Alternative</p>
+    </div>
+
+    <div class="custom-links">
+        <h3>📋 Quick Start Resources</h3>
+        <a href="../openapi.yaml" class="openapi" download>📄 Download OpenAPI Spec</a>
+        <a href="../postman-collection.json" class="postman" download>📮 Download Postman Collection</a>
+        <a href="https://github.com/postmanlabs/postman-app-support/blob/main/docs/importing.md" target="_blank">📖 Import Guide</a>
+        
+        <h3>🚀 Getting Started</h3>
+        <p><strong>Base URL:</strong> <code>https://api.authos.dev/api/v1</code> (Production) | <code>http://authos.test/api/v1</code> (Development)</p>
+        
+        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; margin: 1rem 0; border-left: 4px solid #3b82f6;">
+            <h4 style="margin-top: 0;">🔑 Authentication Quick Start</h4>
+            <p>1. Register or login to get an access token</p>
+            <p>2. Include token in requests: <code>Authorization: Bearer {access_token}</code></p>
+            <p>3. Tokens support scopes: <code>openid</code>, <code>profile</code>, <code>email</code>, <code>read</code>, <code>write</code>, <code>admin</code></p>
+        </div>
+
+        <div style="background: #fef3f2; padding: 1rem; border-radius: 6px; margin: 1rem 0; border-left: 4px solid #ef4444;">
+            <h4 style="margin-top: 0;">⚡ Rate Limiting</h4>
+            <p>Different endpoints have specific rate limits. Check response headers:</p>
+            <ul style="margin: 0.5rem 0;">
+                <li><code>X-RateLimit-Limit</code>: Maximum requests allowed</li>
+                <li><code>X-RateLimit-Remaining</code>: Remaining requests in current window</li>
+                <li><code>X-RateLimit-Reset</code>: When rate limit resets</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js" charset="UTF-8"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+    <script>
+        window.onload = function() {
+            // Begin Swagger UI call region
+            const ui = SwaggerUIBundle({
+                url: '../openapi.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                defaultModelsExpandDepth: 2,
+                defaultModelExpandDepth: 2,
+                docExpansion: "list",
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                tryItOutEnabled: true,
+                requestInterceptor: (request) => {
+                    // Auto-add Content-Type header for POST/PUT requests
+                    if (request.method === 'POST' || request.method === 'PUT') {
+                        if (!request.headers['Content-Type']) {
+                            request.headers['Content-Type'] = 'application/json';
+                        }
+                    }
+                    return request;
+                },
+                responseInterceptor: (response) => {
+                    // Log rate limiting info if present
+                    if (response.headers['x-ratelimit-limit']) {
+                        console.log('Rate Limit Status:', {
+                            limit: response.headers['x-ratelimit-limit'],
+                            remaining: response.headers['x-ratelimit-remaining'],
+                            reset: new Date(response.headers['x-ratelimit-reset'] * 1000)
+                        });
+                    }
+                    return response;
+                }
+            });
+
+            // Add custom CSS for better styling
+            const style = document.createElement('style');
+            style.textContent = `
+                .swagger-ui .scheme-container {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 6px;
+                }
+                
+                .swagger-ui .info .title {
+                    font-size: 36px;
+                    margin: 0 0 10px 0;
+                }
+                
+                .swagger-ui .info .description {
+                    font-size: 14px;
+                    margin: 15px 0;
+                }
+                
+                .swagger-ui .opblock-tag {
+                    border-bottom: 1px solid #e2e8f0;
+                    margin-bottom: 10px;
+                }
+                
+                .swagger-ui .opblock.opblock-get .opblock-summary {
+                    border-color: #10b981;
+                }
+                
+                .swagger-ui .opblock.opblock-post .opblock-summary {
+                    border-color: #3b82f6;
+                }
+                
+                .swagger-ui .opblock.opblock-put .opblock-summary {
+                    border-color: #f59e0b;
+                }
+                
+                .swagger-ui .opblock.opblock-delete .opblock-summary {
+                    border-color: #ef4444;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // End Swagger UI call region
+            window.ui = ui;
+        };
+    </script>
+</body>
+</html>

@@ -2,6 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Application;
+use App\Models\Organization;
+use App\Models\User;
+use App\Observers\ApplicationObserver;
+use App\Observers\OrganizationObserver;
+use App\Observers\UserObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -23,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register model observers for cache invalidation
+        User::observe(UserObserver::class);
+        Organization::observe(OrganizationObserver::class);
+        Application::observe(ApplicationObserver::class);
+
         // Configure rate limiting
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());

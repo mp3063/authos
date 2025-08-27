@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,24 +23,60 @@ class AuthController extends Controller
     }
 
     /**
-     * User login endpoint
+     * User registration endpoint
      */
-    public function login(Request $request): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
-            'client_id' => 'sometimes|string',
-            'scopes' => 'sometimes|array',
-            'scopes.*' => 'string|in:openid,profile,email,read,write',
+        $organizationId = $request->getOrganizationId();
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'organization_id' => $organizationId,
+            'profile' => $request->input('profile', []),
+            'email_verified_at' => null, // Will be verified later
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'invalid_request',
-                'error_description' => $validator->errors()->first(),
-            ], 400);
-        }
+        // Assign default user role
+        $user->assignRole('user');
+
+        // Log registration event
+        $this->oAuthService->logAuthenticationEvent(
+            $user,
+            'user_registered',
+            $request,
+            null
+        );
+
+        // Generate access token
+        $token = $this->oAuthService->generateAccessToken($user, ['openid', 'profile', 'email']);
+
+        return response()->json([
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'email_verified_at' => $user->email_verified_at,
+                    'profile' => $user->profile ?? [],
+                    'mfa_enabled' => $user->hasMfaEnabled(),
+                    'created_at' => $user->created_at,
+                ],
+                'access_token' => $token->accessToken,
+                'token_type' => 'Bearer',
+                'expires_in' => $token->token->expires_at->diffInSeconds(now()),
+                'scope' => 'openid profile email',
+            ],
+            'message' => 'User registered successfully',
+        ], 201);
+    }
+
+    /**
+     * User login endpoint
+     */
+    public function login(LoginRequest $request): JsonResponse
+    {
 
         $user = User::where('email', $request->email)->first();
 
@@ -57,7 +95,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $scopes = $request->input('scopes', ['openid']);
+        $scopes = $request->getScopes();
         $token = $this->oAuthService->generateAccessToken($user, $scopes);
 
         $this->oAuthService->logAuthenticationEvent(

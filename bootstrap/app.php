@@ -31,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.passport' => \Laravel\Passport\Http\Middleware\CheckClientCredentials::class,
             'oauth.security' => \App\Http\Middleware\OAuthSecurity::class,
+            'api.rate_limit' => \App\Http\Middleware\ApiRateLimiter::class,
+            'api.version' => \App\Http\Middleware\ApiVersioning::class,
+            'api.cache' => \App\Http\Middleware\ApiResponseCache::class,
+            'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -1,0 +1,1973 @@
+openapi: 3.0.3
+info:
+  title: AuthOS API
+  description: |
+    Comprehensive Laravel 12 authentication service API - An Auth0 alternative providing OAuth 2.0, OpenID Connect, multi-factor authentication, and single sign-on capabilities.
+    
+    ## Features
+    - OAuth 2.0 & OpenID Connect server implementation
+    - Multi-tenant organization management
+    - Role-based access control (RBAC)
+    - Multi-factor authentication (MFA) with TOTP
+    - Real-time authentication monitoring
+    - Comprehensive user and application management
+    - Rate limiting with role-based adjustments
+    
+    ## Authentication
+    This API uses OAuth 2.0 Bearer tokens for authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer {access_token}
+    ```
+    
+    ## Rate Limiting
+    Different endpoints have varying rate limits based on their usage patterns:
+    - Authentication: 10 requests/minute (per IP)
+    - Registration: 5 requests/hour (per IP) 
+    - Standard API: 1000 requests/hour (per user)
+    - Admin API: 200 requests/hour (per user)
+    - Bulk Operations: 100 requests/hour (per user)
+    - MFA: 20 requests/hour (per user)
+    - OAuth: 20 requests/minute (per IP)
+    
+    Rate limits are increased for users with higher roles (Super Admin gets 5x, Organization Admin gets 3x, Application Admin gets 2x).
+    
+    ## Error Handling
+    All API errors follow a consistent JSON format with appropriate HTTP status codes.
+    
+  version: 1.0.0
+  contact:
+    name: AuthOS API Support
+    email: support@authos.dev
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.authos.dev/api/v1
+    description: Production server
+  - url: https://staging-api.authos.dev/api/v1
+    description: Staging server
+  - url: http://authos.test/api/v1
+    description: Development server
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account with optional organization association
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+                - terms_accepted
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  example: "john@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+                  description: "Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character"
+                  example: "StrongP@ss123"
+                password_confirmation:
+                  type: string
+                  example: "StrongP@ss123"
+                organization_slug:
+                  type: string
+                  description: "Optional organization slug to associate user with"
+                  example: "techcorp"
+                profile:
+                  type: object
+                  properties:
+                    timezone:
+                      type: string
+                      example: "America/New_York"
+                    language:
+                      type: string
+                      enum: [en, es, fr, de]
+                      example: "en"
+                terms_accepted:
+                  type: boolean
+                  example: true
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      access_token:
+                        type: string
+                        description: "JWT access token"
+                      token_type:
+                        type: string
+                        example: "Bearer"
+                      expires_in:
+                        type: integer
+                        description: "Token expiration time in seconds"
+                        example: 3600
+                      scope:
+                        type: string
+                        example: "openid profile email"
+                  message:
+                    type: string
+                    example: "User registered successfully"
+        422:
+          $ref: '#/components/responses/ValidationError'
+        429:
+          $ref: '#/components/responses/RateLimitError'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return access token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                password:
+                  type: string
+                  example: "StrongP@ss123"
+                client_id:
+                  type: string
+                  description: "OAuth client ID"
+                  example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [openid, profile, email, read, write]
+                  example: ["openid", "profile", "email"]
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        429:
+          $ref: '#/components/responses/RateLimitError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout user and revoke access token
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Successfully logged out"
+
+  /auth/user:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Retrieve authenticated user information based on token scopes
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Refresh an expired access token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: "def50200..."
+      responses:
+        200:
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        400:
+          $ref: '#/components/responses/BadRequestError'
+
+  /auth/revoke:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke access token
+      description: Revoke the current access token
+      operationId: revokeToken
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Token revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token revoked successfully"
+
+  # OAuth 2.0 Endpoints
+  /oauth/authorize:
+    get:
+      tags:
+        - OAuth 2.0
+      summary: OAuth authorization endpoint
+      description: OAuth 2.0 authorization endpoint supporting authorization code and implicit flows
+      operationId: authorizeOAuth
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code, token]
+          example: "code"
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+          example: "https://app.example.com/callback"
+        - name: scope
+          in: query
+          schema:
+            type: string
+          example: "openid profile email"
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: "CSRF protection parameter"
+          example: "xyz123"
+        - name: code_challenge
+          in: query
+          schema:
+            type: string
+          description: "PKCE code challenge"
+        - name: code_challenge_method
+          in: query
+          schema:
+            type: string
+            enum: [plain, S256]
+          description: "PKCE code challenge method"
+      responses:
+        302:
+          description: Redirect to redirect_uri with authorization code
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        429:
+          $ref: '#/components/responses/RateLimitError'
+
+  /oauth/token:
+    post:
+      tags:
+        - OAuth 2.0
+      summary: OAuth token endpoint
+      description: Exchange authorization code for access token
+      operationId: getOAuthToken
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - grant_type
+                - client_id
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code, client_credentials, password, refresh_token]
+                  example: "authorization_code"
+                client_id:
+                  type: string
+                  example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+                client_secret:
+                  type: string
+                code:
+                  type: string
+                  description: "Required for authorization_code grant"
+                redirect_uri:
+                  type: string
+                  format: uri
+                  description: "Required for authorization_code grant"
+                code_verifier:
+                  type: string
+                  description: "PKCE code verifier"
+                refresh_token:
+                  type: string
+                  description: "Required for refresh_token grant"
+                username:
+                  type: string
+                  description: "Required for password grant"
+                password:
+                  type: string
+                  description: "Required for password grant"
+                scope:
+                  type: string
+                  example: "openid profile email"
+      responses:
+        200:
+          description: Access token issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /oauth/userinfo:
+    get:
+      tags:
+        - OAuth 2.0
+      summary: OpenID Connect UserInfo endpoint
+      description: Get user information based on access token scopes
+      operationId: getUserInfo
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /oauth/jwks:
+    get:
+      tags:
+        - OAuth 2.0
+      summary: JSON Web Key Set endpoint
+      description: Get public keys for JWT token verification
+      operationId: getJWKS
+      responses:
+        200:
+          description: JSON Web Key Set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                          example: "RSA"
+                        use:
+                          type: string
+                          example: "sig"
+                        kid:
+                          type: string
+                          example: "2023-08-25"
+                        n:
+                          type: string
+                          description: "RSA modulus"
+                        e:
+                          type: string
+                          description: "RSA exponent"
+                          example: "AQAB"
+
+  /.well-known/openid-configuration:
+    get:
+      tags:
+        - OAuth 2.0
+      summary: OpenID Connect Discovery endpoint
+      description: Get OpenID Connect server configuration
+      operationId: getOpenIDConfiguration
+      responses:
+        200:
+          description: OpenID Connect configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  issuer:
+                    type: string
+                    format: uri
+                    example: "https://api.authos.dev"
+                  authorization_endpoint:
+                    type: string
+                    format: uri
+                    example: "https://api.authos.dev/api/v1/oauth/authorize"
+                  token_endpoint:
+                    type: string
+                    format: uri
+                    example: "https://api.authos.dev/api/v1/oauth/token"
+                  userinfo_endpoint:
+                    type: string
+                    format: uri
+                    example: "https://api.authos.dev/api/v1/oauth/userinfo"
+                  jwks_uri:
+                    type: string
+                    format: uri
+                    example: "https://api.authos.dev/api/v1/oauth/jwks"
+                  response_types_supported:
+                    type: array
+                    items:
+                      type: string
+                    example: ["code", "token", "id_token"]
+                  subject_types_supported:
+                    type: array
+                    items:
+                      type: string
+                    example: ["public"]
+                  id_token_signing_alg_values_supported:
+                    type: array
+                    items:
+                      type: string
+                    example: ["RS256"]
+                  scopes_supported:
+                    type: array
+                    items:
+                      type: string
+                    example: ["openid", "profile", "email", "read", "write"]
+                  grant_types_supported:
+                    type: array
+                    items:
+                      type: string
+                    example: ["authorization_code", "implicit", "client_credentials", "password"]
+
+  # User Management Endpoints
+  /users:
+    get:
+      tags:
+        - User Management
+      summary: List users
+      description: Get paginated list of users with filtering and search capabilities
+      operationId: listUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 255
+          description: "Search by name or email"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, email, created_at, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: organization_id
+          in: query
+          schema:
+            type: integer
+          description: "Filter by organization ID"
+        - name: role
+          in: query
+          schema:
+            type: string
+          description: "Filter by role name"
+        - name: mfa_enabled
+          in: query
+          schema:
+            type: boolean
+          description: "Filter by MFA status"
+      responses:
+        200:
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        422:
+          $ref: '#/components/responses/ValidationError'
+
+    post:
+      tags:
+        - User Management
+      summary: Create user
+      description: Create a new user account
+      operationId: createUser
+      security:
+        - bearerAuth: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                password:
+                  type: string
+                  minLength: 8
+                organization_id:
+                  type: integer
+                profile:
+                  type: object
+                roles:
+                  type: array
+                  items:
+                    type: string
+                  description: "Array of role names to assign"
+                is_active:
+                  type: boolean
+                  default: true
+      responses:
+        201:
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+                    example: "User created successfully"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        422:
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{id}:
+    get:
+      tags:
+        - User Management
+      summary: Get user details
+      description: Retrieve detailed information about a specific user
+      operationId: getUser
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserDetail'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - User Management
+      summary: Update user
+      description: Update user information
+      operationId: updateUser
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                organization_id:
+                  type: integer
+                profile:
+                  type: object
+                is_active:
+                  type: boolean
+      responses:
+        200:
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+                    example: "User updated successfully"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          $ref: '#/components/responses/NotFoundError'
+        422:
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - User Management
+      summary: Delete user
+      description: Delete a user account
+      operationId: deleteUser
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User deleted successfully"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          $ref: '#/components/responses/NotFoundError'
+
+  /users/{id}/applications:
+    get:
+      tags:
+        - User Management
+      summary: Get user applications
+      description: List applications that the user has access to
+      operationId: getUserApplications
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: User applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationAccess'
+
+    post:
+      tags:
+        - User Management
+      summary: Grant application access
+      description: Grant user access to an application
+      operationId: grantUserApplicationAccess
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - application_id
+              properties:
+                application_id:
+                  type: integer
+                metadata:
+                  type: object
+                  description: "Additional metadata for the access grant"
+      responses:
+        201:
+          description: Application access granted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Application access granted successfully"
+
+  /users/{id}/applications/{applicationId}:
+    delete:
+      tags:
+        - User Management
+      summary: Revoke application access
+      description: Revoke user access to an application
+      operationId: revokeUserApplicationAccess
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        200:
+          description: Application access revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Application access revoked successfully"
+
+  # Application Management Endpoints
+  /applications:
+    get:
+      tags:
+        - Application Management
+      summary: List applications
+      description: Get paginated list of OAuth applications
+      operationId: listApplications
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: organization_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+
+    post:
+      tags:
+        - Application Management
+      summary: Create application
+      description: Create a new OAuth application
+      operationId: createApplication
+      security:
+        - bearerAuth: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - organization_id
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "My App"
+                organization_id:
+                  type: integer
+                redirect_uris:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  example: ["https://app.example.com/callback"]
+                allowed_origins:
+                  type: array
+                  items:
+                    type: string
+                  example: ["https://app.example.com"]
+                allowed_grant_types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [authorization_code, implicit, client_credentials, password]
+                  default: ["authorization_code"]
+                webhook_url:
+                  type: string
+                  format: uri
+                settings:
+                  type: object
+      responses:
+        201:
+          description: Application created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ApplicationDetail'
+                  message:
+                    type: string
+                    example: "Application created successfully"
+
+  /applications/{id}:
+    get:
+      tags:
+        - Application Management
+      summary: Get application details
+      description: Retrieve detailed information about an application
+      operationId: getApplication
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        200:
+          description: Application details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ApplicationDetail'
+
+    put:
+      tags:
+        - Application Management
+      summary: Update application
+      description: Update application information
+      operationId: updateApplication
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                redirect_uris:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                allowed_origins:
+                  type: array
+                  items:
+                    type: string
+                allowed_grant_types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [authorization_code, implicit, client_credentials, password]
+                webhook_url:
+                  type: string
+                  format: uri
+                settings:
+                  type: object
+                is_active:
+                  type: boolean
+      responses:
+        200:
+          description: Application updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Application'
+                  message:
+                    type: string
+                    example: "Application updated successfully"
+
+    delete:
+      tags:
+        - Application Management
+      summary: Delete application
+      description: Delete an OAuth application
+      operationId: deleteApplication
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        200:
+          description: Application deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Application deleted successfully"
+
+  # Profile Management Endpoints
+  /profile:
+    get:
+      tags:
+        - Profile Management
+      summary: Get current user profile
+      description: Get the authenticated user's profile information
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+
+    put:
+      tags:
+        - Profile Management
+      summary: Update profile
+      description: Update the authenticated user's profile
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                profile:
+                  type: object
+                  properties:
+                    timezone:
+                      type: string
+                      example: "America/New_York"
+                    language:
+                      type: string
+                      enum: [en, es, fr, de]
+                      example: "en"
+                    bio:
+                      type: string
+                      maxLength: 1000
+                    location:
+                      type: string
+                      maxLength: 255
+                    website:
+                      type: string
+                      format: uri
+      responses:
+        200:
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+                  message:
+                    type: string
+                    example: "Profile updated successfully"
+
+  /profile/change-password:
+    post:
+      tags:
+        - Profile Management
+      summary: Change password
+      description: Change the authenticated user's password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - password
+                - password_confirmation
+              properties:
+                current_password:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+                password_confirmation:
+                  type: string
+      responses:
+        200:
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+
+  # MFA Management Endpoints
+  /mfa/status:
+    get:
+      tags:
+        - MFA Management
+      summary: Get MFA status
+      description: Get the current MFA configuration status
+      operationId: getMFAStatus
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: MFA status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      methods:
+                        type: array
+                        items:
+                          type: string
+                          enum: [totp, recovery_codes]
+                      backup_codes_count:
+                        type: integer
+                        description: "Number of unused recovery codes"
+
+  /mfa/setup/totp:
+    post:
+      tags:
+        - MFA Management
+      summary: Setup TOTP MFA
+      description: Setup Time-based One-Time Password authentication
+      operationId: setupTOTP
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: TOTP setup initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      qr_code:
+                        type: string
+                        description: "Base64 encoded QR code image"
+                      secret:
+                        type: string
+                        description: "TOTP secret key"
+                      backup_codes:
+                        type: array
+                        items:
+                          type: string
+                        description: "Recovery codes (shown only once)"
+
+  /mfa/verify/totp:
+    post:
+      tags:
+        - MFA Management
+      summary: Verify TOTP setup
+      description: Verify and confirm TOTP authentication setup
+      operationId: verifyTOTP
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  description: "6-digit TOTP code"
+                  example: "123456"
+      responses:
+        200:
+          description: TOTP verified and enabled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "TOTP authentication enabled successfully"
+
+  # Organization Management Endpoints
+  /organizations:
+    get:
+      tags:
+        - Organization Management
+      summary: List organizations
+      description: Get paginated list of organizations
+      operationId: listOrganizations
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        200:
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Organization'
+
+    post:
+      tags:
+        - Organization Management
+      summary: Create organization
+      description: Create a new organization
+      operationId: createOrganization
+      security:
+        - bearerAuth: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "TechCorp Solutions"
+                slug:
+                  type: string
+                  maxLength: 255
+                  pattern: '^[a-z0-9-]+$'
+                  description: "Auto-generated from name if not provided"
+                  example: "techcorp-solutions"
+                settings:
+                  type: object
+                  properties:
+                    require_mfa:
+                      type: boolean
+                      default: false
+                    session_timeout:
+                      type: integer
+                      description: "Session timeout in minutes"
+                      default: 1440
+                    password_policy:
+                      type: object
+                      properties:
+                        min_length:
+                          type: integer
+                          default: 8
+                        require_uppercase:
+                          type: boolean
+                          default: true
+                        require_lowercase:
+                          type: boolean
+                          default: true
+                        require_numbers:
+                          type: boolean
+                          default: true
+                        require_symbols:
+                          type: boolean
+                          default: true
+      responses:
+        201:
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    example: "Organization created successfully"
+
+  # Version Information
+  /api/version:
+    get:
+      tags:
+        - System Information
+      summary: Get API version information
+      description: Retrieve API version and system information
+      operationId: getVersionInfo
+      responses:
+        200:
+          description: Version information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  api_version:
+                    type: string
+                    example: "v1"
+                  laravel_version:
+                    type: string
+                    example: "12.x"
+                  build:
+                    type: string
+                    example: "2024.08.25-1"
+                  environment:
+                    type: string
+                    example: "production"
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+          description: "URL to user's avatar image"
+        profile:
+          type: object
+          nullable: true
+          example: {"timezone": "America/New_York", "language": "en"}
+        organization_id:
+          type: integer
+          nullable: true
+          example: 1
+        organization:
+          $ref: '#/components/schemas/Organization'
+        mfa_enabled:
+          type: boolean
+          example: false
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["user"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            applications:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApplicationAccess'
+            authentication_logs:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuthenticationLog'
+            permissions:
+              type: array
+              items:
+                type: string
+              example: ["users.read", "applications.read"]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+        profile:
+          type: object
+        organization:
+          $ref: '#/components/schemas/Organization'
+        mfa_enabled:
+          type: boolean
+        preferences:
+          type: object
+          properties:
+            notifications:
+              type: object
+              properties:
+                email:
+                  type: boolean
+                push:
+                  type: boolean
+            theme:
+              type: string
+              enum: [light, dark, auto]
+
+    UserInfo:
+      type: object
+      description: "OpenID Connect UserInfo response (scope-dependent)"
+      properties:
+        sub:
+          type: string
+          description: "Subject identifier (user ID)"
+          example: "1"
+        name:
+          type: string
+          description: "Full name (profile scope)"
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: "Email address (email scope)"
+          example: "john@example.com"
+        email_verified:
+          type: boolean
+          description: "Email verification status (email scope)"
+          example: true
+        profile:
+          type: object
+          description: "Profile information (profile scope)"
+        picture:
+          type: string
+          format: uri
+          description: "Avatar URL (profile scope)"
+        updated_at:
+          type: integer
+          description: "Last updated timestamp"
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "TechCorp Solutions"
+        slug:
+          type: string
+          example: "techcorp-solutions"
+        settings:
+          type: object
+          example: {"require_mfa": false, "session_timeout": 1440}
+        is_active:
+          type: boolean
+          example: true
+        applications_count:
+          type: integer
+          description: "Number of applications in organization"
+        users_count:
+          type: integer
+          description: "Number of users with access to organization applications"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Application:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        organization_id:
+          type: integer
+          example: 1
+        organization:
+          $ref: '#/components/schemas/Organization'
+        name:
+          type: string
+          example: "My Application"
+        client_id:
+          type: string
+          example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          example: ["https://app.example.com/callback"]
+        allowed_origins:
+          type: array
+          items:
+            type: string
+          example: ["https://app.example.com"]
+        allowed_grant_types:
+          type: array
+          items:
+            type: string
+          example: ["authorization_code"]
+        webhook_url:
+          type: string
+          format: uri
+          nullable: true
+        settings:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+          example: true
+        users_count:
+          type: integer
+          description: "Number of users with access to this application"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ApplicationDetail:
+      allOf:
+        - $ref: '#/components/schemas/Application'
+        - type: object
+          properties:
+            client_secret:
+              type: string
+              description: "Client secret (only shown in detail view)"
+              example: "abc123def456..."
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApplicationAccess'
+
+    ApplicationAccess:
+      type: object
+      properties:
+        application:
+          $ref: '#/components/schemas/Application'
+        user:
+          $ref: '#/components/schemas/User'
+        metadata:
+          type: object
+          nullable: true
+          description: "Additional metadata for the access grant"
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        login_count:
+          type: integer
+          example: 5
+        granted_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AuthenticationLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+          nullable: true
+        event:
+          type: string
+          example: "login_success"
+        ip_address:
+          type: string
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          example: "Mozilla/5.0..."
+        client_id:
+          type: string
+          nullable: true
+        success:
+          type: boolean
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "JWT access token"
+          example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+        token_type:
+          type: string
+          example: "Bearer"
+        expires_in:
+          type: integer
+          description: "Token expiration time in seconds"
+          example: 3600
+        refresh_token:
+          type: string
+          description: "Refresh token (if applicable)"
+        scope:
+          type: string
+          example: "openid profile email"
+
+    PaginatedResponse:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            pagination:
+              type: object
+              properties:
+                current_page:
+                  type: integer
+                  example: 1
+                per_page:
+                  type: integer
+                  example: 15
+                total:
+                  type: integer
+                  example: 100
+                total_pages:
+                  type: integer
+                  example: 7
+                from:
+                  type: integer
+                  example: 1
+                to:
+                  type: integer
+                  example: 15
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+              format: uri
+              example: "/api/v1/users?page=1"
+            first:
+              type: string
+              format: uri
+              example: "/api/v1/users?page=1"
+            last:
+              type: string
+              format: uri
+              example: "/api/v1/users?page=7"
+            next:
+              type: string
+              format: uri
+              nullable: true
+              example: "/api/v1/users?page=2"
+            prev:
+              type: string
+              format: uri
+              nullable: true
+              example: null
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: "Error code"
+        error_description:
+          type: string
+          description: "Human-readable error description"
+        details:
+          type: object
+          description: "Additional error details"
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "validation_failed"
+        error_description:
+          type: string
+          example: "The given data was invalid."
+        details:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            email: ["The email field is required."]
+            password: ["The password must be at least 8 characters."]
+
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: "User ID"
+      schema:
+        type: integer
+        example: 1
+
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      description: "Application ID"
+      schema:
+        type: integer
+        example: 1
+
+    Page:
+      name: page
+      in: query
+      description: "Page number"
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PerPage:
+      name: per_page
+      in: query
+      description: "Items per page"
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 15
+
+  responses:
+    UnauthorizedError:
+      description: "Authentication required"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "unauthorized"
+            error_description: "Authentication required"
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: "Bearer"
+
+    ForbiddenError:
+      description: "Insufficient permissions"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+            error_description: "Insufficient permissions to perform this action"
+
+    NotFoundError:
+      description: "Resource not found"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "not_found"
+            error_description: "The requested resource was not found"
+
+    ValidationError:
+      description: "Validation failed"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    BadRequestError:
+      description: "Bad request"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "invalid_request"
+            error_description: "The request is invalid"
+
+    RateLimitError:
+      description: "Rate limit exceeded"
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "rate_limit_exceeded"
+              error_description:
+                type: string
+                example: "Too many requests. Please try again later."
+              details:
+                type: object
+                properties:
+                  limit:
+                    type: integer
+                    example: 10
+                  window:
+                    type: integer
+                    description: "Rate limit window in seconds"
+                    example: 60
+                  retry_after:
+                    type: integer
+                    description: "Seconds until rate limit resets"
+                    example: 45
+      headers:
+        X-RateLimit-Limit:
+          description: "Rate limit maximum requests"
+          schema:
+            type: integer
+          example: 10
+        X-RateLimit-Remaining:
+          description: "Remaining requests in current window"
+          schema:
+            type: integer
+          example: 0
+        X-RateLimit-Reset:
+          description: "Unix timestamp when rate limit resets"
+          schema:
+            type: integer
+          example: 1693012800
+        X-RateLimit-Retry-After:
+          description: "Seconds until rate limit resets"
+          schema:
+            type: integer
+          example: 45
+        Retry-After:
+          description: "Seconds until rate limit resets"
+          schema:
+            type: integer
+          example: 45
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth 2.0 Bearer token authentication. Include the access token in the Authorization header:
+        ```
+        Authorization: Bearer {access_token}
+        ```
+        
+        ### Obtaining Access Tokens
+        Access tokens can be obtained through:
+        - **User Registration/Login**: `/auth/register` or `/auth/login`
+        - **OAuth Authorization Code Flow**: `/oauth/authorize` → `/oauth/token`
+        - **Client Credentials Flow**: `/oauth/token` (for server-to-server)
+        
+        ### Token Scopes
+        Tokens may include different scopes that determine access levels:
+        - `openid`: Basic OpenID Connect access
+        - `profile`: Access to user profile information
+        - `email`: Access to user email address
+        - `read`: Read access to resources
+        - `write`: Write access to resources
+        - `admin`: Administrative access (for management endpoints)
+        
+        ### Token Lifetime
+        Access tokens typically expire after 1 hour. Use refresh tokens to obtain new access tokens without re-authentication.
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Authentication
+    description: "User authentication and session management endpoints"
+  - name: OAuth 2.0
+    description: "OAuth 2.0 and OpenID Connect endpoints for client applications"
+  - name: User Management
+    description: "Administrative endpoints for user management (requires admin permissions)"
+  - name: Application Management
+    description: "Administrative endpoints for OAuth application management (requires admin permissions)"
+  - name: Profile Management
+    description: "User profile and preference management endpoints"
+  - name: MFA Management
+    description: "Multi-factor authentication setup and management endpoints"
+  - name: Organization Management
+    description: "Administrative endpoints for organization management (requires admin permissions)"
+  - name: System Information
+    description: "System and API version information endpoints"
+
+externalDocs:
+  description: "AuthOS Documentation"
+  url: "https://docs.authos.dev"
