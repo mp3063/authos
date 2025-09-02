@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class Organization extends Model
 {
@@ -25,6 +27,21 @@ class Organization extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);
+    }
+
+    public function roles(): HasMany
+    {
+        return $this->hasMany(Role::class);
+    }
+
+    public function permissions(): HasMany
+    {
+        return $this->hasMany(Permission::class);
+    }
+
+    public function organizationUsers(): HasMany
+    {
+        return $this->hasMany(User::class);
     }
 
     /**
@@ -50,5 +67,162 @@ class Organization extends Model
             ->pluck('users')
             ->flatten()
             ->unique('id');
+    }
+
+    /**
+     * Create a new role for this organization
+     */
+    public function createRole(string $name, array $permissions = []): Role
+    {
+        $role = Role::create([
+            'name' => $name,
+            'guard_name' => 'web',
+            'organization_id' => $this->id,
+        ]);
+
+        if (!empty($permissions)) {
+            $role->givePermissionTo($permissions);
+        }
+
+        return $role;
+    }
+
+    /**
+     * Create a new permission for this organization
+     */
+    public function createPermission(string $name, string $guardName = 'web'): Permission
+    {
+        return Permission::create([
+            'name' => $name,
+            'guard_name' => $guardName,
+            'organization_id' => $this->id,
+        ]);
+    }
+
+    /**
+     * Get default roles that should be created for this organization
+     */
+    public function getDefaultRoles(): array
+    {
+        return [
+            'Organization Owner' => [
+                'users.create', 'users.read', 'users.update', 'users.delete',
+                'applications.create', 'applications.read', 'applications.update', 'applications.delete',
+                'applications.regenerate_credentials',
+                'organizations.read', 'organizations.update',
+                'roles.create', 'roles.read', 'roles.update', 'roles.delete',
+                'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
+                'auth_logs.read', 'auth_logs.export',
+            ],
+            'Organization Admin' => [
+                'users.create', 'users.read', 'users.update',
+                'applications.create', 'applications.read', 'applications.update',
+                'organizations.read',
+                'roles.read', 'roles.assign',
+                'permissions.read',
+                'auth_logs.read',
+            ],
+            'Organization Member' => [
+                'users.read',
+                'applications.read',
+                'organizations.read',
+            ],
+            'Application Manager' => [
+                'applications.create', 'applications.read', 'applications.update',
+                'applications.regenerate_credentials',
+                'users.read',
+            ],
+            'User Manager' => [
+                'users.create', 'users.read', 'users.update',
+                'roles.read', 'roles.assign',
+                'applications.read',
+            ],
+            'Auditor' => [
+                'users.read',
+                'applications.read',
+                'organizations.read',
+                'auth_logs.read', 'auth_logs.export',
+            ],
+            'User' => [
+                'users.read',
+                'applications.read',
+                'organizations.read',
+            ],
+        ];
+    }
+
+    /**
+     * Setup default roles and permissions for this organization
+     */
+    public function setupDefaultRoles(): void
+    {
+        $defaultRoles = $this->getDefaultRoles();
+
+        // First, ensure all required permissions exist for this organization
+        $allRequiredPermissions = collect($defaultRoles)->flatten()->unique();
+        
+        foreach ($allRequiredPermissions as $permissionName) {
+            Permission::firstOrCreate([
+                'name' => $permissionName,
+                'guard_name' => 'web',
+                'organization_id' => $this->id,
+            ]);
+        }
+
+        // Then create roles and assign permissions
+        foreach ($defaultRoles as $roleName => $permissions) {
+            // Check if role already exists for this organization
+            $existingRole = Role::where('name', $roleName)
+                ->where('organization_id', $this->id)
+                ->first();
+                
+            if (!$existingRole) {
+                $this->createRole($roleName, $permissions);
+            }
+        }
+    }
+
+    /**
+     * Get all permissions available to this organization (org-specific + global)
+     */
+    public function getAvailablePermissions()
+    {
+        return Permission::where(function ($query) {
+            $query->where('organization_id', $this->id)
+                  ->orWhereNull('organization_id');
+        })->get();
+    }
+
+    /**
+     * Get all roles available to this organization (org-specific + global)
+     */
+    public function getAvailableRoles()
+    {
+        return Role::where(function ($query) {
+            $query->where('organization_id', $this->id)
+                  ->orWhereNull('organization_id');
+        })->get();
+    }
+
+    /**
+     * Check if user has any role in this organization
+     */
+    public function hasUser(User $user): bool
+    {
+        return $user->organization_id === $this->id ||
+               $user->roles()->where('organization_id', $this->id)->exists();
+    }
+
+    /**
+     * Get statistics for this organization
+     */
+    public function getStatistics(): array
+    {
+        return [
+            'users_count' => $this->organizationUsers()->count(),
+            'applications_count' => $this->applications()->count(),
+            'roles_count' => $this->roles()->count(),
+            'permissions_count' => $this->permissions()->count(),
+        ];
     }
 }
