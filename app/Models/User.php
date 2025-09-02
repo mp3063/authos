@@ -6,14 +6,39 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use App\Traits\BelongsToOrganization;
 
+/**
+ * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static \Illuminate\Database\Eloquent\Builder whereIn($column, $values, $boolean = 'and', $not = false)
+ * @method static \Illuminate\Database\Eloquent\Builder whereHas($relation, $callback = null, $operator = '>=', $count = 1)
+ * @method static \Illuminate\Database\Eloquent\Builder whereBetween($column, $values, $boolean = 'and', $not = false)
+ * @method static static create(array $attributes = [])
+ * @method static static findOrFail($id, $columns = ['*'])
+ * @method static static firstOrCreate(array $attributes = [], array $values = [])
+ * @method static \Illuminate\Database\Eloquent\Builder with($relations)
+ * @method static \Illuminate\Database\Eloquent\Builder withCount($relations)
+ * @method assignRole(...$roles)
+ * @method removeRole($role)
+ * @method hasRole($role, $guardName = null)
+ * @method hasOrganizationRole($role, $organizationId)
+ * @method assignOrganizationRole($role, $organizationId) 
+ * @method removeOrganizationRole($role, $organizationId)
+ * @method isSuperAdmin()
+ * @method hasMfaEnabled()
+ * @property-read \Illuminate\Database\Eloquent\Collection|\Spatie\Permission\Models\Role[] $roles
+ * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
+ * @property-read \Illuminate\Database\Eloquent\Collection|CustomRole[] $customRoles
+ * @property-read Organization|null $organization
+ */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, HasRoles;
+    use HasFactory, Notifiable, HasApiTokens, HasRoles, BelongsToOrganization;
 
     protected $fillable = [
         'name',
@@ -58,6 +83,18 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Application::class, 'user_applications')
             ->withPivot(['metadata', 'last_login_at', 'login_count'])
+            ->withTimestamps();
+    }
+
+    public function ssoSessions(): HasMany
+    {
+        return $this->hasMany(\App\Models\SSOSession::class);
+    }
+
+    public function customRoles(): BelongsToMany
+    {
+        return $this->belongsToMany(CustomRole::class, 'user_custom_roles')
+            ->withPivot(['granted_at', 'granted_by'])
             ->withTimestamps();
     }
 
@@ -203,7 +240,7 @@ class User extends Authenticatable
      */
     public function hasGlobalRole($role): bool
     {
-        return $this->roles()->where('name', $role)->whereNull('organization_id')->exists();
+        return $this->roles()->where('roles.name', $role)->whereNull('roles.organization_id')->exists();
     }
 
     /**

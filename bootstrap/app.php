@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.version' => \App\Http\Middleware\ApiVersioning::class,
             'api.cache' => \App\Http\Middleware\ApiResponseCache::class,
             'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
+            'org.boundary' => \App\Http\Middleware\EnforceOrganizationBoundary::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

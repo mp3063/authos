@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 
+/**
+ * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static static create(array $attributes = [])
+ * @method static static findOrFail($id, $columns = ['*'])
+ * @method static \Illuminate\Database\Eloquent\Builder with($relations)
+ * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
+ * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
+ */
 class Organization extends Model
 {
     use HasFactory;
@@ -42,6 +50,16 @@ class Organization extends Model
     public function organizationUsers(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(Invitation::class);
+    }
+
+    public function customRoles(): HasMany
+    {
+        return $this->hasMany(CustomRole::class);
     }
 
     /**

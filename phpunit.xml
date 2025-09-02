@@ -27,8 +27,18 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="REDIS_HOST" value="127.0.0.1"/>
+        <env name="REDIS_PASSWORD" value="null"/>
+        <env name="REDIS_PORT" value="6379"/>
+        <env name="REDIS_DB" value="15"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="PASSPORT_PERSONAL_ACCESS_CLIENT_ID" value="1"/>
+        <env name="PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET" value="test-secret"/>
+        <env name="MFA_ISSUER" value="AuthOS Test"/>
+        <env name="RATE_LIMIT_API" value="1000"/>
+        <env name="RATE_LIMIT_AUTH" value="100"/>
+        <env name="RATE_LIMIT_OAUTH" value="200"/>
     </php>
 </phpunit>

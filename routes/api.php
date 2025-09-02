@@ -7,6 +7,11 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ApplicationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\InvitationController;
+use App\Http\Controllers\Api\SSOController;
+use App\Http\Controllers\Api\BulkOperationsController;
+use App\Http\Controllers\Api\CustomRoleController;
+use App\Http\Controllers\Api\OrganizationReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,7 +77,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // User Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('users')->group(function () {
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index'])->middleware(['api.rate_limit:api_bulk', 'api.cache:300']);
         Route::post('/', [UserController::class, 'store']);
         Route::get('/{id}', [UserController::class, 'show'])->middleware('api.cache:600');
@@ -96,7 +101,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Application Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('applications')->group(function () {
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('applications')->group(function () {
         Route::get('/', [ApplicationController::class, 'index']);
         Route::post('/', [ApplicationController::class, 'store']);
         Route::get('/{id}', [ApplicationController::class, 'show']);
@@ -143,7 +148,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Organization Management API  
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('organizations')->group(function () {
+    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('organizations')->group(function () {
         Route::get('/', [OrganizationController::class, 'index'])->middleware('api.cache:300');
         Route::post('/', [OrganizationController::class, 'store']);
         Route::get('/{id}', [OrganizationController::class, 'show'])->middleware('api.cache:600');
@@ -164,6 +169,57 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         
         // Organization analytics
         Route::get('/{id}/analytics', [OrganizationController::class, 'analytics']);
+        
+        // Organization invitations
+        Route::get('/{id}/invitations', [InvitationController::class, 'index']);
+        Route::post('/{id}/invitations', [InvitationController::class, 'store']);
+        Route::delete('/{id}/invitations/{invitationId}', [InvitationController::class, 'destroy']);
+        Route::post('/{id}/invitations/{invitationId}/resend', [InvitationController::class, 'resend']);
+        Route::post('/{id}/invitations/bulk', [InvitationController::class, 'bulkInvite']);
+        
+        // Bulk Operations
+        Route::post('/{id}/bulk/invite-users', [BulkOperationsController::class, 'bulkInviteUsers']);
+        Route::post('/{id}/bulk/assign-roles', [BulkOperationsController::class, 'bulkAssignRoles']);
+        Route::post('/{id}/bulk/revoke-access', [BulkOperationsController::class, 'bulkRevokeAccess']);
+        Route::post('/{id}/bulk/export-users', [BulkOperationsController::class, 'exportUsers']);
+        Route::post('/{id}/bulk/import-users', [BulkOperationsController::class, 'importUsers']);
+        
+        // Custom Roles Management
+        Route::get('/{id}/custom-roles', [CustomRoleController::class, 'index']);
+        Route::post('/{id}/custom-roles', [CustomRoleController::class, 'store']);
+        Route::get('/{id}/custom-roles/{roleId}', [CustomRoleController::class, 'show']);
+        Route::put('/{id}/custom-roles/{roleId}', [CustomRoleController::class, 'update']);
+        Route::delete('/{id}/custom-roles/{roleId}', [CustomRoleController::class, 'destroy']);
+        Route::post('/{id}/custom-roles/{roleId}/assign-users', [CustomRoleController::class, 'assignUsers']);
+        Route::post('/{id}/custom-roles/{roleId}/remove-users', [CustomRoleController::class, 'removeUsers']);
+        
+        // Organization Reports
+        Route::get('/{id}/reports/user-activity', [OrganizationReportController::class, 'userActivity']);
+        Route::get('/{id}/reports/application-usage', [OrganizationReportController::class, 'applicationUsage']);
+        Route::get('/{id}/reports/security-audit', [OrganizationReportController::class, 'securityAudit']);
+    });
+
+    // Public invitation endpoints (no auth required for viewing, auth required for accepting)
+    Route::prefix('invitations')->group(function () {
+        Route::get('/{token}', [InvitationController::class, 'show']);
+        Route::post('/{token}/accept', [InvitationController::class, 'accept'])->middleware('auth:api');
+    });
+
+    // SSO (Single Sign-On) API
+    Route::prefix('sso')->middleware(['api.rate_limit:oauth'])->group(function () {
+        // Authenticated SSO endpoints
+        Route::middleware('auth:api')->group(function () {
+            Route::post('/initiate', [SSOController::class, 'initiate']);
+            Route::get('/sessions', [SSOController::class, 'sessions']);
+            Route::post('/sessions/revoke', [SSOController::class, 'revokeSessions']);
+        });
+        
+        // Public SSO endpoints (for client applications)
+        Route::post('/callback', [SSOController::class, 'callback']);
+        Route::post('/validate', [SSOController::class, 'validate']);
+        Route::post('/refresh', [SSOController::class, 'refresh']);
+        Route::post('/logout', [SSOController::class, 'logout']);
+        Route::get('/configuration/{applicationId}', [SSOController::class, 'configuration']);
     });
 
     // API Monitoring and Cache Management (Admin only)
@@ -207,6 +263,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
             // Clear user-specific caches (would implement cache tag clearing)
             return response()->json(['message' => 'User caches cleared successfully']);
         });
+    });
+
+    // Global Configuration Endpoints
+    Route::middleware(['auth:api', 'api.rate_limit:api_standard'])->prefix('config')->group(function () {
+        Route::get('/permissions', [CustomRoleController::class, 'permissions']);
+        Route::get('/report-types', [OrganizationReportController::class, 'reportTypes']);
     });
 });
 
