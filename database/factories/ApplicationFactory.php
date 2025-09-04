@@ -20,7 +20,6 @@ class ApplicationFactory extends Factory
     {
         return [
             'name' => fake()->company() . ' ' . fake()->randomElement(['App', 'Portal', 'Dashboard', 'Platform']),
-            'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
             'client_id' => (string) Str::uuid(),
             'client_secret' => Str::random(40),
@@ -29,13 +28,22 @@ class ApplicationFactory extends Factory
                 'http://localhost:8000/auth/callback',
                 fake()->url() . '/callback',
             ],
-            'scopes' => fake()->randomElements(['openid', 'profile', 'email', 'read', 'write'], fake()->numberBetween(2, 5)),
+            'allowed_origins' => [
+                'http://localhost:3000',
+                'http://localhost:8000', 
+                fake()->url(),
+            ],
+            'allowed_grant_types' => fake()->randomElements(['authorization_code', 'refresh_token', 'client_credentials', 'password'], fake()->numberBetween(1, 3)),
+            'webhook_url' => fake()->optional()->url() . '/webhook',
+            'settings' => [
+                'description' => fake()->sentence(),
+                'logo' => fake()->optional()->imageUrl(150, 150, 'technics'),
+                'homepage_url' => fake()->optional()->url(),
+                'privacy_policy_url' => fake()->optional()->url() . '/privacy',
+                'terms_of_service_url' => fake()->optional()->url() . '/terms',
+                'scopes' => fake()->randomElements(['openid', 'profile', 'email', 'read', 'write'], fake()->numberBetween(2, 5)),
+            ],
             'is_active' => true,
-            'grant_types' => ['authorization_code', 'refresh_token'],
-            'logo' => fake()->optional()->imageUrl(150, 150, 'technics'),
-            'homepage_url' => fake()->optional()->url(),
-            'privacy_policy_url' => fake()->optional()->url() . '/privacy',
-            'terms_of_service_url' => fake()->optional()->url() . '/terms',
         ];
     }
 
@@ -50,13 +58,26 @@ class ApplicationFactory extends Factory
     }
 
     /**
-     * Set specific scopes for the application.
+     * Set specific allowed grant types for the application.
+     */
+    public function withGrantTypes(array $grantTypes): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'allowed_grant_types' => $grantTypes,
+        ]);
+    }
+
+    /**
+     * Set specific scopes for the application (stored in settings).
      */
     public function withScopes(array $scopes): static
     {
-        return $this->state(fn (array $attributes) => [
-            'scopes' => $scopes,
-        ]);
+        return $this->state(function (array $attributes) {
+            $settings = $attributes['settings'] ?? [];
+            $settings['scopes'] = $scopes;
+            
+            return ['settings' => $settings];
+        });
     }
 
     /**
@@ -75,12 +96,12 @@ class ApplicationFactory extends Factory
     public function withPasswordGrant(): static
     {
         return $this->state(function (array $attributes) {
-            $grantTypes = $attributes['grant_types'] ?? [];
+            $grantTypes = $attributes['allowed_grant_types'] ?? [];
             if (!in_array('password', $grantTypes)) {
                 $grantTypes[] = 'password';
             }
             
-            return ['grant_types' => $grantTypes];
+            return ['allowed_grant_types' => $grantTypes];
         });
     }
 
@@ -90,12 +111,32 @@ class ApplicationFactory extends Factory
     public function withClientCredentials(): static
     {
         return $this->state(function (array $attributes) {
-            $grantTypes = $attributes['grant_types'] ?? [];
+            $grantTypes = $attributes['allowed_grant_types'] ?? [];
             if (!in_array('client_credentials', $grantTypes)) {
                 $grantTypes[] = 'client_credentials';
             }
             
-            return ['grant_types' => $grantTypes];
+            return ['allowed_grant_types' => $grantTypes];
         });
+    }
+
+    /**
+     * Create application with specific webhook URL.
+     */
+    public function withWebhook(string $webhookUrl): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'webhook_url' => $webhookUrl,
+        ]);
+    }
+
+    /**
+     * Create application with allowed origins.
+     */
+    public function withAllowedOrigins(array $origins): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'allowed_origins' => $origins,
+        ]);
     }
 }

@@ -13,6 +13,7 @@ use App\Services\InvitationService;
 use App\Services\OAuthService;
 use Carbon\Carbon;
 use Exception;
+use Throwable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +82,7 @@ class BulkOperationsController extends Controller
      */
     public function bulkInviteUsers(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organization.manage_invitations');
+        $this->authorize('users.create');
 
         $validator = Validator::make($request->all(), [
           'invitations' => 'required|array|min:1|max:100',
@@ -159,7 +160,8 @@ class BulkOperationsController extends Controller
                       'organization_id' => $organization->id,
                       'email' => $invitationData['email'],
                       'role' => $invitationData['role'] ?? 'user',
-                      'invited_by' => $user->id,
+                      'inviter_id' => $user->id,  // Fixed: Use correct column name
+                      'token' => \Illuminate\Support\Str::random(64),  // Generate unique token
                       'expires_at' => now()->addDays($invitationData['expires_in_days'] ?? 7),
                       'metadata' => array_merge($invitationData['metadata'] ?? [], [
                         'custom_role_id' => $invitationData['custom_role_id'] ?? null,
@@ -198,7 +200,7 @@ class BulkOperationsController extends Controller
                 }
             }
             });
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'error' => 'transaction_failed',
                 'error_description' => 'Failed to process bulk invitations: ' . $e->getMessage(),
@@ -317,7 +319,7 @@ class BulkOperationsController extends Controller
                 }
             }
             });
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'error' => 'transaction_failed',
                 'error_description' => 'Failed to process bulk role assignment: ' . $e->getMessage(),
@@ -439,7 +441,7 @@ class BulkOperationsController extends Controller
                 }
             }
             });
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'error' => 'transaction_failed',
                 'error_description' => 'Failed to process bulk access revocation: ' . $e->getMessage(),
@@ -461,7 +463,7 @@ class BulkOperationsController extends Controller
      */
     public function exportUsers(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organization.export_data');
+        $this->authorize('users.read');
 
         $validator = Validator::make($request->all(), [
           'format' => 'sometimes|string|in:csv,xlsx',

@@ -34,9 +34,15 @@ class SSOServiceTest extends TestCase
         $this->user = User::factory()->forOrganization($this->organization)->create();
         
         $this->ssoConfig = SSOConfiguration::factory()
-            ->forOrganization($this->organization)
+            ->forApplication($this->application)
             ->oidc()
             ->create();
+            
+        // Grant user access to the application
+        $this->user->applications()->attach($this->application->id, [
+            'permissions' => ['read', 'write'],
+            'granted_at' => now(),
+        ]);
     }
 
     public function test_initiate_sso_flow_creates_session_and_returns_redirect_url(): void
@@ -160,9 +166,11 @@ class SSOServiceTest extends TestCase
         $this->assertArrayHasKey('user', $result);
         $this->assertArrayHasKey('session', $result);
 
-        $session->refresh();
-        $this->assertNotNull($session->metadata['access_token']);
-        $this->assertNotNull($session->metadata['user_info']);
+        // Use fresh session instance to get updated metadata
+        $updatedSession = SSOSession::find($session->id);
+        
+        $this->assertNotNull($updatedSession->metadata['access_token']);
+        $this->assertNotNull($updatedSession->metadata['user_info']);
     }
 
     public function test_handle_oidc_callback_handles_token_exchange_failure(): void
@@ -205,15 +213,17 @@ class SSOServiceTest extends TestCase
 
         $this->assertTrue($result);
 
-        // Verify all user's sessions are marked as expired
-        foreach ($sessions as $session) {
-            $session->refresh();
-            $this->assertNotNull($session->logged_out_at);
+        // Verify all user's sessions are marked as expired (use fresh instances)
+        $sessionIds = $sessions->pluck('id');
+        $freshSessions = SSOSession::whereIn('id', $sessionIds)->get();
+        
+        foreach ($freshSessions as $freshSession) {
+            $this->assertNotNull($freshSession->logged_out_at);
         }
 
-        // Verify other user's session is not affected
-        $otherSession->refresh();
-        $this->assertNull($otherSession->logged_out_at);
+        // Verify other user's session is not affected (use fresh instance)
+        $freshOtherSession = SSOSession::find($otherSession->id);
+        $this->assertNull($freshOtherSession->logged_out_at);
 
         // Verify cache invalidation
         $this->assertFalse(Cache::has("sso_sessions:{$this->user->id}"));
@@ -230,9 +240,10 @@ class SSOServiceTest extends TestCase
 
         $this->assertTrue($result);
 
-        $session->refresh();
-        $this->assertNotNull($session->logged_out_at);
-        $this->assertEquals($this->user->id, $session->logged_out_by);
+        // Use fresh instance to check logout status
+        $freshSession = SSOSession::find($session->id);
+        $this->assertNotNull($freshSession->logged_out_at);
+        $this->assertEquals($this->user->id, $freshSession->logged_out_by);
     }
 
     public function test_revoke_sso_session_throws_exception_for_unauthorized_user(): void
@@ -324,9 +335,10 @@ class SSOServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertEquals('new-access-token-123', $result['access_token']);
 
-        $session->refresh();
-        $this->assertEquals('new-access-token-123', $session->metadata['access_token']);
-        $this->assertEquals('new-refresh-token-123', $session->refresh_token);
+        // Use fresh instance to check updated tokens
+        $freshSession = SSOSession::find($session->id);
+        $this->assertEquals('new-access-token-123', $freshSession->metadata['access_token']);
+        $this->assertEquals('new-refresh-token-123', $freshSession->refresh_token);
     }
 
     public function test_get_sso_configuration_returns_active_config_for_organization(): void

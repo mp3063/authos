@@ -43,13 +43,23 @@ class OrganizationInvitation extends Mailable implements ShouldQueue
             markdown: 'emails.organization-invitation',
             with: [
                 'invitation' => $this->invitation,
-                'acceptUrl' => url("/invitations/{$this->invitation->token}/accept"),
+                'acceptUrl' => $this->invitation->getInvitationUrl(),
                 'organizationName' => $this->invitation->organization->name,
                 'inviterName' => $this->invitation->inviter->name,
                 'role' => $this->invitation->role,
                 'expiresAt' => $this->invitation->expires_at->format('F j, Y'),
+                'customMessage' => $this->getCustomMessage(),
             ]
         );
+    }
+
+    /**
+     * Get custom message from organization settings if available.
+     */
+    private function getCustomMessage(): ?string
+    {
+        $settings = $this->invitation->organization->settings ?? [];
+        return $settings['email_templates']['invitation']['custom_message'] ?? null;
     }
 
     /**

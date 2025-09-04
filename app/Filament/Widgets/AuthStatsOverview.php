@@ -25,11 +25,11 @@ class AuthStatsOverview extends BaseWidget
         $totalOrganizations = Organization::count();
         $activeOrganizations = Organization::where('is_active', true)->count();
         
-        $todayLogins = AuthenticationLog::where('event', 'login')
+        $todayLogins = AuthenticationLog::where('event', 'login_success')
             ->whereDate('created_at', today())
             ->count();
         
-        $todayFailedLogins = AuthenticationLog::whereIn('event', ['failed_login', 'failed_mfa'])
+        $todayFailedLogins = AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])
             ->whereDate('created_at', today())
             ->count();
         

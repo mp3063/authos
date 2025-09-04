@@ -92,12 +92,15 @@ class CustomRoleTest extends TestCase
         $defaultRole = CustomRole::factory()
             ->forOrganization($this->organization)
             ->default()
-            ->create();
+            ->create(['name' => 'Default Role ' . uniqid()]);
 
         // Create non-default role
         $regularRole = CustomRole::factory()
             ->forOrganization($this->organization)
-            ->create(['is_default' => false]);
+            ->create([
+                'name' => 'Regular Role ' . uniqid(),
+                'is_default' => false
+            ]);
 
         $defaultRoles = CustomRole::default()->get();
 

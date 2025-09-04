@@ -85,7 +85,13 @@ class ApplicationSeeder extends Seeder
         ];
 
         foreach ($applications as $app) {
-            Application::create($app);
+            Application::firstOrCreate(
+                [
+                    'organization_id' => $app['organization_id'],
+                    'name' => $app['name'],
+                ],
+                $app
+            );
         }
     }
 }

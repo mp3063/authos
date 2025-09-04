@@ -32,20 +32,20 @@ class CustomRole extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'organization_id',
         'name',
         'display_name',
         'description',
+        'organization_id',
         'permissions',
-        'is_system',
-        'created_by',
         'is_active',
+        'is_default',
     ];
 
     protected $casts = [
         'permissions' => 'array',
         'is_system' => 'boolean',
         'is_active' => 'boolean',
+        'is_default' => 'boolean',
     ];
 
     /**
@@ -99,6 +99,14 @@ class CustomRole extends Model
     }
 
     /**
+     * Scope to get default roles
+     */
+    public function scopeDefault($query)
+    {
+        return $query->where('is_default', true);
+    }
+
+    /**
      * Scope to filter by organization
      */
     public function scopeForOrganization($query, $organizationId)
@@ -143,6 +151,131 @@ class CustomRole extends Model
     public function syncPermissions(array $permissions): void
     {
         $this->update(['permissions' => $permissions]);
+    }
+
+    /**
+     * Add a permission to this role (alias for grantPermission)
+     */
+    public function addPermission(string $permission): void
+    {
+        $this->grantPermission($permission);
+    }
+
+    /**
+     * Remove a permission from this role (alias for revokePermission)
+     */
+    public function removePermission(string $permission): void
+    {
+        $this->revokePermission($permission);
+    }
+
+    /**
+     * Add multiple permissions to this role
+     */
+    public function addPermissions(array $permissions): void
+    {
+        $currentPermissions = $this->permissions ?? [];
+        $newPermissions = array_unique(array_merge($currentPermissions, $permissions));
+        $this->update(['permissions' => $newPermissions]);
+    }
+
+    /**
+     * Remove multiple permissions from this role
+     */
+    public function removePermissions(array $permissions): void
+    {
+        $currentPermissions = $this->permissions ?? [];
+        $filteredPermissions = array_filter($currentPermissions, fn($p) => !in_array($p, $permissions));
+        $this->update(['permissions' => array_values($filteredPermissions)]);
+    }
+
+    /**
+     * Get the count of permissions for this role
+     */
+    public function getPermissionCount(): int
+    {
+        return count($this->permissions ?? []);
+    }
+
+    /**
+     * Check if this is an admin role (has admin-level permissions)
+     */
+    public function isAdminRole(): bool
+    {
+        $adminPermissions = ['users.delete', 'organization.manage_settings', 'roles.create', 'roles.delete'];
+        $currentPermissions = $this->permissions ?? [];
+        
+        return !empty(array_intersect($adminPermissions, $currentPermissions));
+    }
+
+    /**
+     * Check if the role can manage users
+     */
+    public function canManageUsers(): bool
+    {
+        $userManagementPermissions = ['users.create', 'users.update', 'users.delete', 'users.manage_roles'];
+        $currentPermissions = $this->permissions ?? [];
+        
+        return !empty(array_intersect($userManagementPermissions, $currentPermissions));
+    }
+
+    /**
+     * Check if the role can manage applications
+     */
+    public function canManageApplications(): bool
+    {
+        $appManagementPermissions = ['applications.create', 'applications.update', 'applications.delete', 'applications.manage_users'];
+        $currentPermissions = $this->permissions ?? [];
+        
+        return !empty(array_intersect($appManagementPermissions, $currentPermissions));
+    }
+
+    /**
+     * Assign this role to a user
+     */
+    public function assignToUser(User|int $user, User $grantedBy = null): void
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        
+        if (!$this->users()->where('user_id', $userId)->exists()) {
+            $this->users()->attach($userId, [
+                'granted_at' => now(),
+                'granted_by' => $grantedBy?->id,
+            ]);
+        }
+    }
+
+    /**
+     * Remove this role from a user
+     */
+    public function unassignFromUser(User|int $user): void
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        $this->users()->detach($userId);
+    }
+
+    /**
+     * Get the count of users assigned to this role
+     */
+    public function getUserCount(): int
+    {
+        return $this->users()->count();
+    }
+
+    /**
+     * Clone this role with a new name
+     */
+    public function cloneRole(string $newName, string $newDisplayName = null): self
+    {
+        return self::create([
+            'name' => $newName,
+            'display_name' => $newDisplayName ?: $this->display_name,
+            'description' => $this->description,
+            'organization_id' => $this->organization_id,
+            'permissions' => $this->permissions,
+            'is_active' => true,
+            'is_default' => false,
+        ]);
     }
 
     /**
@@ -241,5 +374,27 @@ class CustomRole extends Model
                 'security.view_logs', 'security.manage_mfa', 'security.manage_sessions', 'security.export_reports'
             ],
         ];
+    }
+
+    /**
+     * Get permissions grouped by their prefix (category)
+     */
+    public function getGroupedPermissions(): array
+    {
+        $permissions = $this->permissions ?? [];
+        $grouped = [];
+        
+        foreach ($permissions as $permission) {
+            $parts = explode('.', $permission);
+            $category = $parts[0] ?? 'other';
+            
+            if (!isset($grouped[$category])) {
+                $grouped[$category] = [];
+            }
+            
+            $grouped[$category][] = $permission;
+        }
+        
+        return $grouped;
     }
 }

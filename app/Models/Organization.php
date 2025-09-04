@@ -25,6 +25,7 @@ class Organization extends Model
         'slug',
         'settings',
         'is_active',
+        'logo',
     ];
 
     protected $casts = [
@@ -90,11 +91,11 @@ class Organization extends Model
     /**
      * Create a new role for this organization
      */
-    public function createRole(string $name, array $permissions = []): Role
+    public function createRole(string $name, array $permissions = [], string $guard = 'web'): Role
     {
         $role = Role::create([
             'name' => $name,
-            'guard_name' => 'web',
+            'guard_name' => $guard,
             'organization_id' => $this->id,
         ]);
 
@@ -180,22 +181,41 @@ class Organization extends Model
         $allRequiredPermissions = collect($defaultRoles)->flatten()->unique();
         
         foreach ($allRequiredPermissions as $permissionName) {
+            // Create permission for web guard
             Permission::firstOrCreate([
                 'name' => $permissionName,
                 'guard_name' => 'web',
                 'organization_id' => $this->id,
             ]);
+            
+            // Also create permission for api guard for API authentication
+            Permission::firstOrCreate([
+                'name' => $permissionName,
+                'guard_name' => 'api',
+                'organization_id' => $this->id,
+            ]);
         }
 
-        // Then create roles and assign permissions
+        // Then create roles and assign permissions for both web and api guards
         foreach ($defaultRoles as $roleName => $permissions) {
-            // Check if role already exists for this organization
-            $existingRole = Role::where('name', $roleName)
+            // Create role for web guard
+            $existingWebRole = Role::where('name', $roleName)
+                ->where('guard_name', 'web')
                 ->where('organization_id', $this->id)
                 ->first();
                 
-            if (!$existingRole) {
-                $this->createRole($roleName, $permissions);
+            if (!$existingWebRole) {
+                $this->createRole($roleName, $permissions, 'web');
+            }
+            
+            // Create role for api guard
+            $existingApiRole = Role::where('name', $roleName)
+                ->where('guard_name', 'api')
+                ->where('organization_id', $this->id)
+                ->first();
+                
+            if (!$existingApiRole) {
+                $this->createRole($roleName, $permissions, 'api');
             }
         }
     }

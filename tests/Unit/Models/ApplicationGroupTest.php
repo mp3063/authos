@@ -228,9 +228,9 @@ class ApplicationGroupTest extends TestCase
         $descendants = $this->parentGroup->getDescendants();
 
         $this->assertCount(3, $descendants);
-        $this->assertTrue($descendants->contains($child1));
-        $this->assertTrue($descendants->contains($child2));
-        $this->assertTrue($descendants->contains($grandchild));
+        $this->assertTrue($descendants->contains('id', $child1->id));
+        $this->assertTrue($descendants->contains('id', $child2->id));
+        $this->assertTrue($descendants->contains('id', $grandchild->id));
     }
 
     public function test_has_inheritance_enabled_checks_settings(): void

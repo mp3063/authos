@@ -19,9 +19,11 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->jsonb('permissions')->default('[]');
             $table->boolean('is_system')->default(false);
-            $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
+            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('cascade');
             $table->boolean('is_active')->default(true);
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
+            $table->softDeletes();
 
             // Unique role name per organization
             $table->unique(['organization_id', 'name'], 'custom_roles_org_name_unique');

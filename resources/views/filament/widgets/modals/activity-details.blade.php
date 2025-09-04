@@ -13,8 +13,8 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="text-sm text-gray-600">Status:</span>
-                    <span class="text-sm font-medium {{ $record->event === 'login' ? 'text-green-600' : 'text-red-600' }}">
-                        {{ in_array($record->event, ['failed_login', 'failed_mfa', 'suspicious_activity']) ? 'Failed' : 'Success' }}
+                    <span class="text-sm font-medium {{ $record->event === 'login_success' ? 'text-green-600' : 'text-red-600' }}">
+                        {{ in_array($record->event, ['login_failed', 'failed_mfa', 'suspicious_activity']) ? 'Failed' : 'Success' }}
                     </span>
                 </div>
             </div>
@@ -98,7 +98,7 @@
     </div>
     @endif
 
-    @if(in_array($record->event, ['failed_login', 'failed_mfa', 'suspicious_activity']))
+    @if(in_array($record->event, ['login_failed', 'failed_mfa', 'suspicious_activity']))
     <div class="bg-red-50 border border-red-200 rounded-lg p-4">
         <div class="flex">
             <div class="flex-shrink-0">

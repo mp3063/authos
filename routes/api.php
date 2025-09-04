@@ -70,7 +70,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // OAuth 2.0 routes (custom implementation alongside Passport)
     Route::prefix('oauth')->middleware(['oauth.security', 'api.rate_limit:oauth'])->group(function () {
-        Route::get('/authorize', [OAuthController::class, 'authorize']);
+        Route::get('/authorize', [OAuthController::class, 'oauthAuthorize']);
         Route::post('/token', [OAuthController::class, 'token']);
         Route::middleware('auth:api')->get('/userinfo', [OpenIdController::class, 'userinfo']);
         Route::get('/jwks', [OpenIdController::class, 'jwks']);
@@ -216,7 +216,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         
         // Public SSO endpoints (for client applications)
         Route::post('/callback', [SSOController::class, 'callback']);
-        Route::post('/validate', [SSOController::class, 'validate']);
+        Route::post('/validate', [SSOController::class, 'validateSession']);
         Route::post('/refresh', [SSOController::class, 'refresh']);
         Route::post('/logout', [SSOController::class, 'logout']);
         Route::get('/configuration/{applicationId}', [SSOController::class, 'configuration']);

@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained();
             $table->foreignId('application_id')->nullable()->constrained();
-            $table->string('event'); // login, logout, failed_login, token_refresh, mfa_challenge, etc.
+            $table->string('event'); // login_success, logout, login_failed, token_refresh, mfa_challenge, etc.
             $table->string('ip_address');
             $table->text('user_agent');
             $table->json('metadata')->nullable();
-            $table->timestamp('created_at');
+            $table->timestamps();
             
             $table->index(['user_id', 'created_at']);
             $table->index(['application_id', 'created_at']);

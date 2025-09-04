@@ -146,9 +146,9 @@ class UserActivityWidget extends BaseWidget
             ->filters([
                 SelectFilter::make('event')
                     ->options([
-                        'login' => 'Login',
+                        'login_success' => 'Login',
                         'logout' => 'Logout',
-                        'failed_login' => 'Failed Login',
+                        'login_failed' => 'Failed Login',
                         'failed_mfa' => 'Failed MFA',
                         'password_reset' => 'Password Reset',
                         'suspicious_activity' => 'Suspicious Activity',
@@ -190,7 +190,7 @@ class UserActivityWidget extends BaseWidget
         
         // Event-based scoring
         switch ($record->event) {
-            case 'failed_login':
+            case 'login_failed':
             case 'failed_mfa':
                 $score += 50;
                 break;
@@ -200,7 +200,7 @@ class UserActivityWidget extends BaseWidget
             case 'password_reset':
                 $score += 30;
                 break;
-            case 'login':
+            case 'login_success':
                 // Check for unusual patterns
                 if ($this->isUnusualLogin($record)) {
                     $score += 40;
@@ -237,7 +237,7 @@ class UserActivityWidget extends BaseWidget
         // Check if this is the user's first login from this IP in the last 30 days
         $previousLogins = AuthenticationLog::where('user_id', $record->user_id)
             ->where('ip_address', $record->ip_address)
-            ->where('event', 'login')
+            ->where('event', 'login_success')
             ->where('created_at', '>=', now()->subDays(30))
             ->where('id', '!=', $record->id)
             ->count();

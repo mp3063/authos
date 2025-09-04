@@ -19,21 +19,25 @@ class AuthenticationLog extends Model
 {
     use HasFactory;
 
-    public $timestamps = false;
+    public $timestamps = true;
     
     protected $fillable = [
         'user_id',
         'application_id',
         'event',
+        'success',
         'ip_address',
         'user_agent',
+        'details',
         'metadata',
-        'created_at',
     ];
 
     protected $casts = [
         'metadata' => 'array',
+        'details' => 'array',
+        'success' => 'boolean',
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -49,9 +53,9 @@ class AuthenticationLog extends Model
     public function getEventBadgeColor(): string
     {
         return match ($this->event) {
-            'login', 'token_refresh', 'mfa_success' => 'success',
+            'login_success', 'token_refresh', 'mfa_success' => 'success',
             'logout' => 'info',
-            'failed_login', 'failed_mfa', 'suspicious_activity' => 'danger',
+            'login_failed', 'failed_mfa', 'suspicious_activity' => 'danger',
             'mfa_challenge', 'password_reset' => 'warning',
             default => 'gray',
         };
@@ -60,9 +64,9 @@ class AuthenticationLog extends Model
     public function getEventIcon(): string
     {
         return match ($this->event) {
-            'login' => 'heroicon-o-arrow-right-on-rectangle',
+            'login_success' => 'heroicon-o-arrow-right-on-rectangle',
             'logout' => 'heroicon-o-arrow-left-on-rectangle',
-            'failed_login' => 'heroicon-o-x-circle',
+            'login_failed' => 'heroicon-o-x-circle',
             'token_refresh' => 'heroicon-o-arrow-path',
             'mfa_challenge', 'mfa_success', 'failed_mfa' => 'heroicon-o-shield-check',
             'password_reset' => 'heroicon-o-key',

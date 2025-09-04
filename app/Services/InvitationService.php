@@ -36,16 +36,14 @@ class InvitationService
             ]);
         }
 
-        // Check for existing pending invitation
+        // Check for existing pending invitation and delete it if exists
         $existingInvitation = Invitation::where('organization_id', $organizationId)
             ->where('email', $email)
             ->pending()
             ->first();
 
         if ($existingInvitation) {
-            throw ValidationException::withMessages([
-                'email' => 'A pending invitation already exists for this email address'
-            ]);
+            $existingInvitation->delete();
         }
 
         // Create the invitation
@@ -53,7 +51,7 @@ class InvitationService
             'organization_id' => $organizationId,
             'email' => $email,
             'role' => $role,
-            'invited_by' => $inviterId,
+            'inviter_id' => $inviterId,
             'metadata' => $metadata,
         ]);
 
@@ -72,40 +70,43 @@ class InvitationService
         return $invitation;
     }
 
-    public function acceptInvitation(string $token, User $user): bool
+    public function acceptInvitation(string $token, array $userData): User
     {
         $invitation = Invitation::where('token', $token)->first();
 
         if (!$invitation) {
-            throw new Exception('Invalid invitation token');
+            throw new Exception('Invalid or expired invitation');
         }
 
         if (!$invitation->isPending()) {
-            throw new Exception('Invitation has expired or already been accepted');
+            throw new Exception($invitation->isExpired() ? 'Invalid or expired invitation' : 'Invitation has already been accepted');
         }
 
-        // Check if user is already in the organization
-        if ($user->organization_id === $invitation->organization_id) {
-            throw new Exception('User is already a member of this organization');
-        }
+        return DB::transaction(function () use ($invitation, $userData) {
+            // Create new user with invitation email and provided data
+            $user = User::create([
+                'name' => $userData['name'],
+                'email' => $invitation->email,
+                'password' => bcrypt($userData['password']),
+                'organization_id' => $invitation->organization_id,
+                'email_verified_at' => now(),
+            ]);
 
-        return DB::transaction(function () use ($invitation, $user) {
             // Accept the invitation
             $invitation->accept($user);
 
-            // Add user to organization if not already a member
-            if (!$user->organization_id) {
-                $user->update(['organization_id' => $invitation->organization_id]);
-            }
-
             // Assign the role to the user
-            $user->assignOrganizationRole($invitation->role, $invitation->organization_id);
+            if (method_exists($user, 'assignRole')) {
+                $user->assignRole($invitation->role);
+            }
 
             // Notify the inviter
             try {
-                Mail::to($invitation->inviter->email)->send(
-                    new InvitationAccepted($invitation, $user)
-                );
+                if ($invitation->inviter) {
+                    Mail::to($invitation->inviter->email)->send(
+                        new InvitationAccepted($invitation, $user)
+                    );
+                }
             } catch (Exception $e) {
                 logger()->error('Failed to send invitation accepted email', [
                     'invitation_id' => $invitation->id,
@@ -113,7 +114,7 @@ class InvitationService
                 ]);
             }
 
-            return true;
+            return $user;
         });
     }
 
@@ -123,10 +124,10 @@ class InvitationService
 
         // Check if user has permission to cancel this invitation
         if (!$this->canManageInvitation($canceller, $invitation)) {
-            throw new Exception('User does not have permission to cancel this invitation');
+            throw new Exception('Not authorized to cancel this invitation');
         }
 
-        return $invitation->delete();
+        return $invitation->markAsCancelled($canceller);
     }
 
     public function resendInvitation(int $invitationId, User $sender): Invitation
@@ -164,7 +165,15 @@ class InvitationService
         array $invitations, 
         int $inviterId
     ): array {
-        $results = [];
+        // Add validation for maximum batch size
+        if (count($invitations) > 100) {
+            throw ValidationException::withMessages([
+                'invitations' => 'Cannot invite more than 100 users at once'
+            ]);
+        }
+
+        $successful = [];
+        $failed = [];
         $organization = Organization::findOrFail($organizationId);
         $inviter = User::findOrFail($inviterId);
 
@@ -182,21 +191,24 @@ class InvitationService
                     $inviteData['metadata'] ?? []
                 );
 
-                $results[] = [
+                $successful[] = [
                     'email' => $inviteData['email'],
                     'status' => 'success',
                     'invitation_id' => $invitation->id
                 ];
             } catch (Exception $e) {
-                $results[] = [
+                $failed[] = [
                     'email' => $inviteData['email'],
                     'status' => 'error',
-                    'message' => $e->getMessage()
+                    'error' => $e->getMessage()
                 ];
             }
         }
 
-        return $results;
+        return [
+            'successful' => $successful,
+            'failed' => $failed
+        ];
     }
 
     public function getOrganizationInvitations(
@@ -228,6 +240,15 @@ class InvitationService
         return $query->orderBy('created_at', 'desc')->get();
     }
 
+    public function getPendingInvitations(int $organizationId) 
+    {
+        return Invitation::where('organization_id', $organizationId)
+            ->pending()
+            ->with(['inviter', 'organization'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
     private function canInviteToOrganization(User $user, Organization $organization): bool
     {
         // Super admins can invite to any organization
@@ -254,7 +275,7 @@ class InvitationService
         if ($user->organization_id === $invitation->organization_id) {
             return $user->isOrganizationOwner() || 
                    $user->isOrganizationAdmin() || 
-                   $user->id === $invitation->invited_by;
+                   $user->id === $invitation->inviter_id;
         }
 
         return false;

@@ -56,12 +56,12 @@ class ListAuthenticationLogs extends ListRecords
                 ->badge(\App\Models\AuthenticationLog::whereDate('created_at', today())->count()),
                 
             'successful_logins' => Tab::make('Successful Logins')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('event', 'login'))
-                ->badge(\App\Models\AuthenticationLog::where('event', 'login')->whereDate('created_at', today())->count()),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('event', 'login_success'))
+                ->badge(\App\Models\AuthenticationLog::where('event', 'login_success')->whereDate('created_at', today())->count()),
                 
             'failed_attempts' => Tab::make('Failed Attempts')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('event', ['failed_login', 'failed_mfa']))
-                ->badge(\App\Models\AuthenticationLog::whereIn('event', ['failed_login', 'failed_mfa'])->whereDate('created_at', today())->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('event', ['login_failed', 'failed_mfa']))
+                ->badge(\App\Models\AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])->whereDate('created_at', today())->count())
                 ->badgeColor('danger'),
                 
             'mfa_events' => Tab::make('MFA Events')

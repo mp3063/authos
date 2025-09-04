@@ -49,10 +49,10 @@ class EmailNotificationTest extends TestCase
             $role
         );
 
-        Mail::assertSent(OrganizationInvitation::class, function ($mail) use ($email, $invitation) {
+        Mail::assertQueued(OrganizationInvitation::class, function ($mail) use ($email, $invitation) {
             return $mail->hasTo($email) &&
                    $mail->invitation->id === $invitation->id &&
-                   $mail->organization->id === $this->organization->id;
+                   $mail->invitation->organization_id === $this->organization->id;
         });
     }
 
@@ -61,9 +61,10 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
+            ->withRole('user')
             ->create();
 
-        $mailable = new OrganizationInvitation($invitation, $this->organization, $this->inviter);
+        $mailable = new OrganizationInvitation($invitation);
         $rendered = $mailable->render();
 
         $this->assertStringContainsString($this->organization->name, $rendered);
@@ -77,6 +78,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
+            ->withRole('user')
             ->create();
 
         $acceptedBy = User::factory()->create();
@@ -87,9 +89,9 @@ class EmailNotificationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        Mail::assertSent(InvitationAccepted::class, function ($mail) {
+        Mail::assertQueued(InvitationAccepted::class, function ($mail) {
             return $mail->hasTo($this->inviter->email) &&
-                   $mail->organization->id === $this->organization->id;
+                   $mail->invitation->organization_id === $this->organization->id;
         });
     }
 
@@ -107,10 +109,10 @@ class EmailNotificationTest extends TestCase
             $this->inviter->id
         );
 
-        Mail::assertSent(OrganizationInvitation::class, 3);
+        Mail::assertQueued(OrganizationInvitation::class, 3);
 
         foreach ($invitations as $invitationData) {
-            Mail::assertSent(OrganizationInvitation::class, function ($mail) use ($invitationData) {
+            Mail::assertQueued(OrganizationInvitation::class, function ($mail) use ($invitationData) {
                 return $mail->hasTo($invitationData['email']);
             });
         }
@@ -132,9 +134,10 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($customOrganization)
             ->fromInviter($this->inviter)
+            ->withRole('user')
             ->create();
 
-        $mailable = new OrganizationInvitation($invitation, $customOrganization, $this->inviter);
+        $mailable = new OrganizationInvitation($invitation);
         $rendered = $mailable->render();
 
         $this->assertStringContainsString('Welcome to our awesome platform!', $rendered);
@@ -198,7 +201,7 @@ class EmailNotificationTest extends TestCase
         $this->assertLessThan(5.0, $endTime - $startTime);
 
         // Should have queued 50 emails
-        Mail::assertSent(OrganizationInvitation::class, 50);
+        Mail::assertQueued(OrganizationInvitation::class, 50);
     }
 
     public function test_email_content_is_properly_localized(): void
@@ -208,9 +211,10 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
+            ->withRole('user')
             ->create();
 
-        $mailable = new OrganizationInvitation($invitation, $this->organization, $this->inviter);
+        $mailable = new OrganizationInvitation($invitation);
         
         // This would test actual localized content
         $this->assertEquals('es', app()->getLocale());
@@ -232,9 +236,10 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($organizationWithLogo)
             ->fromInviter($this->inviter)
+            ->withRole('user')
             ->create();
 
-        $mailable = new OrganizationInvitation($invitation, $organizationWithLogo, $this->inviter);
+        $mailable = new OrganizationInvitation($invitation);
         $rendered = $mailable->render();
 
         // Would test for logo inclusion and color theming

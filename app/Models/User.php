@@ -82,8 +82,9 @@ class User extends Authenticatable
     public function applications(): BelongsToMany
     {
         return $this->belongsToMany(Application::class, 'user_applications')
-            ->withPivot(['metadata', 'last_login_at', 'login_count'])
-            ->withTimestamps();
+            ->withPivot(['permissions', 'metadata', 'last_login_at', 'login_count', 'granted_at', 'granted_by'])
+            ->withTimestamps()
+            ->using(\App\Models\UserApplication::class);
     }
 
     public function ssoSessions(): HasMany
@@ -232,7 +233,9 @@ class User extends Authenticatable
      */
     public function isOrganizationAdmin(): bool
     {
-        return $this->hasOrganizationRole('Organization Admin') || $this->isOrganizationOwner();
+        return $this->hasOrganizationRole('Organization Admin') || 
+               $this->hasOrganizationRole('organization admin') ||
+               $this->isOrganizationOwner();
     }
 
     /**

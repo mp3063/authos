@@ -94,7 +94,7 @@ class SSOController extends Controller
     /**
      * Validate SSO session token
      */
-    public function validate(Request $request): JsonResponse
+    public function validateSession(Request $request): JsonResponse
     {
         $request->validate([
             'token' => 'required|string',

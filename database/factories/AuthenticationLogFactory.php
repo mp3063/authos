@@ -18,13 +18,13 @@ class AuthenticationLogFactory extends Factory
     public function definition(): array
     {
         $events = [
-            'login', 'logout', 'failed_login', 'password_reset', 'password_changed',
+            'login_success', 'logout', 'login_failed', 'password_reset', 'password_changed',
             'mfa_enabled', 'mfa_disabled', 'mfa_verified', 'account_locked',
             'account_unlocked', 'email_verified', 'profile_updated'
         ];
 
         $event = fake()->randomElement($events);
-        $success = !in_array($event, ['failed_login', 'account_locked']);
+        $success = !in_array($event, ['login_failed', 'account_locked']);
 
         return [
             'user_id' => User::factory(),
@@ -49,7 +49,7 @@ class AuthenticationLogFactory extends Factory
     public function failedLogin(): static
     {
         return $this->state(fn (array $attributes) => [
-            'event' => 'failed_login',
+            'event' => 'login_failed',
             'success' => false,
             'details' => array_merge($attributes['details'] ?? [], [
                 'failure_reason' => fake()->randomElement(['invalid_password', 'invalid_email', 'account_locked', 'mfa_required']),
@@ -64,7 +64,7 @@ class AuthenticationLogFactory extends Factory
     public function successfulLogin(): static
     {
         return $this->state(fn (array $attributes) => [
-            'event' => 'login',
+            'event' => 'login_success',
             'success' => true,
         ]);
     }

@@ -25,12 +25,21 @@ class UserManagementApiTest extends TestCase
         
         $this->organization = Organization::factory()->create();
         
-        // Create required roles
-        Role::create(['name' => 'user', 'guard_name' => 'web']);
-        Role::create(['name' => 'super admin', 'guard_name' => 'web']);
-        Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
+        // Create required roles and permissions with API guard
+        \Spatie\Permission\Models\Permission::create(['name' => 'users.read', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::create(['name' => 'users.create', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::create(['name' => 'users.update', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::create(['name' => 'users.delete', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::create(['name' => 'roles.assign', 'guard_name' => 'api']);
         
-        $this->adminUser = $this->createSuperAdmin();
+        Role::create(['name' => 'user', 'guard_name' => 'api']);
+        $superAdminRole = Role::create(['name' => 'Super Admin', 'guard_name' => 'api']);
+        Role::create(['name' => 'Organization Admin', 'guard_name' => 'api']);
+        
+        // Assign permissions to Super Admin role
+        $superAdminRole->givePermissionTo(['users.read', 'users.create', 'users.update', 'users.delete', 'roles.assign']);
+        
+        $this->adminUser = $this->createApiSuperAdmin();
         $this->regularUser = User::factory()
             ->forOrganization($this->organization)
             ->create();
@@ -55,26 +64,32 @@ class UserManagementApiTest extends TestCase
                         'id',
                         'name',
                         'email',
+                        'email_verified_at',
+                        'profile',
+                        'mfa_enabled',
+                        'mfa_methods',
+                        'is_active',
                         'organization' => [
                             'id',
                             'name',
                             'slug',
                         ],
                         'roles',
-                        'is_active',
-                        'mfa_enabled',
                         'created_at',
-                        'last_login_at',
+                        'updated_at',
                     ]
                 ],
                 'links',
                 'meta' => [
-                    'current_page',
-                    'per_page',
-                    'total',
+                    'pagination' => [
+                        'current_page',
+                        'per_page',
+                        'total',
+                        'total_pages',
+                    ],
                 ],
             ])
-            ->assertJsonPath('meta.per_page', 15);
+            ->assertJsonPath('meta.pagination.per_page', 15);
     }
 
     public function test_list_users_supports_filtering_and_search(): void
@@ -346,8 +361,8 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role1 = Role::create(['name' => 'test-role-1', 'guard_name' => 'web']);
-        $role2 = Role::create(['name' => 'test-role-2', 'guard_name' => 'web']);
+        $role1 = Role::create(['name' => 'test-role-1', 'guard_name' => 'api']);
+        $role2 = Role::create(['name' => 'test-role-2', 'guard_name' => 'api']);
 
         $user->assignRole([$role1, $role2]);
 
@@ -375,7 +390,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::create(['name' => 'test-role', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'test-role', 'guard_name' => 'api']);
 
         Passport::actingAs($this->adminUser, ['users.edit']);
 
@@ -397,7 +412,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::create(['name' => 'test-role', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'test-role', 'guard_name' => 'api']);
         $user->assignRole($role);
 
         Passport::actingAs($this->adminUser, ['users.edit']);

@@ -29,6 +29,26 @@ class RolePermissionSeeder extends Seeder
             'organizations.delete',
             'organizations.manage_global',
             
+            // Global user management (for super admins)
+            'users.create',
+            'users.read', 
+            'users.update',
+            'users.delete',
+            'applications.create',
+            'applications.read',
+            'applications.update', 
+            'applications.delete',
+            'roles.create',
+            'roles.read',
+            'roles.update',
+            'roles.delete',
+            'permissions.create',
+            'permissions.read',
+            'permissions.update', 
+            'permissions.delete',
+            'auth_logs.read',
+            'auth_logs.export',
+            
             // Legacy global permissions
             'access admin panel',
             'create organizations',
@@ -40,26 +60,47 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($globalPermissions as $permission) {
-            Permission::create([
-                'name' => $permission,
-                'guard_name' => 'web',
-                'organization_id' => null, // Global permission
-            ]);
+            Permission::firstOrCreate(
+                [
+                    'name' => $permission,
+                    'guard_name' => 'web',
+                    'organization_id' => null,
+                ],
+                [
+                    'name' => $permission,
+                    'guard_name' => 'web',
+                    'organization_id' => null, // Global permission
+                ]
+            );
         }
 
         // Create global system roles
-        $superAdminRole = Role::create([
-            'name' => 'Super Admin',
-            'guard_name' => 'web',
-            'organization_id' => null, // Global role
-        ]);
+        $superAdminRole = Role::firstOrCreate(
+            [
+                'name' => 'Super Admin',
+                'guard_name' => 'web',
+                'organization_id' => null,
+            ],
+            [
+                'name' => 'Super Admin',
+                'guard_name' => 'web',
+                'organization_id' => null, // Global role
+            ]
+        );
         $superAdminRole->givePermissionTo($globalPermissions);
 
-        $systemAdminRole = Role::create([
-            'name' => 'System Administrator',
-            'guard_name' => 'web', 
-            'organization_id' => null, // Global role
-        ]);
+        $systemAdminRole = Role::firstOrCreate(
+            [
+                'name' => 'System Administrator',
+                'guard_name' => 'web',
+                'organization_id' => null,
+            ],
+            [
+                'name' => 'System Administrator',
+                'guard_name' => 'web', 
+                'organization_id' => null, // Global role
+            ]
+        );
         $systemAdminRole->givePermissionTo([
             'system.settings.read',
             'system.analytics.read',

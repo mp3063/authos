@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use App\Traits\BelongsToOrganization;
 
 class ApplicationGroup extends Model
@@ -13,47 +15,161 @@ class ApplicationGroup extends Model
     use HasFactory, BelongsToOrganization;
 
     protected $fillable = [
-        'organization_id',
         'name',
         'description',
-        'parent_application_id',
-        'child_application_ids',
-        'cascade_permissions',
+        'organization_id',
+        'parent_id',
+        'is_active',
         'settings',
     ];
 
     protected $casts = [
-        'child_application_ids' => 'array',
-        'cascade_permissions' => 'boolean',
+        'is_active' => 'boolean',
         'settings' => 'array',
     ];
 
     /**
-     * Get the parent application
+     * Get the parent group
      */
-    public function parentApplication(): BelongsTo
+    public function parent(): BelongsTo
     {
-        return $this->belongsTo(Application::class, 'parent_application_id');
+        return $this->belongsTo(ApplicationGroup::class, 'parent_id');
     }
 
     /**
-     * Get all child applications
+     * Get child groups
      */
-    public function childApplications()
+    public function children(): HasMany
     {
-        if (!$this->child_application_ids || empty($this->child_application_ids)) {
-            return collect();
+        return $this->hasMany(ApplicationGroup::class, 'parent_id');
+    }
+
+    /**
+     * Get applications attached to this group
+     */
+    public function applications(): BelongsToMany
+    {
+        return $this->belongsToMany(Application::class, 'application_group_applications');
+    }
+
+    /**
+     * Scope: Active groups only
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope: Groups for specific organization
+     */
+    public function scopeForOrganization(Builder $query, int $organizationId): Builder
+    {
+        return $query->where('organization_id', $organizationId);
+    }
+
+    /**
+     * Scope: Root level groups (no parent)
+     */
+    public function scopeRootGroups(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    /**
+     * Check if this is a root group
+     */
+    public function isRoot(): bool
+    {
+        return is_null($this->parent_id);
+    }
+
+    /**
+     * Check if group has children
+     */
+    public function hasChildren(): bool
+    {
+        return $this->children()->exists();
+    }
+
+    /**
+     * Get the depth level of this group in the hierarchy
+     */
+    public function getDepth(): int
+    {
+        $depth = 0;
+        $current = $this;
+        
+        while ($current->parent_id !== null) {
+            $depth++;
+            $current = $current->parent;
         }
-
-        return Application::whereIn('id', $this->child_application_ids)
-            ->where('organization_id', $this->organization_id)
-            ->get();
+        
+        return $depth;
     }
 
     /**
-     * Add a child application to the group
+     * Get all ancestors (parent hierarchy)
      */
-    public function addChildApplication(int $applicationId): bool
+    public function getAncestors()
+    {
+        $ancestors = collect();
+        $current = $this->parent;
+        
+        while ($current) {
+            $ancestors->push($current);
+            $current = $current->parent;
+        }
+        
+        return $ancestors;
+    }
+
+    /**
+     * Get all descendants (child hierarchy)
+     */
+    public function getDescendants()
+    {
+        $descendants = collect();
+        
+        // Load children explicitly to avoid lazy loading issues in tests
+        $children = $this->children()->get();
+        
+        foreach ($children as $child) {
+            $descendants->push($child);
+            $descendants = $descendants->merge($child->getDescendants());
+        }
+        
+        return $descendants;
+    }
+
+    /**
+     * Check if inheritance is enabled
+     */
+    public function hasInheritanceEnabled(): bool
+    {
+        return $this->settings['inheritance_enabled'] ?? false;
+    }
+
+    /**
+     * Check if auto-assign is enabled
+     */
+    public function hasAutoAssignEnabled(): bool
+    {
+        return $this->settings['auto_assign_users'] ?? false;
+    }
+
+    /**
+     * Get default permissions from settings
+     */
+    public function getDefaultPermissions(): array
+    {
+        return $this->settings['default_permissions'] ?? [];
+    }
+
+    /**
+     * Add an application to this group
+     */
+    public function addApplication(int $applicationId): bool
     {
         // Verify the application belongs to the same organization
         $application = Application::where('id', $applicationId)
@@ -64,72 +180,76 @@ class ApplicationGroup extends Model
             return false;
         }
 
-        $childIds = $this->child_application_ids ?? [];
-        
-        if (!in_array($applicationId, $childIds)) {
-            $childIds[] = $applicationId;
-            $this->child_application_ids = $childIds;
-            $this->save();
+        // Attach if not already attached
+        if (!$this->applications()->where('application_id', $applicationId)->exists()) {
+            $this->applications()->attach($applicationId);
         }
 
         return true;
     }
 
     /**
-     * Remove a child application from the group
+     * Remove an application from this group
      */
-    public function removeChildApplication(int $applicationId): bool
+    public function removeApplication(int $applicationId): bool
     {
-        $childIds = $this->child_application_ids ?? [];
-        
-        if (($key = array_search($applicationId, $childIds)) !== false) {
-            unset($childIds[$key]);
-            $this->child_application_ids = array_values($childIds);
-            $this->save();
-            return true;
-        }
-
-        return false;
+        $this->applications()->detach($applicationId);
+        return true;
     }
 
     /**
-     * Check if an application is a child of this group
+     * Move this group to a new parent
      */
-    public function hasChildApplication(int $applicationId): bool
+    public function moveToParent(int $parentId): bool
     {
-        return in_array($applicationId, $this->child_application_ids ?? []);
-    }
-
-    /**
-     * Get all application IDs (parent + children)
-     */
-    public function getAllApplicationIds(): array
-    {
-        $ids = [$this->parent_application_id];
-        
-        if ($this->child_application_ids) {
-            $ids = array_merge($ids, $this->child_application_ids);
-        }
-
-        return array_unique($ids);
-    }
-
-    /**
-     * Check if permissions should be cascaded
-     */
-    public function shouldCascadePermissions(): bool
-    {
-        return $this->cascade_permissions;
-    }
-
-    /**
-     * Get users who have access to the parent application
-     */
-    public function getParentApplicationUsers()
-    {
-        return $this->parentApplication
-            ->users()
+        // Verify the parent belongs to the same organization
+        $parent = ApplicationGroup::where('id', $parentId)
             ->where('organization_id', $this->organization_id)
-            ->get();
+            ->first();
+
+        if (!$parent) {
+            return false;
+        }
+
+        $this->parent_id = $parentId;
+        return $this->save();
+    }
+
+    /**
+     * Get the full hierarchical path
+     */
+    public function getFullPath(string $separator = ' > '): string
+    {
+        $path = [$this->name];
+        $current = $this->parent;
+        
+        while ($current) {
+            $path[] = $current->name;
+            $current = $current->parent;
+        }
+        
+        return implode($separator, array_reverse($path));
+    }
+
+    /**
+     * Get direct application count
+     */
+    public function getApplicationCount(): int
+    {
+        return $this->applications()->count();
+    }
+
+    /**
+     * Get total application count including descendants
+     */
+    public function getTotalApplicationCount(): int
+    {
+        $count = $this->getApplicationCount();
+        
+        foreach ($this->children as $child) {
+            $count += $child->getTotalApplicationCount();
+        }
+        
+        return $count;
     }
 }

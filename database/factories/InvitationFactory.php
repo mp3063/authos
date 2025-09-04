@@ -27,6 +27,12 @@ class InvitationFactory extends Factory
             'role' => fake()->randomElement(['user', 'organization admin', 'application admin']),
             'expires_at' => now()->addDays(7),
             'status' => 'pending',
+            'accepted_at' => null,
+            'accepted_by' => null,
+            'declined_at' => null,
+            'decline_reason' => null,
+            'cancelled_at' => null,
+            'cancelled_by' => null,
             'metadata' => [
                 'invitation_message' => fake()->optional()->sentence(),
                 'invited_at' => now()->toISOString(),
@@ -40,10 +46,12 @@ class InvitationFactory extends Factory
      */
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'expires_at' => now()->subDays(1),
-            'status' => 'expired',
-        ]);
+        return $this->state(function (array $attributes) {
+            return [
+                'expires_at' => now()->subDays(1),
+                'status' => 'pending', // Still pending but expired by date
+            ];
+        });
     }
 
     /**
@@ -51,11 +59,13 @@ class InvitationFactory extends Factory
      */
     public function accepted(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'accepted',
-            'accepted_at' => fake()->dateTimeBetween($attributes['created_at'] ?? '-7 days', 'now'),
-            'accepted_by' => User::factory(),
-        ]);
+        return $this->state(function (array $attributes) {
+            return [
+                'status' => 'accepted',
+                'accepted_at' => fake()->dateTimeBetween('-7 days', 'now'),
+                'accepted_by' => User::factory(),
+            ];
+        });
     }
 
     /**
@@ -63,11 +73,13 @@ class InvitationFactory extends Factory
      */
     public function declined(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'declined',
-            'declined_at' => fake()->dateTimeBetween($attributes['created_at'] ?? '-7 days', 'now'),
-            'decline_reason' => fake()->optional()->sentence(),
-        ]);
+        return $this->state(function (array $attributes) {
+            return [
+                'status' => 'declined',
+                'declined_at' => fake()->dateTimeBetween('-7 days', 'now'),
+                'decline_reason' => fake()->optional()->sentence(),
+            ];
+        });
     }
 
     /**

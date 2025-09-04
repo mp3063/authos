@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -18,121 +17,67 @@ class SSOConfigurationFactory extends Factory
      */
     public function definition(): array
     {
-        $providers = ['saml2', 'oidc', 'oauth2', 'ldap'];
-        $provider = fake()->randomElement($providers);
-
         return [
-            'organization_id' => Organization::factory(),
-            'name' => fake()->company() . ' SSO',
-            'provider' => $provider,
-            'is_active' => true,
-            'configuration' => $this->getConfigurationForProvider($provider),
-            'metadata' => [
-                'created_by' => 'system',
-                'last_tested_at' => fake()->optional()->dateTimeBetween('-30 days', 'now'),
-                'test_status' => fake()->randomElement(['success', 'failed', 'pending', null]),
+            'application_id' => \App\Models\Application::factory(),
+            'logout_url' => fake()->url() . '/logout',
+            'callback_url' => fake()->url() . '/callback',
+            'allowed_domains' => [
+                fake()->domainName(),
+                fake()->domainName(),
+                fake()->domainName(),
             ],
+            'session_lifetime' => fake()->numberBetween(1800, 86400), // 30 min to 24 hours
+            'settings' => [
+                'auto_redirect' => fake()->boolean(),
+                'require_ssl' => true,
+                'enforce_https' => fake()->boolean(90),
+                'max_sessions_per_user' => fake()->numberBetween(1, 5),
+            ],
+            'is_active' => true,
         ];
     }
 
     /**
-     * Get configuration based on provider type.
+     * Create configuration for specific application.
      */
-    private function getConfigurationForProvider(string $provider): array
-    {
-        switch ($provider) {
-            case 'saml2':
-                return [
-                    'entity_id' => fake()->url() . '/saml/metadata',
-                    'sso_url' => fake()->url() . '/saml/sso',
-                    'slo_url' => fake()->url() . '/saml/slo',
-                    'x509_cert' => 'MIICert...',
-                    'name_id_format' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-                ];
-
-            case 'oidc':
-                return [
-                    'issuer' => fake()->url(),
-                    'client_id' => Str::random(20),
-                    'client_secret' => Str::random(40),
-                    'authorization_endpoint' => fake()->url() . '/auth',
-                    'token_endpoint' => fake()->url() . '/token',
-                    'userinfo_endpoint' => fake()->url() . '/userinfo',
-                    'scopes' => ['openid', 'profile', 'email'],
-                ];
-
-            case 'oauth2':
-                return [
-                    'client_id' => Str::random(20),
-                    'client_secret' => Str::random(40),
-                    'authorization_endpoint' => fake()->url() . '/oauth/authorize',
-                    'token_endpoint' => fake()->url() . '/oauth/token',
-                    'user_endpoint' => fake()->url() . '/api/user',
-                    'scopes' => ['read', 'profile'],
-                ];
-
-            case 'ldap':
-                return [
-                    'host' => fake()->domainName(),
-                    'port' => 389,
-                    'base_dn' => 'dc=example,dc=com',
-                    'bind_dn' => 'cn=admin,dc=example,dc=com',
-                    'bind_password' => 'secret',
-                    'user_filter' => '(uid={username})',
-                    'attributes' => [
-                        'name' => 'cn',
-                        'email' => 'mail',
-                        'groups' => 'memberOf',
-                    ],
-                ];
-
-            default:
-                return [];
-        }
-    }
-
-    /**
-     * Create SAML2 configuration.
-     */
-    public function saml2(): static
+    public function forApplication(\App\Models\Application $application): static
     {
         return $this->state(fn (array $attributes) => [
-            'provider' => 'saml2',
-            'configuration' => $this->getConfigurationForProvider('saml2'),
+            'application_id' => $application->id,
         ]);
     }
 
     /**
-     * Create OIDC configuration.
+     * Create configuration with specific session lifetime.
      */
-    public function oidc(): static
+    public function withSessionLifetime(int $seconds): static
     {
         return $this->state(fn (array $attributes) => [
-            'provider' => 'oidc',
-            'configuration' => $this->getConfigurationForProvider('oidc'),
+            'session_lifetime' => $seconds,
         ]);
     }
 
     /**
-     * Create OAuth2 configuration.
+     * Create configuration with specific allowed domains.
      */
-    public function oauth2(): static
+    public function withAllowedDomains(array $domains): static
     {
         return $this->state(fn (array $attributes) => [
-            'provider' => 'oauth2',
-            'configuration' => $this->getConfigurationForProvider('oauth2'),
+            'allowed_domains' => $domains,
         ]);
     }
 
     /**
-     * Create LDAP configuration.
+     * Create configuration with auto-redirect enabled.
      */
-    public function ldap(): static
+    public function withAutoRedirect(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'provider' => 'ldap',
-            'configuration' => $this->getConfigurationForProvider('ldap'),
-        ]);
+        return $this->state(function (array $attributes) {
+            $settings = $attributes['settings'] ?? [];
+            $settings['auto_redirect'] = true;
+            
+            return ['settings' => $settings];
+        });
     }
 
     /**
@@ -146,12 +91,72 @@ class SSOConfigurationFactory extends Factory
     }
 
     /**
-     * Create configuration for specific organization.
+     * Create configuration for organization.
      */
-    public function forOrganization(Organization $organization): static
+    public function forOrganization(\App\Models\Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
-            'organization_id' => $organization->id,
-        ]);
+        return $this->state(function (array $attributes) use ($organization) {
+            // Create an application for this organization if not already set
+            $application = \App\Models\Application::factory()->forOrganization($organization)->create();
+            
+            return [
+                'application_id' => $application->id,
+            ];
+        });
+    }
+
+    /**
+     * Create OIDC configuration.
+     */
+    public function oidc(): static
+    {
+        return $this->state(function (array $attributes) {
+            $settings = $attributes['settings'] ?? [];
+            $settings['provider_type'] = 'oidc';
+            $settings['authorization_endpoint'] = fake()->url() . '/oauth/authorize';
+            $settings['token_endpoint'] = fake()->url() . '/oauth/token';
+            $settings['userinfo_endpoint'] = fake()->url() . '/oauth/userinfo';
+            $settings['jwks_endpoint'] = fake()->url() . '/oauth/jwks';
+            
+            $configuration = [
+                'authorization_endpoint' => $settings['authorization_endpoint'],
+                'token_endpoint' => $settings['token_endpoint'],
+                'userinfo_endpoint' => $settings['userinfo_endpoint'],
+                'jwks_endpoint' => $settings['jwks_endpoint'],
+                'client_id' => 'test-client-' . fake()->uuid(),
+                'client_secret' => 'test-secret-' . Str::random(32),
+            ];
+            
+            return [
+                'settings' => $settings,
+                'configuration' => $configuration,
+            ];
+        });
+    }
+
+    /**
+     * Create SAML 2.0 configuration.
+     */
+    public function saml2(): static
+    {
+        return $this->state(function (array $attributes) {
+            $settings = $attributes['settings'] ?? [];
+            $settings['provider_type'] = 'saml2';
+            $settings['saml_sso_url'] = fake()->url() . '/saml/sso';
+            $settings['saml_sls_url'] = fake()->url() . '/saml/sls';
+            $settings['saml_entity_id'] = fake()->url() . '/saml/metadata';
+            $settings['x509_cert'] = 'test-certificate-content';
+            $settings['name_id_format'] = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
+            
+            return [
+                'settings' => $settings,
+                'configuration' => [
+                    'sso_url' => fake()->url() . '/saml/sso',
+                    'sls_url' => fake()->url() . '/saml/sls',
+                    'entity_id' => fake()->url() . '/saml/metadata',
+                    'x509_cert' => 'test-certificate-content',
+                ]
+            ];
+        });
     }
 }

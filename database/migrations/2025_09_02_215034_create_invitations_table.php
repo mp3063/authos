@@ -14,14 +14,19 @@ return new class extends Migration
         Schema::create('invitations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained()->onDelete('cascade');
+            $table->foreignId('inviter_id')->constrained('users')->onDelete('cascade');
             $table->string('email');
-            $table->string('role')->default('user');
             $table->string('token')->unique();
-            $table->foreignId('invited_by')->constrained('users')->onDelete('cascade');
+            $table->string('role')->default('user');
             $table->timestamp('expires_at');
-            $table->timestamp('accepted_at')->nullable();
-            $table->foreignId('accepted_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->enum('status', ['pending', 'accepted', 'declined', 'cancelled', 'expired'])->default('pending');
             $table->json('metadata')->nullable();
+            $table->foreignId('accepted_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('accepted_at')->nullable();
+            $table->timestamp('declined_at')->nullable();
+            $table->text('decline_reason')->nullable();
+            $table->foreignId('cancelled_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('cancelled_at')->nullable();
             $table->timestamps();
 
             $table->index(['organization_id', 'email']);

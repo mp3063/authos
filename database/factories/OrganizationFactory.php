@@ -22,9 +22,6 @@ class OrganizationFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name) . '-' . fake()->unique()->numberBetween(1000, 9999),
-            'description' => fake()->optional()->paragraph(),
-            'website' => fake()->optional()->url(),
-            'logo' => fake()->optional()->imageUrl(300, 300, 'business'),
             'is_active' => true,
             'settings' => [
                 'require_mfa' => fake()->boolean(30),

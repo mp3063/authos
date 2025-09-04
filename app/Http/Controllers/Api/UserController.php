@@ -92,7 +92,7 @@ class UserController extends Controller
         $users = $query->paginate($params['per_page']);
 
         return response()->json([
-            'data' => $users->items()->map(function ($user) {
+            'data' => $users->getCollection()->map(function ($user) {
                 return $this->formatUserResponse($user);
             }),
             'meta' => [

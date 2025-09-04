@@ -60,7 +60,10 @@ class OrganizationSeeder extends Seeder
         ];
 
         foreach ($organizations as $org) {
-            Organization::create($org);
+            Organization::firstOrCreate(
+                ['slug' => $org['slug']],
+                $org
+            );
         }
     }
 }

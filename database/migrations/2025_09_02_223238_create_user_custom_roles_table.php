@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('custom_role_id')->constrained()->onDelete('cascade');
-            $table->timestamp('granted_at');
-            $table->foreignId('granted_by')->constrained('users')->onDelete('cascade');
+            $table->timestamp('granted_at')->nullable();
+            $table->foreignId('granted_by')->nullable()->constrained('users')->onDelete('cascade');
             $table->timestamps();
 
             // Unique constraint to prevent duplicate role assignments

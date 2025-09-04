@@ -23,7 +23,7 @@ class OAuthController extends Controller
      * OAuth 2.0 Authorization endpoint
      * GET /oauth/authorize
      */
-    public function authorize(Request $request): JsonResponse
+    public function oauthAuthorize(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'response_type' => 'required|string|in:code,token',

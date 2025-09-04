@@ -16,18 +16,18 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->text('description')->nullable();
-            $table->foreignId('parent_application_id')->constrained('applications')->onDelete('cascade');
-            $table->json('child_application_ids')->nullable(); // Array of application IDs
-            $table->boolean('cascade_permissions')->default(true);
+            $table->foreignId('parent_id')->nullable()->constrained('application_groups')->onDelete('cascade');
+            $table->boolean('is_active')->default(true);
             $table->json('settings')->nullable(); // Additional configuration
             $table->timestamps();
 
             // Indexes for better performance
-            $table->index(['organization_id', 'parent_application_id']);
-            $table->index('parent_application_id');
+            $table->index(['organization_id', 'parent_id']);
+            $table->index('parent_id');
+            $table->index(['organization_id', 'is_active']);
             
             // Unique constraint to prevent duplicate groups per organization
-            $table->unique(['organization_id', 'parent_application_id', 'name']);
+            $table->unique(['organization_id', 'name']);
         });
     }
 

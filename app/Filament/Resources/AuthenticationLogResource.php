@@ -26,7 +26,7 @@ class AuthenticationLogResource extends Resource
 {
     protected static ?string $model = AuthenticationLog::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = null;
 
     protected static string|UnitEnum|null $navigationGroup = 'Security & Monitoring';
 
@@ -98,9 +98,9 @@ class AuthenticationLogResource extends Resource
             ->join("\n") : null)->toggleable(),
         ])->filters([
           SelectFilter::make('event')->options([
-            'login' => 'Login',
+            'login_success' => 'Login',
             'logout' => 'Logout',
-            'failed_login' => 'Failed Login',
+            'login_failed' => 'Failed Login',
             'token_refresh' => 'Token Refresh',
             'mfa_challenge' => 'MFA Challenge',
             'mfa_success' => 'MFA Success',
@@ -133,7 +133,7 @@ class AuthenticationLogResource extends Resource
           }),
 
           Filter::make('failed_attempts')
-            ->query(fn(Builder $query): Builder => $query->whereIn('event', ['failed_login', 'failed_mfa']))
+            ->query(fn(Builder $query): Builder => $query->whereIn('event', ['login_failed', 'failed_mfa']))
             ->label('Failed Attempts'),
 
           Filter::make('suspicious')
@@ -190,7 +190,7 @@ class AuthenticationLogResource extends Resource
     {
         $suspiciousCount = static::getModel()::where('event', 'suspicious_activity')->where('created_at', '>=', today())->count();
 
-        $failedCount = static::getModel()::whereIn('event', ['failed_login', 'failed_mfa'])->where('created_at', '>=', today())->count();
+        $failedCount = static::getModel()::whereIn('event', ['login_failed', 'failed_mfa'])->where('created_at', '>=', today())->count();
 
         if ($suspiciousCount > 0) {
             return 'danger';

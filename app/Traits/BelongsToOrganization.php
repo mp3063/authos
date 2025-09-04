@@ -14,17 +14,18 @@ trait BelongsToOrganization
      */
     protected static function bootBelongsToOrganization(): void
     {
-        // Apply global scope to filter by organization for non-super-admin users
-        static::addGlobalScope('organization', function (Builder $builder) {
-            if (Auth::check() && !Auth::user()->hasRole('super-admin')) {
-                $builder->where('organization_id', Auth::user()->organization_id);
-            }
-        });
-
+        // REMOVED: Global scope that caused infinite loop with Auth::user()
+        // The global scope was calling Auth::user() which loads User model
+        // which triggers the global scope again, causing memory exhaustion
+        
         // Automatically set organization_id when creating new records
         static::creating(function ($model) {
             if (Auth::check() && !isset($model->organization_id)) {
-                $model->organization_id = Auth::user()->organization_id;
+                // Safe to use Auth::user() here as it's only during model creation
+                $user = Auth::user();
+                if ($user && $user->organization_id) {
+                    $model->organization_id = $user->organization_id;
+                }
             }
         });
     }

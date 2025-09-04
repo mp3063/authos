@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SSOConfiguration extends Model
@@ -19,18 +20,25 @@ class SSOConfiguration extends Model
         'allowed_domains',
         'session_lifetime',
         'settings',
+        'configuration',
         'is_active',
     ];
 
     protected $casts = [
         'allowed_domains' => 'array',
         'settings' => 'array',
+        'configuration' => 'array',
         'is_active' => 'boolean',
     ];
 
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    public function getOrganizationAttribute()
+    {
+        return $this->application?->organization;
     }
 
     public function isAllowedDomain(string $domain): bool

@@ -33,6 +33,7 @@ class CustomRoleFactory extends Factory
                 'reports.view', 'reports.generate', 'settings.view', 'settings.edit'
             ], fake()->numberBetween(3, 8)),
             'is_active' => true,
+            'is_system' => false,
             'is_default' => false,
         ];
     }
@@ -58,6 +59,17 @@ class CustomRoleFactory extends Factory
     }
 
     /**
+     * Create role with specific creator.
+     */
+    public function createdBy(\App\Models\User $user): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'created_by' => $user->id,
+            'organization_id' => $user->organization_id,
+        ]);
+    }
+
+    /**
      * Create role with specific permissions.
      */
     public function withPermissions(array $permissions): static
@@ -68,14 +80,14 @@ class CustomRoleFactory extends Factory
     }
 
     /**
-     * Create default role for organization.
+     * Create system role for organization.
      */
-    public function default(): static
+    public function system(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_default' => true,
-            'name' => 'Default User',
-            'display_name' => 'Default User',
+            'is_system' => true,
+            'name' => 'System Role',
+            'display_name' => 'System Role',
             'permissions' => ['users.view', 'profile.edit'],
         ]);
     }
@@ -108,6 +120,16 @@ class CustomRoleFactory extends Factory
             'name' => 'Read Only',
             'display_name' => 'Read Only User',
             'permissions' => ['users.view', 'applications.view', 'reports.view'],
+        ]);
+    }
+
+    /**
+     * Create a default role.
+     */
+    public function default(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_default' => true,
         ]);
     }
 }

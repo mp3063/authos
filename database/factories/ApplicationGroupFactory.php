@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Organization;
+use App\Models\ApplicationGroup;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +19,7 @@ class ApplicationGroupFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->words(2, true) . ' Group',
+            'name' => fake()->unique()->words(2, true) . ' Group ' . fake()->numberBetween(1000, 9999),
             'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
             'parent_id' => null,
@@ -32,7 +33,7 @@ class ApplicationGroupFactory extends Factory
     }
 
     /**
-     * Indicate that the group is inactive.
+     * Create an inactive group.
      */
     public function inactive(): static
     {
@@ -52,9 +53,9 @@ class ApplicationGroupFactory extends Factory
     }
 
     /**
-     * Create child group.
+     * Create a child group of the specified parent.
      */
-    public function childOf(\App\Models\ApplicationGroup $parent): static
+    public function childOf(ApplicationGroup $parent): static
     {
         return $this->state(fn (array $attributes) => [
             'parent_id' => $parent->id,

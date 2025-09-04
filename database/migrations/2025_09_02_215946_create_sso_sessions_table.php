@@ -22,6 +22,8 @@ return new class extends Migration
             $table->text('user_agent');
             $table->timestamp('expires_at');
             $table->timestamp('last_activity_at');
+            $table->timestamp('logged_out_at')->nullable();
+            $table->foreignId('logged_out_by')->nullable()->constrained('users')->onDelete('set null');
             $table->json('metadata')->nullable();
             $table->timestamps();
 

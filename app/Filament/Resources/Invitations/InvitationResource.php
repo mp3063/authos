@@ -11,7 +11,6 @@ use App\Models\Invitation;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use UnitEnum;
 
@@ -19,7 +18,7 @@ class InvitationResource extends Resource
 {
     protected static ?string $model = Invitation::class;
 
-    protected static BackedEnum|string|null $navigationIcon = 'heroicon-o-envelope';
+    protected static string|BackedEnum|null $navigationIcon = null;
 
     protected static string|UnitEnum|null $navigationGroup = 'User Management';
 
@@ -49,9 +48,9 @@ class InvitationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListInvitations::route('/'),
-            'create' => CreateInvitation::route('/create'),
-            'edit' => EditInvitation::route('/{record}/edit'),
+          'index' => ListInvitations::route('/'),
+          'create' => CreateInvitation::route('/create'),
+          'edit' => EditInvitation::route('/{record}/edit'),
         ];
     }
 

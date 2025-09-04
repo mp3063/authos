@@ -39,7 +39,7 @@ class OrganizationOverviewWidget extends BaseWidget
             $activeUsers = User::whereHas('applications', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
             })->whereHas('authenticationLogs', function ($query) {
-                $query->where('event', 'login')
+                $query->where('event', 'login_success')
                     ->where('created_at', '>=', now()->subDays(30));
             })->count();
 
@@ -57,14 +57,14 @@ class OrganizationOverviewWidget extends BaseWidget
             // Get today's activities
             $todayLogins = AuthenticationLog::whereHas('application', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
-            })->where('event', 'login')
+            })->where('event', 'login_success')
                 ->whereDate('created_at', today())
                 ->count();
 
             // Get failed login attempts today
             $todayFailedLogins = AuthenticationLog::whereHas('application', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
-            })->whereIn('event', ['failed_login', 'failed_mfa'])
+            })->whereIn('event', ['login_failed', 'failed_mfa'])
                 ->whereDate('created_at', today())
                 ->count();
 
@@ -81,7 +81,7 @@ class OrganizationOverviewWidget extends BaseWidget
                 $date = now()->subDays($i);
                 $count = AuthenticationLog::whereHas('application', function ($query) use ($organizationId) {
                     $query->where('organization_id', $organizationId);
-                })->where('event', 'login')
+                })->where('event', 'login_success')
                     ->whereDate('created_at', $date)
                     ->count();
                 $loginTrend[] = $count;

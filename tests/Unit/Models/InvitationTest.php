@@ -67,7 +67,7 @@ class InvitationTest extends TestCase
             ->expiresIn(7)
             ->create();
 
-        $expiredInvitations = Invitation::isExpired()->get();
+        $expiredInvitations = Invitation::expired()->get();
 
         $this->assertCount(1, $expiredInvitations);
         $this->assertEquals($expiredInvitation->id, $expiredInvitations->first()->id);
@@ -84,7 +84,7 @@ class InvitationTest extends TestCase
             ->accepted()
             ->create();
 
-        $pendingInvitations = Invitation::isPending()->get();
+        $pendingInvitations = Invitation::pending()->get();
 
         $this->assertCount(1, $pendingInvitations);
         $this->assertEquals($pendingInvitation->id, $pendingInvitations->first()->id);

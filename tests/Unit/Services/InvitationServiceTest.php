@@ -10,6 +10,7 @@ use App\Mail\OrganizationInvitation;
 use App\Mail\InvitationAccepted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -39,6 +40,7 @@ class InvitationServiceTest extends TestCase
         $this->inviter->assignRole('organization admin');
         
         Mail::fake();
+        Queue::fake();
     }
 
     public function test_send_invitation_creates_invitation_and_sends_email(): void
@@ -62,7 +64,7 @@ class InvitationServiceTest extends TestCase
         $this->assertNotNull($invitation->token);
         $this->assertNotNull($invitation->expires_at);
 
-        Mail::assertSent(OrganizationInvitation::class, function ($mail) use ($email) {
+        Mail::assertQueued(OrganizationInvitation::class, function ($mail) use ($email) {
             return $mail->hasTo($email);
         });
     }
@@ -143,7 +145,7 @@ class InvitationServiceTest extends TestCase
         $this->assertEquals($user->id, $invitation->accepted_by);
         $this->assertNotNull($invitation->accepted_at);
 
-        Mail::assertSent(InvitationAccepted::class);
+        Mail::assertQueued(InvitationAccepted::class);
     }
 
     public function test_accept_invitation_throws_exception_for_invalid_token(): void
@@ -220,7 +222,7 @@ class InvitationServiceTest extends TestCase
             ]);
         }
 
-        Mail::assertSent(OrganizationInvitation::class, 3);
+        Mail::assertQueued(OrganizationInvitation::class, 3);
     }
 
     public function test_bulk_invite_handles_mixed_success_and_failure(): void
@@ -245,7 +247,7 @@ class InvitationServiceTest extends TestCase
         
         $failedInvitation = $results['failed'][0];
         $this->assertEquals($existingUser->email, $failedInvitation['email']);
-        $this->assertStringContains('already a member', $failedInvitation['error']);
+        $this->assertStringContainsString('already a member', $failedInvitation['error']);
     }
 
     public function test_bulk_invite_enforces_maximum_batch_size(): void
@@ -299,7 +301,7 @@ class InvitationServiceTest extends TestCase
             ->forOrganization($this->organization)
             ->create(['status' => 'pending']);
 
-        $result = $this->invitationService->cancelInvitation($invitation->id, $this->inviter->id);
+        $result = $this->invitationService->cancelInvitation($invitation->id, $this->inviter);
 
         $this->assertTrue($result);
         
@@ -319,7 +321,7 @@ class InvitationServiceTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('Not authorized to cancel this invitation');
 
-        $this->invitationService->cancelInvitation($invitation->id, $unauthorizedUser->id);
+        $this->invitationService->cancelInvitation($invitation->id, $unauthorizedUser);
     }
 
     public function test_resend_invitation_creates_new_invitation_and_sends_email(): void
@@ -331,13 +333,16 @@ class InvitationServiceTest extends TestCase
         $originalToken = $invitation->token;
         $originalExpiresAt = $invitation->expires_at;
 
-        $newInvitation = $this->invitationService->resendInvitation($invitation->id, $this->inviter->id);
+        // Wait a moment to ensure time difference
+        sleep(1);
+
+        $newInvitation = $this->invitationService->resendInvitation($invitation->id, $this->inviter);
 
         $this->assertNotEquals($originalToken, $newInvitation->token);
-        $this->assertNotEquals($originalExpiresAt, $newInvitation->expires_at);
+        $this->assertGreaterThan($originalExpiresAt, $newInvitation->expires_at);
         $this->assertEquals('pending', $newInvitation->status);
 
-        Mail::assertSent(OrganizationInvitation::class, function ($mail) use ($invitation) {
+        Mail::assertQueued(OrganizationInvitation::class, function ($mail) use ($invitation) {
             return $mail->hasTo($invitation->email);
         });
     }

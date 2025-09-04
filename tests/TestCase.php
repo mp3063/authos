@@ -18,24 +18,118 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         
-        // Install Passport for API testing
-        if (!$this->app->runningInConsole()) {
-            Artisan::call('passport:keys', ['--force' => true]);
-            Artisan::call('passport:install', ['--force' => true]);
-        }
+        // Set up Passport for testing
+        $this->setupPassport();
     }
 
-    protected function createUser(array $attributes = [], string $role = 'user'): User
+    /**
+     * Set up Passport OAuth for testing
+     */
+    protected function setupPassport(): void
     {
-        $organization = Organization::factory()->create();
+        // Use proper Passport setup for v13.x testing
+        if (file_exists(storage_path('oauth-keys'))) {
+            Passport::loadKeysFrom(storage_path('oauth-keys'));
+        }
         
-        $user = User::factory()->create(array_merge([
-            'organization_id' => $organization->id,
-        ], $attributes));
+        // Create personal access client if it doesn't exist
+        Artisan::call('passport:client', [
+            '--personal' => true,
+            '--no-interaction' => true,
+            '--name' => 'Test Personal Access Client'
+        ]);
+    }
+
+    protected function createUser(array $attributes = [], string $role = 'user', string $guard = 'web'): User
+    {
+        // Only create organization if not provided in attributes
+        if (!isset($attributes['organization_id'])) {
+            $organization = Organization::factory()->create();
+            $attributes['organization_id'] = $organization->id;
+        } else {
+            $organization = Organization::find($attributes['organization_id']);
+        }
+        
+        $user = User::factory()->create($attributes);
 
         if ($role) {
-            $roleModel = Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+            // For testing, create a global role with the required permissions
+            $this->seedRolesAndPermissions(); // Ensure permissions exist
+            
+            // CRITICAL FIX: Set the team context BEFORE role operations
+            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
+            
+            $roleModel = Role::firstOrCreate([
+                'name' => $role, 
+                'guard_name' => $guard,
+                'organization_id' => $user->organization_id  // CRITICAL: Include organization_id for team context
+            ]);
+            
+            // Create permissions with the same organization context if they don't exist
+            $permissions = [];
+            if ($role === 'Organization Owner') {
+                $permissions = [
+                    'users.create', 'users.read', 'users.update', 'users.delete',
+                    'applications.create', 'applications.read', 'applications.update', 'applications.delete',
+                    'applications.regenerate_credentials',
+                    'organizations.read', 'organizations.update',
+                    'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
+                    'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
+                    'auth_logs.read', 'auth_logs.export',
+                ];
+            } elseif ($role === 'Organization Admin') {
+                $permissions = [
+                    'users.create', 'users.read', 'users.update',
+                    'applications.create', 'applications.read', 'applications.update',
+                    'organizations.read',
+                    'roles.read', 'roles.assign',
+                    'permissions.read',
+                    'auth_logs.read',
+                ];
+            }
+            
+            // Create permissions with organization context
+            foreach ($permissions as $permissionName) {
+                $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
+                    'name' => $permissionName,
+                    'guard_name' => $guard,
+                    'organization_id' => $user->organization_id
+                ]);
+            }
+            
+            // Sync permissions to role
+            if (!empty($permissions)) {
+                $permissionModels = \Spatie\Permission\Models\Permission::whereIn('name', $permissions)
+                    ->where('guard_name', $guard)
+                    ->where('organization_id', $user->organization_id)
+                    ->get();
+                $roleModel->syncPermissions($permissionModels);
+            }
+            
+            // Debug role assignment
+            if (app()->environment('testing')) {
+                dump("Role found: {$roleModel->name} (guard: {$roleModel->guard_name}, org_id: {$roleModel->organization_id}, permissions: " . $roleModel->permissions->count() . ")");
+                dump("Assigning role to user: {$user->email} (org_id: {$user->organization_id})");
+            }
+            
+            // CRITICAL FIX: Set team context on user before role assignment
+            $user->setPermissionsTeamId($user->organization_id);
+            
+            // Assign role with proper team context
             $user->assignRole($roleModel);
+            
+            // Additional debug after assignment
+            if (app()->environment('testing')) {
+                $assignedRoles = $user->getRoleNames($guard);
+                $assignedPermissions = $user->getAllPermissions($guard)->pluck('name');
+                dump("Role assignment result: {$assignedRoles->count()} roles, {$assignedPermissions->count()} permissions");
+                dump("User roles ({$guard}): {$assignedRoles}");
+                dump("User permissions ({$guard}): {$assignedPermissions}");
+            }
+            
+            // Refresh the user model to ensure the role is properly loaded
+            $user->refresh();
+            $user->load('roles', 'permissions');
         }
 
         return $user;
@@ -48,12 +142,27 @@ abstract class TestCase extends BaseTestCase
 
     protected function createSuperAdmin(array $attributes = []): User
     {
-        return $this->createUser($attributes, 'super admin');
+        return $this->createUser($attributes, 'Super Admin');
     }
 
     protected function createOrganizationAdmin(array $attributes = []): User
     {
-        return $this->createUser($attributes, 'organization admin');
+        return $this->createUser($attributes, 'Organization Admin');
+    }
+
+    protected function createApiSuperAdmin(array $attributes = []): User
+    {
+        return $this->createUser($attributes, 'Super Admin', 'api');
+    }
+
+    protected function createApiOrganizationAdmin(array $attributes = []): User
+    {
+        return $this->createUser($attributes, 'Organization Admin', 'api');
+    }
+
+    protected function createApiUser(array $attributes = []): User
+    {
+        return $this->createUser($attributes, 'user', 'api');
     }
 
     protected function actingAsUser(User $user = null): User

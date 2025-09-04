@@ -5,6 +5,10 @@ Hello,
 
 **{{ $inviterName }}** has invited you to join **{{ $organizationName }}** as a **{{ ucfirst($role) }}**.
 
+@if($customMessage)
+{{ $customMessage }}
+@endif
+
 <x-mail::button :url="$acceptUrl">
 Accept Invitation
 </x-mail::button>

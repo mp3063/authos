@@ -24,11 +24,11 @@ class LoginActivityChart extends ChartWidget
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('M j');
 
-            $logins = AuthenticationLog::where('event', 'login')
+            $logins = AuthenticationLog::where('event', 'login_success')
               ->whereDate('created_at', $date)
               ->count();
 
-            $failures = AuthenticationLog::whereIn('event', ['failed_login', 'failed_mfa'])
+            $failures = AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])
               ->whereDate('created_at', $date)
               ->count();
 
