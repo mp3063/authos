@@ -51,23 +51,7 @@ class ApplicationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-          Section::make('Application Details')->schema([
-            Select::make('organization_id')
-              ->label('Organization')
-              ->relationship('organization', 'name')
-              ->searchable()
-              ->preload()
-              ->required()
-              ->createOptionForm([
-                TextInput::make('name')->required(),
-                TextInput::make('slug')->required(),
-              ]),
-
-            TextInput::make('name')->required()->maxLength(255)->helperText('Display name for this application'),
-
-            Toggle::make('is_active')->default(true)->helperText('Inactive applications cannot authenticate users'),
-          ])->columns(2),
-
+          // Row 1: OAuth Configuration - Full Width
           Section::make('OAuth Configuration')->schema([
             TextInput::make('client_id')
               ->label('Client ID')
@@ -107,7 +91,25 @@ class ApplicationResource extends Resource
               ->required()
               ->columns(2)
               ->helperText('OAuth 2.0 grant types allowed for this application'),
-          ])->columns(2),
+          ])->columnSpanFull(), // Force full width
+
+          // Row 2: Application Details (left) and Webhook & Settings (right)
+          Section::make('Application Details')->schema([
+            Select::make('organization_id')
+              ->label('Organization')
+              ->relationship('organization', 'name')
+              ->searchable()
+              ->preload()
+              ->required()
+              ->createOptionForm([
+                TextInput::make('name')->required(),
+                TextInput::make('slug')->required(),
+              ]),
+
+            TextInput::make('name')->required()->maxLength(255)->helperText('Display name for this application'),
+
+            Toggle::make('is_active')->default(true)->helperText('Inactive applications cannot authenticate users'),
+          ])->columnSpan(1),
 
           Section::make('Webhook & Settings')->schema([
             TextInput::make('webhook_url')
@@ -122,8 +124,8 @@ class ApplicationResource extends Resource
               'require_pkce' => true,
               'allowed_scopes' => ['openid', 'profile', 'email'],
             ])->helperText('Application-specific OAuth and security settings'),
-          ]),
-        ]);
+          ])->columnSpan(1),
+        ])->columns(2);
     }
 
     public static function table(Table $table): Table
