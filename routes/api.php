@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\SSOController;
 use App\Http\Controllers\Api\BulkOperationsController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\OrganizationReportController;
+use App\Http\Controllers\Api\SocialAuthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -59,6 +60,18 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/register', [AuthController::class, 'register'])->middleware('api.rate_limit:registration');
         Route::post('/login', [AuthController::class, 'login'])->middleware('api.rate_limit:authentication');
         Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('api.rate_limit:authentication');
+        
+        // Social Authentication routes
+        Route::prefix('social')->middleware('api.rate_limit:authentication')->group(function () {
+            Route::get('/providers', [SocialAuthController::class, 'providers']);
+            Route::get('/{provider}', [SocialAuthController::class, 'redirect'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+            Route::get('/{provider}/callback', [SocialAuthController::class, 'callback'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+            
+            // Protected social auth routes
+            Route::middleware('auth:api')->group(function () {
+                Route::delete('/unlink', [SocialAuthController::class, 'unlink']);
+            });
+        });
         
         // Protected authentication routes
         Route::middleware('auth:api')->group(function () {

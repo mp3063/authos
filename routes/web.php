@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\SocialAuthController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -32,3 +33,9 @@ Route::get('/test-db', function () {
 // Route::get('/admin', function () {
 //     return response('<h1>Laravel is working! Admin route accessible.</h1><p>Timestamp: ' . now() . '</p><p>Users in database: ' . \App\Models\User::count() . '</p>');
 // });
+
+// Social Authentication routes for web (Filament admin panel)
+Route::prefix('auth/social')->group(function () {
+    Route::get('/{provider}', [SocialAuthController::class, 'webLogin'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+    Route::get('/{provider}/callback', [SocialAuthController::class, 'webCallback'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+});
