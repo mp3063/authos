@@ -223,17 +223,20 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     Route::prefix('sso')->middleware(['api.rate_limit:oauth'])->group(function () {
         // Authenticated SSO endpoints
         Route::middleware('auth:api')->group(function () {
-            Route::post('/initiate', [SSOController::class, 'initiate']);
-            Route::get('/sessions', [SSOController::class, 'sessions']);
-            Route::post('/sessions/revoke', [SSOController::class, 'revokeSessions']);
+            Route::post('/initiate', [\App\Http\Controllers\Api\SSOController::class, 'initiate'])->middleware('scopes:sso');
+            Route::get('/sessions', [\App\Http\Controllers\Api\SSOController::class, 'sessions'])->middleware('scopes:sso');
+            Route::post('/sessions/revoke', [\App\Http\Controllers\Api\SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
         });
         
         // Public SSO endpoints (for client applications)
-        Route::post('/callback', [SSOController::class, 'callback']);
-        Route::post('/validate', [SSOController::class, 'validateSession']);
-        Route::post('/refresh', [SSOController::class, 'refresh']);
-        Route::post('/logout', [SSOController::class, 'logout']);
-        Route::get('/configuration/{applicationId}', [SSOController::class, 'configuration']);
+        Route::post('/callback', [\App\Http\Controllers\Api\SSOController::class, 'callback']);
+        Route::post('/saml/callback', [\App\Http\Controllers\Api\SSOController::class, 'samlCallback']);
+        Route::post('/validate', [\App\Http\Controllers\Api\SSOController::class, 'validateSession']);
+        Route::post('/refresh', [\App\Http\Controllers\Api\SSOController::class, 'refresh']);
+        Route::post('/logout', [\App\Http\Controllers\Api\SSOController::class, 'logout']);
+        Route::get('/configuration/{applicationId}', [\App\Http\Controllers\Api\SSOController::class, 'configuration']);
+        Route::get('/metadata/{organizationSlug}', [\App\Http\Controllers\Api\SSOController::class, 'metadata']);
+        Route::post('/cleanup', [\App\Http\Controllers\Api\SSOController::class, 'cleanup']);
     });
 
     // API Monitoring and Cache Management (Admin only)

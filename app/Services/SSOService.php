@@ -706,6 +706,90 @@ class SSOService
         ]);
     }
 
+    /**
+     * Process SAML callback
+     */
+    public function processSamlCallback(string $samlResponse, ?string $relayState = null): array
+    {
+        // Use existing SAML validation method
+        $validationResult = $this->validateSAMLResponse($samlResponse, $relayState ?? 'default-request');
+        
+        // Create or find user based on SAML response
+        $userInfo = $validationResult['user_info'];
+        $user = User::where('email', $userInfo['email'])->first();
+        
+        if (!$user) {
+            // In production, you might want to create the user or throw an exception
+            throw new Exception('User not found: ' . $userInfo['email']);
+        }
+        
+        // Find or create application
+        $application = Application::find($validationResult['application_id']);
+        if (!$application) {
+            throw new Exception('Application not found');
+        }
+        
+        // Create SSO session
+        $session = $this->createOrUpdateSession($user, $application, request()->ip() ?? '127.0.0.1', request()->userAgent() ?? 'SAML Client');
+        
+        // Generate tokens for the response
+        $tokens = [
+            'access_token' => $session->session_token,
+            'token_type' => 'Bearer',
+            'expires_in' => $session->expires_at->timestamp - now()->timestamp
+        ];
+        
+        return [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email
+            ],
+            'session' => [
+                'id' => $session->id,
+                'expires_at' => $session->expires_at->toISOString()
+            ],
+            'tokens' => $tokens
+        ];
+    }
+    
+    /**
+     * Get organization metadata for SSO
+     */
+    public function getOrganizationMetadata(string $organizationSlug): array
+    {
+        $organization = \App\Models\Organization::where('slug', $organizationSlug)->first();
+        
+        if (!$organization) {
+            throw new Exception('Organization not found');
+        }
+        
+        // Get SSO configuration for this organization
+        $ssoConfiguration = $this->getSSOConfiguration($organization->id);
+        
+        if (!$ssoConfiguration) {
+            throw new Exception('No active SSO configuration found for this organization');
+        }
+        
+        return [
+            'organization' => $organization,
+            'sso_configuration' => [
+                'type' => $ssoConfiguration->type ?? 'oidc',
+                'callback_url' => $ssoConfiguration->callback_url,
+                'logout_url' => $ssoConfiguration->logout_url,
+                'allowed_domains' => $ssoConfiguration->allowed_domains,
+                'session_lifetime' => $ssoConfiguration->session_lifetime,
+                'is_active' => $ssoConfiguration->is_active
+            ],
+            'endpoints' => [
+                'initiate' => url("/api/v1/sso/initiate"),
+                'callback' => url("/api/v1/sso/callback"),
+                'metadata' => url("/api/v1/sso/metadata/{$organizationSlug}"),
+                'logout' => url("/api/v1/sso/logout")
+            ]
+        ];
+    }
+
     private function parseSAMLAssertion(string $samlResponse): ?array
     {
         // Simplified SAML parsing - in production this would use proper SAML libraries

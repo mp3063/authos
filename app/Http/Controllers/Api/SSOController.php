@@ -25,25 +25,21 @@ class SSOController extends Controller
     {
         $request->validate([
             'application_id' => 'required|integer|exists:applications,id',
+            'sso_configuration_id' => 'required|integer|exists:sso_configurations,id',
             'redirect_uri' => 'required|url',
         ]);
 
         try {
-            $result = $this->ssoService->initiateSSO(
+            $result = $this->ssoService->initiateSSOFlow(
+                $request->user()->id,
                 $request->application_id,
-                $request->redirect_uri,
-                $request->user(),
-                $request->ip(),
-                $request->userAgent()
+                $request->sso_configuration_id
             );
 
             return response()->json([
-                'success' => true,
-                'data' => $result,
-                'redirect_url' => $request->redirect_uri . '?' . http_build_query([
-                    'code' => $result['auth_code'],
-                    'state' => $result['state'],
-                ])
+                'authorization_url' => $result['authorization_url'],
+                'state' => $result['state'],
+                'expires_at' => $result['expires_at']
             ]);
 
         } catch (ValidationException $e) {
@@ -53,10 +49,16 @@ class SSOController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (Exception $e) {
+            // Return 403 for authorization/permission errors, 400 for other errors
+            $statusCode = (
+                str_contains($e->getMessage(), 'does not belong to the same organization') ||
+                str_contains($e->getMessage(), 'Insufficient permissions') ||
+                str_contains($e->getMessage(), 'does not have access')
+            ) ? 403 : 400;
+            
             return response()->json([
-                'success' => false,
                 'message' => $e->getMessage()
-            ], 400);
+            ], $statusCode);
         }
     }
 
@@ -67,20 +69,19 @@ class SSOController extends Controller
     {
         $request->validate([
             'code' => 'required|string',
-            'application_id' => 'required|integer|exists:applications,id',
-            'redirect_uri' => 'sometimes|url',
+            'state' => 'sometimes|string',
         ]);
 
         try {
-            $result = $this->ssoService->validateCallback(
-                $request->code,
-                $request->application_id,
-                $request->redirect_uri
-            );
+            $result = $this->ssoService->handleOIDCCallback([
+                'code' => $request->code,
+                'state' => $request->state ?? 'default-state'
+            ]);
 
             return response()->json([
-                'success' => true,
-                'data' => $result
+                'success' => $result['success'],
+                'user' => $result['user'],
+                'session' => $result['session']
             ]);
 
         } catch (Exception $e) {
@@ -271,6 +272,82 @@ class SSOController extends Controller
                 'success' => false,
                 'message' => $e->getMessage()
             ], 400);
+        }
+    }
+
+    /**
+     * Handle SAML callback
+     */
+    public function samlCallback(Request $request): JsonResponse
+    {
+        $request->validate([
+            'SAMLResponse' => 'required|string',
+            'RelayState' => 'sometimes|string',
+        ]);
+
+        try {
+            $result = $this->ssoService->processSamlCallback(
+                $request->SAMLResponse,
+                $request->RelayState
+            );
+
+            return response()->json([
+                'success' => true,
+                'user' => $result['user'],
+                'session' => $result['session'],
+                'tokens' => $result['tokens']
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Clean up expired SSO sessions
+     */
+    public function cleanup(): JsonResponse
+    {
+        try {
+            $deletedCount = $this->ssoService->cleanupExpiredSessions();
+
+            return response()->json([
+                'message' => 'Cleanup completed successfully',
+                'deleted_sessions_count' => $deletedCount
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cleanup failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get SSO metadata for organization
+     */
+    public function metadata(string $organizationSlug): JsonResponse
+    {
+        try {
+            $metadata = $this->ssoService->getOrganizationMetadata($organizationSlug);
+
+            return response()->json([
+                'organization' => [
+                    'name' => $metadata['organization']->name,
+                    'slug' => $metadata['organization']->slug,
+                    'id' => $metadata['organization']->id
+                ],
+                'sso_configuration' => $metadata['sso_configuration'],
+                'endpoints' => $metadata['endpoints']
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage()
+            ], 404);
         }
     }
 }

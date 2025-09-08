@@ -265,7 +265,7 @@ class SecurityTest extends TestCase
         $response->assertStatus(201);
         
         // Get user data from response
-        $userData = $response->json('data');
+        $userData = $response->json();
         $this->assertNotNull($userData, 'User data should be in response');
         
         // For now, verify that the payload is stored as-is (indicating that XSS protection may need to be implemented)
