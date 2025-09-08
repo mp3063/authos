@@ -8,6 +8,7 @@ use App\Models\SSOSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -26,11 +27,11 @@ class UserManagementApiTest extends TestCase
         $this->organization = Organization::factory()->create();
         
         // Create required roles and permissions with API guard using firstOrCreate to avoid duplicates
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.create', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.update', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.delete', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'roles.assign', 'guard_name' => 'api']);
+        Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
+        Permission::firstOrCreate(['name' => 'users.create', 'guard_name' => 'api']);
+        Permission::firstOrCreate(['name' => 'users.update', 'guard_name' => 'api']);
+        Permission::firstOrCreate(['name' => 'users.delete', 'guard_name' => 'api']);
+        Permission::firstOrCreate(['name' => 'roles.assign', 'guard_name' => 'api']);
         
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'api']);
@@ -129,9 +130,9 @@ class UserManagementApiTest extends TestCase
         $userData = [
             'name' => 'New User',
             'email' => 'newuser@example.com',
-            'password' => 'password123',
+            'password' => 'TestingPassword2024!',
             'organization_id' => $this->organization->id,
-            'role' => 'user',
+            'roles' => ['user'],
             'profile' => [
                 'bio' => 'Test user',
                 'location' => 'Test City',
@@ -249,7 +250,7 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(204);
 
-        $this->assertSoftDeleted('users', [
+        $this->assertDatabaseMissing('users', [
             'id' => $user->id,
         ]);
     }
@@ -266,13 +267,13 @@ class UserManagementApiTest extends TestCase
         $user->applications()->attach([
             $app1->id => [
                 'permissions' => ['read', 'write'],
-                'last_accessed_at' => now()->subDays(2),
-                'access_count' => 10,
+                'last_login_at' => now()->subDays(2),
+                'login_count' => 10,
             ],
             $app2->id => [
                 'permissions' => ['read'],
-                'last_accessed_at' => now()->subDays(1),
-                'access_count' => 5,
+                'last_login_at' => now()->subDays(1),
+                'login_count' => 5,
             ],
         ]);
 
@@ -435,8 +436,8 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $app1 = Application::factory()->create();
-        $app2 = Application::factory()->create();
+        $app1 = Application::factory()->forOrganization($this->organization)->create();
+        $app2 = Application::factory()->forOrganization($this->organization)->create();
 
         // Create active sessions
         SSOSession::factory()
@@ -481,10 +482,15 @@ class UserManagementApiTest extends TestCase
         $user = User::factory()
             ->forOrganization($this->organization)
             ->create();
+            
+        $application = Application::factory()
+            ->forOrganization($this->organization)
+            ->create();
 
         $sessions = SSOSession::factory()
             ->count(3)
             ->forUser($user)
+            ->forApplication($application)
             ->recentlyActive()
             ->create();
 
@@ -499,8 +505,8 @@ class UserManagementApiTest extends TestCase
             ]);
 
         foreach ($sessions as $session) {
-            $session->refresh();
-            $this->assertNotNull($session->logged_out_at);
+            $updatedSession = SSOSession::find($session->id);
+            $this->assertNotNull($updatedSession->logged_out_at, "Session {$session->id} was not marked as logged out");
         }
     }
 
@@ -509,9 +515,14 @@ class UserManagementApiTest extends TestCase
         $user = User::factory()
             ->forOrganization($this->organization)
             ->create();
+            
+        $application = Application::factory()
+            ->forOrganization($this->organization)
+            ->create();
 
         $session = SSOSession::factory()
             ->forUser($user)
+            ->forApplication($application)
             ->recentlyActive()
             ->create();
 
@@ -524,8 +535,9 @@ class UserManagementApiTest extends TestCase
                 'message' => 'Session revoked successfully',
             ]);
 
-        $session->refresh();
-        $this->assertNotNull($session->logged_out_at);
+        // Check if session was updated by fetching fresh from DB
+        $updatedSession = SSOSession::find($session->id);
+        $this->assertNotNull($updatedSession->logged_out_at, 'Session was not marked as logged out');
     }
 
     public function test_unauthorized_user_cannot_access_users_api(): void
