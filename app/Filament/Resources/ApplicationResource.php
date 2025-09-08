@@ -194,7 +194,7 @@ class ApplicationResource extends Resource
               ->modalHeading('Delete Application')
               ->modalDescription('Are you sure you want to delete this application? All associated tokens will be revoked.'),
           ]),
-        ])->bulkActions([
+        ])->toolbarActions([
           BulkActionGroup::make([
             DeleteBulkAction::make()
               ->requiresConfirmation()
@@ -227,13 +227,31 @@ class ApplicationResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = \Filament\Facades\Filament::auth()->user();
+        
+        // Super admins can see all applications
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+        
+        // Other users can only see applications from their organization
+        if ($user->organization_id) {
+            $query->where('organization_id', $user->organization_id);
+        }
+        
+        return $query;
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        return static::getEloquentQuery()->count();
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        return static::getModel()::count() > 20 ? 'warning' : 'primary';
+        return static::getEloquentQuery()->count() > 20 ? 'warning' : 'primary';
     }
 }

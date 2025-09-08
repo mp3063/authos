@@ -238,14 +238,32 @@ class UserResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = \Filament\Facades\Filament::auth()->user();
+        
+        // Super admins can see all users
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+        
+        // Other users can only see users from their organization
+        if ($user->organization_id) {
+            $query->where('organization_id', $user->organization_id);
+        }
+        
+        return $query;
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        return static::getEloquentQuery()->count();
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        $count = static::getModel()::count();
+        $count = static::getEloquentQuery()->count();
 
         return $count > 100 ? 'warning' : ($count > 50 ? 'success' : 'primary');
     }

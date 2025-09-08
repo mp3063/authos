@@ -154,13 +154,31 @@ class OrganizationResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = \Filament\Facades\Filament::auth()->user();
+        
+        // Super admins can see all organizations
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+        
+        // Other users can only see their own organization
+        if ($user->organization_id) {
+            $query->where('id', $user->organization_id);
+        }
+        
+        return $query;
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        return static::getEloquentQuery()->count();
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        return static::getModel()::count() > 10 ? 'warning' : 'primary';
+        return static::getEloquentQuery()->count() > 10 ? 'warning' : 'primary';
     }
 }

@@ -205,6 +205,21 @@ class AuthenticationLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['user', 'application']);
+        $query = parent::getEloquentQuery()->with(['user', 'application']);
+        $user = \Filament\Facades\Filament::auth()->user();
+        
+        // Super admins can see all authentication logs
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+        
+        // Other users can only see logs from their organization
+        if ($user->organization_id) {
+            $query->whereHas('user', function ($subQuery) use ($user) {
+                $subQuery->where('organization_id', $user->organization_id);
+            });
+        }
+        
+        return $query;
     }
 }
