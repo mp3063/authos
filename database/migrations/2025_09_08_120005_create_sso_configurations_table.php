@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('sso_configurations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('application_id')->constrained()->onDelete('cascade');
+            $table->string('name')->nullable();
+            $table->string('provider')->nullable(); // oidc, saml2, etc.
             $table->string('logout_url');
             $table->string('callback_url');
             $table->json('allowed_domains');

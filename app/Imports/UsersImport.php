@@ -87,6 +87,15 @@ class UsersImport implements ToCollection, WithHeadingRow
         $role = $rowData['role'] ?? $this->defaultRole;
         $customRole = $rowData['custom_role'] ?? null;
 
+        // Validate role exists for the organization
+        if ($role && !$this->isValidRole($role)) {
+            $this->results['failed'][] = [
+                'row' => $rowData,
+                'reason' => "Invalid role: '{$role}' does not exist for this organization",
+            ];
+            return;
+        }
+
         // Check if user already exists
         $existingUser = User::where('email', $email)->first();
 
@@ -132,16 +141,7 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         // Assign role
         if ($role) {
-            try {
-                $user->assignOrganizationRole($role, $this->organization->id);
-            } catch (\Exception $e) {
-                // If role assignment fails, try to assign default user role
-                try {
-                    $user->assignOrganizationRole('user', $this->organization->id);
-                } catch (\Exception $e2) {
-                    // Log the error but don't fail the import
-                }
-            }
+            $user->assignOrganizationRole($role, $this->organization->id);
         }
 
         // Assign custom role if provided
@@ -257,5 +257,15 @@ class UsersImport implements ToCollection, WithHeadingRow
     public function getResults(): array
     {
         return $this->results;
+    }
+
+    protected function isValidRole(string $role): bool
+    {
+        // Check if the role exists for this organization (case-insensitive)
+        $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+            ->where('organization_id', $this->organization->id)
+            ->first();
+
+        return $roleModel !== null;
     }
 }

@@ -227,6 +227,14 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
             Route::get('/sessions', [\App\Http\Controllers\Api\SSOController::class, 'sessions'])->middleware('scopes:sso');
             Route::post('/sessions/revoke', [\App\Http\Controllers\Api\SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
             
+            // Individual session management
+            Route::get('/sessions/{session_token}/validate', [\App\Http\Controllers\Api\SSOController::class, 'validateSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/refresh', [\App\Http\Controllers\Api\SSOController::class, 'refreshSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/logout', [\App\Http\Controllers\Api\SSOController::class, 'logoutSpecificSession'])->middleware('scopes:sso');
+            
+            // Synchronized logout
+            Route::post('/logout/synchronized', [\App\Http\Controllers\Api\SSOController::class, 'synchronizedLogout'])->middleware('scopes:sso');
+            
             // SSO Configuration Management
             Route::get('/configurations/{organizationId}', [\App\Http\Controllers\Api\SSOController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
             Route::post('/configurations', [\App\Http\Controllers\Api\SSOController::class, 'createSSOConfiguration'])->middleware('scopes:sso');

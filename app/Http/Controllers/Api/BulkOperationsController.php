@@ -87,7 +87,7 @@ class BulkOperationsController extends Controller
         $validator = Validator::make($request->all(), [
           'invitations' => 'required|array|min:1|max:100',
           'invitations.*.email' => 'required|email|max:255',
-          'invitations.*.role' => 'sometimes|string|max:255',
+          'invitations.*.role' => 'required|string|max:255',
           'invitations.*.custom_role_id' => 'sometimes|integer|exists:custom_roles,id',
           'invitations.*.send_email' => 'sometimes|boolean',
           'invitations.*.expires_in_days' => 'sometimes|integer|min:1|max:30',
@@ -265,6 +265,15 @@ class BulkOperationsController extends Controller
                   'error_description' => 'One or more custom roles do not belong to this organization.',
                 ], 422);
             }
+        }
+
+        // Validate that all users belong to the organization
+        $invalidUsers = $users->where('organization_id', '!=', $organization->id);
+        if ($invalidUsers->count() > 0) {
+            return response()->json([
+                'message' => 'One or more users do not belong to this organization.',
+                'invalid_users' => $invalidUsers->pluck('id'),
+            ], 422);
         }
 
         $results = [

@@ -128,6 +128,7 @@ class SSOConfigurationFactory extends Factory
             ];
             
             return [
+                'provider' => 'oidc',
                 'settings' => $settings,
                 'configuration' => $configuration,
             ];
@@ -149,6 +150,7 @@ class SSOConfigurationFactory extends Factory
             $settings['name_id_format'] = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
             
             return [
+                'provider' => 'saml2',
                 'settings' => $settings,
                 'configuration' => [
                     'sso_url' => fake()->url() . '/saml/sso',

@@ -15,6 +15,8 @@ class SSOConfiguration extends Model
 
     protected $fillable = [
         'application_id',
+        'name',
+        'provider',
         'logout_url',
         'callback_url',
         'allowed_domains',

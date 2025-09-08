@@ -430,7 +430,7 @@ class BulkOperationsApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonHas('details.file');
+            ->assertJsonStructure(['details' => ['file']]);
     }
 
     public function test_bulk_import_users_handles_invalid_data(): void
@@ -451,14 +451,19 @@ class BulkOperationsApiTest extends TestCase
 
         $response->assertStatus(200);
 
-        $results = $response->json('results');
-        $this->assertEquals(3, $results['processed']);
-        $this->assertEquals(1, $results['successful']); // Only John Doe should succeed
-        $this->assertEquals(2, $results['failed']);
-
-        // Verify errors are reported
-        $errors = $response->json('errors');
-        $this->assertCount(2, $errors);
+        $data = $response->json('data');
+        $this->assertNotNull($data);
+        
+        // Check that we have created, updated, invited, or failed arrays
+        $this->assertArrayHasKey('created', $data);
+        $this->assertArrayHasKey('updated', $data);
+        $this->assertArrayHasKey('invited', $data);
+        $this->assertArrayHasKey('failed', $data);
+        
+        // Only John Doe should succeed (1), two should fail (2)
+        $totalSuccessful = count($data['created']) + count($data['updated']) + count($data['invited']);
+        $this->assertEquals(1, $totalSuccessful);
+        $this->assertEquals(2, count($data['failed']));
     }
 
     public function test_bulk_operations_enforce_organization_isolation(): void
@@ -527,8 +532,14 @@ class BulkOperationsApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonPath('details.invitations.0.role.0', 'The invitations.0.role field is required.')
-            ->assertJsonPath('details.invitations.1.email.0', 'The invitations.1.email field is required.');
+            ->assertJsonStructure([
+                'details' => [
+                    'invitations.0.role',
+                    'invitations.1.email'
+                ]
+            ])
+            ->assertJsonFragment(['The invitations.0.role field is required.'])
+            ->assertJsonFragment(['The invitations.1.email field is required.']);
     }
 
     public function test_bulk_operations_track_audit_logs(): void

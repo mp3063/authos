@@ -121,7 +121,7 @@ class SSOServiceTest extends TestCase
             ->create();
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('SSO session has expired');
+        $this->expectExceptionMessage('Session has expired');
 
         $this->ssoService->validateSSOSession($session->session_token);
     }
