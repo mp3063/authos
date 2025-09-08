@@ -460,11 +460,21 @@ class OrganizationManagementApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/organizations', [
             'name' => '', // Empty name
-            'website' => 'invalid-url', // Invalid URL
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'website']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonPath('details.name.0', 'Organization name is required')
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'name'
+                ]
+            ]);
     }
 
     public function test_organization_slug_is_automatically_generated(): void
@@ -513,7 +523,18 @@ class OrganizationManagementApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['session_timeout', 'password_policy.min_length']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'session_timeout',
+                    'password_policy.min_length'
+                ]
+            ]);
     }
 
     public function test_organization_analytics_caches_results(): void

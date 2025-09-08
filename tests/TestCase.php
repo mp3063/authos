@@ -62,12 +62,24 @@ abstract class TestCase extends BaseTestCase
             $roleModel = Role::firstOrCreate([
                 'name' => $role, 
                 'guard_name' => $guard,
-                'organization_id' => $user->organization_id  // CRITICAL: Include organization_id for team context
+                'organization_id' => $user->organization_id
             ]);
             
             // Create permissions with the same organization context if they don't exist
             $permissions = [];
-            if ($role === 'Organization Owner') {
+            if ($role === 'Super Admin') {
+                $permissions = [
+                    'users.create', 'users.read', 'users.update', 'users.delete',
+                    'applications.create', 'applications.read', 'applications.update', 'applications.delete',
+                    'applications.regenerate_credentials',
+                    'organizations.read', 'organizations.update', 'organizations.create', 'organizations.delete',
+                    'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
+                    'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
+                    'auth_logs.read', 'auth_logs.export',
+                    'system.settings.read', 'system.settings.update', 'system.analytics.read',
+                    'oauth.manage', 'admin.access',
+                ];
+            } elseif ($role === 'Organization Owner') {
                 $permissions = [
                     'users.create', 'users.read', 'users.update', 'users.delete',
                     'applications.create', 'applications.read', 'applications.update', 'applications.delete',
@@ -106,11 +118,6 @@ abstract class TestCase extends BaseTestCase
                 $roleModel->syncPermissions($permissionModels);
             }
             
-            // Debug role assignment
-            if (app()->environment('testing')) {
-                dump("Role found: {$roleModel->name} (guard: {$roleModel->guard_name}, org_id: {$roleModel->organization_id}, permissions: " . $roleModel->permissions->count() . ")");
-                dump("Assigning role to user: {$user->email} (org_id: {$user->organization_id})");
-            }
             
             // CRITICAL FIX: Set team context on user before role assignment
             $user->setPermissionsTeamId($user->organization_id);
@@ -118,14 +125,6 @@ abstract class TestCase extends BaseTestCase
             // Assign role with proper team context
             $user->assignRole($roleModel);
             
-            // Additional debug after assignment
-            if (app()->environment('testing')) {
-                $assignedRoles = $user->getRoleNames($guard);
-                $assignedPermissions = $user->getAllPermissions($guard)->pluck('name');
-                dump("Role assignment result: {$assignedRoles->count()} roles, {$assignedPermissions->count()} permissions");
-                dump("User roles ({$guard}): {$assignedRoles}");
-                dump("User permissions ({$guard}): {$assignedPermissions}");
-            }
             
             // Refresh the user model to ensure the role is properly loaded
             $user->refresh();

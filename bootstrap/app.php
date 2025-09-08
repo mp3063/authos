@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\SecurityHeaders::class,
+            \App\Http\Middleware\SetPermissionContext::class,
         ]);
 
         $middleware->throttleApi();
@@ -37,8 +38,36 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.cache' => \App\Http\Middleware\ApiResponseCache::class,
             'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
             'org.boundary' => \App\Http\Middleware\EnforceOrganizationBoundary::class,
+            'permission.context' => \App\Http\Middleware\SetPermissionContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Customize authorization exception messages for API
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Insufficient permissions',
+                    'exception' => 'Illuminate\\Auth\\Access\\AuthorizationException',
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => collect($e->getTrace())->map(function ($trace) {
+                        return collect($trace)->only(['file', 'line', 'function', 'class', 'type']);
+                    })->all(),
+                ], 403);
+            }
+        });
+        
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Insufficient permissions',
+                    'exception' => 'Symfony\\Component\\HttpKernel\\Exception\\AccessDeniedHttpException',
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => collect($e->getTrace())->map(function ($trace) {
+                        return collect($trace)->only(['file', 'line', 'function', 'class', 'type']);
+                    })->all(),
+                ], 403);
+            }
+        });
     })->create();

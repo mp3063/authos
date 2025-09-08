@@ -93,6 +93,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index'])->middleware(['api.rate_limit:api_bulk', 'api.cache:300']);
         Route::post('/', [UserController::class, 'store']);
+        Route::patch('/bulk', [UserController::class, 'bulk'])->middleware('api.rate_limit:api_bulk');
         Route::get('/{id}', [UserController::class, 'show'])->middleware('api.cache:600');
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);

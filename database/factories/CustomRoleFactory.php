@@ -17,14 +17,17 @@ class CustomRoleFactory extends Factory
      */
     public function definition(): array
     {
-        $roleName = fake()->randomElement([
+        $roleBaseName = fake()->randomElement([
             'Team Lead', 'Senior Developer', 'Project Manager', 'QA Lead',
             'DevOps Engineer', 'Business Analyst', 'Product Owner', 'Scrum Master'
         ]);
+        
+        // Add unique suffix to avoid constraint violations
+        $roleName = $roleBaseName . ' ' . fake()->unique()->randomNumber(4);
 
         return [
             'name' => $roleName,
-            'display_name' => $roleName,
+            'display_name' => $roleBaseName, // Keep display name clean
             'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
             'permissions' => fake()->randomElements([

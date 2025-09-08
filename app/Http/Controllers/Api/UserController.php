@@ -12,6 +12,7 @@ use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
@@ -504,5 +505,81 @@ class UserController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Handle bulk operations on users
+     */
+    public function bulk(Request $request): JsonResponse
+    {
+        $this->authorize('users.update');
+
+        $validator = Validator::make($request->all(), [
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'integer|exists:users,id',
+            'action' => 'required|string|in:activate,deactivate,delete',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+                'details' => $validator->errors(),
+            ], 422);
+        }
+
+        $userIds = $request->input('user_ids');
+        $action = $request->input('action');
+        $currentUser = $request->user();
+
+        // Get users from the same organization as the current user
+        $users = User::whereIn('id', $userIds)
+            ->where('organization_id', $currentUser->organization_id)
+            ->get();
+
+        if ($users->count() !== count($userIds)) {
+            return response()->json([
+                'error' => 'access_denied',
+                'error_description' => 'Some users not found or not accessible.',
+            ], 403);
+        }
+
+        $affectedCount = 0;
+        
+        foreach ($users as $user) {
+            // Don't allow bulk operations on self
+            if ($user->id === $currentUser->id) {
+                continue;
+            }
+
+            switch ($action) {
+                case 'activate':
+                    $user->update(['is_active' => true]);
+                    $affectedCount++;
+                    break;
+                case 'deactivate':
+                    $user->update(['is_active' => false]);
+                    $affectedCount++;
+                    break;
+                case 'delete':
+                    $user->delete();
+                    $affectedCount++;
+                    break;
+            }
+        }
+
+        // Log the bulk operation
+        Log::info('Bulk user operation performed', [
+            'operator_id' => $currentUser->id,
+            'organization_id' => $currentUser->organization_id,
+            'action' => $action,
+            'affected_count' => $affectedCount,
+            'user_ids' => $userIds
+        ]);
+
+        return response()->json([
+            'message' => 'Bulk operation completed successfully',
+            'affected_count' => $affectedCount,
+        ], 200);
     }
 }

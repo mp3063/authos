@@ -29,10 +29,25 @@ class EnforceOrganizationBoundary
 
         $user = Auth::user();
         
+        // Debug user roles
+        \Log::info('Organization boundary middleware debug', [
+            'user_id' => $user->id,
+            'user_organization' => $user->organization_id,
+            'path' => $request->path(),
+            'roles_web' => $user->getRoleNames('web')->toArray(),
+            'roles_api' => $user->getRoleNames('api')->toArray(),
+            'has_super_admin_web' => $user->hasRole('Super Admin', 'web'),
+            'has_super_admin_api' => $user->hasRole('Super Admin', 'api'),
+        ]);
+        
         // Skip for super admins (they can access all organizations)
-        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin')) {
+        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
+            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+            \Log::info('Super admin detected, allowing access');
             return $next($request);
         }
+        
+        \Log::info('Not a super admin, checking organization boundaries');
 
         // Check if the route has organization ID parameter
         $organizationId = $request->route('organizationId');
@@ -124,7 +139,8 @@ class EnforceOrganizationBoundary
         }
 
         // Organization admins can manage users in their organization
-        if ($user->hasRole('organization-admin') || $user->hasRole('Organization Admin')) {
+        if ($user->hasRole('organization-admin') || $user->hasRole('Organization Admin') ||
+            $user->hasRole('organization-admin', 'api') || $user->hasRole('Organization Admin', 'api')) {
             return $targetUser->organization_id === $user->organization_id;
         }
 

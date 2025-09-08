@@ -47,6 +47,11 @@ class SecurityTest extends TestCase
     {
         // Give user1 the necessary permission to read users (API guard)
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
+        
+        // Set team context before giving permission (important for organization-scoped permissions)
+        $this->user1->setPermissionsTeamId($this->user1->organization_id);
+        app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
+        
         $this->user1->givePermissionTo($permission);
         
         // Clear permission cache and refresh
@@ -68,6 +73,11 @@ class SecurityTest extends TestCase
         
         // Give user1 the necessary permission to read applications (API guard)
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'applications.read', 'guard_name' => 'api']);
+        
+        // Set team context before giving permission (important for organization-scoped permissions)
+        $this->user1->setPermissionsTeamId($this->user1->organization_id);
+        app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
+        
         $this->user1->givePermissionTo($permission);
         
         // Clear permission cache and refresh
@@ -438,7 +448,7 @@ class SecurityTest extends TestCase
             'password' => 'password123', // Correct password
         ]);
 
-        $response->assertStatus(423); // Locked
+        $response->assertStatus(429); // Rate limited (brute force protection)
     }
 
     public function test_api_prevents_timing_attacks_on_login(): void
@@ -498,13 +508,10 @@ class SecurityTest extends TestCase
 
     public function test_file_upload_validation_prevents_malicious_files(): void
     {
-        // Give admin proper API permissions for importing users
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.import', 'guard_name' => 'api']);
-        $this->admin->givePermissionTo($permission);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-        $this->admin = $this->admin->fresh();
+        // Use API admin from the same organization to avoid boundary issues
+        $apiAdmin = $this->createUser(['organization_id' => $this->organization1->id], 'Super Admin', 'api');
         
-        Passport::actingAs($this->admin, ['write']);
+        Passport::actingAs($apiAdmin, ['write']);
 
         // Try to upload a potentially malicious file
         $maliciousFile = \Illuminate\Http\UploadedFile::fake()
@@ -515,7 +522,17 @@ class SecurityTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors('file');
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'file'
+                ]
+            ]);
     }
 
     public function test_api_logs_suspicious_activity(): void

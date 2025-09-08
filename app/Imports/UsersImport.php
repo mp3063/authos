@@ -221,7 +221,8 @@ class UsersImport implements ToCollection, WithHeadingRow
             'organization_id' => $this->organization->id,
             'email' => $email,
             'role' => $role,
-            'invited_by' => $this->currentUser->id,
+            'inviter_id' => $this->currentUser->id,
+            'token' => \Illuminate\Support\Str::random(64),
             'expires_at' => now()->addDays(7),
             'metadata' => [
                 'imported_name' => $name,
@@ -231,7 +232,17 @@ class UsersImport implements ToCollection, WithHeadingRow
         ]);
 
         // Send invitation email
-        $this->invitationService->sendInvitation($invitation);
+        try {
+            \Illuminate\Support\Facades\Mail::to($invitation->email)
+                ->send(new \App\Mail\OrganizationInvitation($invitation));
+        } catch (\Exception $e) {
+            // Log email failure but don't fail the import
+            logger()->error('Failed to send invitation email during import', [
+                'invitation_id' => $invitation->id,
+                'email' => $invitation->email,
+                'error' => $e->getMessage()
+            ]);
+        }
 
         $this->results['invited'][] = [
             'email' => $email,

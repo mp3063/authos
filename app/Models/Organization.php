@@ -93,7 +93,7 @@ class Organization extends Model
      */
     public function createRole(string $name, array $permissions = [], string $guard = 'web'): Role
     {
-        $role = Role::create([
+        $role = Role::firstOrCreate([
             'name' => $name,
             'guard_name' => $guard,
             'organization_id' => $this->id,

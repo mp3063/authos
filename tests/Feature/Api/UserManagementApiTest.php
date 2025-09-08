@@ -25,21 +25,23 @@ class UserManagementApiTest extends TestCase
         
         $this->organization = Organization::factory()->create();
         
-        // Create required roles and permissions with API guard
-        \Spatie\Permission\Models\Permission::create(['name' => 'users.read', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::create(['name' => 'users.create', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::create(['name' => 'users.update', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::create(['name' => 'users.delete', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Permission::create(['name' => 'roles.assign', 'guard_name' => 'api']);
+        // Create required roles and permissions with API guard using firstOrCreate to avoid duplicates
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.create', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.update', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.delete', 'guard_name' => 'api']);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'roles.assign', 'guard_name' => 'api']);
         
-        Role::create(['name' => 'user', 'guard_name' => 'api']);
-        $superAdminRole = Role::create(['name' => 'Super Admin', 'guard_name' => 'api']);
-        Role::create(['name' => 'Organization Admin', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
+        $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'api']);
         
         // Assign permissions to Super Admin role
         $superAdminRole->givePermissionTo(['users.read', 'users.create', 'users.update', 'users.delete', 'roles.assign']);
         
-        $this->adminUser = $this->createApiSuperAdmin();
+        $this->adminUser = $this->createApiSuperAdmin([
+            'organization_id' => $this->organization->id
+        ]);
         $this->regularUser = User::factory()
             ->forOrganization($this->organization)
             ->create();
@@ -53,7 +55,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         $response = $this->getJson('/api/v1/users');
 
@@ -103,7 +105,7 @@ class UserManagementApiTest extends TestCase
             ->inactive()
             ->create(['name' => 'Jane Inactive']);
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         // Test active filter
         $response = $this->getJson('/api/v1/users?filter[is_active]=true');
@@ -171,7 +173,7 @@ class UserManagementApiTest extends TestCase
             ->withMfa()
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         $response = $this->getJson("/api/v1/users/{$user->id}");
 
@@ -208,7 +210,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create(['name' => 'Old Name']);
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $updateData = [
             'name' => 'Updated Name',
@@ -274,7 +276,7 @@ class UserManagementApiTest extends TestCase
             ],
         ]);
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         $response = $this->getJson("/api/v1/users/{$user->id}/applications");
 
@@ -303,7 +305,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $accessData = [
             'permissions' => ['read', 'write'],
@@ -340,7 +342,7 @@ class UserManagementApiTest extends TestCase
             'granted_at' => now(),
         ]);
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $response = $this->deleteJson("/api/v1/users/{$user->id}/applications/{$application->id}");
 
@@ -361,12 +363,12 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role1 = Role::create(['name' => 'test-role-1', 'guard_name' => 'api']);
-        $role2 = Role::create(['name' => 'test-role-2', 'guard_name' => 'api']);
+        $role1 = Role::firstOrCreate(['name' => 'test-role-1', 'guard_name' => 'api']);
+        $role2 = Role::firstOrCreate(['name' => 'test-role-2', 'guard_name' => 'api']);
 
         $user->assignRole([$role1, $role2]);
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         $response = $this->getJson("/api/v1/users/{$user->id}/roles");
 
@@ -390,9 +392,9 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::create(['name' => 'test-role', 'guard_name' => 'api']);
+        $role = Role::firstOrCreate(['name' => 'test-role', 'guard_name' => 'api']);
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $response = $this->postJson("/api/v1/users/{$user->id}/roles", [
             'role_id' => $role->id,
@@ -412,10 +414,10 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::create(['name' => 'test-role', 'guard_name' => 'api']);
+        $role = Role::firstOrCreate(['name' => 'test-role', 'guard_name' => 'api']);
         $user->assignRole($role);
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $response = $this->deleteJson("/api/v1/users/{$user->id}/roles/{$role->id}");
 
@@ -451,7 +453,7 @@ class UserManagementApiTest extends TestCase
             ->expired()
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        Passport::actingAs($this->adminUser, ['users.read']);
 
         $response = $this->getJson("/api/v1/users/{$user->id}/sessions");
 
@@ -486,7 +488,7 @@ class UserManagementApiTest extends TestCase
             ->recentlyActive()
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $response = $this->deleteJson("/api/v1/users/{$user->id}/sessions");
 
@@ -513,7 +515,7 @@ class UserManagementApiTest extends TestCase
             ->recentlyActive()
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $response = $this->deleteJson("/api/v1/users/{$user->id}/sessions/{$session->id}");
 
@@ -549,7 +551,9 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($otherOrganization)
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.view']);
+        // Use a regular Organization Admin (not Super Admin) for this test
+        $orgAdminUser = $this->createApiOrganizationAdmin();
+        Passport::actingAs($orgAdminUser, ['users.read']);
 
         // Try to access user from different organization
         $response = $this->getJson("/api/v1/users/{$otherUser->id}");
@@ -568,7 +572,23 @@ class UserManagementApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'password', 'organization_id']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonPath('details.name.0', 'User name is required')
+            ->assertJsonPath('details.email.0', 'The email field must be a valid email address.')
+            ->assertJsonPath('details.organization_id.0', 'Organization is required')
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'name',
+                    'email', 
+                    'password',
+                    'organization_id'
+                ]
+            ]);
     }
 
     public function test_api_enforces_unique_email_constraint(): void
@@ -587,7 +607,18 @@ class UserManagementApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonPath('details.email.0', 'This email address is already registered')
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'email'
+                ]
+            ]);
     }
 
     public function test_bulk_operations_handle_multiple_users(): void
@@ -597,7 +628,7 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        Passport::actingAs($this->adminUser, ['users.edit']);
+        Passport::actingAs($this->adminUser, ['users.update']);
 
         $userIds = $users->pluck('id')->toArray();
 

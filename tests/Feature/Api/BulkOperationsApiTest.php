@@ -397,13 +397,12 @@ class BulkOperationsApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'message',
-                'results' => [
-                    'processed',
-                    'successful',
+                'data' => [
+                    'created',
+                    'updated', 
+                    'invited',
                     'failed',
-                    'invitations_sent',
                 ],
-                'errors',
             ]);
 
         // Verify invitations were created
