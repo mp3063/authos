@@ -31,14 +31,20 @@ class SSOApiTest extends TestCase
         $this->application = Application::factory()->forOrganization($this->organization)->create();
         
         $this->ssoConfig = SSOConfiguration::factory()
-            ->forOrganization($this->organization)
+            ->forApplication($this->application)
             ->oidc()
             ->create();
+
+        // Grant user access to the application
+        $this->user->applications()->attach($this->application->id, [
+            'granted_at' => now(),
+            'granted_by' => $this->user->id,
+        ]);
 
         Role::create(['name' => 'user', 'guard_name' => 'web']);
     }
 
-    public function test_initiate_sso_flow_returns_authorization_url(): void
+    public function test_initiate_sso_flow_returns_redirect_url(): void
     {
         Passport::actingAs($this->user, ['sso']);
 
@@ -50,7 +56,7 @@ class SSOApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'authorization_url',
+                'redirect_url',
                 'state',
                 'session_token',
                 'expires_at',
@@ -58,7 +64,7 @@ class SSOApiTest extends TestCase
 
         $this->assertStringContainsString(
             $this->ssoConfig->configuration['authorization_endpoint'],
-            $response->json('authorization_url')
+            $response->json('redirect_url')
         );
 
         // Verify session was created

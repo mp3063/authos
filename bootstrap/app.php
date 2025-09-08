@@ -31,7 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
         
         $middleware->alias([
-            'auth.passport' => \Laravel\Passport\Http\Middleware\CheckClientCredentials::class,
+            'scopes' => \Laravel\Passport\Http\Middleware\CheckToken::class,
+            'scope' => \Laravel\Passport\Http\Middleware\CheckTokenForAnyScope::class,
             'oauth.security' => \App\Http\Middleware\OAuthSecurity::class,
             'api.rate_limit' => \App\Http\Middleware\ApiRateLimiter::class,
             'api.version' => \App\Http\Middleware\ApiVersioning::class,

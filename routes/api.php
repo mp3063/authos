@@ -226,6 +226,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
             Route::post('/initiate', [\App\Http\Controllers\Api\SSOController::class, 'initiate'])->middleware('scopes:sso');
             Route::get('/sessions', [\App\Http\Controllers\Api\SSOController::class, 'sessions'])->middleware('scopes:sso');
             Route::post('/sessions/revoke', [\App\Http\Controllers\Api\SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
+            
+            // SSO Configuration Management
+            Route::get('/configurations/{organizationId}', [\App\Http\Controllers\Api\SSOController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
+            Route::post('/configurations', [\App\Http\Controllers\Api\SSOController::class, 'createSSOConfiguration'])->middleware('scopes:sso');
+            Route::put('/configurations/{id}', [\App\Http\Controllers\Api\SSOController::class, 'updateSSOConfiguration'])->middleware('scopes:sso');
+            Route::delete('/configurations/{id}', [\App\Http\Controllers\Api\SSOController::class, 'deleteSSOConfiguration'])->middleware('scopes:sso');
         });
         
         // Public SSO endpoints (for client applications)
