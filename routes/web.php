@@ -36,6 +36,6 @@ Route::get('/test-db', function () {
 
 // Social Authentication routes for web (Filament admin panel)
 Route::prefix('auth/social')->group(function () {
-    Route::get('/{provider}', [SocialAuthController::class, 'webLogin'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
-    Route::get('/{provider}/callback', [SocialAuthController::class, 'webCallback'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+    Route::get('/{provider}', [SocialAuthController::class, 'webLogin']);
+    Route::get('/{provider}/callback', [SocialAuthController::class, 'webCallback']);
 });

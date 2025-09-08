@@ -22,8 +22,6 @@ class SocialAuthControllerTest extends TestCase
     {
         parent::setUp();
         
-        $this->setupDatabase();
-        
         // Set up test configuration
         Config::set('services.google', [
             'client_id' => 'test_client_id',

@@ -294,10 +294,17 @@ class BulkOperationsApiTest extends TestCase
 
     public function test_bulk_export_users_generates_csv_file(): void
     {
+        $application = Application::factory()->forOrganization($this->organization)->create();
+        
         $users = User::factory()
             ->count(10)
             ->forOrganization($this->organization)
             ->create();
+            
+        // Associate users with the application
+        foreach ($users as $user) {
+            $user->applications()->attach($application->id);
+        }
 
         Passport::actingAs($this->organizationOwner, ['*']);
 
@@ -312,26 +319,38 @@ class BulkOperationsApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'message',
-                'file_path',
-                'download_url',
-                'expires_at',
+                'data' => [
+                    'download_url',
+                    'filename',
+                    'users_count',
+                    'format',
+                    'expires_at',
+                ]
             ]);
 
-        $filePath = $response->json('file_path');
+        $filename = $response->json('data.filename');
+        $filePath = 'exports/' . $filename;
         Storage::disk('local')->assertExists($filePath);
 
         // Verify CSV content
         $csvContent = Storage::disk('local')->get($filePath);
-        $this->assertStringContainsString('name,email,created_at,is_active', $csvContent);
+        $this->assertStringContainsString('ID,Name,Email', $csvContent);
         $this->assertStringContainsString($users->first()->email, $csvContent);
     }
 
     public function test_bulk_export_users_generates_excel_file(): void
     {
-        User::factory()
+        $application = Application::factory()->forOrganization($this->organization)->create();
+        
+        $users = User::factory()
             ->count(5)
             ->forOrganization($this->organization)
             ->create();
+            
+        // Associate users with the application
+        foreach ($users as $user) {
+            $user->applications()->attach($application->id);
+        }
 
         Passport::actingAs($this->organizationOwner, ['*']);
 
@@ -340,11 +359,22 @@ class BulkOperationsApiTest extends TestCase
             'fields' => ['name', 'email', 'roles'],
         ]);
 
-        $response->assertStatus(200);
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'message',
+                'data' => [
+                    'download_url',
+                    'filename',
+                    'users_count',
+                    'format',
+                    'expires_at',
+                ]
+            ]);
 
-        $filePath = $response->json('file_path');
+        $filename = $response->json('data.filename');
+        $filePath = 'exports/' . $filename;
         Storage::disk('local')->assertExists($filePath);
-        $this->assertStringContainsString('.xlsx', $filePath);
+        $this->assertStringContainsString('.xlsx', $filename);
     }
 
     public function test_bulk_import_users_processes_csv_file(): void

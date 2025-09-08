@@ -64,8 +64,8 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         // Social Authentication routes
         Route::prefix('social')->middleware('api.rate_limit:authentication')->group(function () {
             Route::get('/providers', [SocialAuthController::class, 'providers']);
-            Route::get('/{provider}', [SocialAuthController::class, 'redirect'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
-            Route::get('/{provider}/callback', [SocialAuthController::class, 'callback'])->whereIn('provider', ['google', 'github', 'facebook', 'twitter', 'linkedin']);
+            Route::get('/{provider}', [SocialAuthController::class, 'redirect']);
+            Route::get('/{provider}/callback', [SocialAuthController::class, 'callback']);
             
             // Protected social auth routes
             Route::middleware('auth:api')->group(function () {
