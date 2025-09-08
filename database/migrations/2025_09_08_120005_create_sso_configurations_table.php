@@ -19,6 +19,7 @@ return new class extends Migration
             $table->json('allowed_domains');
             $table->integer('session_lifetime')->default(3600); // seconds
             $table->json('settings')->nullable();
+            $table->json('configuration')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 

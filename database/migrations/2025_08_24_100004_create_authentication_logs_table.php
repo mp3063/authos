@@ -16,8 +16,10 @@ return new class extends Migration
             $table->foreignId('user_id')->nullable()->constrained();
             $table->foreignId('application_id')->nullable()->constrained();
             $table->string('event'); // login_success, logout, login_failed, token_refresh, mfa_challenge, etc.
+            $table->boolean('success')->default(true);
             $table->string('ip_address');
             $table->text('user_agent');
+            $table->json('details')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
             

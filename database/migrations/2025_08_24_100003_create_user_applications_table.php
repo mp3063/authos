@@ -15,7 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('application_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('granted_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('granted_at')->nullable();
             $table->json('metadata')->nullable();
+            $table->json('permissions')->nullable();
             $table->timestamp('last_login_at')->nullable();
             $table->integer('login_count')->default(0);
             $table->timestamps();
