@@ -4,15 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\User;
 use App\Services\OAuthService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
-use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -35,17 +34,17 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'terms_accepted' => 'required|accepted',
             'organization_slug' => 'sometimes|string|exists:organizations,slug',
-            'profile' => 'sometimes|array'
+            'profile' => 'sometimes|array',
         ]);
-        
+
         $organization = null;
         $organizationId = null;
         if (isset($validated['organization_slug'])) {
             $organization = \App\Models\Organization::where('slug', $validated['organization_slug'])->first();
             $organizationId = $organization?->id;
-            
+
             // Check organization registration settings
-            if ($organization && isset($organization->settings['allow_registration']) && !$organization->settings['allow_registration']) {
+            if ($organization && isset($organization->settings['allow_registration']) && ! $organization->settings['allow_registration']) {
                 return response()->json([
                     'message' => 'Registration is not allowed for this organization',
                     'error' => 'registration_disabled',
@@ -106,7 +105,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             $this->oAuthService->logAuthenticationEvent(
                 $user ?? new User(['email' => $request->email]),
                 'login_failed',
@@ -123,7 +122,7 @@ class AuthController extends Controller
         }
 
         // Check if user account is active
-        if (isset($user->is_active) && !$user->is_active) {
+        if (isset($user->is_active) && ! $user->is_active) {
             $this->oAuthService->logAuthenticationEvent(
                 $user,
                 'login_blocked',
@@ -177,7 +176,7 @@ class AuthController extends Controller
             'access_token' => $token->accessToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->token->expires_at,
-            'refresh_token' => app()->environment('testing') ? 'test_refresh_token_' . $user->id . '_' . time() : null,
+            'refresh_token' => app()->environment('testing') ? 'test_refresh_token_'.$user->id.'_'.time() : null,
             'scopes' => implode(' ', $scopes),
         ]);
     }
@@ -188,14 +187,14 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = Auth::guard('api')->user();
-        
+
         if ($user) {
             $token = $user->token();
-            
+
             if ($token && $token->id) {
                 $this->oAuthService->revokeToken($token->id);
             }
-            
+
             $this->oAuthService->logAuthenticationEvent(
                 $user,
                 'logout',
@@ -214,10 +213,10 @@ class AuthController extends Controller
     public function user(Request $request): JsonResponse
     {
         $user = Auth::guard('api')->user();
-        
+
         // Load relationships
         $user->load(['organization', 'roles.permissions']);
-        
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -260,10 +259,10 @@ class AuthController extends Controller
             if (count($parts) >= 4) {
                 $userId = $parts[3];
                 $user = User::find($userId);
-                
+
                 if ($user) {
                     return response()->json([
-                        'access_token' => 'test_token_' . $userId . '_' . time(),
+                        'access_token' => 'test_token_'.$userId.'_'.time(),
                         'token_type' => 'Bearer',
                         'expires_at' => Carbon::now()->addHour()->toISOString(),
                         'scopes' => ['openid', 'profile', 'email'],
@@ -283,7 +282,7 @@ class AuthController extends Controller
             ]);
 
             $tokenResponse = app()->handle($tokenRequest);
-            
+
             if ($tokenResponse->getStatusCode() !== 200) {
                 return response()->json([
                     'error' => 'invalid_grant',
@@ -292,14 +291,14 @@ class AuthController extends Controller
             }
 
             $tokenData = json_decode($tokenResponse->getContent(), true);
-            
+
             return response()->json([
                 'access_token' => $tokenData['access_token'],
                 'token_type' => 'Bearer',
                 'expires_at' => Carbon::now()->addSeconds($tokenData['expires_in'])->toISOString(),
                 'scopes' => explode(' ', $tokenData['scope'] ?? 'openid profile email'),
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'invalid_grant',
@@ -314,18 +313,18 @@ class AuthController extends Controller
     public function revoke(Request $request): JsonResponse
     {
         $user = Auth::guard('api')->user();
-        
+
         if ($user) {
             // Use provided token_id if available, otherwise current user's token
             $tokenId = $request->token_id;
-            if (!$tokenId) {
+            if (! $tokenId) {
                 $token = $user->token();
                 $tokenId = $token ? $token->id : null;
             }
-            
+
             if ($tokenId) {
                 $this->oAuthService->revokeToken($tokenId);
-                
+
                 $this->oAuthService->logAuthenticationEvent(
                     $user,
                     'token_revoked',
@@ -345,7 +344,7 @@ class AuthController extends Controller
     protected function shouldRequireMfa(User $user): bool
     {
         // Check if user has MFA enabled
-        if (!$user->hasMfaEnabled()) {
+        if (! $user->hasMfaEnabled()) {
             return false;
         }
 
@@ -365,6 +364,6 @@ class AuthController extends Controller
     {
         // In a real implementation, this would be a temporary token
         // For now, we'll use a simple hash-based approach
-        return hash('sha256', $user->id . $user->email . time());
+        return hash('sha256', $user->id.$user->email.time());
     }
 }

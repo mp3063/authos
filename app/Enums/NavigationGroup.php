@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 
-enum NavigationGroup: string implements HasLabel, HasIcon
+enum NavigationGroup: string implements HasIcon, HasLabel
 {
     case UserManagement = 'user-management';
     case OAuthManagement = 'oauth-management';

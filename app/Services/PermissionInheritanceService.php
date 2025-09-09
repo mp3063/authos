@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\Application;
 use App\Models\ApplicationGroup;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,8 +19,9 @@ class PermissionInheritanceService
             DB::beginTransaction();
 
             $user = User::find($userId);
-            if (!$user) {
+            if (! $user) {
                 Log::error('User not found for cascading application access', ['user_id' => $userId]);
+
                 return false;
             }
 
@@ -34,19 +35,19 @@ class PermissionInheritanceService
 
             foreach ($groups as $group) {
                 $childApplications = $group->applications;
-                
+
                 foreach ($childApplications as $childApp) {
                     // Check if user already has access to avoid duplicates
-                    if (!$user->applications()->where('application_id', $childApp->id)->exists()) {
+                    if (! $user->applications()->where('application_id', $childApp->id)->exists()) {
                         $user->applications()->attach($childApp->id, [
                             'granted_at' => now(),
                             'granted_by' => null, // Inherited access
                             'last_login_at' => null,
                             'login_count' => 0,
                         ]);
-                        
+
                         $cascadedCount++;
-                        
+
                         Log::info('Cascaded application access', [
                             'user_id' => $userId,
                             'parent_application_id' => $parentApplicationId,
@@ -58,7 +59,7 @@ class PermissionInheritanceService
             }
 
             DB::commit();
-            
+
             Log::info('Completed cascade application access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,
@@ -74,7 +75,7 @@ class PermissionInheritanceService
                 'parent_application_id' => $parentApplicationId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -88,8 +89,9 @@ class PermissionInheritanceService
             DB::beginTransaction();
 
             $user = User::find($userId);
-            if (!$user) {
+            if (! $user) {
                 Log::error('User not found for revoking inherited access', ['user_id' => $userId]);
+
                 return false;
             }
 
@@ -103,17 +105,17 @@ class PermissionInheritanceService
 
             foreach ($groups as $group) {
                 $childApplications = $group->applications;
-                
+
                 foreach ($childApplications as $childApp) {
                     // Only revoke if this was inherited access (granted_by is null)
                     $pivotData = $user->applications()
                         ->where('application_id', $childApp->id)
                         ->first();
-                    
+
                     if ($pivotData && $pivotData->pivot->granted_by === null) {
                         $user->applications()->detach($childApp->id);
                         $revokedCount++;
-                        
+
                         Log::info('Revoked inherited application access', [
                             'user_id' => $userId,
                             'parent_application_id' => $parentApplicationId,
@@ -125,7 +127,7 @@ class PermissionInheritanceService
             }
 
             DB::commit();
-            
+
             Log::info('Completed revoke inherited access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,
@@ -141,7 +143,7 @@ class PermissionInheritanceService
                 'parent_application_id' => $parentApplicationId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -152,7 +154,7 @@ class PermissionInheritanceService
     public function getInheritedApplications(int $userId, int $applicationId): array
     {
         $user = User::find($userId);
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -187,7 +189,7 @@ class PermissionInheritanceService
     {
         try {
             $user = User::find($userId);
-            if (!$user) {
+            if (! $user) {
                 return false;
             }
 
@@ -215,7 +217,7 @@ class PermissionInheritanceService
                 'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -255,11 +257,11 @@ class PermissionInheritanceService
 
         // Check for circular dependencies
         $groups = ApplicationGroup::where('organization_id', $organizationId)->get();
-        
+
         foreach ($groups as $group) {
             // Get applications in this group
             $groupApplications = $group->applications;
-            
+
             // Check if any applications belong to wrong organization
             foreach ($groupApplications as $app) {
                 if ($app->organization_id !== $organizationId) {
@@ -288,14 +290,14 @@ class PermissionInheritanceService
     {
         $user = User::find($userId);
         $application = Application::find($applicationId);
-        
-        if (!$user || !$application) {
+
+        if (! $user || ! $application) {
             return [];
         }
 
         // Check if user has access to this application
         $directAccess = $user->applications()->where('application_id', $applicationId)->first();
-        
+
         // If user has explicitly cascaded access (granted_by = null), return stored permissions
         if ($directAccess && $directAccess->pivot->granted_by === null) {
             return $directAccess->pivot->permissions ?? [];
@@ -316,19 +318,19 @@ class PermissionInheritanceService
             ->get();
 
         foreach ($childGroups as $childGroup) {
-            if (!$childGroup->parent_id) {
+            if (! $childGroup->parent_id) {
                 continue; // No parent, no inheritance
             }
 
             // Check if inheritance is enabled in child group settings
             $settings = $childGroup->settings ?? [];
-            if (isset($settings['inheritance_enabled']) && !$settings['inheritance_enabled']) {
+            if (isset($settings['inheritance_enabled']) && ! $settings['inheritance_enabled']) {
                 continue;
             }
 
             // Find parent group
             $parentGroup = ApplicationGroup::find($childGroup->parent_id);
-            if (!$parentGroup) {
+            if (! $parentGroup) {
                 continue;
             }
 
@@ -338,7 +340,7 @@ class PermissionInheritanceService
             foreach ($parentApplications as $parentApp) {
                 // Check if user has access to this parent application
                 $userApp = $user->applications()->where('application_id', $parentApp->id)->first();
-                
+
                 if ($userApp && $userApp->pivot->permissions) {
                     $permissions = $userApp->pivot->permissions;
                     $allPermissions = array_merge($allPermissions, $permissions);
@@ -355,13 +357,13 @@ class PermissionInheritanceService
     public function cascadePermissionsToChildren(int $userId, int $parentApplicationId): int
     {
         $user = User::find($userId);
-        if (!$user) {
+        if (! $user) {
             return 0;
         }
 
         // Get user's permissions for parent application
         $parentApp = $user->applications()->where('application_id', $parentApplicationId)->first();
-        if (!$parentApp || !$parentApp->pivot->permissions) {
+        if (! $parentApp || ! $parentApp->pivot->permissions) {
             return 0;
         }
 
@@ -378,7 +380,7 @@ class PermissionInheritanceService
         foreach ($parentGroups as $parentGroup) {
             // Find child groups recursively
             $allChildGroups = $this->getAllDescendantGroups($parentGroup);
-            
+
             foreach ($allChildGroups as $childGroup) {
                 // Check if cascade is enabled (default to true if not explicitly set to false)
                 $settings = $childGroup->settings ?? [];
@@ -388,19 +390,19 @@ class PermissionInheritanceService
 
                 // Get all applications in child group
                 $childApplications = $childGroup->applications;
-                
+
                 foreach ($childApplications as $childApp) {
                     // Skip if user already has access
                     if ($user->applications()->where('application_id', $childApp->id)->exists()) {
                         continue;
                     }
-                    
+
                     $user->applications()->attach($childApp->id, [
                         'permissions' => $permissions,
                         'granted_at' => now(),
                         'granted_by' => null, // Indicates inherited access
                     ]);
-                    
+
                     $cascadedCount++;
                 }
             }
@@ -415,16 +417,16 @@ class PermissionInheritanceService
     private function getAllDescendantGroups(ApplicationGroup $parentGroup): array
     {
         $allDescendants = [];
-        
+
         // Get direct children
         $children = $parentGroup->children()->get();
-        
+
         foreach ($children as $child) {
             $allDescendants[] = $child;
             // Recursively get grandchildren and beyond
             $allDescendants = array_merge($allDescendants, $this->getAllDescendantGroups($child));
         }
-        
+
         return $allDescendants;
     }
 
@@ -435,9 +437,9 @@ class PermissionInheritanceService
     {
         $chain = [];
         $visited = [];
-        
+
         $this->buildInheritanceChain($applicationId, $chain, $visited);
-        
+
         return $chain;
     }
 
@@ -446,14 +448,14 @@ class PermissionInheritanceService
         if (in_array($applicationId, $visited)) {
             return; // Prevent infinite loops
         }
-        
+
         $visited[] = $applicationId;
-        
+
         // Find groups where this application is a child
         $groups = ApplicationGroup::whereHas('applications', function ($query) use ($applicationId) {
             $query->where('applications.id', $applicationId);
         })->get();
-            
+
         foreach ($groups as $group) {
             $chain[] = [
                 'group_id' => $group->id,
@@ -461,7 +463,7 @@ class PermissionInheritanceService
                 'relationship' => 'child',
                 'parent_application_id' => $group->parent_application_id,
             ];
-            
+
             // Add parent group to chain if it exists
             if ($group->parent_id) {
                 $parentGroup = ApplicationGroup::find($group->parent_id);
@@ -490,7 +492,7 @@ class PermissionInheritanceService
     public function getPermissionSource(int $userId, int $applicationId, string $permission): ?array
     {
         $user = User::find($userId);
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
@@ -498,7 +500,7 @@ class PermissionInheritanceService
         $directApp = $user->applications()->where('application_id', $applicationId)->first();
         if ($directApp && $directApp->pivot->permissions) {
             $directPermissions = $directApp->pivot->permissions;
-                
+
             if (in_array($permission, $directPermissions)) {
                 return [
                     'type' => 'direct',
@@ -519,12 +521,12 @@ class PermissionInheritanceService
         foreach ($groups as $group) {
             // Get parent group and check its applications
             $parentGroup = $group->parent;
-            if (!$parentGroup) {
+            if (! $parentGroup) {
                 continue;
             }
-            
+
             $parentApplications = $parentGroup->applications;
-            
+
             foreach ($parentApplications as $parentApplication) {
                 $parentApp = $user->applications()
                     ->where('application_id', $parentApplication->id)
@@ -532,7 +534,7 @@ class PermissionInheritanceService
 
                 if ($parentApp && $parentApp->pivot->permissions) {
                     $permissions = $parentApp->pivot->permissions;
-                        
+
                     if (in_array($permission, $permissions)) {
                         return [
                             'type' => 'inherited',
@@ -554,7 +556,7 @@ class PermissionInheritanceService
     public function revokeCascadedPermissions(int $userId, int $parentApplicationId, array $permissions): int
     {
         $user = User::find($userId);
-        if (!$user) {
+        if (! $user) {
             return 0;
         }
 
@@ -566,33 +568,33 @@ class PermissionInheritanceService
             ->get();
 
         $revokedCount = 0;
-        
+
         foreach ($groups as $group) {
             // Get all descendant groups and their applications
             $descendantGroups = $this->getAllDescendantGroups($group);
-            
+
             foreach ($descendantGroups as $descendantGroup) {
                 $descendantApplications = $descendantGroup->applications;
-                
+
                 foreach ($descendantApplications as $descendantApp) {
                     $childApp = $user->applications()->where('application_id', $descendantApp->id)->first();
-                    if (!$childApp || $childApp->pivot->granted_by !== null) {
+                    if (! $childApp || $childApp->pivot->granted_by !== null) {
                         continue; // Skip if not inherited access
                     }
-                    
+
                     $currentPermissions = $childApp->pivot->permissions ?? [];
                     $newPermissions = array_diff($currentPermissions, $permissions);
-                    
+
                     if (empty($newPermissions)) {
                         // Remove access entirely if no permissions remain
                         $user->applications()->detach($descendantApp->id);
                     } else {
                         // Update with remaining permissions
                         $user->applications()->updateExistingPivot($descendantApp->id, [
-                            'permissions' => array_values($newPermissions)
+                            'permissions' => array_values($newPermissions),
                         ]);
                     }
-                    
+
                     $revokedCount++;
                 }
             }
@@ -607,6 +609,7 @@ class PermissionInheritanceService
     public function detectCircularDependencies(int $groupId): bool
     {
         $visited = [];
+
         return $this->hasCircularDependency($groupId, $visited);
     }
 
@@ -615,14 +618,14 @@ class PermissionInheritanceService
         if (in_array($groupId, $visited)) {
             return true; // Found circular dependency
         }
-        
+
         $visited[] = $groupId;
-        
+
         $group = ApplicationGroup::find($groupId);
-        if (!$group || !$group->parent_id) {
+        if (! $group || ! $group->parent_id) {
             return false;
         }
-        
+
         return $this->hasCircularDependency($group->parent_id, $visited);
     }
 
@@ -633,7 +636,7 @@ class PermissionInheritanceService
     {
         $inheritedPermissions = $this->calculateInheritedPermissions($userId, $applicationId);
         $inheritanceChain = $this->getPermissionInheritanceChain($applicationId);
-        
+
         return [
             'user_id' => $userId,
             'application_id' => $applicationId,
@@ -660,21 +663,21 @@ class PermissionInheritanceService
     public function validateInheritanceHierarchy(int $organizationId): array
     {
         $groups = ApplicationGroup::where('organization_id', $organizationId)->get();
-        
+
         $orphanedGroups = [];
         $circularDependencies = [];
         $inconsistentSettings = [];
-        
+
         foreach ($groups as $group) {
             // Check for orphaned groups (parent doesn't exist)
-            if ($group->parent_id && !ApplicationGroup::find($group->parent_id)) {
+            if ($group->parent_id && ! ApplicationGroup::find($group->parent_id)) {
                 $orphanedGroups[] = [
                     'group_id' => $group->id,
                     'group_name' => $group->name,
                     'missing_parent_id' => $group->parent_id,
                 ];
             }
-            
+
             // Check for circular dependencies
             if ($this->detectCircularDependencies($group->id)) {
                 $circularDependencies[] = [
@@ -682,10 +685,10 @@ class PermissionInheritanceService
                     'group_name' => $group->name,
                 ];
             }
-            
+
             // Check for inconsistent settings
             $settings = $group->settings ?? [];
-            if (!isset($settings['inheritance_enabled'])) {
+            if (! isset($settings['inheritance_enabled'])) {
                 $inconsistentSettings[] = [
                     'group_id' => $group->id,
                     'group_name' => $group->name,
@@ -693,7 +696,7 @@ class PermissionInheritanceService
                 ];
             }
         }
-        
+
         return [
             'orphaned_groups' => $orphanedGroups,
             'circular_dependencies' => $circularDependencies,
@@ -709,35 +712,35 @@ class PermissionInheritanceService
     public function getUsersWithInheritedAccess(int $applicationId): array
     {
         $users = [];
-        
+
         // Find groups where this application is contained and have parent groups
         $groups = ApplicationGroup::whereHas('applications', function ($query) use ($applicationId) {
             $query->where('applications.id', $applicationId);
         })->whereNotNull('parent_id')->get();
-        
+
         foreach ($groups as $group) {
             // Get parent group and its applications
             $parentGroup = $group->parent;
-            if (!$parentGroup) {
+            if (! $parentGroup) {
                 continue;
             }
-            
+
             $parentApplications = $parentGroup->applications;
-            
+
             foreach ($parentApplications as $parentApp) {
                 // Find users who have access to this parent application
                 $parentUsers = User::whereHas('applications', function ($query) use ($parentApp) {
                     $query->where('application_id', $parentApp->id);
                 })->get();
-                
+
                 foreach ($parentUsers as $user) {
                     $userParentApp = $user->applications()
                         ->where('application_id', $parentApp->id)
                         ->first();
-                        
+
                     if ($userParentApp && $userParentApp->pivot->permissions) {
                         $permissions = $userParentApp->pivot->permissions;
-                        
+
                         $users[] = [
                             'user_id' => $user->id,
                             'user_name' => $user->name,
@@ -750,7 +753,7 @@ class PermissionInheritanceService
                 }
             }
         }
-        
+
         return $users;
     }
 
@@ -763,7 +766,7 @@ class PermissionInheritanceService
             $validSettings = array_intersect_key($settings, array_flip([
                 'inheritance_enabled',
                 'auto_assign_users',
-                'default_permissions'
+                'default_permissions',
             ]));
 
             $updatedCount = ApplicationGroup::whereIn('id', $groupIds)
@@ -789,7 +792,7 @@ class PermissionInheritanceService
                 'settings' => $settings,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return 0;
         }
     }

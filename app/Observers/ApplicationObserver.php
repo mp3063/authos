@@ -20,7 +20,7 @@ class ApplicationObserver
     public function created(Application $application): void
     {
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/applications');
-        
+
         if ($application->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($application->organization_id);
         }
@@ -36,7 +36,7 @@ class ApplicationObserver
             $application->organization_id
         );
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/applications');
-        
+
         // If organization changed, invalidate both organizations
         if ($application->wasChanged('organization_id')) {
             if ($application->getOriginal('organization_id')) {
@@ -57,7 +57,7 @@ class ApplicationObserver
             $application->organization_id
         );
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/applications');
-        
+
         if ($application->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($application->organization_id);
         }

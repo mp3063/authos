@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
@@ -16,6 +16,7 @@ use Carbon\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder pending()
  * @method static \Illuminate\Database\Eloquent\Builder isExpired()
  * @method static \Illuminate\Database\Eloquent\Builder forOrganization($organizationId)
+ *
  * @property-read Organization $organization
  * @property-read User|null $inviter
  */
@@ -146,9 +147,8 @@ class Invitation extends Model
      */
     public function hasPending(): bool
     {
-        return $this->status === 'pending' && !$this->hasExpired();
+        return $this->status === 'pending' && ! $this->hasExpired();
     }
-
 
     /**
      * Instance method to check if invitation is expired
@@ -159,7 +159,7 @@ class Invitation extends Model
     }
 
     /**
-     * Instance method to check if invitation is pending  
+     * Instance method to check if invitation is pending
      */
     public function isPending(): bool
     {
@@ -179,7 +179,7 @@ class Invitation extends Model
      */
     public function canBeAccepted(): bool
     {
-        return $this->status === 'pending' && !$this->hasExpired();
+        return $this->status === 'pending' && ! $this->hasExpired();
     }
 
     /**
@@ -187,7 +187,7 @@ class Invitation extends Model
      */
     public function accept(User $user): bool
     {
-        if (!$this->canBeAccepted()) {
+        if (! $this->canBeAccepted()) {
             return false;
         }
 
@@ -208,15 +208,16 @@ class Invitation extends Model
         if ($user instanceof User) {
             return $this->accept($user);
         }
-        
+
         $userModel = User::find($user);
+
         return $userModel ? $this->accept($userModel) : false;
     }
 
     /**
      * Mark invitation as declined
      */
-    public function markAsDeclined(string $reason = null): bool
+    public function markAsDeclined(?string $reason = null): bool
     {
         if ($this->status !== 'pending') {
             return false;
@@ -258,6 +259,7 @@ class Invitation extends Model
     {
         $token = Str::random(64);
         $this->update(['token' => $token]);
+
         return $token;
     }
 
@@ -269,8 +271,9 @@ class Invitation extends Model
         $token = Str::random(32); // Use 32 chars as expected by tests
         $this->update([
             'token' => $token,
-            'expires_at' => now()->addDays($days)
+            'expires_at' => now()->addDays($days),
         ]);
+
         return $token;
     }
 
@@ -280,7 +283,7 @@ class Invitation extends Model
     public function extend(int $days = 7): void
     {
         $this->update([
-            'expires_at' => now()->addDays($days)
+            'expires_at' => now()->addDays($days),
         ]);
     }
 
@@ -316,5 +319,4 @@ class Invitation extends Model
         return $query->where('status', 'pending')
             ->where('expires_at', '>', now());
     }
-
 }

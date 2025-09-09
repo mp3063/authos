@@ -18,10 +18,10 @@ class OrganizationFactory extends Factory
     public function definition(): array
     {
         $name = fake()->company();
-        
+
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . fake()->unique()->numberBetween(1000, 9999),
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1000, 9999),
             'is_active' => true,
             'settings' => [
                 'require_mfa' => fake()->boolean(30),
@@ -57,7 +57,7 @@ class OrganizationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['require_mfa'] = true;
-            
+
             return ['settings' => $settings];
         });
     }
@@ -70,7 +70,7 @@ class OrganizationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['sso_enabled'] = true;
-            
+
             return ['settings' => $settings];
         });
     }
@@ -91,7 +91,7 @@ class OrganizationFactory extends Factory
                 'require_symbols' => true,
             ];
             $settings['session_timeout'] = 30;
-            
+
             return ['settings' => $settings];
         });
     }

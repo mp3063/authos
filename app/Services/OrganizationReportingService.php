@@ -2,15 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Organization;
-use App\Models\User;
 use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\CustomRole;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use App\Models\Organization;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class OrganizationReportingService
@@ -18,15 +17,15 @@ class OrganizationReportingService
     /**
      * Generate user activity report for an organization
      */
-    public function generateUserActivityReport(int $organizationId, array $dateRange = null): array
+    public function generateUserActivityReport(int $organizationId, ?array $dateRange = null): array
     {
         $organization = Organization::findOrFail($organizationId);
-        
+
         // Default to last 30 days if no date range provided
-        $startDate = isset($dateRange['start']) 
+        $startDate = isset($dateRange['start'])
             ? Carbon::parse($dateRange['start'])->startOfDay()
             : Carbon::now()->subDays(30)->startOfDay();
-        
+
         $endDate = isset($dateRange['end'])
             ? Carbon::parse($dateRange['end'])->endOfDay()
             : Carbon::now()->endOfDay();
@@ -41,7 +40,7 @@ class OrganizationReportingService
 
         $activeUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
             $q->whereIn('application_id', $applicationIds)
-              ->wherePivot('last_login_at', '>=', $startDate);
+                ->wherePivot('last_login_at', '>=', $startDate);
         })->distinct()->count();
 
         $newUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
@@ -56,66 +55,66 @@ class OrganizationReportingService
         $dailyLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'login_success')
-        ->whereBetween('created_at', [$startDate, $endDate])
-        ->select(
-            DB::raw("DATE(created_at) as date"),
-            DB::raw('COUNT(*) as count'),
-            DB::raw('COUNT(DISTINCT user_id) as unique_users')
-        )
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get();
+            ->where('event', 'login_success')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('COUNT(*) as count'),
+                DB::raw('COUNT(DISTINCT user_id) as unique_users')
+            )
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
 
         // Top active users
         $topUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
             $q->whereIn('application_id', $applicationIds)
-              ->wherePivot('last_login_at', '>=', $startDate);
+                ->wherePivot('last_login_at', '>=', $startDate);
         })
-        ->with(['applications' => function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds)
-              ->withPivot(['last_login_at', 'login_count']);
-        }])
-        ->get()
-        ->map(function ($user) {
-            $totalLogins = $user->applications->sum('pivot.login_count');
-            $lastLogin = $user->applications->max('pivot.last_login_at');
-            
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'total_logins' => $totalLogins,
-                'last_login_at' => $lastLogin,
-                'mfa_enabled' => $user->hasMfaEnabled(),
-            ];
-        })
-        ->sortByDesc('total_logins')
-        ->take(20)
-        ->values();
+            ->with(['applications' => function ($q) use ($applicationIds) {
+                $q->whereIn('application_id', $applicationIds)
+                    ->withPivot(['last_login_at', 'login_count']);
+            }])
+            ->get()
+            ->map(function ($user) {
+                $totalLogins = $user->applications->sum('pivot.login_count');
+                $lastLogin = $user->applications->max('pivot.last_login_at');
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'total_logins' => $totalLogins,
+                    'last_login_at' => $lastLogin,
+                    'mfa_enabled' => $user->hasMfaEnabled(),
+                ];
+            })
+            ->sortByDesc('total_logins')
+            ->take(20)
+            ->values();
 
         // Failed login attempts
         $failedLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'login_failed')
-        ->whereBetween('created_at', [$startDate, $endDate])
-        ->count();
+            ->where('event', 'login_failed')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
 
         // Role distribution
         $roleDistribution = User::whereHas('applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->with('roles')
-        ->get()
-        ->flatMap(function ($user) {
-            return $user->roles->pluck('name');
-        })
-        ->countBy()
-        ->map(function ($count, $role) {
-            return ['role' => $role, 'count' => $count];
-        })
-        ->values();
+            ->with('roles')
+            ->get()
+            ->flatMap(function ($user) {
+                return $user->roles->pluck('name');
+            })
+            ->countBy()
+            ->map(function ($count, $role) {
+                return ['role' => $role, 'count' => $count];
+            })
+            ->values();
 
         // Custom role distribution
         $customRoleDistribution = CustomRole::where('organization_id', $organizationId)
@@ -150,8 +149,8 @@ class OrganizationReportingService
                 'total_logins' => $dailyLogins->sum('count'),
                 'failed_logins' => $failedLogins,
                 'unique_active_users' => $dailyLogins->sum('unique_users'),
-                'success_rate' => $dailyLogins->sum('count') + $failedLogins > 0 
-                    ? round(($dailyLogins->sum('count') / ($dailyLogins->sum('count') + $failedLogins)) * 100, 2) 
+                'success_rate' => $dailyLogins->sum('count') + $failedLogins > 0
+                    ? round(($dailyLogins->sum('count') / ($dailyLogins->sum('count') + $failedLogins)) * 100, 2)
                     : 0,
             ],
             'daily_activity' => $dailyLogins,
@@ -177,7 +176,7 @@ class OrganizationReportingService
             ->get()
             ->map(function ($app) {
                 $activeUsers = $app->users->filter(function ($user) {
-                    return $user->pivot->last_login_at && 
+                    return $user->pivot->last_login_at &&
                            Carbon::parse($user->pivot->last_login_at)->gt(Carbon::now()->subDays(30));
                 })->count();
 
@@ -233,10 +232,11 @@ class OrganizationReportingService
 
         // Top applications by engagement score
         $topApplications = $applications->sortByDesc('engagement_score')->take(5)->values();
-        
+
         // Usage trends (simple daily trend for last 7 days)
         $usageTrends = collect(range(6, 0))->map(function ($daysAgo) use ($applications) {
             $date = Carbon::now()->subDays($daysAgo);
+
             return [
                 'date' => $date->toDateString(),
                 'total_logins' => $applications->sum('total_logins'), // Simplified for now
@@ -280,81 +280,81 @@ class OrganizationReportingService
         $failedLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'login_failed')
-        ->where('created_at', '>=', $startDate)
-        ->select(
-            DB::raw("DATE(created_at) as date"),
-            DB::raw('COUNT(*) as count'),
-            DB::raw('COUNT(DISTINCT ip_address) as unique_ips'),
-            DB::raw('COUNT(DISTINCT user_id) as affected_users')
-        )
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get();
+            ->where('event', 'login_failed')
+            ->where('created_at', '>=', $startDate)
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('COUNT(*) as count'),
+                DB::raw('COUNT(DISTINCT ip_address) as unique_ips'),
+                DB::raw('COUNT(DISTINCT user_id) as affected_users')
+            )
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
 
         // Suspicious IP addresses (multiple failed logins)
         $suspiciousIPs = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'login_failed')
-        ->where('created_at', '>=', $startDate)
-        ->select(
-            'ip_address',
-            DB::raw('COUNT(*) as failed_attempts'),
-            DB::raw('COUNT(DISTINCT user_id) as affected_users'),
-            DB::raw('MAX(created_at) as last_attempt')
-        )
-        ->groupBy('ip_address')
-        ->having('failed_attempts', '>=', 10)
-        ->orderByDesc('failed_attempts')
-        ->get();
+            ->where('event', 'login_failed')
+            ->where('created_at', '>=', $startDate)
+            ->select(
+                'ip_address',
+                DB::raw('COUNT(*) as failed_attempts'),
+                DB::raw('COUNT(DISTINCT user_id) as affected_users'),
+                DB::raw('MAX(created_at) as last_attempt')
+            )
+            ->groupBy('ip_address')
+            ->having('failed_attempts', '>=', 10)
+            ->orderByDesc('failed_attempts')
+            ->get();
 
         // Users without MFA
         $usersWithoutMFA = User::whereHas('applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where(function ($q) {
-            $q->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
-        })
-        ->select('id', 'name', 'email', 'created_at')
-        ->get();
+            ->where(function ($q) {
+                $q->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
+            })
+            ->select('id', 'name', 'email', 'created_at')
+            ->get();
 
         // Privileged users (admins, owners)
         $privilegedUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->whereHas('roles', function ($q) {
-            $q->whereIn('name', ['Super Admin', 'Organization Admin', 'Organization Owner']);
-        })
-        ->with('roles')
-        ->select('id', 'name', 'email', 'created_at')
-        ->get()
-        ->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'roles' => $user->roles->pluck('name'),
-                'mfa_enabled' => $user->hasMfaEnabled(),
-                'created_at' => $user->created_at,
-            ];
-        });
+            ->whereHas('roles', function ($q) {
+                $q->whereIn('name', ['Super Admin', 'Organization Admin', 'Organization Owner']);
+            })
+            ->with('roles')
+            ->select('id', 'name', 'email', 'created_at')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $user->roles->pluck('name'),
+                    'mfa_enabled' => $user->hasMfaEnabled(),
+                    'created_at' => $user->created_at,
+                ];
+            });
 
         // Token revocation events
         $tokenRevocations = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'token_revoked')
-        ->where('created_at', '>=', $startDate)
-        ->count();
+            ->where('event', 'token_revoked')
+            ->where('created_at', '>=', $startDate)
+            ->count();
 
         // Password change events
         $passwordChanges = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->where('event', 'password_changed')
-        ->where('created_at', '>=', $startDate)
-        ->count();
+            ->where('event', 'password_changed')
+            ->where('created_at', '>=', $startDate)
+            ->count();
 
         // Organization security settings compliance
         $orgSettings = $organization->settings ?? [];
@@ -362,7 +362,7 @@ class OrganizationReportingService
             'mfa_required' => $orgSettings['require_mfa'] ?? false,
             'password_policy_enforced' => isset($orgSettings['password_policy']),
             'session_timeout_configured' => isset($orgSettings['session_timeout']),
-            'allowed_domains_configured' => !empty($orgSettings['allowed_domains'] ?? []),
+            'allowed_domains_configured' => ! empty($orgSettings['allowed_domains'] ?? []),
         ];
 
         $complianceScore = (array_sum($securityCompliance) / count($securityCompliance)) * 100;
@@ -371,27 +371,27 @@ class OrganizationReportingService
         $recentSecurityEvents = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
             $q->whereIn('application_id', $applicationIds);
         })
-        ->whereIn('event', ['login_failed', 'token_revoked', 'mfa_failed', 'password_changed'])
-        ->where('created_at', '>=', Carbon::now()->subDays(30))
-        ->with('user:id,name,email')
-        ->orderByDesc('created_at')
-        ->limit(100)
-        ->get()
-        ->map(function ($log) {
-            return [
-                'event' => $log->event,
-                'user' => $log->user ? [
-                    'id' => $log->user->id,
-                    'name' => $log->user->name,
-                    'email' => $log->user->email,
-                ] : null,
-                'ip_address' => $log->ip_address,
-                'user_agent' => $log->user_agent,
-                'success' => $log->success,
-                'metadata' => $log->metadata,
-                'created_at' => $log->created_at,
-            ];
-        });
+            ->whereIn('event', ['login_failed', 'token_revoked', 'mfa_failed', 'password_changed'])
+            ->where('created_at', '>=', Carbon::now()->subDays(30))
+            ->with('user:id,name,email')
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'event' => $log->event,
+                    'user' => $log->user ? [
+                        'id' => $log->user->id,
+                        'name' => $log->user->name,
+                        'email' => $log->user->email,
+                    ] : null,
+                    'ip_address' => $log->ip_address,
+                    'user_agent' => $log->user_agent,
+                    'success' => $log->success,
+                    'metadata' => $log->metadata,
+                    'created_at' => $log->created_at,
+                ];
+            });
 
         return [
             'organization' => [
@@ -446,8 +446,8 @@ class OrganizationReportingService
         // Generate PDF using DOMPDF
         $pdf = PDF::loadView("reports.{$reportType}", compact('report'));
         $pdf->setPaper('a4', 'portrait');
-        
-        $exportPath = 'reports/' . $filename;
+
+        $exportPath = 'reports/'.$filename;
         Storage::put($exportPath, $pdf->output());
 
         return $exportPath;
@@ -491,7 +491,7 @@ class OrganizationReportingService
         }
 
         $orgSettings = $organization->settings ?? [];
-        if (!($orgSettings['require_mfa'] ?? false)) {
+        if (! ($orgSettings['require_mfa'] ?? false)) {
             $recommendations[] = [
                 'priority' => 'high',
                 'category' => 'mfa',
@@ -521,8 +521,8 @@ class OrganizationReportingService
     {
         // For now, return a dummy schedule ID
         // In a real implementation, this would integrate with a job scheduler
-        $scheduleId = 'schedule_' . uniqid();
-        
+        $scheduleId = 'schedule_'.uniqid();
+
         // Store configuration for the scheduled report
         // This could be stored in a database table or cache
         $scheduledReport = [
@@ -534,7 +534,7 @@ class OrganizationReportingService
             'next_run' => $this->calculateNextRunTime($config['frequency']),
             'created_at' => Carbon::now(),
         ];
-        
+
         // In a real implementation, you'd store this in a database
         // For testing purposes, we'll just return the ID
         return $scheduleId;

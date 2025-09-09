@@ -5,12 +5,9 @@ namespace App\Services;
 use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Client;
-use Laravel\Passport\PersonalAccessTokenResult;
 
 class OAuthService
 {
@@ -32,7 +29,7 @@ class OAuthService
             'personal_access_client' => $personalAccess,
             'password_client' => $passwordGrant,
             'revoked' => false,
-            'secret' => $passwordGrant || !$personalAccess ? \Illuminate\Support\Str::random(40) : null,
+            'secret' => $passwordGrant || ! $personalAccess ? \Illuminate\Support\Str::random(40) : null,
         ]);
 
         // Update application with OAuth credentials
@@ -51,11 +48,11 @@ class OAuthService
     {
         $client = Client::find($clientId);
 
-        if (!$client || $client->revoked) {
+        if (! $client || $client->revoked) {
             return null;
         }
 
-        if ($clientSecret && !Hash::check($clientSecret, $client->secret)) {
+        if ($clientSecret && ! Hash::check($clientSecret, $client->secret)) {
             return null;
         }
 
@@ -68,17 +65,17 @@ class OAuthService
     public function generateAccessToken(User $user, array $scopes = []): object
     {
         $scopes = empty($scopes) ? ['openid'] : $scopes;
-        
+
         // In testing environment, use a mock token
         if (app()->environment('testing')) {
             return (object) [
-                'accessToken' => 'test_token_' . $user->id . '_' . time(),
+                'accessToken' => 'test_token_'.$user->id.'_'.time(),
                 'token' => (object) [
-                    'expires_at' => now()->addHours(1)
-                ]
+                    'expires_at' => now()->addHours(1),
+                ],
             ];
         }
-        
+
         return $user->createToken('AuthOS Personal Access Token', $scopes);
     }
 
@@ -88,9 +85,10 @@ class OAuthService
     public function revokeToken(string $tokenId): bool
     {
         $token = \Laravel\Passport\Token::find($tokenId);
-        
+
         if ($token) {
             $token->revoke();
+
             return true;
         }
 
@@ -103,6 +101,7 @@ class OAuthService
     public function validateRedirectUri(Client $client, string $redirectUri): bool
     {
         $clientRedirects = explode(',', $client->redirect);
+
         return in_array($redirectUri, $clientRedirects);
     }
 
@@ -134,14 +133,14 @@ class OAuthService
         bool $successful = true
     ): void {
         $application = null;
-        
+
         if ($clientId) {
             $application = Application::where('client_id', $clientId)->first();
         }
 
         // Get IP address, prioritizing X-Forwarded-For header for proxied requests
-        $ipAddress = $request->header('X-Forwarded-For') 
-            ? explode(',', $request->header('X-Forwarded-For'))[0] 
+        $ipAddress = $request->header('X-Forwarded-For')
+            ? explode(',', $request->header('X-Forwarded-For'))[0]
             : $request->ip();
 
         AuthenticationLog::create([
@@ -188,7 +187,7 @@ class OAuthService
         if (in_array('email', $scopes)) {
             $userInfo = array_merge($userInfo, [
                 'email' => $user->email,
-                'email_verified' => !is_null($user->email_verified_at),
+                'email_verified' => ! is_null($user->email_verified_at),
             ]);
         }
 
@@ -203,6 +202,7 @@ class OAuthService
         if ($method === 'S256') {
             $hash = hash('sha256', $codeVerifier, true);
             $challenge = rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
+
             return $challenge === $codeChallenge;
         }
 
@@ -219,6 +219,6 @@ class OAuthService
     public function clientSupportsPKCE(Client $client): bool
     {
         // Check if client is public (no secret) or has PKCE enabled
-        return !$client->confidential || ($client->personal_access_client ?? false);
+        return ! $client->confidential || ($client->personal_access_client ?? false);
     }
 }

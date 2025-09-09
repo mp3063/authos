@@ -95,8 +95,8 @@ class AdminPanelProvider extends PanelProvider
                 ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
                 ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets');
         } catch (\Throwable $e) {
-            \Log::error('AdminPanelProvider error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            \Log::error('AdminPanelProvider error: '.$e->getMessage());
+            \Log::error('Stack trace: '.$e->getTraceAsString());
             throw $e;
         }
     }

@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\Organization;
 use App\Models\AuthenticationLog;
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
+use Laravel\Socialite\Facades\Socialite;
 use Spatie\Permission\Models\Role;
 
 class SocialAuthService
@@ -35,19 +35,19 @@ class SocialAuthService
     {
         try {
             $socialUser = Socialite::driver($provider)->stateless()->user();
-            
+
             return DB::transaction(function () use ($provider, $socialUser, $organizationSlug) {
                 // Find or create the user
                 $user = $this->findOrCreateUser($provider, $socialUser, $organizationSlug);
-                
+
                 // Generate tokens using OAuth service
                 $tokens = $this->oauthService->generateAccessToken($user, [
-                    'openid', 'profile', 'email'
+                    'openid', 'profile', 'email',
                 ]);
-                
+
                 // Log the authentication
                 $this->logAuthentication($user, $provider, true);
-                
+
                 return [
                     'user' => $user,
                     'access_token' => $tokens->access_token ?? $tokens->accessToken ?? null,
@@ -60,10 +60,10 @@ class SocialAuthService
             Log::error('Social authentication failed', [
                 'provider' => $provider,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
-            throw new \Exception('Social authentication failed: ' . $e->getMessage());
+
+            throw new \Exception('Social authentication failed: '.$e->getMessage());
         }
     }
 
@@ -74,21 +74,22 @@ class SocialAuthService
     {
         // First, try to find user by provider and provider ID
         $user = User::findBySocialProvider($provider, $socialUser->getId());
-        
+
         if ($user) {
             // Update existing social user data
             $user = $this->updateUserFromSocial($user, $socialUser);
+
             return $user;
         }
-        
+
         // Check if user exists with same email (account linking)
         $existingUser = User::where('email', $socialUser->getEmail())->first();
-        
+
         if ($existingUser) {
             // Link social account to existing user
             return $this->linkSocialAccount($existingUser, $provider, $socialUser);
         }
-        
+
         // Create new user
         return $this->createUserFromSocial($provider, $socialUser, $organizationSlug);
     }
@@ -102,13 +103,13 @@ class SocialAuthService
         $organization = null;
         if ($organizationSlug) {
             $organization = Organization::where('slug', $organizationSlug)->first();
-            if (!$organization) {
+            if (! $organization) {
                 throw new \Exception('Organization not found');
             }
-            
+
             // Check if organization allows registration
             $settings = $organization->settings ?? [];
-            if (isset($settings['allow_registration']) && !$settings['allow_registration']) {
+            if (isset($settings['allow_registration']) && ! $settings['allow_registration']) {
                 throw new \Exception('Organization does not allow registration');
             }
         } else {
@@ -137,10 +138,10 @@ class SocialAuthService
         ];
 
         $user = User::create($userData);
-        
+
         // Assign default role
         $this->assignDefaultRole($user, $organization);
-        
+
         return $user;
     }
 
@@ -162,7 +163,7 @@ class SocialAuthService
                 'raw' => $socialUser->getRaw(),
             ],
         ]);
-        
+
         return $user;
     }
 
@@ -186,7 +187,7 @@ class SocialAuthService
             ],
             'avatar' => $socialUser->getAvatar() ?: $user->avatar,
         ]);
-        
+
         return $user;
     }
 
@@ -199,12 +200,12 @@ class SocialAuthService
             if ($organization) {
                 // Set organization context for permission assignment
                 $user->setPermissionsTeamId($organization->id);
-                
+
                 // Try to assign organization-specific 'user' role
                 $orgRole = Role::where('name', 'user')
                     ->where('organization_id', $organization->id)
                     ->first();
-                    
+
                 if ($orgRole) {
                     $user->assignRole($orgRole);
                 } else {
@@ -212,7 +213,7 @@ class SocialAuthService
                     $globalRole = Role::where('name', 'user')
                         ->whereNull('organization_id')
                         ->first();
-                        
+
                     if ($globalRole) {
                         $user->assignRole($globalRole);
                     }
@@ -222,7 +223,7 @@ class SocialAuthService
                 $globalRole = Role::where('name', 'user')
                     ->whereNull('organization_id')
                     ->first();
-                    
+
                 if ($globalRole) {
                     $user->assignRole($globalRole);
                 }
@@ -231,7 +232,7 @@ class SocialAuthService
             Log::warning('Failed to assign default role to social user', [
                 'user_id' => $user->id,
                 'organization_id' => $organization?->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -250,13 +251,13 @@ class SocialAuthService
                 'metadata' => [
                     'provider' => $provider,
                     'provider_display_name' => $user->getProviderDisplayName(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to log social authentication event', [
                 'user_id' => $user->id,
                 'provider' => $provider,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -269,31 +270,31 @@ class SocialAuthService
         return [
             'google' => [
                 'name' => 'Google',
-                'enabled' => !empty(config('services.google.client_id')),
+                'enabled' => ! empty(config('services.google.client_id')),
                 'icon' => 'fab fa-google',
                 'color' => '#db4437',
             ],
             'github' => [
-                'name' => 'GitHub', 
-                'enabled' => !empty(config('services.github.client_id')),
+                'name' => 'GitHub',
+                'enabled' => ! empty(config('services.github.client_id')),
                 'icon' => 'fab fa-github',
                 'color' => '#333',
             ],
             'facebook' => [
                 'name' => 'Facebook',
-                'enabled' => !empty(config('services.facebook.client_id')),
+                'enabled' => ! empty(config('services.facebook.client_id')),
                 'icon' => 'fab fa-facebook-f',
                 'color' => '#3b5998',
             ],
             'twitter' => [
                 'name' => 'Twitter',
-                'enabled' => !empty(config('services.twitter.client_id')),
+                'enabled' => ! empty(config('services.twitter.client_id')),
                 'icon' => 'fab fa-twitter',
                 'color' => '#1da1f2',
             ],
             'linkedin' => [
                 'name' => 'LinkedIn',
-                'enabled' => !empty(config('services.linkedin.client_id')),
+                'enabled' => ! empty(config('services.linkedin.client_id')),
                 'icon' => 'fab fa-linkedin-in',
                 'color' => '#0077b5',
             ],
@@ -306,6 +307,7 @@ class SocialAuthService
     public function isProviderSupported(string $provider): bool
     {
         $availableProviders = array_keys($this->getAvailableProviders());
+
         return in_array($provider, $availableProviders);
     }
 
@@ -315,6 +317,7 @@ class SocialAuthService
     public function isProviderEnabled(string $provider): bool
     {
         $providers = $this->getAvailableProviders();
+
         return isset($providers[$provider]) && $providers[$provider]['enabled'];
     }
 }

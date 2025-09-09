@@ -19,12 +19,12 @@ class SetPermissionContext
         // Only process for authenticated API users
         if ($request->user() && $request->is('api/*')) {
             $user = $request->user();
-            
+
             // Set team context for organization-scoped permissions
             if ($user->organization_id) {
                 // Set on user instance
                 $user->setPermissionsTeamId($user->organization_id);
-                
+
                 // Set globally on PermissionRegistrar
                 app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
             }

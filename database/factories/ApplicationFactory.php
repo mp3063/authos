@@ -19,28 +19,28 @@ class ApplicationFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->company() . ' ' . fake()->randomElement(['App', 'Portal', 'Dashboard', 'Platform']),
+            'name' => fake()->company().' '.fake()->randomElement(['App', 'Portal', 'Dashboard', 'Platform']),
             'organization_id' => Organization::factory(),
             'client_id' => (string) Str::uuid(),
             'client_secret' => Str::random(40),
             'redirect_uris' => [
                 'http://localhost:3000/auth/callback',
                 'http://localhost:8000/auth/callback',
-                fake()->url() . '/callback',
+                fake()->url().'/callback',
             ],
             'allowed_origins' => [
                 'http://localhost:3000',
-                'http://localhost:8000', 
+                'http://localhost:8000',
                 fake()->url(),
             ],
             'allowed_grant_types' => fake()->randomElements(['authorization_code', 'refresh_token', 'client_credentials', 'password'], fake()->numberBetween(1, 3)),
-            'webhook_url' => fake()->optional()->url() . '/webhook',
+            'webhook_url' => fake()->optional()->url().'/webhook',
             'settings' => [
                 'description' => fake()->sentence(),
                 'logo' => fake()->optional()->imageUrl(150, 150, 'technics'),
                 'homepage_url' => fake()->optional()->url(),
-                'privacy_policy_url' => fake()->optional()->url() . '/privacy',
-                'terms_of_service_url' => fake()->optional()->url() . '/terms',
+                'privacy_policy_url' => fake()->optional()->url().'/privacy',
+                'terms_of_service_url' => fake()->optional()->url().'/terms',
                 'scopes' => fake()->randomElements(['openid', 'profile', 'email', 'read', 'write'], fake()->numberBetween(2, 5)),
             ],
             'is_active' => true,
@@ -75,7 +75,7 @@ class ApplicationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['scopes'] = $scopes;
-            
+
             return ['settings' => $settings];
         });
     }
@@ -97,10 +97,10 @@ class ApplicationFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $grantTypes = $attributes['allowed_grant_types'] ?? [];
-            if (!in_array('password', $grantTypes)) {
+            if (! in_array('password', $grantTypes)) {
                 $grantTypes[] = 'password';
             }
-            
+
             return ['allowed_grant_types' => $grantTypes];
         });
     }
@@ -112,10 +112,10 @@ class ApplicationFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $grantTypes = $attributes['allowed_grant_types'] ?? [];
-            if (!in_array('client_credentials', $grantTypes)) {
+            if (! in_array('client_credentials', $grantTypes)) {
                 $grantTypes[] = 'client_credentials';
             }
-            
+
             return ['allowed_grant_types' => $grantTypes];
         });
     }

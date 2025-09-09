@@ -17,7 +17,7 @@ class CustomRoleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
     }
 
@@ -92,14 +92,14 @@ class CustomRoleTest extends TestCase
         $defaultRole = CustomRole::factory()
             ->forOrganization($this->organization)
             ->default()
-            ->create(['name' => 'Default Role ' . uniqid()]);
+            ->create(['name' => 'Default Role '.uniqid()]);
 
         // Create non-default role
         $regularRole = CustomRole::factory()
             ->forOrganization($this->organization)
             ->create([
-                'name' => 'Regular Role ' . uniqid(),
-                'is_default' => false
+                'name' => 'Regular Role '.uniqid(),
+                'is_default' => false,
             ]);
 
         $defaultRoles = CustomRole::default()->get();
@@ -188,7 +188,7 @@ class CustomRoleTest extends TestCase
         foreach ($permissionsToRemove as $permission) {
             $this->assertFalse($role->hasPermission($permission));
         }
-        
+
         // Check remaining permissions
         $this->assertTrue($role->hasPermission('users.view'));
         $this->assertTrue($role->hasPermission('users.create'));
@@ -207,7 +207,7 @@ class CustomRoleTest extends TestCase
         // Old permissions should be gone
         $this->assertFalse($role->hasPermission('users.view'));
         $this->assertFalse($role->hasPermission('applications.view'));
-        
+
         // New permissions should exist
         $this->assertTrue($role->hasPermission('reports.view'));
         $this->assertTrue($role->hasPermission('settings.edit'));
@@ -216,7 +216,7 @@ class CustomRoleTest extends TestCase
     public function test_get_permission_count_returns_correct_count(): void
     {
         $permissions = ['users.view', 'users.create', 'reports.view', 'settings.edit'];
-        
+
         $role = CustomRole::factory()
             ->forOrganization($this->organization)
             ->withPermissions($permissions)
@@ -339,7 +339,7 @@ class CustomRoleTest extends TestCase
     public function test_permissions_are_cast_to_array(): void
     {
         $permissions = ['users.view', 'users.create', 'reports.view'];
-        
+
         $role = CustomRole::factory()
             ->forOrganization($this->organization)
             ->create(['permissions' => $permissions]);
@@ -352,10 +352,10 @@ class CustomRoleTest extends TestCase
     {
         $fillable = [
             'name', 'display_name', 'description', 'organization_id',
-            'permissions', 'is_active', 'is_default'
+            'permissions', 'is_active', 'is_default',
         ];
 
-        $role = new CustomRole();
+        $role = new CustomRole;
 
         $this->assertEquals($fillable, $role->getFillable());
     }
@@ -365,7 +365,7 @@ class CustomRoleTest extends TestCase
         $permissions = [
             'users.view', 'users.create', 'users.edit',
             'applications.view', 'applications.create',
-            'reports.view', 'settings.edit'
+            'reports.view', 'settings.edit',
         ];
 
         $role = CustomRole::factory()

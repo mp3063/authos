@@ -79,7 +79,7 @@ class ApiMonitoring
 
         // Add monitoring headers to response
         $response->headers->set('X-Request-ID', $requestId);
-        $response->headers->set('X-Response-Time', $executionTime . 'ms');
+        $response->headers->set('X-Response-Time', $executionTime.'ms');
         $response->headers->set('X-Memory-Usage', $this->formatBytes($memoryUsage));
 
         return $response;
@@ -90,17 +90,17 @@ class ApiMonitoring
      */
     private function generateRequestId(): string
     {
-        return 'req_' . uniqid() . '_' . str_pad(dechex(mt_rand(0, 0xFFFF)), 4, '0', STR_PAD_LEFT);
+        return 'req_'.uniqid().'_'.str_pad(dechex(mt_rand(0, 0xFFFF)), 4, '0', STR_PAD_LEFT);
     }
 
     /**
      * Store metrics in cache for analytics.
      */
     private function storeMetrics(
-        Request $request, 
-        Response $response, 
-        float $executionTime, 
-        int $memoryUsage, 
+        Request $request,
+        Response $response,
+        float $executionTime,
+        int $memoryUsage,
         int $responseSize,
         ?int $userId
     ): void {
@@ -109,19 +109,19 @@ class ApiMonitoring
         $minute = now()->format('i');
 
         // Store metrics with different granularities
-        $baseKey = 'api_metrics:' . $date;
+        $baseKey = 'api_metrics:'.$date;
 
         // Daily metrics
-        $dailyKey = $baseKey . ':daily';
+        $dailyKey = $baseKey.':daily';
         $this->incrementMetrics($dailyKey, $request, $response, $executionTime, $memoryUsage, $responseSize, $userId, 86400);
 
         // Hourly metrics
-        $hourlyKey = $baseKey . ':hourly:' . $hour;
+        $hourlyKey = $baseKey.':hourly:'.$hour;
         $this->incrementMetrics($hourlyKey, $request, $response, $executionTime, $memoryUsage, $responseSize, $userId, 3600);
 
         // 5-minute metrics for real-time monitoring
-        $minuteBlock = floor((int)$minute / 5) * 5;
-        $realtimeKey = $baseKey . ':realtime:' . $hour . ':' . str_pad($minuteBlock, 2, '0', STR_PAD_LEFT);
+        $minuteBlock = floor((int) $minute / 5) * 5;
+        $realtimeKey = $baseKey.':realtime:'.$hour.':'.str_pad($minuteBlock, 2, '0', STR_PAD_LEFT);
         $this->incrementMetrics($realtimeKey, $request, $response, $executionTime, $memoryUsage, $responseSize, $userId, 300);
     }
 
@@ -129,9 +129,9 @@ class ApiMonitoring
      * Increment metrics in cache.
      */
     private function incrementMetrics(
-        string $key, 
-        Request $request, 
-        Response $response, 
+        string $key,
+        Request $request,
+        Response $response,
         float $executionTime,
         int $memoryUsage,
         int $responseSize,
@@ -168,11 +168,11 @@ class ApiMonitoring
             }
 
             // Track status codes
-            $statusCode = (string)$response->getStatusCode();
+            $statusCode = (string) $response->getStatusCode();
             $metrics['status_codes'][$statusCode] = ($metrics['status_codes'][$statusCode] ?? 0) + 1;
 
             // Track endpoints
-            $endpoint = $request->method() . ' ' . $request->path();
+            $endpoint = $request->method().' '.$request->path();
             $metrics['endpoints'][$endpoint] = ($metrics['endpoints'][$endpoint] ?? 0) + 1;
 
             // Track unique users (limit to preserve memory)
@@ -206,14 +206,14 @@ class ApiMonitoring
     private function getSafeResponseBody(Response $response): string
     {
         $content = $response->getContent();
-        
+
         if (strlen($content) > 1000) {
-            $content = substr($content, 0, 1000) . '... [truncated]';
+            $content = substr($content, 0, 1000).'... [truncated]';
         }
 
         // Remove sensitive data patterns
         $content = preg_replace('/("password"|"token"|"secret"|"key"):\s*"[^"]*"/', '"$1": "[REDACTED]"', $content);
-        
+
         return $content;
     }
 
@@ -223,11 +223,12 @@ class ApiMonitoring
     private function formatBytes(int $bytes): string
     {
         if ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . 'MB';
+            return round($bytes / 1048576, 2).'MB';
         } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2) . 'KB';
+            return round($bytes / 1024, 2).'KB';
         }
-        return $bytes . 'B';
+
+        return $bytes.'B';
     }
 
     /**
@@ -235,7 +236,7 @@ class ApiMonitoring
      */
     private function simplifyUserAgent(?string $userAgent): ?string
     {
-        if (!$userAgent) {
+        if (! $userAgent) {
             return null;
         }
 

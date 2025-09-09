@@ -17,7 +17,7 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Set up Passport for testing
         $this->setupPassport();
     }
@@ -31,40 +31,40 @@ abstract class TestCase extends BaseTestCase
         if (file_exists(storage_path('oauth-keys'))) {
             Passport::loadKeysFrom(storage_path('oauth-keys'));
         }
-        
+
         // Create personal access client if it doesn't exist
         Artisan::call('passport:client', [
             '--personal' => true,
             '--no-interaction' => true,
-            '--name' => 'Test Personal Access Client'
+            '--name' => 'Test Personal Access Client',
         ]);
     }
 
     protected function createUser(array $attributes = [], string $role = 'user', string $guard = 'web'): User
     {
         // Only create organization if not provided in attributes
-        if (!isset($attributes['organization_id'])) {
+        if (! isset($attributes['organization_id'])) {
             $organization = Organization::factory()->create();
             $attributes['organization_id'] = $organization->id;
         } else {
             $organization = Organization::find($attributes['organization_id']);
         }
-        
+
         $user = User::factory()->create($attributes);
 
         if ($role) {
             // For testing, create a global role with the required permissions
             $this->seedRolesAndPermissions(); // Ensure permissions exist
-            
+
             // CRITICAL FIX: Set the team context BEFORE role operations
             app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
-            
+
             $roleModel = Role::firstOrCreate([
-                'name' => $role, 
+                'name' => $role,
                 'guard_name' => $guard,
-                'organization_id' => $user->organization_id
+                'organization_id' => $user->organization_id,
             ]);
-            
+
             // Create permissions with the same organization context if they don't exist
             $permissions = [];
             if ($role === 'Super Admin') {
@@ -99,33 +99,31 @@ abstract class TestCase extends BaseTestCase
                     'auth_logs.read',
                 ];
             }
-            
+
             // Create permissions with organization context
             foreach ($permissions as $permissionName) {
                 $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
                     'name' => $permissionName,
                     'guard_name' => $guard,
-                    'organization_id' => $user->organization_id
+                    'organization_id' => $user->organization_id,
                 ]);
             }
-            
+
             // Sync permissions to role
-            if (!empty($permissions)) {
+            if (! empty($permissions)) {
                 $permissionModels = \Spatie\Permission\Models\Permission::whereIn('name', $permissions)
                     ->where('guard_name', $guard)
                     ->where('organization_id', $user->organization_id)
                     ->get();
                 $roleModel->syncPermissions($permissionModels);
             }
-            
-            
+
             // CRITICAL FIX: Set team context on user before role assignment
             $user->setPermissionsTeamId($user->organization_id);
-            
+
             // Assign role with proper team context
             $user->assignRole($roleModel);
-            
-            
+
             // Refresh the user model to ensure the role is properly loaded
             $user->refresh();
             $user->load('roles', 'permissions');
@@ -168,6 +166,7 @@ abstract class TestCase extends BaseTestCase
     {
         $user = $user ?: $this->createUser();
         $this->actingAs($user);
+
         return $user;
     }
 
@@ -175,6 +174,7 @@ abstract class TestCase extends BaseTestCase
     {
         $admin = $admin ?: $this->createSuperAdmin();
         $this->actingAs($admin);
+
         return $admin;
     }
 
@@ -182,12 +182,14 @@ abstract class TestCase extends BaseTestCase
     {
         $user = $user ?: $this->createUser();
         Passport::actingAs($user);
+
         return $user;
     }
 
     protected function createAccessToken(User $user, array $scopes = ['*']): string
     {
         $token = $user->createToken('TestToken', $scopes);
+
         return $token->accessToken;
     }
 

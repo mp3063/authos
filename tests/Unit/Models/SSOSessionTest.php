@@ -5,21 +5,22 @@ namespace Tests\Unit\Models;
 use App\Models\Application;
 use App\Models\SSOSession;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-use Carbon\Carbon;
 
 class SSOSessionTest extends TestCase
 {
     use RefreshDatabase;
 
     private User $user;
+
     private Application $application;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->user = $this->createUser();
         $this->application = Application::factory()->create();
     }
@@ -130,7 +131,7 @@ class SSOSessionTest extends TestCase
             ->recentlyActive()
             ->create([
                 'expires_at' => Carbon::now()->addHours(2),
-                'logged_out_at' => null
+                'logged_out_at' => null,
             ]);
 
         $this->assertTrue($session->isActive());
@@ -141,7 +142,7 @@ class SSOSessionTest extends TestCase
         $session = SSOSession::factory()
             ->create([
                 'expires_at' => Carbon::now()->subHour(),
-                'logged_out_at' => null
+                'logged_out_at' => null,
             ]);
 
         $this->assertFalse($session->isActive());
@@ -152,7 +153,7 @@ class SSOSessionTest extends TestCase
         $session = SSOSession::factory()
             ->create([
                 'expires_at' => Carbon::now()->addHours(2),
-                'logged_out_at' => Carbon::now()->subMinutes(30)
+                'logged_out_at' => Carbon::now()->subMinutes(30),
             ]);
 
         $this->assertFalse($session->isActive());
@@ -239,7 +240,7 @@ class SSOSessionTest extends TestCase
     public function test_get_device_info_extracts_device_information(): void
     {
         $userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15';
-        
+
         $session = SSOSession::factory()
             ->create(['user_agent' => $userAgent]);
 
@@ -256,8 +257,8 @@ class SSOSessionTest extends TestCase
             'location' => [
                 'country' => 'United States',
                 'city' => 'New York',
-                'region' => 'NY'
-            ]
+                'region' => 'NY',
+            ],
         ];
 
         $session = SSOSession::factory()
@@ -277,8 +278,8 @@ class SSOSessionTest extends TestCase
             ->create([
                 'metadata' => [
                     'risk_score' => 85,
-                    'risk_factors' => ['unusual_location', 'new_device', 'tor_network']
-                ]
+                    'risk_factors' => ['unusual_location', 'new_device', 'tor_network'],
+                ],
             ]);
 
         // Create normal session
@@ -286,8 +287,8 @@ class SSOSessionTest extends TestCase
             ->create([
                 'metadata' => [
                     'risk_score' => 20,
-                    'risk_factors' => []
-                ]
+                    'risk_factors' => [],
+                ],
             ]);
 
         $this->assertTrue($suspiciousSession->isSuspicious());
@@ -319,7 +320,7 @@ class SSOSessionTest extends TestCase
         $metadata = [
             'login_method' => 'oauth',
             'device_type' => 'mobile',
-            'risk_score' => 25
+            'risk_score' => 25,
         ];
 
         $session = SSOSession::factory()
@@ -334,10 +335,10 @@ class SSOSessionTest extends TestCase
         $fillable = [
             'user_id', 'application_id', 'session_token', 'refresh_token',
             'external_session_id', 'ip_address', 'user_agent', 'expires_at',
-            'last_activity_at', 'logged_out_at', 'logged_out_by', 'metadata'
+            'last_activity_at', 'logged_out_at', 'logged_out_by', 'metadata',
         ];
 
-        $session = new SSOSession();
+        $session = new SSOSession;
 
         $this->assertEquals($fillable, $session->getFillable());
     }
@@ -376,7 +377,7 @@ class SSOSessionTest extends TestCase
     {
         // Create expired sessions
         SSOSession::factory()->count(3)->expired()->create();
-        
+
         // Create active session
         $activeSession = SSOSession::factory()->recentlyActive()->create();
 

@@ -13,12 +13,13 @@ class ApplicationGroupTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private ApplicationGroup $parentGroup;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
         $this->parentGroup = ApplicationGroup::factory()
             ->forOrganization($this->organization)
@@ -238,7 +239,7 @@ class ApplicationGroupTest extends TestCase
         $groupWithInheritance = ApplicationGroup::factory()
             ->forOrganization($this->organization)
             ->create([
-                'settings' => ['inheritance_enabled' => true]
+                'settings' => ['inheritance_enabled' => true],
             ]);
 
         $groupWithoutInheritance = ApplicationGroup::factory()
@@ -260,7 +261,7 @@ class ApplicationGroupTest extends TestCase
         $groupWithoutAutoAssign = ApplicationGroup::factory()
             ->forOrganization($this->organization)
             ->create([
-                'settings' => ['auto_assign_users' => false]
+                'settings' => ['auto_assign_users' => false],
             ]);
 
         $this->assertTrue($groupWithAutoAssign->hasAutoAssignEnabled());
@@ -273,7 +274,7 @@ class ApplicationGroupTest extends TestCase
         $group = ApplicationGroup::factory()
             ->forOrganization($this->organization)
             ->create([
-                'settings' => ['default_permissions' => $permissions]
+                'settings' => ['default_permissions' => $permissions],
             ]);
 
         $this->assertEquals($permissions, $group->getDefaultPermissions());
@@ -337,7 +338,7 @@ class ApplicationGroupTest extends TestCase
         $settings = [
             'inheritance_enabled' => true,
             'auto_assign_users' => false,
-            'default_permissions' => ['read']
+            'default_permissions' => ['read'],
         ];
 
         $group = ApplicationGroup::factory()
@@ -352,10 +353,10 @@ class ApplicationGroupTest extends TestCase
     {
         $fillable = [
             'name', 'description', 'organization_id', 'parent_id',
-            'is_active', 'settings'
+            'is_active', 'settings',
         ];
 
-        $group = new ApplicationGroup();
+        $group = new ApplicationGroup;
 
         $this->assertEquals($fillable, $group->getFillable());
     }

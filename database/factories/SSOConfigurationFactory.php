@@ -19,8 +19,8 @@ class SSOConfigurationFactory extends Factory
     {
         return [
             'application_id' => \App\Models\Application::factory(),
-            'logout_url' => fake()->url() . '/logout',
-            'callback_url' => fake()->url() . '/callback',
+            'logout_url' => fake()->url().'/logout',
+            'callback_url' => fake()->url().'/callback',
             'allowed_domains' => [
                 fake()->domainName(),
                 fake()->domainName(),
@@ -75,7 +75,7 @@ class SSOConfigurationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['auto_redirect'] = true;
-            
+
             return ['settings' => $settings];
         });
     }
@@ -98,7 +98,7 @@ class SSOConfigurationFactory extends Factory
         return $this->state(function (array $attributes) use ($organization) {
             // Create an application for this organization if not already set
             $application = \App\Models\Application::factory()->forOrganization($organization)->create();
-            
+
             return [
                 'application_id' => $application->id,
             ];
@@ -113,20 +113,20 @@ class SSOConfigurationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['provider_type'] = 'oidc';
-            $settings['authorization_endpoint'] = fake()->url() . '/oauth/authorize';
-            $settings['token_endpoint'] = fake()->url() . '/oauth/token';
-            $settings['userinfo_endpoint'] = fake()->url() . '/oauth/userinfo';
-            $settings['jwks_endpoint'] = fake()->url() . '/oauth/jwks';
-            
+            $settings['authorization_endpoint'] = fake()->url().'/oauth/authorize';
+            $settings['token_endpoint'] = fake()->url().'/oauth/token';
+            $settings['userinfo_endpoint'] = fake()->url().'/oauth/userinfo';
+            $settings['jwks_endpoint'] = fake()->url().'/oauth/jwks';
+
             $configuration = [
                 'authorization_endpoint' => $settings['authorization_endpoint'],
                 'token_endpoint' => $settings['token_endpoint'],
                 'userinfo_endpoint' => $settings['userinfo_endpoint'],
                 'jwks_endpoint' => $settings['jwks_endpoint'],
-                'client_id' => 'test-client-' . fake()->uuid(),
-                'client_secret' => 'test-secret-' . Str::random(32),
+                'client_id' => 'test-client-'.fake()->uuid(),
+                'client_secret' => 'test-secret-'.Str::random(32),
             ];
-            
+
             return [
                 'provider' => 'oidc',
                 'settings' => $settings,
@@ -143,21 +143,21 @@ class SSOConfigurationFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['provider_type'] = 'saml2';
-            $settings['saml_sso_url'] = fake()->url() . '/saml/sso';
-            $settings['saml_sls_url'] = fake()->url() . '/saml/sls';
-            $settings['saml_entity_id'] = fake()->url() . '/saml/metadata';
+            $settings['saml_sso_url'] = fake()->url().'/saml/sso';
+            $settings['saml_sls_url'] = fake()->url().'/saml/sls';
+            $settings['saml_entity_id'] = fake()->url().'/saml/metadata';
             $settings['x509_cert'] = 'test-certificate-content';
             $settings['name_id_format'] = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
-            
+
             return [
                 'provider' => 'saml2',
                 'settings' => $settings,
                 'configuration' => [
-                    'sso_url' => fake()->url() . '/saml/sso',
-                    'sls_url' => fake()->url() . '/saml/sls',
-                    'entity_id' => fake()->url() . '/saml/metadata',
+                    'sso_url' => fake()->url().'/saml/sso',
+                    'sls_url' => fake()->url().'/saml/sls',
+                    'entity_id' => fake()->url().'/saml/metadata',
                     'x509_cert' => 'test-certificate-content',
-                ]
+                ],
             ];
         });
     }

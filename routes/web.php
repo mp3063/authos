@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\SocialAuthController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
@@ -18,6 +18,7 @@ Route::get('/test', function () {
 Route::get('/test-db', function () {
     try {
         $users = \App\Models\User::take(3)->get();
+
         return response()->json([
             'message' => 'Database connection working!',
             'users_found' => $users->count(),
@@ -25,7 +26,7 @@ Route::get('/test-db', function () {
         ]);
     } catch (\Exception $e) {
         return response()->json([
-            'error' => 'Database error: ' . $e->getMessage()
+            'error' => 'Database error: '.$e->getMessage(),
         ], 500);
     }
 });

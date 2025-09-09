@@ -2,12 +2,9 @@
 
 namespace App\Exports;
 
-use App\Models\User;
-use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
@@ -15,8 +12,11 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyles
 {
     protected Collection $users;
+
     protected bool $includeRoles;
+
     protected bool $includeApplications;
+
     protected bool $includeActivity;
 
     public function __construct(Collection $users, bool $includeRoles = true, bool $includeApplications = true, bool $includeActivity = false)
@@ -83,7 +83,7 @@ class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         if ($this->includeApplications) {
             $row[] = $user->applications->pluck('name')->join(', ');
             $loginCounts = $user->applications->map(function ($app) {
-                return $app->name . ': ' . ($app->pivot->login_count ?? 0);
+                return $app->name.': '.($app->pivot->login_count ?? 0);
             })->join(', ');
             $row[] = $loginCounts;
         }

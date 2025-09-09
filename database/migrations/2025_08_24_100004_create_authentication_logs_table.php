@@ -22,7 +22,7 @@ return new class extends Migration
             $table->json('details')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
-            
+
             $table->index(['user_id', 'created_at']);
             $table->index(['application_id', 'created_at']);
             $table->index('event');

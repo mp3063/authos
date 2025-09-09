@@ -24,7 +24,7 @@ class AuthorizationServiceProvider extends ServiceProvider
         // Override Gate authorization to handle team context
         Gate::before(function ($user, $ability) {
             // Only process for API requests with organization context
-            if (!request()->is('api/*') || !$user->organization_id) {
+            if (! request()->is('api/*') || ! $user->organization_id) {
                 return null; // Let normal authorization proceed
             }
 
@@ -40,7 +40,7 @@ class AuthorizationServiceProvider extends ServiceProvider
             // Fallback: Manual check for organization-scoped permissions
             $permissions = $user->getAllPermissions();
             $orgScopedPermission = "{$ability} (org:{$user->organization_id})";
-            
+
             foreach ($permissions as $permission) {
                 if ($permission->name === $ability || $permission->name === $orgScopedPermission) {
                     return true;

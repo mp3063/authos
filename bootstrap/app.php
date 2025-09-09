@@ -15,13 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
         ]);
-        
+
         // API middleware setup for Passport OAuth
-        
+
         $middleware->web(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
-        
+
         $middleware->api(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\SecurityHeaders::class,
@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->throttleApi();
-        
+
         $middleware->alias([
             'scopes' => \Laravel\Passport\Http\Middleware\CheckToken::class,
             'scope' => \Laravel\Passport\Http\Middleware\CheckTokenForAnyScope::class,
@@ -57,7 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 403);
             }
         });
-        
+
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
             if ($request->is('api/*')) {
                 return response()->json([

@@ -91,11 +91,12 @@ class RegisterRequest extends FormRequest
      */
     public function getOrganizationId(): ?int
     {
-        if (!$this->has('organization_slug')) {
+        if (! $this->has('organization_slug')) {
             return null;
         }
 
         $organization = \App\Models\Organization::where('slug', $this->organization_slug)->first();
+
         return $organization?->id;
     }
 }

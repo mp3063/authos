@@ -48,9 +48,9 @@ class InvitationResource extends Resource
     public static function getPages(): array
     {
         return [
-          'index' => ListInvitations::route('/'),
-          'create' => CreateInvitation::route('/create'),
-          'edit' => EditInvitation::route('/{record}/edit'),
+            'index' => ListInvitations::route('/'),
+            'create' => CreateInvitation::route('/create'),
+            'edit' => EditInvitation::route('/{record}/edit'),
         ];
     }
 

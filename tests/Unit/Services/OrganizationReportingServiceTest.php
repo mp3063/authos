@@ -7,29 +7,32 @@ use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\OrganizationReportingService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
-use Carbon\Carbon;
 
 class OrganizationReportingServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private OrganizationReportingService $reportingService;
+
     private Organization $organization;
+
     private User $user;
+
     private Application $application;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->reportingService = app(OrganizationReportingService::class);
         $this->organization = Organization::factory()->create();
         $this->user = User::factory()->forOrganization($this->organization)->create();
         $this->application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         Storage::fake('local');
     }
 
@@ -60,7 +63,7 @@ class OrganizationReportingServiceTest extends TestCase
             $this->organization->id,
             [
                 'start' => Carbon::now()->subDays(30),
-                'end' => Carbon::now()
+                'end' => Carbon::now(),
             ]
         );
 
@@ -216,5 +219,4 @@ class OrganizationReportingServiceTest extends TestCase
         $this->assertStringStartsWith('schedule_', $scheduleId);
         $this->assertIsString($scheduleId);
     }
-
 }

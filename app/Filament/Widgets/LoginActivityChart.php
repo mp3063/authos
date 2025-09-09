@@ -25,37 +25,37 @@ class LoginActivityChart extends ChartWidget
             $labels[] = $date->format('M j');
 
             $logins = AuthenticationLog::where('event', 'login_success')
-              ->whereDate('created_at', $date)
-              ->count();
+                ->whereDate('created_at', $date)
+                ->count();
 
             $failures = AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])
-              ->whereDate('created_at', $date)
-              ->count();
+                ->whereDate('created_at', $date)
+                ->count();
 
             $data['successful'][] = $logins;
             $data['failed'][] = $failures;
         }
 
         return [
-          'datasets' => [
-            [
-              'label' => 'Successful Logins',
-              'data' => $data['successful'],
-              'backgroundColor' => 'rgba(34, 197, 94, 0.2)',
-              'borderColor' => 'rgb(34, 197, 94)',
-              'borderWidth' => 2,
-              'fill' => true,
+            'datasets' => [
+                [
+                    'label' => 'Successful Logins',
+                    'data' => $data['successful'],
+                    'backgroundColor' => 'rgba(34, 197, 94, 0.2)',
+                    'borderColor' => 'rgb(34, 197, 94)',
+                    'borderWidth' => 2,
+                    'fill' => true,
+                ],
+                [
+                    'label' => 'Failed Attempts',
+                    'data' => $data['failed'],
+                    'backgroundColor' => 'rgba(239, 68, 68, 0.2)',
+                    'borderColor' => 'rgb(239, 68, 68)',
+                    'borderWidth' => 2,
+                    'fill' => true,
+                ],
             ],
-            [
-              'label' => 'Failed Attempts',
-              'data' => $data['failed'],
-              'backgroundColor' => 'rgba(239, 68, 68, 0.2)',
-              'borderColor' => 'rgb(239, 68, 68)',
-              'borderWidth' => 2,
-              'fill' => true,
-            ],
-          ],
-          'labels' => $labels,
+            'labels' => $labels,
         ];
     }
 
@@ -67,25 +67,25 @@ class LoginActivityChart extends ChartWidget
     protected function getOptions(): array
     {
         return [
-          'scales' => [
-            'y' => [
-              'beginAtZero' => true,
+            'scales' => [
+                'y' => [
+                    'beginAtZero' => true,
+                ],
             ],
-          ],
-          'plugins' => [
-            'legend' => [
-              'display' => true,
-              'position' => 'top',
+            'plugins' => [
+                'legend' => [
+                    'display' => true,
+                    'position' => 'top',
+                ],
             ],
-          ],
-          'interaction' => [
-            'intersect' => false,
-          ],
-          'elements' => [
-            'point' => [
-              'radius' => 4,
+            'interaction' => [
+                'intersect' => false,
             ],
-          ],
+            'elements' => [
+                'point' => [
+                    'radius' => 4,
+                ],
+            ],
         ];
     }
 }

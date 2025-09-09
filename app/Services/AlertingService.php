@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
 class AlertingService
@@ -35,9 +34,9 @@ class AlertingService
     {
         $date = now()->format('Y-m-d');
         $hour = now()->format('H');
-        
+
         // Check last hour metrics
-        $hourlyKey = 'api_metrics:' . $date . ':hourly:' . $hour;
+        $hourlyKey = 'api_metrics:'.$date.':hourly:'.$hour;
         $metrics = Cache::get($hourlyKey, []);
 
         $totalRequests = $metrics['total_requests'] ?? 0;
@@ -45,7 +44,7 @@ class AlertingService
         $errorRate = $totalRequests > 0 ? ($totalErrors / $totalRequests) * 100 : 0;
 
         $threshold = 10; // 10% error rate threshold
-        
+
         return [
             'triggered' => $errorRate > $threshold && $totalRequests > 10, // Minimum requests to avoid false positives
             'value' => $errorRate,
@@ -66,9 +65,9 @@ class AlertingService
     {
         $date = now()->format('Y-m-d');
         $hour = now()->format('H');
-        
+
         // Check last hour metrics
-        $hourlyKey = 'api_metrics:' . $date . ':hourly:' . $hour;
+        $hourlyKey = 'api_metrics:'.$date.':hourly:'.$hour;
         $metrics = Cache::get($hourlyKey, []);
 
         $totalRequests = $metrics['total_requests'] ?? 0;
@@ -76,7 +75,7 @@ class AlertingService
         $avgResponseTime = $totalRequests > 0 ? $totalExecutionTime / $totalRequests : 0;
 
         $threshold = 2000; // 2 seconds threshold
-        
+
         return [
             'triggered' => $avgResponseTime > $threshold && $totalRequests > 5,
             'value' => $avgResponseTime,
@@ -101,7 +100,7 @@ class AlertingService
         $usagePercentage = ($currentUsage / $memoryLimit) * 100;
 
         $threshold = 85; // 85% memory usage threshold
-        
+
         return [
             'triggered' => $usagePercentage > $threshold,
             'value' => $usagePercentage,
@@ -127,7 +126,7 @@ class AlertingService
                 ->count();
 
             $threshold = 50; // 50 revocations per hour threshold
-            
+
             return [
                 'triggered' => $recentRevocations > $threshold,
                 'value' => $recentRevocations,
@@ -143,7 +142,7 @@ class AlertingService
                 'triggered' => true,
                 'value' => null,
                 'threshold' => null,
-                'message' => "OAuth health check failed: " . $e->getMessage(),
+                'message' => 'OAuth health check failed: '.$e->getMessage(),
                 'details' => [
                     'error' => $e->getMessage(),
                 ],
@@ -156,8 +155,8 @@ class AlertingService
      */
     private function sendAlert(string $alertType, array $alert): void
     {
-        $alertKey = 'alert_sent:' . $alertType . ':' . now()->format('Y-m-d-H');
-        
+        $alertKey = 'alert_sent:'.$alertType.':'.now()->format('Y-m-d-H');
+
         // Prevent spam - only send one alert per type per hour
         if (Cache::has($alertKey)) {
             return;
@@ -183,7 +182,7 @@ class AlertingService
     private function sendEmailAlert(string $alertType, array $alert): void
     {
         $adminEmails = config('monitoring.alert_emails', []);
-        
+
         if (empty($adminEmails)) {
             return;
         }
@@ -209,7 +208,7 @@ class AlertingService
     private function parseMemoryLimit(string $memoryLimit): int
     {
         $unit = strtolower($memoryLimit[strlen($memoryLimit) - 1]);
-        $value = (int)$memoryLimit;
+        $value = (int) $memoryLimit;
 
         switch ($unit) {
             case 'g':

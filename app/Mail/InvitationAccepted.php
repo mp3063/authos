@@ -16,6 +16,7 @@ class InvitationAccepted extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public Invitation $invitation;
+
     public User $acceptor;
 
     /**

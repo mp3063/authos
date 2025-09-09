@@ -6,51 +6,49 @@ use App\Models\Organization;
 use App\Services\SocialAuthService;
 use Filament\Auth\Pages\Register as BaseRegister;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Support\HtmlString;
-use Illuminate\Validation\Rules\Password;
 
 class Register extends BaseRegister
 {
     public function form(Schema $schema): Schema
     {
         return $schema
-          ->components([
-            $this->getOrganizationFormComponent(),
-            $this->getNameFormComponent(),
-            $this->getEmailFormComponent(),
-            $this->getPasswordFormComponent(),
-            $this->getPasswordConfirmationFormComponent(),
-          ]);
+            ->components([
+                $this->getOrganizationFormComponent(),
+                $this->getNameFormComponent(),
+                $this->getEmailFormComponent(),
+                $this->getPasswordFormComponent(),
+                $this->getPasswordConfirmationFormComponent(),
+            ]);
     }
 
     protected function getOrganizationFormComponent(): Select
     {
         return Select::make('organization_id')
-          ->label('Organization')
-          ->options(
-            Organization::where('is_active', true)
-              ->get()
-              ->filter(function ($organization) {
-                  $settings = $organization->settings ?? [];
+            ->label('Organization')
+            ->options(
+                Organization::where('is_active', true)
+                    ->get()
+                    ->filter(function ($organization) {
+                        $settings = $organization->settings ?? [];
 
-                  return !isset($settings['allow_registration']) || $settings['allow_registration'] !== false;
-              })
-              ->pluck('name', 'id')
-              ->toArray()
-          )
-          ->searchable()
-          ->placeholder('Select an organization')
-          ->required()
-          ->helperText('Choose the organization you want to join.');
+                        return ! isset($settings['allow_registration']) || $settings['allow_registration'] !== false;
+                    })
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )
+            ->searchable()
+            ->placeholder('Select an organization')
+            ->required()
+            ->helperText('Choose the organization you want to join.');
     }
 
     public function getFooter(): ?HtmlString
     {
         $socialAuthService = app(SocialAuthService::class);
         $availableProviders = $socialAuthService->getAvailableProviders();
-        $enabledProviders = array_filter($availableProviders, fn($provider) => $provider['enabled']);
+        $enabledProviders = array_filter($availableProviders, fn ($provider) => $provider['enabled']);
 
         if (empty($enabledProviders)) {
             return new HtmlString($this->getLoginLink());
@@ -59,21 +57,21 @@ class Register extends BaseRegister
         $socialButtons = '';
         foreach ($enabledProviders as $providerKey => $provider) {
             $socialButtons .= sprintf(
-              '<a href="/auth/social/%s" class="fi-btn fi-btn-outlined fi-btn-color-gray fi-size-md relative grid-flow-col items-center justify-center font-semibold outline-none transition duration-75 focus-visible:ring-2 rounded-lg fi-btn-inset py-2 px-3 text-sm inline-grid shadow-sm bg-white text-gray-950 hover:bg-gray-50 focus-visible:ring-primary-600 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus-visible:ring-primary-500 ring-1 ring-gray-950/10 dark:ring-white/20 gap-1.5 mb-3 w-full" style="text-decoration: none;">
+                '<a href="/auth/social/%s" class="fi-btn fi-btn-outlined fi-btn-color-gray fi-size-md relative grid-flow-col items-center justify-center font-semibold outline-none transition duration-75 focus-visible:ring-2 rounded-lg fi-btn-inset py-2 px-3 text-sm inline-grid shadow-sm bg-white text-gray-950 hover:bg-gray-50 focus-visible:ring-primary-600 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus-visible:ring-primary-500 ring-1 ring-gray-950/10 dark:ring-white/20 gap-1.5 mb-3 w-full" style="text-decoration: none;">
                     <svg class="fi-btn-icon transition duration-75 h-5 w-5 text-gray-400 dark:text-gray-500" viewBox="0 0 48 48">
                         %s
                     </svg>
                     <span class="fi-btn-label">Sign up with %s</span>
                 </a>',
-              $providerKey,
-              $this->getProviderIcon($providerKey),
-              $provider['name']
+                $providerKey,
+                $this->getProviderIcon($providerKey),
+                $provider['name']
             );
         }
 
         return new HtmlString(
-          sprintf(
-            '<div class="mt-6">
+            sprintf(
+                '<div class="mt-6">
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
                         <div class="w-full border-t border-gray-300 dark:border-gray-700"></div>
@@ -87,9 +85,9 @@ class Register extends BaseRegister
                 </div>
                 %s
             </div>',
-            $socialButtons,
-            $this->getLoginLink()
-          )
+                $socialButtons,
+                $this->getLoginLink()
+            )
         );
     }
 

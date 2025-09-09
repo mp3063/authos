@@ -33,10 +33,10 @@ return new class extends Migration
             $table->timestamp('two_factor_confirmed_at')->nullable();
             $table->json('mfa_methods')->nullable();
             $table->timestamps();
-            
+
             // Foreign key constraints
             $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('set null');
-            
+
             // Indexes
             $table->index('email');
             $table->index(['organization_id']);

@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Organization;
+use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@authservice.com',
             'organization_id' => null, // Global user
         ]);
-        
+
         // Assign global role without organization context
         $superAdmin->assignGlobalRole('Super Admin');
 
@@ -40,17 +40,17 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@default.com',
             'organization_id' => $defaultOrg->id,
         ]);
-        
+
         // Assign organization role using organization context
         $defaultAdmin->assignOrganizationRole('Organization Owner', $defaultOrg->id);
 
         // Create an organization admin for Demo Corp
         $demoAdmin = User::factory()->create([
-            'name' => 'Demo Admin', 
+            'name' => 'Demo Admin',
             'email' => 'admin@democorp.com',
             'organization_id' => $demoCorpOrg->id,
         ]);
-        
+
         $demoAdmin->assignOrganizationRole('Organization Owner', $demoCorpOrg->id);
 
         // Create some regular users for Default Organization

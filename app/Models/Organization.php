@@ -2,18 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
  * @method static static create(array $attributes = [])
  * @method static static findOrFail($id, $columns = ['*'])
  * @method static \Illuminate\Database\Eloquent\Builder with($relations)
+ *
  * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
  * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
  */
@@ -102,7 +103,7 @@ class Organization extends Model
             'organization_id' => $this->id,
         ]);
 
-        if (!empty($permissions)) {
+        if (! empty($permissions)) {
             $role->givePermissionTo($permissions);
         }
 
@@ -182,7 +183,7 @@ class Organization extends Model
 
         // First, ensure all required permissions exist for this organization
         $allRequiredPermissions = collect($defaultRoles)->flatten()->unique();
-        
+
         foreach ($allRequiredPermissions as $permissionName) {
             // Create permission for web guard
             Permission::firstOrCreate([
@@ -190,7 +191,7 @@ class Organization extends Model
                 'guard_name' => 'web',
                 'organization_id' => $this->id,
             ]);
-            
+
             // Also create permission for api guard for API authentication
             Permission::firstOrCreate([
                 'name' => $permissionName,
@@ -206,18 +207,18 @@ class Organization extends Model
                 ->where('guard_name', 'web')
                 ->where('organization_id', $this->id)
                 ->first();
-                
-            if (!$existingWebRole) {
+
+            if (! $existingWebRole) {
                 $this->createRole($roleName, $permissions, 'web');
             }
-            
+
             // Create role for api guard
             $existingApiRole = Role::where('name', $roleName)
                 ->where('guard_name', 'api')
                 ->where('organization_id', $this->id)
                 ->first();
-                
-            if (!$existingApiRole) {
+
+            if (! $existingApiRole) {
                 $this->createRole($roleName, $permissions, 'api');
             }
         }
@@ -230,7 +231,7 @@ class Organization extends Model
     {
         return Permission::where(function ($query) {
             $query->where('organization_id', $this->id)
-                  ->orWhereNull('organization_id');
+                ->orWhereNull('organization_id');
         })->get();
     }
 
@@ -241,7 +242,7 @@ class Organization extends Model
     {
         return Role::where(function ($query) {
             $query->where('organization_id', $this->id)
-                  ->orWhereNull('organization_id');
+                ->orWhereNull('organization_id');
         })->get();
     }
 

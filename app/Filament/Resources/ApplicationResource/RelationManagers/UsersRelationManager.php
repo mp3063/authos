@@ -18,72 +18,72 @@ class UsersRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema
-          ->schema([
-            Forms\Components\Select::make('user_id')
-              ->label('User')
-              ->relationship('', 'name')
-              ->searchable()
-              ->preload()
-              ->required(),
+            ->schema([
+                Forms\Components\Select::make('user_id')
+                    ->label('User')
+                    ->relationship('', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->required(),
 
-            Forms\Components\KeyValue::make('metadata')
-              ->label('User Metadata')
-              ->keyLabel('Key')
-              ->valueLabel('Value')
-              ->default([])
-              ->helperText('Additional metadata for this user-application relationship'),
-          ]);
+                Forms\Components\KeyValue::make('metadata')
+                    ->label('User Metadata')
+                    ->keyLabel('Key')
+                    ->valueLabel('Value')
+                    ->default([])
+                    ->helperText('Additional metadata for this user-application relationship'),
+            ]);
     }
 
     public function table(Table $table): Table
     {
         return $table
-          ->recordTitleAttribute('name')
-          ->columns([
-            Tables\Columns\TextColumn::make('name')
-              ->searchable()
-              ->sortable()
-              ->weight('bold'),
+            ->recordTitleAttribute('name')
+            ->columns([
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
 
-            Tables\Columns\TextColumn::make('email')
-              ->searchable()
-              ->sortable()
-              ->copyable()
-              ->copyMessage('Email copied'),
+                Tables\Columns\TextColumn::make('email')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->copyMessage('Email copied'),
 
-            Tables\Columns\TextColumn::make('pivot.login_count')
-              ->label('Logins')
-              ->alignCenter()
-              ->default(0)
-              ->numeric(),
+                Tables\Columns\TextColumn::make('pivot.login_count')
+                    ->label('Logins')
+                    ->alignCenter()
+                    ->default(0)
+                    ->numeric(),
 
-            Tables\Columns\TextColumn::make('pivot.last_login_at')
-              ->label('Last Login')
-              ->dateTime()
-              ->sortable()
-              ->placeholder('Never'),
+                Tables\Columns\TextColumn::make('pivot.last_login_at')
+                    ->label('Last Login')
+                    ->dateTime()
+                    ->sortable()
+                    ->placeholder('Never'),
 
-            Tables\Columns\TextColumn::make('pivot.created_at')
-              ->label('Connected')
-              ->dateTime()
-              ->sortable(),
+                Tables\Columns\TextColumn::make('pivot.created_at')
+                    ->label('Connected')
+                    ->dateTime()
+                    ->sortable(),
 
-            Tables\Columns\IconColumn::make('hasMfaEnabled')
-              ->label('MFA')
-              ->boolean()
-              ->getStateUsing(fn($record) => $record->hasMfaEnabled()),
-          ])
-          ->filters([
-            Tables\Filters\Filter::make('has_logged_in')
-              ->query(fn(Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
-              )
-              ->label('Has Logged In'),
+                Tables\Columns\IconColumn::make('hasMfaEnabled')
+                    ->label('MFA')
+                    ->boolean()
+                    ->getStateUsing(fn ($record) => $record->hasMfaEnabled()),
+            ])
+            ->filters([
+                Tables\Filters\Filter::make('has_logged_in')
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
+                    )
+                    ->label('Has Logged In'),
 
-            Tables\Filters\Filter::make('has_mfa')
-              ->query(fn(Builder $query): Builder => $query->whereNotNull('mfa_methods')
-              )
-              ->label('MFA Enabled'),
-          ])
-          ->defaultSort('user_applications.created_at', 'desc');
+                Tables\Filters\Filter::make('has_mfa')
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('mfa_methods')
+                    )
+                    ->label('MFA Enabled'),
+            ])
+            ->defaultSort('user_applications.created_at', 'desc');
     }
 }

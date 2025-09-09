@@ -20,9 +20,9 @@ class OrganizationOverviewWidget extends BaseWidget
     protected function getStats(): array
     {
         $user = Filament::auth()->user();
-        
+
         // Only show for organization owners/admins
-        if (!$user->isOrganizationOwner() && !$user->isOrganizationAdmin()) {
+        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
             return [];
         }
 
@@ -89,28 +89,28 @@ class OrganizationOverviewWidget extends BaseWidget
 
             return [
                 Stat::make('Total Users', $totalUsers)
-                    ->description($activeUsers . ' active in last 30 days')
+                    ->description($activeUsers.' active in last 30 days')
                     ->descriptionIcon('heroicon-m-user-group')
                     ->color('primary')
                     ->chart($loginTrend),
 
                 Stat::make('Applications', $totalApplications)
-                    ->description($activeApplications . ' active')
+                    ->description($activeApplications.' active')
                     ->descriptionIcon('heroicon-m-squares-2x2')
                     ->color('info')
-                    ->url(fn() => $user->can('view applications') ? 
+                    ->url(fn () => $user->can('view applications') ?
                         route('filament.admin.resources.applications.index', [
-                            'organization' => $user->organization->slug
+                            'organization' => $user->organization->slug,
                         ]) : null),
 
                 Stat::make('Pending Invitations', $pendingInvitations)
                     ->description('Awaiting acceptance')
                     ->descriptionIcon('heroicon-m-envelope')
                     ->color($pendingInvitations > 0 ? 'warning' : 'success')
-                    ->url(fn() => $user->can('view invitations') ? '#pending-invitations' : null),
+                    ->url(fn () => $user->can('view invitations') ? '#pending-invitations' : null),
 
-                Stat::make('MFA Adoption', $mfaRate . '%')
-                    ->description($mfaEnabledUsers . ' of ' . $totalUsers . ' users')
+                Stat::make('MFA Adoption', $mfaRate.'%')
+                    ->description($mfaEnabledUsers.' of '.$totalUsers.' users')
                     ->descriptionIcon('heroicon-m-shield-check')
                     ->color($mfaRate >= 80 ? 'success' : ($mfaRate >= 50 ? 'warning' : 'danger')),
 
@@ -141,33 +141,33 @@ class OrganizationOverviewWidget extends BaseWidget
     protected function calculateSecurityScore(float $mfaRate, int $failedLogins, int $totalUsers): string
     {
         $score = 100;
-        
+
         // Deduct points for low MFA adoption
         if ($mfaRate < 50) {
             $score -= 30;
         } elseif ($mfaRate < 80) {
             $score -= 15;
         }
-        
+
         // Deduct points for failed login attempts
         if ($failedLogins > 10) {
             $score -= 20;
         } elseif ($failedLogins > 5) {
             $score -= 10;
         }
-        
+
         // Bonus for high user engagement
         if ($totalUsers > 50) {
             $score += 5;
         }
-        
-        return max(0, min(100, $score)) . '/100';
+
+        return max(0, min(100, $score)).'/100';
     }
 
     protected function getSecurityScoreColor(string $score): string
     {
         $numericScore = (int) explode('/', $score)[0];
-        
+
         if ($numericScore >= 90) {
             return 'success';
         } elseif ($numericScore >= 70) {

@@ -8,36 +8,40 @@ use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\SSOService;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
-use Exception;
 
 class SSOServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private SSOService $ssoService;
+
     private Organization $organization;
+
     private Application $application;
+
     private User $user;
+
     private SSOConfiguration $ssoConfig;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->ssoService = app(SSOService::class);
         $this->organization = Organization::factory()->withSso()->create();
         $this->application = Application::factory()->forOrganization($this->organization)->create();
         $this->user = User::factory()->forOrganization($this->organization)->create();
-        
+
         $this->ssoConfig = SSOConfiguration::factory()
             ->forApplication($this->application)
             ->oidc()
             ->create();
-            
+
         // Grant user access to the application
         $this->user->applications()->attach($this->application->id, [
             'permissions' => ['read', 'write'],
@@ -58,7 +62,7 @@ class SSOServiceTest extends TestCase
         $this->assertArrayHasKey('state', $result);
 
         $this->assertStringContainsString($this->ssoConfig->configuration['authorization_endpoint'], $result['redirect_url']);
-        
+
         $this->assertDatabaseHas('sso_sessions', [
             'user_id' => $this->user->id,
             'application_id' => $this->application->id,
@@ -168,7 +172,7 @@ class SSOServiceTest extends TestCase
 
         // Use fresh session instance to get updated metadata
         $updatedSession = SSOSession::find($session->id);
-        
+
         $this->assertNotNull($updatedSession->metadata['access_token']);
         $this->assertNotNull($updatedSession->metadata['user_info']);
     }
@@ -216,7 +220,7 @@ class SSOServiceTest extends TestCase
         // Verify all user's sessions are marked as expired (use fresh instances)
         $sessionIds = $sessions->pluck('id');
         $freshSessions = SSOSession::whereIn('id', $sessionIds)->get();
-        
+
         foreach ($freshSessions as $freshSession) {
             $this->assertNotNull($freshSession->logged_out_at);
         }
@@ -299,7 +303,7 @@ class SSOServiceTest extends TestCase
 
         // Mock SAML response
         $samlResponse = base64_encode('<saml:Assertion>Mock SAML Response</saml:Assertion>');
-        
+
         // Create pending session
         $session = SSOSession::factory()
             ->forUser($this->user)

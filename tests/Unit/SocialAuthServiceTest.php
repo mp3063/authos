@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Models\User;
 use App\Models\Organization;
-use App\Services\SocialAuthService;
+use App\Models\User;
 use App\Services\OAuthService;
+use App\Services\SocialAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Socialite\Facades\Socialite;
@@ -19,37 +19,39 @@ class SocialAuthServiceTest extends TestCase
     use RefreshDatabase;
 
     private SocialAuthService $socialAuthService;
+
     private $mockOAuthService;
+
     private $mockSocialiteUser;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->mockOAuthService = Mockery::mock(OAuthService::class);
         $this->socialAuthService = new SocialAuthService($this->mockOAuthService);
-        
+
         $this->mockSocialiteUser = Mockery::mock(SocialiteUser::class);
-        
+
         // Create default role
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
-        
+
         // Set up test configuration
         Config::set('services.google', [
             'client_id' => 'test_client_id',
             'client_secret' => 'test_client_secret',
-            'redirect' => 'http://localhost/callback'
+            'redirect' => 'http://localhost/callback',
         ]);
     }
 
     public function test_get_available_providers_returns_correct_structure()
     {
         $providers = $this->socialAuthService->getAvailableProviders();
-        
+
         $this->assertIsArray($providers);
         $this->assertArrayHasKey('google', $providers);
         $this->assertArrayHasKey('github', $providers);
-        
+
         foreach ($providers as $provider) {
             $this->assertArrayHasKey('name', $provider);
             $this->assertArrayHasKey('enabled', $provider);
@@ -77,13 +79,13 @@ class SocialAuthServiceTest extends TestCase
         $mockDriver->shouldReceive('stateless')->andReturnSelf();
         $mockDriver->shouldReceive('redirect')->andReturnSelf();
         $mockDriver->shouldReceive('getTargetUrl')->andReturn('https://accounts.google.com/oauth/authorize?...');
-        
+
         Socialite::shouldReceive('driver')
             ->with('google')
             ->andReturn($mockDriver);
-            
+
         $redirectUrl = $this->socialAuthService->getRedirectUrl('google');
-        
+
         $this->assertStringStartsWith('https://accounts.google.com', $redirectUrl);
     }
 
@@ -92,13 +94,13 @@ class SocialAuthServiceTest extends TestCase
         $this->setupMockSocialiteUser();
         $this->setupMockSocialite();
         $this->setupMockOAuthService();
-        
+
         $result = $this->socialAuthService->handleCallback('google');
-        
+
         $this->assertArrayHasKey('user', $result);
         $this->assertArrayHasKey('access_token', $result);
         $this->assertArrayHasKey('token_type', $result);
-        
+
         $user = $result['user'];
         $this->assertEquals('John Doe', $user->name);
         $this->assertEquals('john@example.com', $user->email);
@@ -112,13 +114,13 @@ class SocialAuthServiceTest extends TestCase
             'provider_id' => '12345',
             'email' => 'john@example.com',
         ]);
-        
+
         $this->setupMockSocialiteUser();
         $this->setupMockSocialite();
         $this->setupMockOAuthService();
-        
+
         $result = $this->socialAuthService->handleCallback('google');
-        
+
         $user = $result['user'];
         $this->assertEquals($existingUser->id, $user->id);
         $this->assertEquals('John Doe', $user->name); // Updated name
@@ -131,13 +133,13 @@ class SocialAuthServiceTest extends TestCase
             'provider' => null,
             'provider_id' => null,
         ]);
-        
+
         $this->setupMockSocialiteUser();
         $this->setupMockSocialite();
         $this->setupMockOAuthService();
-        
+
         $result = $this->socialAuthService->handleCallback('google');
-        
+
         $user = $result['user'];
         $this->assertEquals($existingUser->id, $user->id);
         $this->assertEquals('google', $user->provider);
@@ -150,15 +152,15 @@ class SocialAuthServiceTest extends TestCase
             'slug' => 'test-org',
             'settings' => ['allow_registration' => true],
         ]);
-        
+
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api', 'organization_id' => $organization->id]);
-        
+
         $this->setupMockSocialiteUser();
         $this->setupMockSocialite();
         $this->setupMockOAuthService();
-        
+
         $result = $this->socialAuthService->handleCallback('google', 'test-org');
-        
+
         $user = $result['user'];
         $this->assertEquals($organization->id, $user->organization_id);
     }
@@ -169,13 +171,13 @@ class SocialAuthServiceTest extends TestCase
             'slug' => 'restricted-org',
             'settings' => ['allow_registration' => false],
         ]);
-        
+
         $this->setupMockSocialiteUser();
         $this->setupMockSocialite();
-        
+
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Organization does not allow registration');
-        
+
         $this->socialAuthService->handleCallback('google', 'restricted-org');
     }
 
@@ -184,10 +186,10 @@ class SocialAuthServiceTest extends TestCase
         Socialite::shouldReceive('driver')
             ->with('google')
             ->andThrow(new \Exception('OAuth error'));
-            
+
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Social authentication failed');
-        
+
         $this->socialAuthService->handleCallback('google');
     }
 
@@ -208,7 +210,7 @@ class SocialAuthServiceTest extends TestCase
         $mockDriver = Mockery::mock();
         $mockDriver->shouldReceive('stateless')->andReturnSelf();
         $mockDriver->shouldReceive('user')->andReturn($this->mockSocialiteUser);
-        
+
         Socialite::shouldReceive('driver')
             ->with('google')
             ->andReturn($mockDriver);
@@ -221,7 +223,7 @@ class SocialAuthServiceTest extends TestCase
             'refresh_token' => 'refresh_token_here',
             'expires_in' => 3600,
         ];
-        
+
         $this->mockOAuthService->shouldReceive('generateAccessToken')
             ->andReturn($mockTokenObject);
     }

@@ -59,6 +59,7 @@ class OrganizationInvitation extends Mailable implements ShouldQueue
     private function getCustomMessage(): ?string
     {
         $settings = $this->invitation->organization->settings ?? [];
+
         return $settings['email_templates']['invitation']['custom_message'] ?? null;
     }
 

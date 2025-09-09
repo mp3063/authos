@@ -8,7 +8,6 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\PermissionInheritanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PermissionInheritanceServiceTest extends TestCase
@@ -16,41 +15,47 @@ class PermissionInheritanceServiceTest extends TestCase
     use RefreshDatabase;
 
     private PermissionInheritanceService $permissionService;
+
     private Organization $organization;
+
     private User $user;
+
     private ApplicationGroup $parentGroup;
+
     private ApplicationGroup $childGroup;
+
     private Application $parentApp;
+
     private Application $childApp;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->permissionService = app(PermissionInheritanceService::class);
         $this->organization = Organization::factory()->create();
         $this->user = User::factory()->forOrganization($this->organization)->create();
-        
+
         // Create application groups with parent-child relationship
         $this->parentGroup = ApplicationGroup::factory()
             ->forOrganization($this->organization)
             ->create();
-            
+
         $this->childGroup = ApplicationGroup::factory()
             ->childOf($this->parentGroup)
             ->create([
                 'settings' => [
                     'inheritance_enabled' => true,
                     'auto_assign_users' => false,
-                    'default_permissions' => ['read']
-                ]
+                    'default_permissions' => ['read'],
+                ],
             ]);
-        
+
         // Create applications in each group
         $this->parentApp = Application::factory()
             ->forOrganization($this->organization)
             ->create();
-            
+
         $this->childApp = Application::factory()
             ->forOrganization($this->organization)
             ->create();
@@ -110,8 +115,8 @@ class PermissionInheritanceServiceTest extends TestCase
         // Disable inheritance on child group
         $this->childGroup->update([
             'settings' => array_merge($this->childGroup->settings, [
-                'inheritance_enabled' => false
-            ])
+                'inheritance_enabled' => false,
+            ]),
         ]);
 
         // Grant user access to parent app
@@ -137,14 +142,14 @@ class PermissionInheritanceServiceTest extends TestCase
                 'settings' => [
                     'inheritance_enabled' => true,
                     'auto_assign_users' => false,
-                    'default_permissions' => ['read']
-                ]
+                    'default_permissions' => ['read'],
+                ],
             ]);
-            
+
         $grandchildApp = Application::factory()
             ->forOrganization($this->organization)
             ->create();
-            
+
         $grandchildGroup->applications()->attach($grandchildApp->id);
 
         // Grant permissions at parent level
@@ -248,7 +253,7 @@ class PermissionInheritanceServiceTest extends TestCase
 
         // Verify cascade worked
         $this->assertGreaterThan(0, $cascadedCount, 'Cascade should create at least one relationship');
-        
+
         // Verify child app has cascaded access
         $childRelation = $this->user->applications()->where('application_id', $this->childApp->id)->first();
         $this->assertNotNull($childRelation, 'Child app should have cascaded access');
@@ -335,7 +340,7 @@ class PermissionInheritanceServiceTest extends TestCase
             ->forOrganization($this->organization)
             ->create([
                 'name' => 'Inconsistent Group',
-                'settings' => [] // Missing inheritance_enabled setting
+                'settings' => [], // Missing inheritance_enabled setting
             ]);
 
         // Test validation when there are no issues (should pass)
@@ -348,23 +353,23 @@ class PermissionInheritanceServiceTest extends TestCase
         $this->assertArrayHasKey('inconsistent_settings', $validationResults);
         $this->assertArrayHasKey('validation_passed', $validationResults);
         $this->assertArrayHasKey('validated_at', $validationResults);
-        
+
         // Should have no orphaned groups (database constraints prevent them)
         $this->assertEmpty($validationResults['orphaned_groups']);
-        
+
         // Should have no circular dependencies (our test data is clean)
         $this->assertEmpty($validationResults['circular_dependencies']);
-        
+
         // Should have found inconsistent settings
         $this->assertNotEmpty($validationResults['inconsistent_settings']);
         $inconsistentGroupIds = array_column($validationResults['inconsistent_settings'], 'group_id');
         $this->assertContains($inconsistentGroup->id, $inconsistentGroupIds);
-        
+
         // Check the specific inconsistent group details
         $inconsistentGroup = $validationResults['inconsistent_settings'][0];
         $this->assertEquals('Inconsistent Group', $inconsistentGroup['group_name']);
         $this->assertEquals('inheritance_enabled', $inconsistentGroup['missing_setting']);
-        
+
         // Validation should fail due to inconsistent settings
         $this->assertFalse($validationResults['validation_passed']);
     }

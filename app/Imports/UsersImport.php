@@ -2,27 +2,31 @@
 
 namespace App\Imports;
 
-use App\Models\User;
-use App\Models\Organization;
-use App\Models\Invitation;
 use App\Models\CustomRole;
+use App\Models\Invitation;
+use App\Models\Organization;
+use App\Models\User;
 use App\Services\InvitationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 
 class UsersImport implements ToCollection, WithHeadingRow
 {
     protected Organization $organization;
+
     protected User $currentUser;
+
     protected bool $sendInvitations;
+
     protected string $defaultRole;
+
     protected bool $updateExisting;
+
     protected InvitationService $invitationService;
+
     protected array $results = [
         'created' => [],
         'updated' => [],
@@ -31,11 +35,11 @@ class UsersImport implements ToCollection, WithHeadingRow
     ];
 
     public function __construct(
-        Organization $organization, 
-        User $currentUser, 
-        bool $sendInvitations = false, 
-        string $defaultRole = 'user', 
-        bool $updateExisting = false,
+        Organization $organization,
+        User $currentUser,
+        bool $sendInvitations,
+        string $defaultRole,
+        bool $updateExisting,
         InvitationService $invitationService
     ) {
         $this->organization = $organization;
@@ -63,7 +67,7 @@ class UsersImport implements ToCollection, WithHeadingRow
     protected function processRow(Collection $row)
     {
         $rowData = $row->toArray();
-        
+
         // Validate required fields
         $validator = Validator::make($rowData, [
             'name' => 'required|string|max:255',
@@ -76,8 +80,9 @@ class UsersImport implements ToCollection, WithHeadingRow
         if ($validator->fails()) {
             $this->results['failed'][] = [
                 'row' => $rowData,
-                'reason' => 'Validation failed: ' . $validator->errors()->first(),
+                'reason' => 'Validation failed: '.$validator->errors()->first(),
             ];
+
             return;
         }
 
@@ -88,11 +93,12 @@ class UsersImport implements ToCollection, WithHeadingRow
         $customRole = $rowData['custom_role'] ?? null;
 
         // Validate role exists for the organization
-        if ($role && !$this->isValidRole($role)) {
+        if ($role && ! $this->isValidRole($role)) {
             $this->results['failed'][] = [
                 'row' => $rowData,
                 'reason' => "Invalid role: '{$role}' does not exist for this organization",
             ];
+
             return;
         }
 
@@ -108,12 +114,14 @@ class UsersImport implements ToCollection, WithHeadingRow
                     'reason' => 'User already exists and update_existing is false',
                 ];
             }
+
             return;
         }
 
         // If no password provided and sending invitations, create invitation instead
-        if (!$password && $this->sendInvitations) {
+        if (! $password && $this->sendInvitations) {
             $this->createInvitation($email, $name, $role, $customRole, $rowData);
+
             return;
         }
 
@@ -172,15 +180,15 @@ class UsersImport implements ToCollection, WithHeadingRow
     {
         $updateData = [];
 
-        if (!empty($rowData['name']) && $rowData['name'] !== $user->name) {
+        if (! empty($rowData['name']) && $rowData['name'] !== $user->name) {
             $updateData['name'] = trim($rowData['name']);
         }
 
-        if (!empty($rowData['password'])) {
+        if (! empty($rowData['password'])) {
             $updateData['password'] = Hash::make($rowData['password']);
         }
 
-        if (!empty($updateData)) {
+        if (! empty($updateData)) {
             $user->update($updateData);
         }
 
@@ -205,6 +213,7 @@ class UsersImport implements ToCollection, WithHeadingRow
                 'row' => $rowData,
                 'reason' => 'Pending invitation already exists',
             ];
+
             return;
         }
 
@@ -240,7 +249,7 @@ class UsersImport implements ToCollection, WithHeadingRow
             logger()->error('Failed to send invitation email during import', [
                 'invitation_id' => $invitation->id,
                 'email' => $invitation->email,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 

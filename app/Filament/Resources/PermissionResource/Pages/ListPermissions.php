@@ -15,20 +15,20 @@ class ListPermissions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-          Actions\CreateAction::make(),
+            Actions\CreateAction::make(),
         ];
     }
 
     public function getTabs(): array
     {
         return [
-          'all' => Tab::make('All Permissions'),
-          'user_management' => Tab::make('User Management')
-            ->modifyQueryUsing(fn(Builder $query) => $query->where('name', 'like', '%users%')),
-          'application_management' => Tab::make('Application Management')
-            ->modifyQueryUsing(fn(Builder $query) => $query->where('name', 'like', '%applications%')),
-          'system_permissions' => Tab::make('System Permissions')
-            ->modifyQueryUsing(fn(Builder $query) => $query->where('name', 'like', 'manage %')),
+            'all' => Tab::make('All Permissions'),
+            'user_management' => Tab::make('User Management')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('name', 'like', '%users%')),
+            'application_management' => Tab::make('Application Management')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('name', 'like', '%applications%')),
+            'system_permissions' => Tab::make('System Permissions')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('name', 'like', 'manage %')),
         ];
     }
 }

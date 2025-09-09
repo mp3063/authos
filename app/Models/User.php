@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,7 +12,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use App\Traits\BelongsToOrganization;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
@@ -27,10 +27,11 @@ use App\Traits\BelongsToOrganization;
  * @method removeRole($role)
  * @method hasRole($role, $guardName = null)
  * @method hasOrganizationRole($role, $organizationId)
- * @method assignOrganizationRole($role, $organizationId) 
+ * @method assignOrganizationRole($role, $organizationId)
  * @method removeOrganizationRole($role, $organizationId)
  * @method isSuperAdmin()
  * @method hasMfaEnabled()
+ *
  * @property-read \Illuminate\Database\Eloquent\Collection|\Spatie\Permission\Models\Role[] $roles
  * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
  * @property-read \Illuminate\Database\Eloquent\Collection|CustomRole[] $customRoles
@@ -38,7 +39,7 @@ use App\Traits\BelongsToOrganization;
  */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, HasRoles, BelongsToOrganization;
+    use BelongsToOrganization, HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
         'name',
@@ -109,7 +110,7 @@ class User extends Authenticatable
 
     public function hasMfaEnabled(): bool
     {
-        return !empty($this->mfa_methods);
+        return ! empty($this->mfa_methods);
     }
 
     public function getMfaMethods(): array
@@ -131,11 +132,11 @@ class User extends Authenticatable
     public function getOrganizationRoles($organizationId = null)
     {
         $orgId = $organizationId ?? $this->organization_id;
-        
+
         return $this->roles()
-            ->where(function($query) use ($orgId) {
+            ->where(function ($query) use ($orgId) {
                 $query->where('roles.organization_id', $orgId)
-                      ->orWhereNull('roles.organization_id'); // Include global roles
+                    ->orWhereNull('roles.organization_id'); // Include global roles
             })
             ->get();
     }
@@ -146,19 +147,19 @@ class User extends Authenticatable
     public function getOrganizationPermissions($organizationId = null)
     {
         $orgId = $organizationId ?? $this->organization_id;
-        
+
         // Get permissions from roles
         $rolePermissions = $this->getOrganizationRoles($orgId)
-            ->flatMap(fn($role) => $role->permissions);
-        
+            ->flatMap(fn ($role) => $role->permissions);
+
         // Get direct permissions
         $directPermissions = $this->permissions()
-            ->where(function($query) use ($orgId) {
+            ->where(function ($query) use ($orgId) {
                 $query->where('permissions.organization_id', $orgId)
-                      ->orWhereNull('permissions.organization_id'); // Include global permissions
+                    ->orWhereNull('permissions.organization_id'); // Include global permissions
             })
             ->get();
-        
+
         return $rolePermissions->merge($directPermissions)->unique('id');
     }
 
@@ -169,7 +170,7 @@ class User extends Authenticatable
     {
         $orgId = $organizationId ?? $this->organization_id;
         $this->setPermissionsTeamId($orgId);
-        
+
         return $this->hasRole($role);
     }
 
@@ -180,7 +181,7 @@ class User extends Authenticatable
     {
         $orgId = $organizationId ?? $this->organization_id;
         $this->setPermissionsTeamId($orgId);
-        
+
         return $this->hasPermissionTo($permission);
     }
 
@@ -190,16 +191,16 @@ class User extends Authenticatable
     public function assignOrganizationRole($role, $organizationId = null): void
     {
         $orgId = $organizationId ?? $this->organization_id;
-        
+
         // Find the role within the organization context
         $roleModel = \Spatie\Permission\Models\Role::where('name', $role)
             ->where('organization_id', $orgId)
             ->first();
-            
-        if (!$roleModel) {
+
+        if (! $roleModel) {
             throw new \Spatie\Permission\Exceptions\RoleDoesNotExist("Role '{$role}' does not exist for organization {$orgId}");
         }
-        
+
         // Attach the role with organization context
         $this->roles()->attach($roleModel->id, ['organization_id' => $orgId]);
     }
@@ -224,7 +225,7 @@ class User extends Authenticatable
     {
         $orgId = $organizationId ?? $this->organization_id;
         $this->setPermissionsTeamId($orgId);
-        
+
         $this->removeRole($role);
     }
 
@@ -241,7 +242,7 @@ class User extends Authenticatable
      */
     public function isOrganizationAdmin(): bool
     {
-        return $this->hasOrganizationRole('Organization Admin') || 
+        return $this->hasOrganizationRole('Organization Admin') ||
                $this->hasOrganizationRole('organization admin') ||
                $this->isOrganizationOwner();
     }
@@ -267,7 +268,7 @@ class User extends Authenticatable
      */
     public function isSocialUser(): bool
     {
-        return !empty($this->provider) && !empty($this->provider_id);
+        return ! empty($this->provider) && ! empty($this->provider_id);
     }
 
     /**
@@ -275,7 +276,7 @@ class User extends Authenticatable
      */
     public function hasPassword(): bool
     {
-        return !empty($this->password);
+        return ! empty($this->password);
     }
 
     /**
@@ -283,7 +284,7 @@ class User extends Authenticatable
      */
     public function getProviderDisplayName(): string
     {
-        if (!$this->provider) {
+        if (! $this->provider) {
             return 'Local';
         }
 
@@ -338,6 +339,7 @@ class User extends Authenticatable
 
         if ($user) {
             $user->update($attributes);
+
             return $user;
         }
 

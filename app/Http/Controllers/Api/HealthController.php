@@ -84,18 +84,18 @@ class HealthController extends Controller
         $date = now()->format('Y-m-d');
         $hour = now()->format('H');
         $minute = now()->format('i');
-        $minuteBlock = floor((int)$minute / 5) * 5;
+        $minuteBlock = floor((int) $minute / 5) * 5;
 
         // Get current 5-minute metrics
-        $realtimeKey = 'api_metrics:' . $date . ':realtime:' . $hour . ':' . str_pad($minuteBlock, 2, '0', STR_PAD_LEFT);
+        $realtimeKey = 'api_metrics:'.$date.':realtime:'.$hour.':'.str_pad($minuteBlock, 2, '0', STR_PAD_LEFT);
         $currentMetrics = Cache::get($realtimeKey, []);
 
         // Get hourly metrics
-        $hourlyKey = 'api_metrics:' . $date . ':hourly:' . $hour;
+        $hourlyKey = 'api_metrics:'.$date.':hourly:'.$hour;
         $hourlyMetrics = Cache::get($hourlyKey, []);
 
         // Get daily metrics
-        $dailyKey = 'api_metrics:' . $date . ':daily';
+        $dailyKey = 'api_metrics:'.$date.':daily';
         $dailyMetrics = Cache::get($dailyKey, []);
 
         return response()->json([
@@ -138,7 +138,7 @@ class HealthController extends Controller
         } catch (\Exception $e) {
             return [
                 'healthy' => false,
-                'message' => 'Database connection failed: ' . $e->getMessage(),
+                'message' => 'Database connection failed: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }
@@ -163,7 +163,7 @@ class HealthController extends Controller
         } catch (\Exception $e) {
             return [
                 'healthy' => false,
-                'message' => 'Redis connection failed: ' . $e->getMessage(),
+                'message' => 'Redis connection failed: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }
@@ -175,8 +175,8 @@ class HealthController extends Controller
     private function checkCache(): array
     {
         try {
-            $testKey = 'health_check_' . time();
-            $testValue = 'test_value_' . uniqid();
+            $testKey = 'health_check_'.time();
+            $testValue = 'test_value_'.uniqid();
 
             $start = microtime(true);
             Cache::put($testKey, $testValue, 10);
@@ -199,7 +199,7 @@ class HealthController extends Controller
         } catch (\Exception $e) {
             return [
                 'healthy' => false,
-                'message' => 'Cache operation failed: ' . $e->getMessage(),
+                'message' => 'Cache operation failed: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }
@@ -212,10 +212,10 @@ class HealthController extends Controller
     {
         try {
             $start = microtime(true);
-            
+
             // Check if we can query tokens table
             $activeTokensCount = Token::where('expires_at', '>', now())->count();
-            
+
             $responseTime = round((microtime(true) - $start) * 1000, 2);
 
             return [
@@ -227,7 +227,7 @@ class HealthController extends Controller
         } catch (\Exception $e) {
             return [
                 'healthy' => false,
-                'message' => 'OAuth system check failed: ' . $e->getMessage(),
+                'message' => 'OAuth system check failed: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }
@@ -239,7 +239,7 @@ class HealthController extends Controller
     private function checkStorage(): array
     {
         try {
-            $testFile = 'health_check_' . time() . '.txt';
+            $testFile = 'health_check_'.time().'.txt';
             $testContent = 'Health check test content';
 
             $start = microtime(true);
@@ -263,7 +263,7 @@ class HealthController extends Controller
         } catch (\Exception $e) {
             return [
                 'healthy' => false,
-                'message' => 'Storage operation failed: ' . $e->getMessage(),
+                'message' => 'Storage operation failed: '.$e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }
@@ -298,10 +298,18 @@ class HealthController extends Controller
         $secs = $seconds % 60;
 
         $parts = [];
-        if ($days > 0) $parts[] = "{$days}d";
-        if ($hours > 0) $parts[] = "{$hours}h";
-        if ($minutes > 0) $parts[] = "{$minutes}m";
-        if ($secs > 0 || empty($parts)) $parts[] = "{$secs}s";
+        if ($days > 0) {
+            $parts[] = "{$days}d";
+        }
+        if ($hours > 0) {
+            $parts[] = "{$hours}h";
+        }
+        if ($minutes > 0) {
+            $parts[] = "{$minutes}m";
+        }
+        if ($secs > 0 || empty($parts)) {
+            $parts[] = "{$secs}s";
+        }
 
         return implode(' ', $parts);
     }
@@ -342,7 +350,7 @@ class HealthController extends Controller
             ];
         } catch (\Exception $e) {
             return [
-                'error' => 'Failed to retrieve database metrics: ' . $e->getMessage(),
+                'error' => 'Failed to retrieve database metrics: '.$e->getMessage(),
             ];
         }
     }
@@ -361,13 +369,13 @@ class HealthController extends Controller
                 'connected_clients' => $info['connected_clients'] ?? null,
                 'keyspace_hits' => $info['keyspace_hits'] ?? null,
                 'keyspace_misses' => $info['keyspace_misses'] ?? null,
-                'hit_ratio' => isset($info['keyspace_hits'], $info['keyspace_misses']) 
+                'hit_ratio' => isset($info['keyspace_hits'], $info['keyspace_misses'])
                     ? round(($info['keyspace_hits'] / ($info['keyspace_hits'] + $info['keyspace_misses'])) * 100, 2)
                     : null,
             ];
         } catch (\Exception $e) {
             return [
-                'error' => 'Failed to retrieve cache metrics: ' . $e->getMessage(),
+                'error' => 'Failed to retrieve cache metrics: '.$e->getMessage(),
             ];
         }
     }
@@ -389,7 +397,7 @@ class HealthController extends Controller
             ];
         } catch (\Exception $e) {
             return [
-                'error' => 'Failed to retrieve OAuth metrics: ' . $e->getMessage(),
+                'error' => 'Failed to retrieve OAuth metrics: '.$e->getMessage(),
             ];
         }
     }
@@ -400,7 +408,7 @@ class HealthController extends Controller
     private function getApiMetrics(): array
     {
         $date = now()->format('Y-m-d');
-        $dailyKey = 'api_metrics:' . $date . ':daily';
+        $dailyKey = 'api_metrics:'.$date.':daily';
         $dailyMetrics = Cache::get($dailyKey, []);
 
         return $this->formatApiMetrics($dailyMetrics);

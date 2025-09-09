@@ -22,63 +22,63 @@ class PermissionsRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema
-          ->schema([
-            TextInput::make('name')
-              ->required()
-              ->maxLength(255),
-          ]);
+            ->schema([
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+            ]);
     }
 
     public function table(Table $table): Table
     {
         return $table
-          ->recordTitleAttribute('name')
-          ->columns([
-            TextColumn::make('name')
-              ->searchable()
-              ->sortable()
-              ->weight('bold')
-              ->badge()
-              ->color('success'),
+            ->recordTitleAttribute('name')
+            ->columns([
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold')
+                    ->badge()
+                    ->color('success'),
 
-            TextColumn::make('guard_name')
-              ->badge()
-              ->color('gray'),
+                TextColumn::make('guard_name')
+                    ->badge()
+                    ->color('gray'),
 
-            TextColumn::make('category')
-              ->label('Category')
-              ->formatStateUsing(function ($record) {
-                  $parts = explode(' ', $record->name);
+                TextColumn::make('category')
+                    ->label('Category')
+                    ->formatStateUsing(function ($record) {
+                        $parts = explode(' ', $record->name);
 
-                  return ucfirst($parts[1] ?? 'general');
-              })
-              ->badge()
-              ->color('info'),
+                        return ucfirst($parts[1] ?? 'general');
+                    })
+                    ->badge()
+                    ->color('info'),
 
-            TextColumn::make('created_at')
-              ->dateTime()
-              ->sortable(),
-          ])
-          ->filters([
-            SelectFilter::make('guard_name')
-              ->options([
-                'web' => 'Web',
-                'api' => 'API',
-              ]),
-          ])
-          ->headerActions([
-            AttachAction::make()
-              ->preloadRecordSelect()
-              ->multiple(),
-          ])
-          ->actions([
-            DetachAction::make(),
-          ])
-          ->bulkActions([
-            BulkActionGroup::make([
-              DetachBulkAction::make(),
-            ]),
-          ])
-          ->defaultSort('name');
+                TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('guard_name')
+                    ->options([
+                        'web' => 'Web',
+                        'api' => 'API',
+                    ]),
+            ])
+            ->headerActions([
+                AttachAction::make()
+                    ->preloadRecordSelect()
+                    ->multiple(),
+            ])
+            ->actions([
+                DetachAction::make(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DetachBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('name');
     }
 }

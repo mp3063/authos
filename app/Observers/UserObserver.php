@@ -20,7 +20,7 @@ class UserObserver
     public function created(User $user): void
     {
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/users');
-        
+
         if ($user->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
         }
@@ -33,7 +33,7 @@ class UserObserver
     {
         $this->cacheInvalidationService->invalidateUserCaches($user->id);
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/users');
-        
+
         // If organization changed, invalidate both organizations
         if ($user->wasChanged('organization_id')) {
             if ($user->getOriginal('organization_id')) {
@@ -59,7 +59,7 @@ class UserObserver
     {
         $this->cacheInvalidationService->invalidateUserCaches($user->id);
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/users');
-        
+
         if ($user->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
         }

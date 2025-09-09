@@ -2,17 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Builder;
-use App\Traits\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ApplicationGroup extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use BelongsToOrganization, HasFactory;
 
     protected $fillable = [
         'name',
@@ -99,12 +99,12 @@ class ApplicationGroup extends Model
     {
         $depth = 0;
         $current = $this;
-        
+
         while ($current->parent_id !== null) {
             $depth++;
             $current = $current->parent;
         }
-        
+
         return $depth;
     }
 
@@ -115,12 +115,12 @@ class ApplicationGroup extends Model
     {
         $ancestors = collect();
         $current = $this->parent;
-        
+
         while ($current) {
             $ancestors->push($current);
             $current = $current->parent;
         }
-        
+
         return $ancestors;
     }
 
@@ -130,15 +130,15 @@ class ApplicationGroup extends Model
     public function getDescendants()
     {
         $descendants = collect();
-        
+
         // Load children explicitly to avoid lazy loading issues in tests
         $children = $this->children()->get();
-        
+
         foreach ($children as $child) {
             $descendants->push($child);
             $descendants = $descendants->merge($child->getDescendants());
         }
-        
+
         return $descendants;
     }
 
@@ -176,12 +176,12 @@ class ApplicationGroup extends Model
             ->where('organization_id', $this->organization_id)
             ->first();
 
-        if (!$application) {
+        if (! $application) {
             return false;
         }
 
         // Attach if not already attached
-        if (!$this->applications()->where('application_id', $applicationId)->exists()) {
+        if (! $this->applications()->where('application_id', $applicationId)->exists()) {
             $this->applications()->attach($applicationId);
         }
 
@@ -194,6 +194,7 @@ class ApplicationGroup extends Model
     public function removeApplication(int $applicationId): bool
     {
         $this->applications()->detach($applicationId);
+
         return true;
     }
 
@@ -207,11 +208,12 @@ class ApplicationGroup extends Model
             ->where('organization_id', $this->organization_id)
             ->first();
 
-        if (!$parent) {
+        if (! $parent) {
             return false;
         }
 
         $this->parent_id = $parentId;
+
         return $this->save();
     }
 
@@ -222,12 +224,12 @@ class ApplicationGroup extends Model
     {
         $path = [$this->name];
         $current = $this->parent;
-        
+
         while ($current) {
             $path[] = $current->name;
             $current = $current->parent;
         }
-        
+
         return implode($separator, array_reverse($path));
     }
 
@@ -245,11 +247,11 @@ class ApplicationGroup extends Model
     public function getTotalApplicationCount(): int
     {
         $count = $this->getApplicationCount();
-        
+
         foreach ($this->children as $child) {
             $count += $child->getTotalApplicationCount();
         }
-        
+
         return $count;
     }
 }

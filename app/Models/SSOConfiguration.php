@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOneThrough;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SSOConfiguration extends Model
 {
@@ -50,7 +49,7 @@ class SSOConfiguration extends Model
         }
 
         $allowedDomains = $this->allowed_domains;
-        
+
         // Check for exact match
         if (in_array($domain, $allowedDomains)) {
             return true;
@@ -59,7 +58,7 @@ class SSOConfiguration extends Model
         // Check for wildcard matches
         foreach ($allowedDomains as $allowedDomain) {
             if (strpos($allowedDomain, '*.') === 0) {
-                $pattern = '/^' . str_replace('*.', '.*\.', preg_quote($allowedDomain, '/')) . '$/';
+                $pattern = '/^'.str_replace('*.', '.*\.', preg_quote($allowedDomain, '/')).'$/';
                 if (preg_match($pattern, $domain)) {
                     return true;
                 }

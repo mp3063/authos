@@ -4,7 +4,6 @@ namespace Tests\Feature\Api;
 
 use App\Models\Application;
 use App\Models\CustomRole;
-use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,21 +19,22 @@ class BulkOperationsApiTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $organizationOwner;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
-        
+
         // Seed roles and permissions properly
         $this->seedRolesAndPermissions();
-        
+
         $this->organizationOwner = $this->createUser([
-            'organization_id' => $this->organization->id
+            'organization_id' => $this->organization->id,
         ], 'Organization Owner', 'api');
-        
+
         Mail::fake();
         Storage::fake('local');
     }
@@ -43,15 +43,15 @@ class BulkOperationsApiTest extends TestCase
     {
         // Ensure the user has the correct role and permissions by refreshing from database
         $this->organizationOwner = $this->organizationOwner->fresh();
-        
+
         // CRITICAL: Set the team context before checking permissions
         $this->organizationOwner->setPermissionsTeamId($this->organizationOwner->organization_id);
         app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->organizationOwner->organization_id);
-        
+
         // Refresh user to ensure roles are loaded
         $this->organizationOwner->refresh();
         $this->organizationOwner->load('roles', 'permissions');
-        
+
         // Use Passport actingAs for API authentication with proper scopes
         Passport::actingAs($this->organizationOwner, ['*']);
 
@@ -69,17 +69,17 @@ class BulkOperationsApiTest extends TestCase
 
         // Debug the response
         if ($response->status() !== 200) {
-            dump('Response status: ' . $response->status());
-            dump('User: ' . $this->organizationOwner->email);
-            dump('User organization_id: ' . $this->organizationOwner->organization_id);
-            dump('Request organization_id: ' . $this->organization->id);
-            dump('User roles (all guards): ' . $this->organizationOwner->roles->pluck('name'));
-            dump('User roles (api): ' . $this->organizationOwner->getRoleNames('api'));
-            dump('User permissions (api): ' . $this->organizationOwner->getAllPermissions('api')->pluck('name'));
+            dump('Response status: '.$response->status());
+            dump('User: '.$this->organizationOwner->email);
+            dump('User organization_id: '.$this->organizationOwner->organization_id);
+            dump('Request organization_id: '.$this->organization->id);
+            dump('User roles (all guards): '.$this->organizationOwner->roles->pluck('name'));
+            dump('User roles (api): '.$this->organizationOwner->getRoleNames('api'));
+            dump('User permissions (api): '.$this->organizationOwner->getAllPermissions('api')->pluck('name'));
         } else {
             // Debug successful response structure
-            dump('Response status: ' . $response->status());
-            dump('Response JSON: ' . json_encode($response->json(), JSON_PRETTY_PRINT));
+            dump('Response status: '.$response->status());
+            dump('Response JSON: '.json_encode($response->json(), JSON_PRETTY_PRINT));
         }
 
         $response->assertStatus(200)
@@ -91,14 +91,14 @@ class BulkOperationsApiTest extends TestCase
                             'email',
                             'invitation_id',
                             'expires_at',
-                        ]
+                        ],
                     ],
                     'failed' => [],
-                    'already_exists' => []
-                ]
+                    'already_exists' => [],
+                ],
             ])
             ->assertJson([
-                'message' => 'Bulk invitation completed: 3 successful, 0 failed, 0 already exist'
+                'message' => 'Bulk invitation completed: 3 successful, 0 failed, 0 already exist',
             ]);
 
         // Verify invitations were created
@@ -134,7 +134,7 @@ class BulkOperationsApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Bulk invitation completed: 2 successful, 0 failed, 1 already exist'
+                'message' => 'Bulk invitation completed: 2 successful, 0 failed, 1 already exist',
             ]);
 
         $alreadyExistsResults = $response->json('data.already_exists');
@@ -174,7 +174,7 @@ class BulkOperationsApiTest extends TestCase
         // Set team context for proper role/permission checking
         $this->organizationOwner->setPermissionsTeamId($this->organizationOwner->organization_id);
         app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->organizationOwner->organization_id);
-        
+
         Passport::actingAs($this->organizationOwner, ['*']);
 
         $response = $this->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
@@ -188,13 +188,13 @@ class BulkOperationsApiTest extends TestCase
                 'message',
                 'data' => [
                     'successful' => [],
-                    'failed' => []
-                ]
+                    'failed' => [],
+                ],
             ])
             ->assertJson([
-                'message' => 'Bulk role assign completed: 5 successful, 0 failed'
+                'message' => 'Bulk role assign completed: 5 successful, 0 failed',
             ]);
-            
+
         // Verify successful count
         $this->assertCount(5, $response->json('data.successful'));
 
@@ -276,8 +276,8 @@ class BulkOperationsApiTest extends TestCase
                 'message',
                 'data' => [
                     'successful',
-                    'failed'
-                ]
+                    'failed',
+                ],
             ])
             ->assertJsonPath('data.successful', function ($successful) {
                 return count($successful) === 4;
@@ -295,12 +295,12 @@ class BulkOperationsApiTest extends TestCase
     public function test_bulk_export_users_generates_csv_file(): void
     {
         $application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         $users = User::factory()
             ->count(10)
             ->forOrganization($this->organization)
             ->create();
-            
+
         // Associate users with the application
         foreach ($users as $user) {
             $user->applications()->attach($application->id);
@@ -325,11 +325,11 @@ class BulkOperationsApiTest extends TestCase
                     'users_count',
                     'format',
                     'expires_at',
-                ]
+                ],
             ]);
 
         $filename = $response->json('data.filename');
-        $filePath = 'exports/' . $filename;
+        $filePath = 'exports/'.$filename;
         Storage::disk('local')->assertExists($filePath);
 
         // Verify CSV content
@@ -341,12 +341,12 @@ class BulkOperationsApiTest extends TestCase
     public function test_bulk_export_users_generates_excel_file(): void
     {
         $application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         $users = User::factory()
             ->count(5)
             ->forOrganization($this->organization)
             ->create();
-            
+
         // Associate users with the application
         foreach ($users as $user) {
             $user->applications()->attach($application->id);
@@ -368,21 +368,21 @@ class BulkOperationsApiTest extends TestCase
                     'users_count',
                     'format',
                     'expires_at',
-                ]
+                ],
             ]);
 
         $filename = $response->json('data.filename');
-        $filePath = 'exports/' . $filename;
+        $filePath = 'exports/'.$filename;
         Storage::disk('local')->assertExists($filePath);
         $this->assertStringContainsString('.xlsx', $filename);
     }
 
     public function test_bulk_import_users_processes_csv_file(): void
     {
-        $csvContent = "name,email,role\n" .
-                     "John Doe,john@example.com,user\n" .
-                     "Jane Smith,jane@example.com,organization admin\n" .
-                     "Bob Wilson,bob@example.com,user";
+        $csvContent = "name,email,role\n".
+                     "John Doe,john@example.com,user\n".
+                     "Jane Smith,jane@example.com,organization admin\n".
+                     'Bob Wilson,bob@example.com,user';
 
         $csvFile = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
@@ -399,7 +399,7 @@ class BulkOperationsApiTest extends TestCase
                 'message',
                 'data' => [
                     'created',
-                    'updated', 
+                    'updated',
                     'invited',
                     'failed',
                 ],
@@ -435,10 +435,10 @@ class BulkOperationsApiTest extends TestCase
 
     public function test_bulk_import_users_handles_invalid_data(): void
     {
-        $csvContent = "name,email,role\n" .
-                     "John Doe,john@example.com,user\n" .
-                     ",invalid-email,user\n" .  // Invalid row
-                     "Jane Smith,jane@example.com,invalid-role"; // Invalid role
+        $csvContent = "name,email,role\n".
+                     "John Doe,john@example.com,user\n".
+                     ",invalid-email,user\n".  // Invalid row
+                     'Jane Smith,jane@example.com,invalid-role'; // Invalid role
 
         $csvFile = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
@@ -453,13 +453,13 @@ class BulkOperationsApiTest extends TestCase
 
         $data = $response->json('data');
         $this->assertNotNull($data);
-        
+
         // Check that we have created, updated, invited, or failed arrays
         $this->assertArrayHasKey('created', $data);
         $this->assertArrayHasKey('updated', $data);
         $this->assertArrayHasKey('invited', $data);
         $this->assertArrayHasKey('failed', $data);
-        
+
         // Only John Doe should succeed (1), two should fail (2)
         $totalSuccessful = count($data['created']) + count($data['updated']) + count($data['invited']);
         $this->assertEquals(1, $totalSuccessful);
@@ -509,7 +509,7 @@ class BulkOperationsApiTest extends TestCase
 
         $response = $this->postJson("/api/v1/organizations/{$this->organization->id}/bulk/invite-users", [
             'invitations' => [
-                ['email' => 'test@example.com', 'role' => 'user']
+                ['email' => 'test@example.com', 'role' => 'user'],
             ],
         ]);
 
@@ -535,8 +535,8 @@ class BulkOperationsApiTest extends TestCase
             ->assertJsonStructure([
                 'details' => [
                     'invitations.0.role',
-                    'invitations.1.email'
-                ]
+                    'invitations.1.email',
+                ],
             ])
             ->assertJsonFragment(['The invitations.0.role field is required.'])
             ->assertJsonFragment(['The invitations.1.email field is required.']);
@@ -602,12 +602,12 @@ class BulkOperationsApiTest extends TestCase
     public function test_bulk_export_handles_large_datasets(): void
     {
         $application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         $users = User::factory()
             ->count(100)
             ->forOrganization($this->organization)
             ->create();
-            
+
         // Associate users with the application
         foreach ($users as $user) {
             $user->applications()->attach($application->id);
@@ -623,7 +623,7 @@ class BulkOperationsApiTest extends TestCase
         $response->assertStatus(200);
 
         $filename = $response->json('data.filename');
-        $filePath = 'exports/' . $filename;
+        $filePath = 'exports/'.$filename;
         Storage::disk('local')->assertExists($filePath);
 
         // Verify file is not empty and has reasonable size

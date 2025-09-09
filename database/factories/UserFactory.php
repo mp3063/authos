@@ -58,11 +58,11 @@ class UserFactory extends Factory
     public function withMfa(): static
     {
         return $this->state(fn (array $attributes) => [
-            'two_factor_secret' => 'test-secret-' . Str::random(10),
+            'two_factor_secret' => 'test-secret-'.Str::random(10),
             'two_factor_confirmed_at' => now(),
             'two_factor_recovery_codes' => json_encode([
-                'code1', 'code2', 'code3', 'code4', 
-                'code5', 'code6', 'code7', 'code8'
+                'code1', 'code2', 'code3', 'code4',
+                'code5', 'code6', 'code7', 'code8',
             ]),
             'mfa_methods' => ['totp'],
         ]);

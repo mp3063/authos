@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\SocialAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -21,14 +21,14 @@ class SocialAuthControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Set up test configuration
         Config::set('services.google', [
             'client_id' => 'test_client_id',
             'client_secret' => 'test_client_secret',
-            'redirect' => 'http://localhost/callback'
+            'redirect' => 'http://localhost/callback',
         ]);
-        
+
         $this->mockSocialAuthService = Mockery::mock(SocialAuthService::class);
         $this->app->instance(SocialAuthService::class, $this->mockSocialAuthService);
     }
@@ -41,29 +41,29 @@ class SocialAuthControllerTest extends TestCase
                 'enabled' => true,
                 'icon' => 'fab fa-google',
                 'color' => '#db4437',
-            ]
+            ],
         ];
-        
+
         $this->mockSocialAuthService
             ->shouldReceive('getAvailableProviders')
             ->andReturn($mockProviders);
-            
+
         $response = $this->getJson('/api/v1/auth/social/providers');
-        
+
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
                 'data' => [
                     'providers',
-                    'count'
-                ]
+                    'count',
+                ],
             ])
             ->assertJson([
                 'success' => true,
                 'data' => [
                     'providers' => $mockProviders,
-                    'count' => 1
-                ]
+                    'count' => 1,
+                ],
             ]);
     }
 
@@ -73,32 +73,32 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
             ->with('google')
             ->andReturn('https://accounts.google.com/oauth/authorize?...');
-            
+
         $response = $this->getJson('/api/v1/auth/social/google');
-        
+
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
                 'data' => [
                     'redirect_url',
-                    'provider'
-                ]
+                    'provider',
+                ],
             ])
             ->assertJson([
                 'success' => true,
                 'data' => [
-                    'provider' => 'google'
-                ]
+                    'provider' => 'google',
+                ],
             ]);
     }
 
@@ -108,13 +108,13 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('invalid')
             ->andReturn(false);
-            
+
         $response = $this->getJson('/api/v1/auth/social/invalid');
-        
+
         $response->assertBadRequest()
             ->assertJson([
                 'success' => false,
-                'message' => 'Unsupported social provider'
+                'message' => 'Unsupported social provider',
             ]);
     }
 
@@ -124,18 +124,18 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('github')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('github')
             ->andReturn(false);
-            
+
         $response = $this->getJson('/api/v1/auth/social/github');
-        
+
         $response->assertBadRequest()
             ->assertJson([
                 'success' => false,
-                'message' => 'Social provider is not configured'
+                'message' => 'Social provider is not configured',
             ]);
     }
 
@@ -145,7 +145,7 @@ class SocialAuthControllerTest extends TestCase
             'provider' => 'google',
             'provider_id' => '12345',
         ]);
-        
+
         $mockResult = [
             'user' => $user,
             'access_token' => 'jwt_token_here',
@@ -153,24 +153,24 @@ class SocialAuthControllerTest extends TestCase
             'expires_in' => 3600,
             'token_type' => 'Bearer',
         ];
-        
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
             ->with('google', null)
             ->andReturn($mockResult);
-            
+
         $response = $this->getJson('/api/v1/auth/social/google/callback');
-        
+
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
@@ -190,12 +190,12 @@ class SocialAuthControllerTest extends TestCase
                         'has_password',
                         'mfa_enabled',
                         'is_active',
-                    ]
-                ]
+                    ],
+                ],
             ])
             ->assertJson([
                 'success' => true,
-                'message' => 'Authentication successful'
+                'message' => 'Authentication successful',
             ]);
     }
 
@@ -207,7 +207,7 @@ class SocialAuthControllerTest extends TestCase
             'provider_id' => '12345',
             'organization_id' => $organization->id,
         ]);
-        
+
         $mockResult = [
             'user' => $user,
             'access_token' => 'jwt_token_here',
@@ -215,24 +215,24 @@ class SocialAuthControllerTest extends TestCase
             'expires_in' => 3600,
             'token_type' => 'Bearer',
         ];
-        
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
             ->with('google', 'test-org')
             ->andReturn($mockResult);
-            
+
         $response = $this->getJson('/api/v1/auth/social/google/callback?organization=test-org');
-        
+
         $response->assertOk()
             ->assertJson([
                 'success' => true,
@@ -241,9 +241,9 @@ class SocialAuthControllerTest extends TestCase
                         'organization' => [
                             'id' => $organization->id,
                             'slug' => 'test-org',
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ]);
     }
 
@@ -253,24 +253,24 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
             ->with('google', null)
             ->andThrow(new \Exception('Authentication failed'));
-            
+
         $response = $this->getJson('/api/v1/auth/social/google/callback');
-        
+
         $response->assertBadRequest()
             ->assertJson([
                 'success' => false,
                 'message' => 'Authentication failed',
-                'error' => 'Authentication failed'
+                'error' => 'Authentication failed',
             ]);
     }
 
@@ -283,17 +283,17 @@ class SocialAuthControllerTest extends TestCase
             'provider_token' => 'token',
             'provider_refresh_token' => 'refresh_token',
         ]);
-        
+
         Passport::actingAs($user, ['*']);
-        
+
         $response = $this->deleteJson('/api/v1/auth/social/unlink');
-        
+
         $response->assertOk()
             ->assertJson([
                 'success' => true,
-                'message' => 'Social account unlinked successfully'
+                'message' => 'Social account unlinked successfully',
             ]);
-            
+
         $user->refresh();
         $this->assertNull($user->provider);
         $this->assertNull($user->provider_id);
@@ -308,22 +308,22 @@ class SocialAuthControllerTest extends TestCase
             'provider' => 'google',
             'provider_id' => '12345',
         ]);
-        
+
         Passport::actingAs($user, ['*']);
-        
+
         $response = $this->deleteJson('/api/v1/auth/social/unlink');
-        
+
         $response->assertBadRequest()
             ->assertJson([
                 'success' => false,
-                'message' => 'Cannot unlink social account without setting a password first'
+                'message' => 'Cannot unlink social account without setting a password first',
             ]);
     }
 
     public function test_unlink_endpoint_requires_authentication()
     {
         $response = $this->deleteJson('/api/v1/auth/social/unlink');
-        
+
         $response->assertUnauthorized();
     }
 
@@ -333,19 +333,19 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
             ->with('google')
             ->andReturn('https://accounts.google.com/oauth/authorize?...');
-            
+
         $response = $this->get('/auth/social/google');
-        
+
         $response->assertRedirect('https://accounts.google.com/oauth/authorize?...');
     }
 
@@ -355,9 +355,9 @@ class SocialAuthControllerTest extends TestCase
             ->shouldReceive('isProviderSupported')
             ->with('invalid')
             ->andReturn(false);
-            
+
         $response = $this->get('/auth/social/invalid');
-        
+
         $response->assertRedirect('/admin/login?error=unsupported_provider');
     }
 
@@ -369,7 +369,7 @@ class SocialAuthControllerTest extends TestCase
             'provider_id' => '12345',
         ]);
         $user->assignRole($adminRole);
-        
+
         $mockResult = [
             'user' => $user->load('roles'),
             'access_token' => 'jwt_token_here',
@@ -377,24 +377,24 @@ class SocialAuthControllerTest extends TestCase
             'expires_in' => 3600,
             'token_type' => 'Bearer',
         ];
-        
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
             ->with('google')
             ->andReturn($mockResult);
-            
+
         $response = $this->get('/auth/social/google/callback');
-        
+
         $response->assertRedirect('/admin');
         $this->assertAuthenticatedAs($user);
     }
@@ -407,7 +407,7 @@ class SocialAuthControllerTest extends TestCase
             'provider_id' => '12345',
         ]);
         $user->assignRole($userRole);
-        
+
         $mockResult = [
             'user' => $user->load('roles'),
             'access_token' => 'jwt_token_here',
@@ -415,24 +415,24 @@ class SocialAuthControllerTest extends TestCase
             'expires_in' => 3600,
             'token_type' => 'Bearer',
         ];
-        
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderSupported')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('isProviderEnabled')
             ->with('google')
             ->andReturn(true);
-            
+
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
             ->with('google')
             ->andReturn($mockResult);
-            
+
         $response = $this->get('/auth/social/google/callback');
-        
+
         $response->assertRedirect('/admin/login?error=insufficient_privileges');
         $this->assertGuest();
     }

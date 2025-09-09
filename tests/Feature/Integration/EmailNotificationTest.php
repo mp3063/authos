@@ -18,22 +18,24 @@ class EmailNotificationTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $inviter;
+
     private InvitationService $invitationService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
         $this->inviter = User::factory()->forOrganization($this->organization)->create();
         $this->invitationService = app(InvitationService::class);
-        
+
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
-        
+
         $this->inviter->assignRole('organization admin');
-        
+
         Mail::fake();
     }
 
@@ -125,10 +127,10 @@ class EmailNotificationTest extends TestCase
                 'email_templates' => [
                     'invitation' => [
                         'subject' => 'Join {{organization_name}} - Custom Template',
-                        'custom_message' => 'Welcome to our awesome platform!'
-                    ]
-                ]
-            ]
+                        'custom_message' => 'Welcome to our awesome platform!',
+                    ],
+                ],
+            ],
         ]);
 
         $invitation = Invitation::factory()
@@ -157,7 +159,7 @@ class EmailNotificationTest extends TestCase
         $this->assertInstanceOf(Invitation::class, $result);
         $this->assertDatabaseHas('invitations', [
             'email' => 'test@example.com',
-            'status' => 'pending'
+            'status' => 'pending',
         ]);
     }
 
@@ -166,13 +168,13 @@ class EmailNotificationTest extends TestCase
         $userWithNotifications = User::factory()
             ->forOrganization($this->organization)
             ->create([
-                'profile' => ['email_notifications' => true]
+                'profile' => ['email_notifications' => true],
             ]);
 
         $userWithoutNotifications = User::factory()
             ->forOrganization($this->organization)
             ->create([
-                'profile' => ['email_notifications' => false]
+                'profile' => ['email_notifications' => false],
             ]);
 
         // This would be tested with actual notification sending
@@ -215,7 +217,7 @@ class EmailNotificationTest extends TestCase
             ->create();
 
         $mailable = new OrganizationInvitation($invitation);
-        
+
         // This would test actual localized content
         $this->assertEquals('es', app()->getLocale());
         $this->assertInstanceOf(OrganizationInvitation::class, $mailable);
@@ -228,9 +230,9 @@ class EmailNotificationTest extends TestCase
             'settings' => [
                 'branding' => [
                     'primary_color' => '#007bff',
-                    'include_logo_in_emails' => true
-                ]
-            ]
+                    'include_logo_in_emails' => true,
+                ],
+            ],
         ]);
 
         $invitation = Invitation::factory()

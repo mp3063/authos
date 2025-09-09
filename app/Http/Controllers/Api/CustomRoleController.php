@@ -50,7 +50,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to access this organization.',
@@ -66,8 +66,8 @@ class CustomRoleController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('display_name', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%");
+                    ->orWhere('display_name', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
 
@@ -152,7 +152,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to create roles in this organization.',
@@ -202,7 +202,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to access this organization.',
@@ -257,7 +257,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to update roles in this organization.',
@@ -309,7 +309,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to delete roles in this organization.',
@@ -321,11 +321,11 @@ class CustomRoleController extends Controller
             ->findOrFail($id);
 
         // Check if role can be deleted
-        if (!$customRole->canBeDeleted()) {
-            $reason = $customRole->isSystemRole() 
-                ? 'System roles cannot be deleted.' 
+        if (! $customRole->canBeDeleted()) {
+            $reason = $customRole->isSystemRole()
+                ? 'System roles cannot be deleted.'
                 : 'Role is assigned to users and cannot be deleted.';
-            
+
             return response()->json([
                 'error' => 'resource_conflict',
                 'error_description' => $reason,
@@ -388,7 +388,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to assign roles in this organization.',
@@ -399,7 +399,7 @@ class CustomRoleController extends Controller
 
         $userIds = $request->user_ids;
         $syncData = [];
-        
+
         foreach ($userIds as $userId) {
             $syncData[$userId] = [
                 'granted_at' => now(),
@@ -453,7 +453,7 @@ class CustomRoleController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to manage roles in this organization.',

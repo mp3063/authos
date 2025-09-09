@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamp('last_login_at')->nullable();
             $table->integer('login_count')->default(0);
             $table->timestamps();
-            
+
             $table->unique(['user_id', 'application_id']);
             $table->index('user_id');
             $table->index('application_id');

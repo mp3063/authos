@@ -2,21 +2,21 @@
 
 namespace App\Services;
 
+use App\Mail\InvitationAccepted;
+use App\Mail\OrganizationInvitation;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
-use App\Mail\OrganizationInvitation;
-use App\Mail\InvitationAccepted;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
-use Exception;
 
 class InvitationService
 {
     public function sendInvitation(
-        int $organizationId, 
-        string $email, 
+        int $organizationId,
+        string $email,
         int $inviterId,
         string $role = 'user',
         array $metadata = []
@@ -25,14 +25,14 @@ class InvitationService
         $inviter = User::findOrFail($inviterId);
 
         // Validate that the inviter has permission to invite to this organization
-        if (!$this->canInviteToOrganization($inviter, $organization)) {
+        if (! $this->canInviteToOrganization($inviter, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
 
         // Check if user is already a member of the organization
         if ($this->isUserInOrganization($email, $organizationId)) {
             throw ValidationException::withMessages([
-                'email' => 'User is already a member of this organization'
+                'email' => 'User is already a member of this organization',
             ]);
         }
 
@@ -63,7 +63,7 @@ class InvitationService
             logger()->error('Failed to send invitation email', [
                 'invitation_id' => $invitation->id,
                 'email' => $email,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -74,11 +74,11 @@ class InvitationService
     {
         $invitation = Invitation::where('token', $token)->first();
 
-        if (!$invitation) {
+        if (! $invitation) {
             throw new Exception('Invalid or expired invitation');
         }
 
-        if (!$invitation->isPending()) {
+        if (! $invitation->isPending()) {
             throw new Exception($invitation->isExpired() ? 'Invalid or expired invitation' : 'Invitation has already been accepted');
         }
 
@@ -110,7 +110,7 @@ class InvitationService
             } catch (Exception $e) {
                 logger()->error('Failed to send invitation accepted email', [
                     'invitation_id' => $invitation->id,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
             }
 
@@ -123,7 +123,7 @@ class InvitationService
         $invitation = Invitation::findOrFail($invitationId);
 
         // Check if user has permission to cancel this invitation
-        if (!$this->canManageInvitation($canceller, $invitation)) {
+        if (! $this->canManageInvitation($canceller, $invitation)) {
             throw new Exception('Not authorized to cancel this invitation');
         }
 
@@ -135,11 +135,11 @@ class InvitationService
         $invitation = Invitation::findOrFail($invitationId);
 
         // Check if user has permission to resend this invitation
-        if (!$this->canManageInvitation($sender, $invitation)) {
+        if (! $this->canManageInvitation($sender, $invitation)) {
             throw new Exception('User does not have permission to resend this invitation');
         }
 
-        if (!$invitation->isPending()) {
+        if (! $invitation->isPending()) {
             throw new Exception('Cannot resend a non-pending invitation');
         }
 
@@ -153,7 +153,7 @@ class InvitationService
         } catch (Exception $e) {
             logger()->error('Failed to resend invitation email', [
                 'invitation_id' => $invitation->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -161,14 +161,14 @@ class InvitationService
     }
 
     public function bulkInvite(
-        int $organizationId, 
-        array $invitations, 
+        int $organizationId,
+        array $invitations,
         int $inviterId
     ): array {
         // Add validation for maximum batch size
         if (count($invitations) > 100) {
             throw ValidationException::withMessages([
-                'invitations' => 'Cannot invite more than 100 users at once'
+                'invitations' => 'Cannot invite more than 100 users at once',
             ]);
         }
 
@@ -177,7 +177,7 @@ class InvitationService
         $organization = Organization::findOrFail($organizationId);
         $inviter = User::findOrFail($inviterId);
 
-        if (!$this->canInviteToOrganization($inviter, $organization)) {
+        if (! $this->canInviteToOrganization($inviter, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
 
@@ -194,31 +194,31 @@ class InvitationService
                 $successful[] = [
                     'email' => $inviteData['email'],
                     'status' => 'success',
-                    'invitation_id' => $invitation->id
+                    'invitation_id' => $invitation->id,
                 ];
             } catch (Exception $e) {
                 $failed[] = [
                     'email' => $inviteData['email'],
                     'status' => 'error',
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
             }
         }
 
         return [
             'successful' => $successful,
-            'failed' => $failed
+            'failed' => $failed,
         ];
     }
 
     public function getOrganizationInvitations(
-        int $organizationId, 
+        int $organizationId,
         User $user,
         string $status = 'all'
     ) {
         $organization = Organization::findOrFail($organizationId);
 
-        if (!$this->canViewInvitations($user, $organization)) {
+        if (! $this->canViewInvitations($user, $organization)) {
             throw new Exception('User does not have permission to view invitations for this organization');
         }
 
@@ -240,7 +240,7 @@ class InvitationService
         return $query->orderBy('created_at', 'desc')->get();
     }
 
-    public function getPendingInvitations(int $organizationId) 
+    public function getPendingInvitations(int $organizationId)
     {
         return Invitation::where('organization_id', $organizationId)
             ->pending()
@@ -273,8 +273,8 @@ class InvitationService
 
         // Users can manage invitations in their own organization
         if ($user->organization_id === $invitation->organization_id) {
-            return $user->isOrganizationOwner() || 
-                   $user->isOrganizationAdmin() || 
+            return $user->isOrganizationOwner() ||
+                   $user->isOrganizationAdmin() ||
                    $user->id === $invitation->inviter_id;
         }
 

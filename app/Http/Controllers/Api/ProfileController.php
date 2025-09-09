@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use PragmaRX\Google2FA\Google2FA;
 
 class ProfileController extends Controller
@@ -68,7 +67,7 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         $updateData = $request->only(['name', 'email']);
-        
+
         if ($request->has('profile')) {
             $updateData['profile'] = array_merge($user->profile ?? [], $request->profile);
         }
@@ -164,7 +163,7 @@ class ProfileController extends Controller
     public function preferences(): JsonResponse
     {
         $user = Auth::user();
-        
+
         $defaultPreferences = [
             'timezone' => 'UTC',
             'language' => 'en',
@@ -210,7 +209,7 @@ class ProfileController extends Controller
         $user = Auth::user();
         $profile = $user->profile ?? [];
         $preferences = array_merge($profile['preferences'] ?? [], $request->all());
-        
+
         $profile['preferences'] = $preferences;
         $user->update(['profile' => $profile]);
 
@@ -259,7 +258,7 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         // Verify current password
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Current password is incorrect.',
@@ -301,7 +300,7 @@ class ProfileController extends Controller
                 'mfa_enabled' => $user->hasMfaEnabled(),
                 'mfa_methods' => $user->mfa_methods ?? [],
                 'backup_codes_count' => is_array($user->two_factor_recovery_codes) ? count(json_decode($user->two_factor_recovery_codes, true) ?? []) : 0,
-                'totp_configured' => !empty($user->two_factor_secret),
+                'totp_configured' => ! empty($user->two_factor_secret),
             ],
         ]);
     }
@@ -320,7 +319,7 @@ class ProfileController extends Controller
             ], 409);
         }
 
-        $google2fa = new Google2FA();
+        $google2fa = new Google2FA;
         $secretKey = $google2fa->generateSecretKey();
 
         // Store the secret temporarily (not confirmed yet)
@@ -361,17 +360,17 @@ class ProfileController extends Controller
 
         $user = Auth::user();
 
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'TOTP setup not initiated.',
             ], 404);
         }
 
-        $google2fa = new Google2FA();
+        $google2fa = new Google2FA;
         $secretKey = decrypt($user->two_factor_secret);
 
-        if (!$google2fa->verifyKey($secretKey, $request->code)) {
+        if (! $google2fa->verifyKey($secretKey, $request->code)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Invalid TOTP code.',
@@ -428,7 +427,7 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         // Verify password
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Password is incorrect.',
@@ -437,10 +436,10 @@ class ProfileController extends Controller
 
         // If TOTP is enabled, verify code
         if ($user->hasMfaEnabled() && $request->has('code')) {
-            $google2fa = new Google2FA();
+            $google2fa = new Google2FA;
             $secretKey = decrypt($user->two_factor_secret);
 
-            if (!$google2fa->verifyKey($secretKey, $request->code)) {
+            if (! $google2fa->verifyKey($secretKey, $request->code)) {
                 return response()->json([
                     'error' => 'authentication_failed',
                     'error_description' => 'Invalid TOTP code.',
@@ -489,14 +488,14 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         // Verify password
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Password is incorrect.',
             ], 401);
         }
 
-        if (!$user->hasMfaEnabled()) {
+        if (! $user->hasMfaEnabled()) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'MFA is not enabled.',
@@ -530,14 +529,14 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         // Verify password
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Password is incorrect.',
             ], 401);
         }
 
-        if (!$user->hasMfaEnabled()) {
+        if (! $user->hasMfaEnabled()) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'MFA is not enabled.',

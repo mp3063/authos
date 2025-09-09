@@ -55,7 +55,7 @@ class ApplicationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('client_id', 'LIKE', "%{$search}%");
+                    ->orWhere('client_id', 'LIKE', "%{$search}%");
             });
         }
 
@@ -223,7 +223,7 @@ class ApplicationController extends Controller
 
         $updateData = $request->only([
             'name', 'description', 'redirect_uris', 'allowed_origins',
-            'allowed_grant_types', 'scopes', 'is_active'
+            'allowed_grant_types', 'scopes', 'is_active',
         ]);
 
         if ($request->has('settings')) {
@@ -383,7 +383,7 @@ class ApplicationController extends Controller
         $application = Application::findOrFail($id);
         $user = User::findOrFail($userId);
 
-        if (!$application->users()->where('user_id', $user->id)->exists()) {
+        if (! $application->users()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'User does not have access to this application.',
@@ -394,8 +394,8 @@ class ApplicationController extends Controller
 
         // Revoke user's tokens for this application
         Token::where('client_id', $application->passport_client_id)
-             ->where('user_id', $user->id)
-             ->delete();
+            ->where('user_id', $user->id)
+            ->delete();
 
         return response()->json([], 204);
     }
@@ -409,9 +409,9 @@ class ApplicationController extends Controller
 
         $application = Application::findOrFail($id);
         $tokens = Token::where('client_id', $application->passport_client_id)
-                      ->where('expires_at', '>', now())
-                      ->with('user')
-                      ->get();
+            ->where('expires_at', '>', now())
+            ->with('user')
+            ->get();
 
         return response()->json([
             'data' => $tokens->map(function ($token) {
@@ -441,7 +441,7 @@ class ApplicationController extends Controller
 
         $application = Application::findOrFail($id);
         $revokedCount = Token::where('client_id', $application->passport_client_id)->count();
-        
+
         Token::where('client_id', $application->passport_client_id)->delete();
 
         return response()->json([
@@ -458,10 +458,10 @@ class ApplicationController extends Controller
 
         $application = Application::findOrFail($id);
         $token = Token::where('client_id', $application->passport_client_id)
-                     ->where('id', $tokenId)
-                     ->first();
+            ->where('id', $tokenId)
+            ->first();
 
-        if (!$token) {
+        if (! $token) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'Token not found.',
@@ -510,12 +510,12 @@ class ApplicationController extends Controller
         // Get analytics data
         $totalUsers = $application->users()->count();
         $activeTokens = Token::where('client_id', $application->passport_client_id)
-                            ->where('expires_at', '>', now())
-                            ->count();
-        
+            ->where('expires_at', '>', now())
+            ->count();
+
         $authLogs = \App\Models\AuthenticationLog::where('application_id', $application->id)
-                                                ->where('created_at', '>=', $startDate)
-                                                ->get();
+            ->where('created_at', '>=', $startDate)
+            ->get();
 
         $successfulLogins = $authLogs->where('event', 'login_success')->count();
         $failedLogins = $authLogs->where('event', 'login_failed')->count();
@@ -529,8 +529,8 @@ class ApplicationController extends Controller
                 'successful_logins' => $successfulLogins,
                 'failed_logins' => $failedLogins,
                 'unique_active_users' => $uniqueUsers,
-                'login_success_rate' => $successfulLogins + $failedLogins > 0 
-                    ? round(($successfulLogins / ($successfulLogins + $failedLogins)) * 100, 2) 
+                'login_success_rate' => $successfulLogins + $failedLogins > 0
+                    ? round(($successfulLogins / ($successfulLogins + $failedLogins)) * 100, 2)
                     : 0,
             ],
         ]);
@@ -564,7 +564,7 @@ class ApplicationController extends Controller
 
         if ($detailed) {
             $data['client_secret'] = $application->client_secret;
-            
+
             if ($application->relationLoaded('users')) {
                 $data['users'] = $application->users->map(function ($user) {
                     return [

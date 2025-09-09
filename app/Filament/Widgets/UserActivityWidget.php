@@ -5,13 +5,11 @@ namespace App\Filament\Widgets;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Filament\Tables\Actions\Action;
-use Filament\Tables\Filters\SelectFilter;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Cache;
 
 class UserActivityWidget extends BaseWidget
 {
@@ -26,9 +24,9 @@ class UserActivityWidget extends BaseWidget
     public function table(Table $table): Table
     {
         $user = Filament::auth()->user();
-        
+
         // Only show for organization owners/admins
-        if (!$user->isOrganizationOwner() && !$user->isOrganizationAdmin()) {
+        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
             return $table->query(AuthenticationLog::whereRaw('1 = 0')); // Empty query
         }
 
@@ -56,16 +54,16 @@ class UserActivityWidget extends BaseWidget
 
                 TextColumn::make('event')
                     ->badge()
-                    ->color(fn($record) => $record->getEventBadgeColor())
-                    ->icon(fn($record) => $record->getEventIcon())
+                    ->color(fn ($record) => $record->getEventBadgeColor())
+                    ->icon(fn ($record) => $record->getEventIcon())
                     ->size(TextColumn\TextColumnSize::Small),
 
                 TextColumn::make('user.name')
                     ->label('User')
                     ->placeholder('System')
                     ->limit(25)
-                    ->tooltip(fn($record) => $record->user?->email)
-                    ->url(fn($record) => $record->user && $user->can('view users') ? 
+                    ->tooltip(fn ($record) => $record->user?->email)
+                    ->url(fn ($record) => $record->user && $user->can('view users') ?
                         route('filament.admin.resources.users.view', $record->user->id) : null)
                     ->color('primary')
                     ->weight('medium'),
@@ -76,7 +74,7 @@ class UserActivityWidget extends BaseWidget
                     ->badge()
                     ->color('gray')
                     ->limit(20)
-                    ->url(fn($record) => $record->application && $user->can('view applications') ? 
+                    ->url(fn ($record) => $record->application && $user->can('view applications') ?
                         route('filament.admin.resources.applications.view', $record->application->id) : null),
 
                 TextColumn::make('ip_address')
@@ -93,6 +91,7 @@ class UserActivityWidget extends BaseWidget
                         if ($record->metadata && isset($record->metadata['location'])) {
                             return $record->metadata['location'];
                         }
+
                         return 'Unknown';
                     })
                     ->icon('heroicon-o-map-pin')
@@ -102,7 +101,7 @@ class UserActivityWidget extends BaseWidget
                 TextColumn::make('user_agent')
                     ->label('Device')
                     ->formatStateUsing(function ($state) {
-                        if (!$state) {
+                        if (! $state) {
                             return 'Unknown';
                         }
 
@@ -124,7 +123,7 @@ class UserActivityWidget extends BaseWidget
                         }
                     })
                     ->badge()
-                    ->color(fn($state) => match(true) {
+                    ->color(fn ($state) => match (true) {
                         str_contains($state, 'Mobile') => 'info',
                         str_contains($state, 'Tablet') => 'warning',
                         default => 'gray'
@@ -136,7 +135,7 @@ class UserActivityWidget extends BaseWidget
                         return $this->calculateRiskScore($record);
                     })
                     ->badge()
-                    ->color(fn($state) => match($state) {
+                    ->color(fn ($state) => match ($state) {
                         'Low' => 'success',
                         'Medium' => 'warning',
                         'High' => 'danger',
@@ -154,7 +153,7 @@ class UserActivityWidget extends BaseWidget
                         'suspicious_activity' => 'Suspicious Activity',
                     ])
                     ->multiple(),
-                
+
                 SelectFilter::make('application_id')
                     ->label('Application')
                     ->relationship('application', 'name')
@@ -172,8 +171,8 @@ class UserActivityWidget extends BaseWidget
                     ->icon('heroicon-o-eye')
                     ->color('gray')
                     ->tooltip('View Details')
-                    ->modalHeading(fn($record) => 'Activity Details - ' . ucfirst($record->event))
-                    ->modalContent(fn($record) => view('filament.widgets.modals.activity-details', ['record' => $record]))
+                    ->modalHeading(fn ($record) => 'Activity Details - '.ucfirst($record->event))
+                    ->modalContent(fn ($record) => view('filament.widgets.modals.activity-details', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelAction(false),
             ])
@@ -187,7 +186,7 @@ class UserActivityWidget extends BaseWidget
     protected function calculateRiskScore($record): string
     {
         $score = 0;
-        
+
         // Event-based scoring
         switch ($record->event) {
             case 'login_failed':
@@ -207,18 +206,18 @@ class UserActivityWidget extends BaseWidget
                 }
                 break;
         }
-        
+
         // Time-based scoring (late night/early morning)
         $hour = (int) $record->created_at->format('H');
         if ($hour < 6 || $hour > 22) {
             $score += 20;
         }
-        
+
         // IP-based scoring (simple check for known patterns)
         if ($this->isSuspiciousIP($record->ip_address)) {
             $score += 30;
         }
-        
+
         if ($score >= 70) {
             return 'High';
         } elseif ($score >= 40) {
@@ -230,7 +229,7 @@ class UserActivityWidget extends BaseWidget
 
     protected function isUnusualLogin($record): bool
     {
-        if (!$record->user_id) {
+        if (! $record->user_id) {
             return false;
         }
 

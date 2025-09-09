@@ -4,16 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
-use App\Services\OrganizationReportingService;
 use App\Services\OAuthService;
+use App\Services\OrganizationReportingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class OrganizationReportController extends Controller
 {
     protected OrganizationReportingService $reportingService;
+
     protected OAuthService $oAuthService;
 
     public function __construct(OrganizationReportingService $reportingService, OAuthService $oAuthService)
@@ -48,7 +49,7 @@ class OrganizationReportController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to access this organization.',
@@ -68,7 +69,7 @@ class OrganizationReportController extends Controller
 
             if ($request->input('format') === 'pdf') {
                 $pdfPath = $this->reportingService->exportReportToPDF($report, 'user_activity');
-                
+
                 return response()->json([
                     'data' => [
                         'download_url' => Storage::url($pdfPath),
@@ -101,7 +102,7 @@ class OrganizationReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate user activity report: ' . $e->getMessage(),
+                'error_description' => 'Failed to generate user activity report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -129,7 +130,7 @@ class OrganizationReportController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to access this organization.',
@@ -141,7 +142,7 @@ class OrganizationReportController extends Controller
 
             if ($request->input('format') === 'pdf') {
                 $pdfPath = $this->reportingService->exportReportToPDF($report, 'application_usage');
-                
+
                 return response()->json([
                     'data' => [
                         'download_url' => Storage::url($pdfPath),
@@ -173,7 +174,7 @@ class OrganizationReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate application usage report: ' . $e->getMessage(),
+                'error_description' => 'Failed to generate application usage report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -201,7 +202,7 @@ class OrganizationReportController extends Controller
         $currentUser = auth()->user();
 
         // Check organization access
-        if (!$currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return response()->json([
                 'error' => 'forbidden',
                 'error_description' => 'You do not have permission to access this organization.',
@@ -213,7 +214,7 @@ class OrganizationReportController extends Controller
 
             if ($request->input('format') === 'pdf') {
                 $pdfPath = $this->reportingService->exportReportToPDF($report, 'security_audit');
-                
+
                 return response()->json([
                     'data' => [
                         'download_url' => Storage::url($pdfPath),
@@ -245,7 +246,7 @@ class OrganizationReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate security audit report: ' . $e->getMessage(),
+                'error_description' => 'Failed to generate security audit report: '.$e->getMessage(),
             ], 500);
         }
     }

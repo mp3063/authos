@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,7 +61,7 @@ class ApiRateLimiter
     public function handle(Request $request, Closure $next, string $category = 'api_standard'): Response
     {
         $config = $this->rateLimits[$category] ?? $this->rateLimits['api_standard'];
-        
+
         $key = $this->generateKey($request, $config['by'], $category);
         $limit = $this->getLimit($request, $config);
         $window = $config['window'];
@@ -76,7 +75,7 @@ class ApiRateLimiter
             $window
         );
 
-        if (!$executed) {
+        if (! $executed) {
             return $this->buildResponse($key, $limit, $window);
         }
 
@@ -88,7 +87,7 @@ class ApiRateLimiter
      */
     protected function generateKey(Request $request, string $by, string $category): string
     {
-        $identifier = match($by) {
+        $identifier = match ($by) {
             'ip' => $request->ip(),
             'user' => $request->user()?->id ?? $request->ip(),
             default => $request->ip(),
@@ -103,21 +102,21 @@ class ApiRateLimiter
     protected function getLimit(Request $request, array $config): int
     {
         $baseLimit = $config['limit'];
-        
+
         // Increase limits for authenticated users with higher roles
         if ($request->user()) {
             $user = $request->user();
-            
+
             // Super admin gets 5x limit
             if ($user->hasRole('super-admin')) {
                 return $baseLimit * 5;
             }
-            
+
             // Organization admin gets 3x limit
             if ($user->hasRole('organization-admin')) {
                 return $baseLimit * 3;
             }
-            
+
             // Application admin gets 2x limit
             if ($user->hasRole('application-admin')) {
                 return $baseLimit * 2;
@@ -134,7 +133,7 @@ class ApiRateLimiter
     {
         $retryAfter = RateLimiter::availableIn($key);
         $remaining = RateLimiter::remaining($key, $limit);
-        
+
         $response = response()->json([
             'error' => 'rate_limit_exceeded',
             'error_description' => 'Too many requests. Please try again later.',
@@ -178,13 +177,13 @@ class ApiRateLimiter
      */
     public static function getStatus(Request $request, string $category = 'api_standard'): array
     {
-        $middleware = new self();
+        $middleware = new self;
         $config = $middleware->rateLimits[$category] ?? $middleware->rateLimits['api_standard'];
-        
+
         $key = $middleware->generateKey($request, $config['by'], $category);
         $limit = $middleware->getLimit($request, $config);
         $window = $config['window'];
-        
+
         $remaining = RateLimiter::remaining($key, $limit);
         $availableIn = RateLimiter::availableIn($key);
         $resetTime = now()->addSeconds($window)->timestamp;

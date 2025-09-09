@@ -7,7 +7,6 @@ use App\Services\SocialAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class SocialAuthController extends Controller
 {
@@ -22,27 +21,27 @@ class SocialAuthController extends Controller
     {
         try {
             $providers = $this->socialAuthService->getAvailableProviders();
-            
+
             // Filter only enabled providers
-            $enabledProviders = array_filter($providers, fn($provider) => $provider['enabled']);
-            
+            $enabledProviders = array_filter($providers, fn ($provider) => $provider['enabled']);
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'providers' => $enabledProviders,
-                    'count' => count($enabledProviders)
-                ]
+                    'count' => count($enabledProviders),
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get social providers', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get social providers',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -54,41 +53,41 @@ class SocialAuthController extends Controller
     {
         try {
             // Validate provider
-            if (!$this->socialAuthService->isProviderSupported($provider)) {
+            if (! $this->socialAuthService->isProviderSupported($provider)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unsupported social provider'
+                    'message' => 'Unsupported social provider',
                 ], 400);
             }
 
-            if (!$this->socialAuthService->isProviderEnabled($provider)) {
+            if (! $this->socialAuthService->isProviderEnabled($provider)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Social provider is not configured'
+                    'message' => 'Social provider is not configured',
                 ], 400);
             }
 
             // Get redirect URL
             $redirectUrl = $this->socialAuthService->getRedirectUrl($provider);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'redirect_url' => $redirectUrl,
-                    'provider' => $provider
-                ]
+                    'provider' => $provider,
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error('Social auth redirect failed', [
                 'provider' => $provider,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate redirect URL',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -100,26 +99,26 @@ class SocialAuthController extends Controller
     {
         try {
             // Validate provider
-            if (!$this->socialAuthService->isProviderSupported($provider)) {
+            if (! $this->socialAuthService->isProviderSupported($provider)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unsupported social provider'
+                    'message' => 'Unsupported social provider',
                 ], 400);
             }
 
-            if (!$this->socialAuthService->isProviderEnabled($provider)) {
+            if (! $this->socialAuthService->isProviderEnabled($provider)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Social provider is not configured'
+                    'message' => 'Social provider is not configured',
                 ], 400);
             }
 
             // Get organization slug from query parameter (optional)
             $organizationSlug = $request->query('organization');
-            
+
             // Handle the callback
             $result = $this->socialAuthService->handleCallback($provider, $organizationSlug);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Authentication successful',
@@ -148,21 +147,21 @@ class SocialAuthController extends Controller
                         'is_active' => $result['user']->is_active,
                         'created_at' => $result['user']->created_at,
                         'updated_at' => $result['user']->updated_at,
-                    ]
-                ]
+                    ],
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error('Social auth callback failed', [
                 'provider' => $provider,
                 'organization_slug' => $request->query('organization'),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Authentication failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -174,24 +173,24 @@ class SocialAuthController extends Controller
     {
         try {
             // Validate provider
-            if (!$this->socialAuthService->isProviderSupported($provider)) {
+            if (! $this->socialAuthService->isProviderSupported($provider)) {
                 return redirect('/admin/login?error=unsupported_provider');
             }
 
-            if (!$this->socialAuthService->isProviderEnabled($provider)) {
+            if (! $this->socialAuthService->isProviderEnabled($provider)) {
                 return redirect('/admin/login?error=provider_not_configured');
             }
 
             // Get redirect URL and redirect user
             $redirectUrl = $this->socialAuthService->getRedirectUrl($provider);
-            
+
             return redirect($redirectUrl);
         } catch (\Exception $e) {
             Log::error('Social web login redirect failed', [
                 'provider' => $provider,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             return redirect('/admin/login?error=social_login_failed');
         }
     }
@@ -203,32 +202,32 @@ class SocialAuthController extends Controller
     {
         try {
             // Validate provider
-            if (!$this->socialAuthService->isProviderSupported($provider)) {
+            if (! $this->socialAuthService->isProviderSupported($provider)) {
                 return redirect('/admin/login?error=unsupported_provider');
             }
 
-            if (!$this->socialAuthService->isProviderEnabled($provider)) {
+            if (! $this->socialAuthService->isProviderEnabled($provider)) {
                 return redirect('/admin/login?error=provider_not_configured');
             }
 
             // Handle the callback (no organization for admin panel)
             $result = $this->socialAuthService->handleCallback($provider);
-            
+
             // Check if user has admin access
-            if (!$result['user']->hasRole(['Super Admin', 'Organization Admin', 'Application Admin'])) {
+            if (! $result['user']->hasRole(['Super Admin', 'Organization Admin', 'Application Admin'])) {
                 return redirect('/admin/login?error=insufficient_privileges');
             }
 
             // Log the user in
             auth()->login($result['user']);
-            
+
             return redirect('/admin');
         } catch (\Exception $e) {
             Log::error('Social web callback failed', [
                 'provider' => $provider,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             return redirect('/admin/login?error=authentication_failed');
         }
     }
@@ -240,15 +239,15 @@ class SocialAuthController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Check if user has a password before unlinking social account
-            if (!$user->hasPassword()) {
+            if (! $user->hasPassword()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot unlink social account without setting a password first'
+                    'message' => 'Cannot unlink social account without setting a password first',
                 ], 400);
             }
-            
+
             // Clear social provider data
             $user->update([
                 'provider' => null,
@@ -257,21 +256,21 @@ class SocialAuthController extends Controller
                 'provider_refresh_token' => null,
                 'provider_data' => null,
             ]);
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Social account unlinked successfully'
+                'message' => 'Social account unlinked successfully',
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to unlink social account', [
                 'user_id' => $request->user()->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to unlink social account',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

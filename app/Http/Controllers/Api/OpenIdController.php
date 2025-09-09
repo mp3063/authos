@@ -25,13 +25,13 @@ class OpenIdController extends Controller
     public function discovery(Request $request): JsonResponse
     {
         $baseUrl = $request->getSchemeAndHttpHost();
-        
+
         return response()->json([
             'issuer' => $baseUrl,
-            'authorization_endpoint' => $baseUrl . '/oauth/authorize',
-            'token_endpoint' => $baseUrl . '/oauth/token',
-            'userinfo_endpoint' => $baseUrl . '/oauth/userinfo',
-            'jwks_uri' => $baseUrl . '/oauth/jwks',
+            'authorization_endpoint' => $baseUrl.'/oauth/authorize',
+            'token_endpoint' => $baseUrl.'/oauth/token',
+            'userinfo_endpoint' => $baseUrl.'/oauth/userinfo',
+            'jwks_uri' => $baseUrl.'/oauth/jwks',
             'scopes_supported' => [
                 'openid',
                 'profile',
@@ -84,8 +84,8 @@ class OpenIdController extends Controller
     {
         // Read the public key
         $publicKeyPath = storage_path('oauth-public.key');
-        
-        if (!File::exists($publicKeyPath)) {
+
+        if (! File::exists($publicKeyPath)) {
             return response()->json([
                 'error' => 'server_error',
                 'error_description' => 'Public key not found',
@@ -93,11 +93,11 @@ class OpenIdController extends Controller
         }
 
         $publicKey = File::get($publicKeyPath);
-        
+
         // Parse the public key to extract parameters
         $keyDetails = openssl_pkey_get_details(openssl_pkey_get_public($publicKey));
-        
-        if (!$keyDetails || $keyDetails['type'] !== OPENSSL_KEYTYPE_RSA) {
+
+        if (! $keyDetails || $keyDetails['type'] !== OPENSSL_KEYTYPE_RSA) {
             return response()->json([
                 'error' => 'server_error',
                 'error_description' => 'Invalid key format',
@@ -113,7 +113,7 @@ class OpenIdController extends Controller
                 [
                     'kty' => 'RSA',
                     'use' => 'sig',
-                    'kid' => 'authos-' . md5($publicKey),
+                    'kid' => 'authos-'.md5($publicKey),
                     'n' => $n,
                     'e' => $e,
                     'alg' => 'RS256',
@@ -129,8 +129,8 @@ class OpenIdController extends Controller
     public function userinfo(Request $request): JsonResponse
     {
         $user = Auth::guard('api')->user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json([
                 'error' => 'invalid_token',
                 'error_description' => 'The access token provided is invalid',
@@ -157,11 +157,11 @@ class OpenIdController extends Controller
     ): string {
         $privateKeyPath = storage_path('oauth-private.key');
         $privateKey = File::get($privateKeyPath);
-        
+
         $header = [
             'typ' => 'JWT',
             'alg' => 'RS256',
-            'kid' => 'authos-' . md5(File::get(storage_path('oauth-public.key'))),
+            'kid' => 'authos-'.md5(File::get(storage_path('oauth-public.key'))),
         ];
 
         $now = time();
@@ -198,7 +198,7 @@ class OpenIdController extends Controller
         if (in_array('email', $scopes)) {
             $payload = array_merge($payload, [
                 'email' => $user->email,
-                'email_verified' => !is_null($user->email_verified_at),
+                'email_verified' => ! is_null($user->email_verified_at),
             ]);
         }
 
@@ -212,7 +212,7 @@ class OpenIdController extends Controller
         // Create signature
         $signature = '';
         openssl_sign(
-            $headerEncoded . '.' . $payloadEncoded,
+            $headerEncoded.'.'.$payloadEncoded,
             $signature,
             $privateKey,
             OPENSSL_ALGO_SHA256
@@ -220,12 +220,12 @@ class OpenIdController extends Controller
 
         $signatureEncoded = base64url_encode($signature);
 
-        return $headerEncoded . '.' . $payloadEncoded . '.' . $signatureEncoded;
+        return $headerEncoded.'.'.$payloadEncoded.'.'.$signatureEncoded;
     }
 }
 
 // Helper function for base64url encoding
-if (!function_exists('base64url_encode')) {
+if (! function_exists('base64url_encode')) {
     function base64url_encode($data): string
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');

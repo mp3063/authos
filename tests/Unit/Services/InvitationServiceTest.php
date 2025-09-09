@@ -2,43 +2,45 @@
 
 namespace Tests\Unit\Services;
 
+use App\Mail\InvitationAccepted;
+use App\Mail\OrganizationInvitation;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
-use App\Mail\OrganizationInvitation;
-use App\Mail\InvitationAccepted;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
-use Exception;
 
 class InvitationServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private InvitationService $invitationService;
+
     private Organization $organization;
+
     private User $inviter;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->invitationService = app(InvitationService::class);
         $this->organization = Organization::factory()->create();
         $this->inviter = User::factory()->forOrganization($this->organization)->create();
-        
+
         // Create required roles
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
-        
+
         // Give inviter permission to invite
         $this->inviter->assignRole('organization admin');
-        
+
         Mail::fake();
         Queue::fake();
     }
@@ -100,7 +102,7 @@ class InvitationServiceTest extends TestCase
     public function test_send_invitation_replaces_existing_pending_invitation(): void
     {
         $email = 'test@example.com';
-        
+
         // Create existing pending invitation
         $existingInvitation = Invitation::factory()
             ->forOrganization($this->organization)
@@ -212,7 +214,7 @@ class InvitationServiceTest extends TestCase
         $this->assertCount(0, $results['failed']);
 
         $this->assertDatabaseCount('invitations', 3);
-        
+
         foreach ($invitations as $invitationData) {
             $this->assertDatabaseHas('invitations', [
                 'email' => $invitationData['email'],
@@ -244,7 +246,7 @@ class InvitationServiceTest extends TestCase
 
         $this->assertCount(2, $results['successful']);
         $this->assertCount(1, $results['failed']);
-        
+
         $failedInvitation = $results['failed'][0];
         $this->assertEquals($existingUser->email, $failedInvitation['email']);
         $this->assertStringContainsString('already a member', $failedInvitation['error']);
@@ -304,7 +306,7 @@ class InvitationServiceTest extends TestCase
         $result = $this->invitationService->cancelInvitation($invitation->id, $this->inviter);
 
         $this->assertTrue($result);
-        
+
         $invitation->refresh();
         $this->assertEquals('cancelled', $invitation->status);
         $this->assertNotNull($invitation->cancelled_at);

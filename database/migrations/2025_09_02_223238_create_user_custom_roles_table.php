@@ -21,7 +21,7 @@ return new class extends Migration
 
             // Unique constraint to prevent duplicate role assignments
             $table->unique(['user_id', 'custom_role_id'], 'user_custom_role_unique');
-            
+
             // Indexes for performance
             $table->index(['user_id', 'granted_at']);
             $table->index(['custom_role_id', 'granted_at']);

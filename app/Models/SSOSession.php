@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class SSOSession extends Model
 {
@@ -115,7 +114,7 @@ class SSOSession extends Model
      */
     public function isActive(): bool
     {
-        return !$this->isExpired() && is_null($this->logged_out_at);
+        return ! $this->isExpired() && is_null($this->logged_out_at);
     }
 
     /**
@@ -124,12 +123,12 @@ class SSOSession extends Model
     public function extendSession(int $seconds = 3600): void
     {
         $newExpiry = $this->expires_at->copy()->addSeconds($seconds);
-        
+
         $this->update([
             'expires_at' => $newExpiry,
             'last_activity_at' => now(),
         ]);
-        
+
         $this->refresh();
     }
 
@@ -144,10 +143,10 @@ class SSOSession extends Model
     /**
      * Logout the session
      */
-    public function logout(User|int $user = null): bool
+    public function logout(User|int|null $user = null): bool
     {
         $userId = $user instanceof User ? $user->id : $user;
-        
+
         return $this->update([
             'logged_out_at' => now(),
             'logged_out_by' => $userId,
@@ -161,6 +160,7 @@ class SSOSession extends Model
     {
         $token = Str::random(64);
         $this->update(['session_token' => $token]);
+
         return $token;
     }
 
@@ -171,6 +171,7 @@ class SSOSession extends Model
     {
         $token = Str::random(64);
         $this->update(['refresh_token' => $token]);
+
         return $token;
     }
 
@@ -180,7 +181,7 @@ class SSOSession extends Model
     public function getDeviceInfo(): array
     {
         $metadata = $this->metadata ?? [];
-        
+
         return [
             'device' => $metadata['device'] ?? $metadata['device_type'] ?? 'unknown',
             'browser' => $metadata['browser'] ?? 'unknown',
@@ -195,7 +196,7 @@ class SSOSession extends Model
     {
         $metadata = $this->metadata ?? [];
         $location = $metadata['location'] ?? [];
-        
+
         return [
             'country' => $location['country'] ?? $metadata['country'] ?? null,
             'city' => $location['city'] ?? $metadata['city'] ?? null,
@@ -210,26 +211,26 @@ class SSOSession extends Model
     public function isSuspicious(): bool
     {
         $metadata = $this->metadata ?? [];
-        
+
         // Check for explicit suspicious flags or risk factors
         if (isset($metadata['suspicious_flags']) && count($metadata['suspicious_flags']) > 0) {
             return true;
         }
-        
+
         if (isset($metadata['risk_factors']) && count($metadata['risk_factors']) > 0) {
             return true;
         }
-        
+
         // Check risk score
         if (isset($metadata['risk_score']) && $metadata['risk_score'] > 70) {
             return true;
         }
-        
+
         // Check for rapid IP changes (basic check)
         if (isset($metadata['ip_history']) && count($metadata['ip_history']) > 5) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -249,7 +250,7 @@ class SSOSession extends Model
         if ($this->isExpired()) {
             return 0;
         }
-        
+
         return (int) round(now()->diffInHours($this->expires_at, false));
     }
 
@@ -261,7 +262,7 @@ class SSOSession extends Model
         $this->updateLastActivity();
     }
 
-    public function extend(int $seconds = null): void
+    public function extend(?int $seconds = null): void
     {
         $this->extendSession($seconds ?? 3600);
     }
@@ -274,6 +275,7 @@ class SSOSession extends Model
     public function refresh(): string
     {
         $this->updateLastActivity();
+
         return $this->generateNewRefreshToken();
     }
 

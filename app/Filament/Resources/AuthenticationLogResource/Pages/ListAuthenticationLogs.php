@@ -26,7 +26,7 @@ class ListAuthenticationLogs extends ListRecords
                         ->info()
                         ->send();
                 }),
-                
+
             Actions\Action::make('clear_old_logs')
                 ->label('Clear Old Logs')
                 ->icon('heroicon-o-trash')
@@ -50,24 +50,24 @@ class ListAuthenticationLogs extends ListRecords
         return [
             'all' => Tab::make('All Events')
                 ->badge(\App\Models\AuthenticationLog::count()),
-                
+
             'today' => Tab::make('Today')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', today()))
                 ->badge(\App\Models\AuthenticationLog::whereDate('created_at', today())->count()),
-                
+
             'successful_logins' => Tab::make('Successful Logins')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('event', 'login_success'))
                 ->badge(\App\Models\AuthenticationLog::where('event', 'login_success')->whereDate('created_at', today())->count()),
-                
+
             'failed_attempts' => Tab::make('Failed Attempts')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('event', ['login_failed', 'failed_mfa']))
                 ->badge(\App\Models\AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])->whereDate('created_at', today())->count())
                 ->badgeColor('danger'),
-                
+
             'mfa_events' => Tab::make('MFA Events')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('event', ['mfa_challenge', 'mfa_success', 'failed_mfa']))
                 ->badge(\App\Models\AuthenticationLog::whereIn('event', ['mfa_challenge', 'mfa_success', 'failed_mfa'])->whereDate('created_at', today())->count()),
-                
+
             'suspicious' => Tab::make('Suspicious Activity')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('event', 'suspicious_activity'))
                 ->badge(\App\Models\AuthenticationLog::where('event', 'suspicious_activity')->count())

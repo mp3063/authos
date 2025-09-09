@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @method static array getPermissionCategories()
  * @method canBeDeleted()
  * @method isSystemRole()
+ *
  * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
  * @property-read User|null $creator
  * @property-read Organization $organization
@@ -120,6 +121,7 @@ class CustomRole extends Model
     public function hasPermission(string $permission): bool
     {
         $permissions = $this->permissions ?? [];
+
         return in_array($permission, $permissions);
     }
 
@@ -129,7 +131,7 @@ class CustomRole extends Model
     public function grantPermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        if (!in_array($permission, $permissions)) {
+        if (! in_array($permission, $permissions)) {
             $permissions[] = $permission;
             $this->update(['permissions' => $permissions]);
         }
@@ -141,7 +143,7 @@ class CustomRole extends Model
     public function revokePermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        $filteredPermissions = array_filter($permissions, fn($p) => $p !== $permission);
+        $filteredPermissions = array_filter($permissions, fn ($p) => $p !== $permission);
         $this->update(['permissions' => array_values($filteredPermissions)]);
     }
 
@@ -185,7 +187,7 @@ class CustomRole extends Model
     public function removePermissions(array $permissions): void
     {
         $currentPermissions = $this->permissions ?? [];
-        $filteredPermissions = array_filter($currentPermissions, fn($p) => !in_array($p, $permissions));
+        $filteredPermissions = array_filter($currentPermissions, fn ($p) => ! in_array($p, $permissions));
         $this->update(['permissions' => array_values($filteredPermissions)]);
     }
 
@@ -204,8 +206,8 @@ class CustomRole extends Model
     {
         $adminPermissions = ['users.delete', 'organization.manage_settings', 'roles.create', 'roles.delete'];
         $currentPermissions = $this->permissions ?? [];
-        
-        return !empty(array_intersect($adminPermissions, $currentPermissions));
+
+        return ! empty(array_intersect($adminPermissions, $currentPermissions));
     }
 
     /**
@@ -215,8 +217,8 @@ class CustomRole extends Model
     {
         $userManagementPermissions = ['users.create', 'users.update', 'users.delete', 'users.manage_roles'];
         $currentPermissions = $this->permissions ?? [];
-        
-        return !empty(array_intersect($userManagementPermissions, $currentPermissions));
+
+        return ! empty(array_intersect($userManagementPermissions, $currentPermissions));
     }
 
     /**
@@ -226,18 +228,18 @@ class CustomRole extends Model
     {
         $appManagementPermissions = ['applications.create', 'applications.update', 'applications.delete', 'applications.manage_users'];
         $currentPermissions = $this->permissions ?? [];
-        
-        return !empty(array_intersect($appManagementPermissions, $currentPermissions));
+
+        return ! empty(array_intersect($appManagementPermissions, $currentPermissions));
     }
 
     /**
      * Assign this role to a user
      */
-    public function assignToUser(User|int $user, User $grantedBy = null): void
+    public function assignToUser(User|int $user, ?User $grantedBy = null): void
     {
         $userId = $user instanceof User ? $user->id : $user;
-        
-        if (!$this->users()->where('user_id', $userId)->exists()) {
+
+        if (! $this->users()->where('user_id', $userId)->exists()) {
             $this->users()->attach($userId, [
                 'granted_at' => now(),
                 'granted_by' => $grantedBy?->id,
@@ -265,7 +267,7 @@ class CustomRole extends Model
     /**
      * Clone this role with a new name
      */
-    public function cloneRole(string $newName, string $newDisplayName = null): self
+    public function cloneRole(string $newName, ?string $newDisplayName = null): self
     {
         return self::create([
             'name' => $newName,
@@ -299,7 +301,7 @@ class CustomRole extends Model
      */
     public function canBeDeleted(): bool
     {
-        return !$this->is_system && $this->users()->count() === 0;
+        return ! $this->is_system && $this->users()->count() === 0;
     }
 
     /**
@@ -316,7 +318,7 @@ class CustomRole extends Model
             'users.manage_roles',
             'users.manage_sessions',
             'users.view_activity',
-            
+
             // Application Management
             'applications.read',
             'applications.create',
@@ -325,7 +327,7 @@ class CustomRole extends Model
             'applications.manage_users',
             'applications.manage_tokens',
             'applications.view_analytics',
-            
+
             // Organization Management
             'organization.read',
             'organization.update',
@@ -333,14 +335,14 @@ class CustomRole extends Model
             'organization.manage_invitations',
             'organization.view_analytics',
             'organization.export_data',
-            
+
             // Role Management
             'roles.read',
             'roles.create',
             'roles.update',
             'roles.delete',
             'roles.assign',
-            
+
             // Security & Audit
             'security.view_logs',
             'security.manage_mfa',
@@ -357,21 +359,21 @@ class CustomRole extends Model
         return [
             'User Management' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
-                'users.manage_roles', 'users.manage_sessions', 'users.view_activity'
+                'users.manage_roles', 'users.manage_sessions', 'users.view_activity',
             ],
             'Application Management' => [
                 'applications.read', 'applications.create', 'applications.update', 'applications.delete',
-                'applications.manage_users', 'applications.manage_tokens', 'applications.view_analytics'
+                'applications.manage_users', 'applications.manage_tokens', 'applications.view_analytics',
             ],
             'Organization Management' => [
                 'organization.read', 'organization.update', 'organization.manage_settings',
-                'organization.manage_invitations', 'organization.view_analytics', 'organization.export_data'
+                'organization.manage_invitations', 'organization.view_analytics', 'organization.export_data',
             ],
             'Role Management' => [
-                'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign'
+                'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign',
             ],
             'Security & Audit' => [
-                'security.view_logs', 'security.manage_mfa', 'security.manage_sessions', 'security.export_reports'
+                'security.view_logs', 'security.manage_mfa', 'security.manage_sessions', 'security.export_reports',
             ],
         ];
     }
@@ -383,18 +385,18 @@ class CustomRole extends Model
     {
         $permissions = $this->permissions ?? [];
         $grouped = [];
-        
+
         foreach ($permissions as $permission) {
             $parts = explode('.', $permission);
             $category = $parts[0] ?? 'other';
-            
-            if (!isset($grouped[$category])) {
+
+            if (! isset($grouped[$category])) {
                 $grouped[$category] = [];
             }
-            
+
             $grouped[$category][] = $permission;
         }
-        
+
         return $grouped;
     }
 }

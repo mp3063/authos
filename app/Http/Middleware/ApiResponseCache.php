@@ -27,13 +27,13 @@ class ApiResponseCache
         }
 
         $cacheKey = $this->getCacheKey($request);
-        
+
         // Try to get from cache
         $cachedResponse = Cache::get($cacheKey);
-        
+
         if ($cachedResponse) {
             Log::debug('API cache hit', ['key' => $cacheKey]);
-            
+
             return response()->json($cachedResponse['data'], $cachedResponse['status'])
                 ->withHeaders($cachedResponse['headers'])
                 ->header('X-Cache', 'HIT')
@@ -52,12 +52,12 @@ class ApiResponseCache
             ];
 
             Cache::put($cacheKey, $responseData, $ttl);
-            
+
             Log::debug('API cache miss, stored', ['key' => $cacheKey, 'ttl' => $ttl]);
-            
+
             $response->header('X-Cache', 'MISS')
-                    ->header('X-Cache-Key', $cacheKey)
-                    ->header('X-Cache-TTL', $ttl);
+                ->header('X-Cache-Key', $cacheKey)
+                ->header('X-Cache-TTL', $ttl);
         }
 
         return $response;
@@ -70,10 +70,10 @@ class ApiResponseCache
     {
         $user = auth('api')->user();
         $userId = $user ? $user->id : 'anonymous';
-        
+
         // Include user permissions in cache key for authorization-dependent responses
         $permissions = $user ? $user->getAllPermissions()->pluck('name')->sort()->implode(',') : '';
-        
+
         $key = sprintf(
             'api_cache:%s:%s:%s:%s:%s',
             $request->getMethod(),
@@ -100,9 +100,9 @@ class ApiResponseCache
         ];
 
         $path = $request->getPathInfo();
-        
+
         foreach ($skipPatterns as $pattern) {
-            if (preg_match('#' . $pattern . '#', $path)) {
+            if (preg_match('#'.$pattern.'#', $path)) {
                 return true;
             }
         }

@@ -18,18 +18,21 @@ class SSOApiTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $user;
+
     private Application $application;
+
     private SSOConfiguration $ssoConfig;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->withSso()->create();
         $this->user = User::factory()->forOrganization($this->organization)->create();
         $this->application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         $this->ssoConfig = SSOConfiguration::factory()
             ->forApplication($this->application)
             ->oidc()
@@ -149,7 +152,7 @@ class SSOApiTest extends TestCase
         // Verify session was updated with token information
         // Fetch fresh session instance from database
         $updatedSession = SSOSession::find($session->id);
-        
+
         $this->assertArrayHasKey('access_token', $updatedSession->metadata);
         $this->assertArrayHasKey('user_info', $updatedSession->metadata);
     }
@@ -394,8 +397,8 @@ class SSOApiTest extends TestCase
                         'user_agent',
                         'last_activity_at',
                         'expires_at',
-                    ]
-                ]
+                    ],
+                ],
             ])
             ->assertJsonCount(2, 'data');
     }

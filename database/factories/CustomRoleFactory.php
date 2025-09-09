@@ -19,11 +19,11 @@ class CustomRoleFactory extends Factory
     {
         $roleBaseName = fake()->randomElement([
             'Team Lead', 'Senior Developer', 'Project Manager', 'QA Lead',
-            'DevOps Engineer', 'Business Analyst', 'Product Owner', 'Scrum Master'
+            'DevOps Engineer', 'Business Analyst', 'Product Owner', 'Scrum Master',
         ]);
-        
+
         // Add unique suffix to avoid constraint violations
-        $roleName = $roleBaseName . ' ' . fake()->unique()->randomNumber(4);
+        $roleName = $roleBaseName.' '.fake()->unique()->randomNumber(4);
 
         return [
             'name' => $roleName,
@@ -33,7 +33,7 @@ class CustomRoleFactory extends Factory
             'permissions' => fake()->randomElements([
                 'users.view', 'users.create', 'users.edit', 'users.delete',
                 'applications.view', 'applications.create', 'applications.edit',
-                'reports.view', 'reports.generate', 'settings.view', 'settings.edit'
+                'reports.view', 'reports.generate', 'settings.view', 'settings.edit',
             ], fake()->numberBetween(3, 8)),
             'is_active' => true,
             'is_system' => false,

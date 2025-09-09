@@ -7,7 +7,7 @@ return [
     | OAuth 2.0 Configuration
     |--------------------------------------------------------------------------
     |
-    | This file contains the configuration settings for OAuth 2.0 and OpenID 
+    | This file contains the configuration settings for OAuth 2.0 and OpenID
     | Connect implementation in the AuthOS application.
     |
     */

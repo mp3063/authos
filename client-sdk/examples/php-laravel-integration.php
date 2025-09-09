@@ -2,12 +2,12 @@
 
 /**
  * Example Laravel Integration with AuthOS
- * 
+ *
  * This example shows how to integrate AuthOS SSO with a Laravel application
  */
 
 // 1. Install the AuthOS client (add to composer.json or include directly)
-require_once __DIR__ . '/../php/AuthosClient.php';
+require_once __DIR__.'/../php/AuthosClient.php';
 
 use Authos\Client\AuthosClient;
 
@@ -15,8 +15,8 @@ use Authos\Client\AuthosClient;
 return [
     'authos_url' => env('AUTHOS_URL', 'https://auth.yourapp.com'),
     'application_id' => env('AUTHOS_APP_ID'),
-    'callback_url' => env('APP_URL') . '/auth/callback',
-    'logout_url' => env('APP_URL') . '/logout',
+    'callback_url' => env('APP_URL').'/auth/callback',
+    'logout_url' => env('APP_URL').'/logout',
     'allowed_domains' => explode(',', env('AUTHOS_ALLOWED_DOMAINS', '')),
 ];
 
@@ -43,7 +43,7 @@ class AuthosAuth
 
     public function handle($request, \Closure $next)
     {
-        if (!$this->authos->isAuthenticated()) {
+        if (! $this->authos->isAuthenticated()) {
             return redirect($this->authos->getLoginUrl());
         }
 
@@ -79,13 +79,13 @@ class AuthController extends \Illuminate\Http\Controller
     {
         try {
             $tokens = $this->authos->handleCallback($request->all());
-            
+
             if ($tokens) {
                 return redirect('/dashboard')->with('success', 'Login successful');
             }
-            
+
             return redirect('/login')->with('error', 'Login failed');
-            
+
         } catch (\Exception $e) {
             return redirect('/login')->with('error', $e->getMessage());
         }
@@ -98,17 +98,18 @@ class AuthController extends \Illuminate\Http\Controller
     {
         try {
             $result = $this->authos->logout();
-            
+
             // Handle logout URLs for other applications
-            if (!empty($result['data']['logout_urls'])) {
+            if (! empty($result['data']['logout_urls'])) {
                 $logoutUrls = $result['data']['logout_urls'];
+
                 return view('auth.logout', compact('logoutUrls'));
             }
-            
+
             return redirect('/')->with('success', 'Logged out successfully');
-            
+
         } catch (\Exception $e) {
-            return redirect('/')->with('error', 'Logout failed: ' . $e->getMessage());
+            return redirect('/')->with('error', 'Logout failed: '.$e->getMessage());
         }
     }
 
@@ -131,11 +132,13 @@ Route::get('/auth/user', [AuthController::class, 'user'])->middleware('authos');
 Route::middleware(['authos'])->group(function () {
     Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
         $user = $request->attributes->get('authos_user');
+
         return view('dashboard', compact('user'));
     });
-    
+
     Route::get('/profile', function (\Illuminate\Http\Request $request) {
         $user = $request->attributes->get('authos_user');
+
         return view('profile', compact('user'));
     });
 });
@@ -221,7 +224,7 @@ Route::middleware(['authos'])->group(function () {
 
 /**
  * Environment Variables (.env):
- * 
+ *
  * AUTHOS_URL=https://your-authos-instance.com
  * AUTHOS_APP_ID=1
  * AUTHOS_ALLOWED_DOMAINS=yourapp.com,*.yourapp.com
@@ -229,7 +232,7 @@ Route::middleware(['authos'])->group(function () {
 
 /**
  * Installation Instructions:
- * 
+ *
  * 1. Add AuthosServiceProvider to config/app.php providers array
  * 2. Register AuthosAuth middleware in app/Http/Kernel.php
  * 3. Configure environment variables

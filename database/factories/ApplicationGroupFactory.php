@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\Organization;
 use App\Models\ApplicationGroup;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,7 +19,7 @@ class ApplicationGroupFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->words(2, true) . ' Group ' . fake()->numberBetween(1000, 9999),
+            'name' => fake()->unique()->words(2, true).' Group '.fake()->numberBetween(1000, 9999),
             'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
             'parent_id' => null,
@@ -71,7 +71,7 @@ class ApplicationGroupFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['inheritance_enabled'] = false;
-            
+
             return ['settings' => $settings];
         });
     }
@@ -84,7 +84,7 @@ class ApplicationGroupFactory extends Factory
         return $this->state(function (array $attributes) {
             $settings = $attributes['settings'] ?? [];
             $settings['auto_assign_users'] = true;
-            
+
             return ['settings' => $settings];
         });
     }

@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Services\InvitationService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class InvitationController extends Controller
 {
@@ -28,7 +28,7 @@ class InvitationController extends Controller
         $request->validate([
             'email' => 'required|email|max:255',
             'role' => 'required|string|max:50',
-            'metadata' => 'sometimes|array'
+            'metadata' => 'sometimes|array',
         ]);
 
         try {
@@ -42,18 +42,18 @@ class InvitationController extends Controller
 
             return response()->json([
                 'message' => 'Invitation sent successfully',
-                'invitation' => $invitation->load(['organization', 'inviter'])
+                'invitation' => $invitation->load(['organization', 'inviter']),
             ], 201);
 
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to send invitation',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -65,7 +65,7 @@ class InvitationController extends Controller
     {
         $request->validate([
             'status' => 'sometimes|string|in:all,pending,expired,accepted',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
@@ -77,7 +77,7 @@ class InvitationController extends Controller
 
             $perPage = $request->get('per_page', 15);
             $page = $request->get('page', 1);
-            
+
             // Manual pagination
             $total = $invitations->count();
             $paginatedInvitations = $invitations->forPage($page, $perPage)->values();
@@ -88,14 +88,14 @@ class InvitationController extends Controller
                     'total' => $total,
                     'per_page' => $perPage,
                     'current_page' => $page,
-                    'last_page' => ceil($total / $perPage)
-                ]
+                    'last_page' => ceil($total / $perPage),
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to retrieve invitations',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 403);
         }
     }
@@ -109,17 +109,18 @@ class InvitationController extends Controller
             ->with(['organization'])
             ->first();
 
-        if (!$invitation) {
+        if (! $invitation) {
             return response()->json([
-                'message' => 'Invitation not found'
+                'message' => 'Invitation not found',
             ], 404);
         }
 
-        if (!$invitation->isPending()) {
+        if (! $invitation->isPending()) {
             $status = $invitation->isExpired() ? 'expired' : 'accepted';
+
             return response()->json([
                 'message' => "This invitation has {$status}",
-                'status' => $status
+                'status' => $status,
             ], 400);
         }
 
@@ -130,11 +131,11 @@ class InvitationController extends Controller
                 'role' => $invitation->role,
                 'organization' => [
                     'name' => $invitation->organization->name,
-                    'slug' => $invitation->organization->slug
+                    'slug' => $invitation->organization->slug,
                 ],
                 'inviter_name' => $invitation->inviter->name,
-                'expires_at' => $invitation->expires_at->toISOString()
-            ]
+                'expires_at' => $invitation->expires_at->toISOString(),
+            ],
         ]);
     }
 
@@ -143,9 +144,9 @@ class InvitationController extends Controller
      */
     public function accept(Request $request, string $token): JsonResponse
     {
-        if (!$request->user()) {
+        if (! $request->user()) {
             return response()->json([
-                'message' => 'Authentication required to accept invitation'
+                'message' => 'Authentication required to accept invitation',
             ], 401);
         }
 
@@ -157,18 +158,18 @@ class InvitationController extends Controller
 
             if ($accepted) {
                 return response()->json([
-                    'message' => 'Invitation accepted successfully'
+                    'message' => 'Invitation accepted successfully',
                 ]);
             }
 
             return response()->json([
-                'message' => 'Failed to accept invitation'
+                'message' => 'Failed to accept invitation',
             ], 400);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to accept invitation',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -186,18 +187,18 @@ class InvitationController extends Controller
 
             if ($cancelled) {
                 return response()->json([
-                    'message' => 'Invitation cancelled successfully'
+                    'message' => 'Invitation cancelled successfully',
                 ]);
             }
 
             return response()->json([
-                'message' => 'Failed to cancel invitation'
+                'message' => 'Failed to cancel invitation',
             ], 400);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to cancel invitation',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -215,13 +216,13 @@ class InvitationController extends Controller
 
             return response()->json([
                 'message' => 'Invitation resent successfully',
-                'invitation' => $invitation->load(['organization', 'inviter'])
+                'invitation' => $invitation->load(['organization', 'inviter']),
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to resend invitation',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -235,7 +236,7 @@ class InvitationController extends Controller
             'invitations' => 'required|array|min:1|max:50',
             'invitations.*.email' => 'required|email|max:255',
             'invitations.*.role' => 'required|string|max:50',
-            'invitations.*.metadata' => 'sometimes|array'
+            'invitations.*.metadata' => 'sometimes|array',
         ]);
 
         try {
@@ -245,7 +246,7 @@ class InvitationController extends Controller
                 $request->user()->id
             );
 
-            $successCount = count(array_filter($results, fn($r) => $r['status'] === 'success'));
+            $successCount = count(array_filter($results, fn ($r) => $r['status'] === 'success'));
             $errorCount = count($results) - $successCount;
 
             return response()->json([
@@ -254,14 +255,14 @@ class InvitationController extends Controller
                 'summary' => [
                     'total' => count($results),
                     'successful' => $successCount,
-                    'failed' => $errorCount
-                ]
+                    'failed' => $errorCount,
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Bulk invite failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }

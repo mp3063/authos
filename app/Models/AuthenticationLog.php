@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @method static \Illuminate\Database\Eloquent\Builder whereHas($relation, $callback = null, $operator = '>=', $count = 1)
  * @method static static create(array $attributes = [])
  * @method static \Illuminate\Database\Eloquent\Builder with($relations)
+ *
  * @property-read User|null $user
  * @property-read Application|null $application
  */
@@ -20,7 +21,7 @@ class AuthenticationLog extends Model
     use HasFactory;
 
     public $timestamps = true;
-    
+
     protected $fillable = [
         'user_id',
         'application_id',

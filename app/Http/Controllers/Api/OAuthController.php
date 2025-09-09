@@ -44,7 +44,7 @@ class OAuthController extends Controller
 
         // Validate client
         $client = $this->oAuthService->validateClient($request->client_id);
-        if (!$client) {
+        if (! $client) {
             return response()->json([
                 'error' => 'invalid_client',
                 'error_description' => 'Client authentication failed',
@@ -52,7 +52,7 @@ class OAuthController extends Controller
         }
 
         // Validate redirect URI
-        if (!$this->oAuthService->validateRedirectUri($client, $request->redirect_uri)) {
+        if (! $this->oAuthService->validateRedirectUri($client, $request->redirect_uri)) {
             return response()->json([
                 'error' => 'invalid_request',
                 'error_description' => 'Invalid redirect URI',
@@ -61,10 +61,10 @@ class OAuthController extends Controller
 
         // Parse scopes
         $scopes = $request->scope ? explode(' ', $request->scope) : ['openid'];
-        
+
         // Validate PKCE if provided
         if ($request->filled('code_challenge')) {
-            if (!$this->oAuthService->clientSupportsPKCE($client)) {
+            if (! $this->oAuthService->clientSupportsPKCE($client)) {
                 return response()->json([
                     'error' => 'invalid_request',
                     'error_description' => 'PKCE not supported for this client',
@@ -73,7 +73,7 @@ class OAuthController extends Controller
         }
 
         // Check if user is authenticated
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return response()->json([
                 'error' => 'login_required',
                 'error_description' => 'User authentication required',
@@ -111,7 +111,7 @@ class OAuthController extends Controller
             }
 
             return response()->json([
-                'redirect_uri' => $request->redirect_uri . '?' . http_build_query($params),
+                'redirect_uri' => $request->redirect_uri.'?'.http_build_query($params),
             ]);
         }
 
@@ -138,7 +138,7 @@ class OAuthController extends Controller
             }
 
             return response()->json([
-                'redirect_uri' => $request->redirect_uri . '#' . http_build_query($params),
+                'redirect_uri' => $request->redirect_uri.'#'.http_build_query($params),
             ]);
         }
 
@@ -173,7 +173,7 @@ class OAuthController extends Controller
             $request->client_secret
         );
 
-        if (!$client) {
+        if (! $client) {
             return response()->json([
                 'error' => 'invalid_client',
                 'error_description' => 'Client authentication failed',
@@ -213,7 +213,7 @@ class OAuthController extends Controller
         // This is a simplified implementation
         // In a real implementation, you would validate the authorization code
         // and exchange it for an access token
-        
+
         return response()->json([
             'error' => 'server_error',
             'error_description' => 'Authorization code grant not fully implemented yet',
@@ -238,7 +238,7 @@ class OAuthController extends Controller
     {
         // Generate a client credentials token
         $scopes = $request->scope ? explode(' ', $request->scope) : ['read'];
-        
+
         return response()->json([
             'access_token' => 'client_credentials_token_placeholder',
             'token_type' => 'Bearer',

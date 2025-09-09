@@ -25,7 +25,7 @@ return new class extends Migration
             $table->index(['organization_id', 'parent_id']);
             $table->index('parent_id');
             $table->index(['organization_id', 'is_active']);
-            
+
             // Unique constraint to prevent duplicate groups per organization
             $table->unique(['organization_id', 'name']);
         });

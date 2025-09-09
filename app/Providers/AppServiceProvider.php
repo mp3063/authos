@@ -53,7 +53,7 @@ class AppServiceProvider extends ServiceProvider
         Passport::personalAccessTokensExpireIn(now()->addMonths(6));
 
         // Configure OAuth routes - Passport routes are auto-registered in Laravel 12
-        
+
         // Configure OpenID Connect scopes
         Passport::tokensCan([
             'openid' => 'OpenID Connect access',
@@ -62,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
             'read' => 'Read access to your account',
             'write' => 'Write access to your account',
         ]);
-        
+
         Passport::setDefaultScope(['openid']);
     }
 }

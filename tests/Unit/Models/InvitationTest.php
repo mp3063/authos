@@ -5,21 +5,22 @@ namespace Tests\Unit\Models;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-use Carbon\Carbon;
 
 class InvitationTest extends TestCase
 {
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $inviter;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
         $this->inviter = User::factory()->forOrganization($this->organization)->create();
     }
@@ -152,7 +153,7 @@ class InvitationTest extends TestCase
         $validInvitation = Invitation::factory()
             ->create([
                 'status' => 'pending',
-                'expires_at' => Carbon::now()->addDays(7)
+                'expires_at' => Carbon::now()->addDays(7),
             ]);
 
         $this->assertTrue($validInvitation->canBeAccepted());
@@ -163,7 +164,7 @@ class InvitationTest extends TestCase
         $expiredInvitation = Invitation::factory()
             ->create([
                 'status' => 'pending',
-                'expires_at' => Carbon::now()->subDay()
+                'expires_at' => Carbon::now()->subDay(),
             ]);
 
         $this->assertFalse($expiredInvitation->canBeAccepted());
@@ -183,7 +184,7 @@ class InvitationTest extends TestCase
         $cancelledInvitation = Invitation::factory()
             ->create([
                 'status' => 'cancelled',
-                'expires_at' => Carbon::now()->addDays(7)
+                'expires_at' => Carbon::now()->addDays(7),
             ]);
 
         $this->assertFalse($cancelledInvitation->canBeAccepted());
@@ -274,7 +275,7 @@ class InvitationTest extends TestCase
     public function test_metadata_is_cast_to_array(): void
     {
         $metadata = ['source' => 'admin_panel', 'custom_field' => 'value'];
-        
+
         $invitation = Invitation::factory()
             ->create(['metadata' => $metadata]);
 
@@ -287,10 +288,10 @@ class InvitationTest extends TestCase
         $fillable = [
             'organization_id', 'inviter_id', 'email', 'token', 'role',
             'expires_at', 'status', 'metadata', 'accepted_by', 'accepted_at',
-            'declined_at', 'decline_reason', 'cancelled_by', 'cancelled_at'
+            'declined_at', 'decline_reason', 'cancelled_by', 'cancelled_at',
         ];
 
-        $invitation = new Invitation();
+        $invitation = new Invitation;
 
         $this->assertEquals($fillable, $invitation->getFillable());
     }

@@ -44,113 +44,113 @@ class OrganizationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-          Section::make('Organization Details')->schema([
-            TextInput::make('name')
-              ->required()
-              ->maxLength(255)
-              ->live(onBlur: true)
-              ->afterStateUpdated(function (string $context, $state, $set) {
-                  if ($context === 'create') {
-                      $set('slug', Str::slug($state));
-                  }
-              }),
+            Section::make('Organization Details')->schema([
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(255)
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function (string $context, $state, $set) {
+                        if ($context === 'create') {
+                            $set('slug', Str::slug($state));
+                        }
+                    }),
 
-            TextInput::make('slug')
-              ->required()
-              ->maxLength(255)
-              ->unique(ignoreRecord: true)
-              ->alphaDash()
-              ->helperText('Used for API identification and URLs'),
+                TextInput::make('slug')
+                    ->required()
+                    ->maxLength(255)
+                    ->unique(ignoreRecord: true)
+                    ->alphaDash()
+                    ->helperText('Used for API identification and URLs'),
 
-            Toggle::make('is_active')->default(true)->helperText('Inactive organizations cannot authenticate users'),
-          ])->columns(2),
+                Toggle::make('is_active')->default(true)->helperText('Inactive organizations cannot authenticate users'),
+            ])->columns(2),
 
-          Section::make('Security Settings')->schema([
-            KeyValue::make('settings')->keyLabel('Setting')->valueLabel('Value')->default([
-              'require_mfa' => false,
-              'password_policy' => [
-                'min_length' => 8,
-                'require_uppercase' => true,
-                'require_lowercase' => true,
-                'require_numbers' => true,
-                'require_special_chars' => false,
-              ],
-              'session_timeout' => 3600,
-              'max_login_attempts' => 5,
-              'lockout_duration' => 900,
-            ])->helperText('Organization-specific security policies and configurations'),
-          ]),
+            Section::make('Security Settings')->schema([
+                KeyValue::make('settings')->keyLabel('Setting')->valueLabel('Value')->default([
+                    'require_mfa' => false,
+                    'password_policy' => [
+                        'min_length' => 8,
+                        'require_uppercase' => true,
+                        'require_lowercase' => true,
+                        'require_numbers' => true,
+                        'require_special_chars' => false,
+                    ],
+                    'session_timeout' => 3600,
+                    'max_login_attempts' => 5,
+                    'lockout_duration' => 900,
+                ])->helperText('Organization-specific security policies and configurations'),
+            ]),
         ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table->columns([
-          TextColumn::make('name')->searchable()->sortable()->weight('bold'),
+            TextColumn::make('name')->searchable()->sortable()->weight('bold'),
 
-          TextColumn::make('slug')->searchable()->sortable()->copyable()->copyMessage('Slug copied')->color('gray'),
+            TextColumn::make('slug')->searchable()->sortable()->copyable()->copyMessage('Slug copied')->color('gray'),
 
-          IconColumn::make('is_active')->boolean()->sortable()->label('Status'),
+            IconColumn::make('is_active')->boolean()->sortable()->label('Status'),
 
-          TextColumn::make('applications_count')->counts('applications')->label('Apps')->sortable()->alignCenter(),
+            TextColumn::make('applications_count')->counts('applications')->label('Apps')->sortable()->alignCenter(),
 
-          TextColumn::make('settings.require_mfa')
-            ->label('MFA Required')
-            ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
-            ->badge()
-            ->color(fn($state) => $state ? 'success' : 'gray'),
+            TextColumn::make('settings.require_mfa')
+                ->label('MFA Required')
+                ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No')
+                ->badge()
+                ->color(fn ($state) => $state ? 'success' : 'gray'),
 
-          TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
 
-          TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
         ])->filters(filters: [
-          TernaryFilter::make('is_active')->label('Status')->boolean()->trueLabel('Active only')
-            ->falseLabel('Inactive only')->native(false),
+            TernaryFilter::make('is_active')->label('Status')->boolean()->trueLabel('Active only')
+                ->falseLabel('Inactive only')->native(false),
 
-          Filter::make('has_applications')->query(fn(Builder $query): Builder => $query->has('applications'))->label('Has Applications'),
+            Filter::make('has_applications')->query(fn (Builder $query): Builder => $query->has('applications'))->label('Has Applications'),
 
-          Filter::make('requires_mfa')
-            ->query(fn(Builder $query): Builder => $query->whereJsonContains('settings->require_mfa', true))
-            ->label('Requires MFA'),
+            Filter::make('requires_mfa')
+                ->query(fn (Builder $query): Builder => $query->whereJsonContains('settings->require_mfa', true))
+                ->label('Requires MFA'),
         ])->recordActions([
-          ViewAction::make(),
-          EditAction::make(),
-          DeleteAction::make()
-            ->requiresConfirmation()
-            ->modalDescription('Are you sure you want to delete this organization? This will also remove all associated applications and user access.'),
+            ViewAction::make(),
+            EditAction::make(),
+            DeleteAction::make()
+                ->requiresConfirmation()
+                ->modalDescription('Are you sure you want to delete this organization? This will also remove all associated applications and user access.'),
         ])->toolbarActions([
-          BulkActionGroup::make([
-            BulkAction::make('delete')
-              ->label('Delete Selected')
-              ->requiresConfirmation()
-              ->action(fn($records) => $records->each->delete())
-              ->successNotificationTitle('Organizations deleted'),
+            BulkActionGroup::make([
+                BulkAction::make('delete')
+                    ->label('Delete Selected')
+                    ->requiresConfirmation()
+                    ->action(fn ($records) => $records->each->delete())
+                    ->successNotificationTitle('Organizations deleted'),
 
-            BulkAction::make('toggle_status')
-              ->label('Toggle Status')
-              ->icon('heroicon-o-arrow-path')
-              ->action(fn($records) => $records->each(fn($record) => $record->update(['is_active' => !$record->is_active])))
-              ->requiresConfirmation()
-              ->modalDescription('This will toggle the active status for selected organizations.')
-              ->successNotificationTitle('Organization status updated'),
-          ]),
+                BulkAction::make('toggle_status')
+                    ->label('Toggle Status')
+                    ->icon('heroicon-o-arrow-path')
+                    ->action(fn ($records) => $records->each(fn ($record) => $record->update(['is_active' => ! $record->is_active])))
+                    ->requiresConfirmation()
+                    ->modalDescription('This will toggle the active status for selected organizations.')
+                    ->successNotificationTitle('Organization status updated'),
+            ]),
         ])->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
     {
         return [
-          ApplicationsRelationManager::class,
+            ApplicationsRelationManager::class,
         ];
     }
 
     public static function getPages(): array
     {
         return [
-          'index' => ListOrganizations::route('/'),
-          'create' => CreateOrganization::route('/create'),
-          'view' => ViewOrganization::route('/{record}'),
-          'edit' => EditOrganization::route('/{record}/edit'),
+            'index' => ListOrganizations::route('/'),
+            'create' => CreateOrganization::route('/create'),
+            'view' => ViewOrganization::route('/{record}'),
+            'edit' => EditOrganization::route('/{record}/edit'),
         ];
     }
 
@@ -158,17 +158,17 @@ class OrganizationResource extends Resource
     {
         $query = parent::getEloquentQuery();
         $user = \Filament\Facades\Filament::auth()->user();
-        
+
         // Super admins can see all organizations
         if ($user->isSuperAdmin()) {
             return $query;
         }
-        
+
         // Other users can only see their own organization
         if ($user->organization_id) {
             $query->where('id', $user->organization_id);
         }
-        
+
         return $query;
     }
 

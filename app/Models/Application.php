@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
-use App\Traits\BelongsToOrganization;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
@@ -18,12 +18,13 @@ use App\Traits\BelongsToOrganization;
  * @method static static findOrFail($id, $columns = ['*'])
  * @method static \Illuminate\Database\Eloquent\Builder with($relations)
  * @method static \Illuminate\Database\Eloquent\Collection pluck($column, $key = null)
+ *
  * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
  * @property-read Organization $organization
  */
 class Application extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use BelongsToOrganization, HasFactory;
 
     protected $fillable = [
         'organization_id',

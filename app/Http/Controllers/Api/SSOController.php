@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\SSOService;
-use App\Models\SSOConfiguration;
 use App\Models\Organization;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
+use App\Models\SSOConfiguration;
+use App\Services\SSOService;
 use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class SSOController extends Controller
 {
@@ -36,21 +36,21 @@ class SSOController extends Controller
             $user = $request->user();
             $application = \App\Models\Application::findOrFail($request->application_id);
             $ssoConfig = \App\Models\SSOConfiguration::findOrFail($request->sso_configuration_id);
-            
+
             // Check if user has access to the application
-            if (!$user->applications()->where('applications.id', $application->id)->exists()) {
+            if (! $user->applications()->where('applications.id', $application->id)->exists()) {
                 return response()->json([
-                    'message' => 'Access denied to this application'
+                    'message' => 'Access denied to this application',
                 ], 403);
             }
-            
+
             // Check if SSO config belongs to the same organization
             if ($ssoConfig->application->organization_id !== $user->organization_id) {
                 return response()->json([
-                    'message' => 'SSO configuration does not belong to the same organization'
+                    'message' => 'SSO configuration does not belong to the same organization',
                 ], 403);
             }
-            
+
             // Now validate redirect_uri after authorization checks pass
             $request->validate([
                 'redirect_uri' => 'required|url',
@@ -66,14 +66,14 @@ class SSOController extends Controller
                 'redirect_url' => $result['redirect_url'],
                 'state' => $result['state'],
                 'session_token' => $result['session_token'],
-                'expires_at' => $result['expires_at']
+                'expires_at' => $result['expires_at'],
             ]);
 
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             // Return 403 for authorization/permission errors, 400 for other errors
@@ -82,9 +82,9 @@ class SSOController extends Controller
                 str_contains($e->getMessage(), 'Insufficient permissions') ||
                 str_contains($e->getMessage(), 'does not have access')
             ) ? 403 : 400;
-            
+
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], $statusCode);
         }
     }
@@ -102,7 +102,7 @@ class SSOController extends Controller
         try {
             $result = $this->ssoService->handleOIDCCallback([
                 'code' => $request->code,
-                'state' => $request->state ?? 'default-state'
+                'state' => $request->state ?? 'default-state',
             ]);
 
             return response()->json([
@@ -116,23 +116,23 @@ class SSOController extends Controller
                     'id' => $result['session']['application_id'] ?? null,
                     'name' => $result['session']['application_name'] ?? 'Unknown Application',
                     'redirect_uri' => $result['session']['redirect_uri'] ?? null,
-                ]
+                ],
             ]);
 
         } catch (Exception $e) {
             // Use 'error' field instead of 'message' for test compatibility
             $errorMessage = $e->getMessage();
-            
+
             // Map specific error messages for consistency
             if (str_contains($errorMessage, 'Invalid or expired authorization code')) {
                 $errorMessage = 'Invalid or expired SSO session';
             } elseif (str_contains($errorMessage, 'Undefined array key "user"')) {
                 $errorMessage = 'Token exchange failed';
             }
-            
+
             return response()->json([
                 'success' => false,
-                'error' => $errorMessage
+                'error' => $errorMessage,
             ], 400);
         }
     }
@@ -149,10 +149,10 @@ class SSOController extends Controller
         try {
             $session = $this->ssoService->validateSession($request->token);
 
-            if (!$session) {
+            if (! $session) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid or expired session token'
+                    'message' => 'Invalid or expired session token',
                 ], 401);
             }
 
@@ -172,13 +172,13 @@ class SSOController extends Controller
                     ],
                     'expires_at' => $session->expires_at->toISOString(),
                     'last_activity' => $session->last_activity_at->toISOString(),
-                ]
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -197,13 +197,13 @@ class SSOController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $result
+                'data' => $result,
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -223,13 +223,13 @@ class SSOController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Logout successful',
-                'data' => $result
+                'data' => $result,
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -251,13 +251,13 @@ class SSOController extends Controller
                     'allowed_domains' => $config->allowed_domains,
                     'session_lifetime' => $config->session_lifetime,
                     'is_active' => $config->is_active,
-                ]
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -286,13 +286,13 @@ class SSOController extends Controller
                         'last_activity_at' => $session->last_activity_at->toISOString(),
                         'expires_at' => $session->expires_at->toISOString(),
                     ];
-                })
+                }),
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -309,14 +309,14 @@ class SSOController extends Controller
                 'success' => true,
                 'message' => 'All sessions revoked successfully',
                 'data' => [
-                    'revoked_sessions' => $revokedCount
-                ]
+                    'revoked_sessions' => $revokedCount,
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -350,7 +350,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -365,12 +365,12 @@ class SSOController extends Controller
 
             return response()->json([
                 'message' => 'Cleanup completed successfully',
-                'deleted_sessions_count' => $deletedCount
+                'deleted_sessions_count' => $deletedCount,
             ]);
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => 'Cleanup failed: ' . $e->getMessage()
+                'message' => 'Cleanup failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -387,7 +387,7 @@ class SSOController extends Controller
                 'organization' => [
                     'name' => $metadata['organization']->name,
                     'slug' => $metadata['organization']->slug,
-                    'id' => $metadata['organization']->id
+                    'id' => $metadata['organization']->id,
                 ],
                 'sso_configuration' => [
                     'provider' => $metadata['sso_configuration']['provider'] ?? 'oidc',
@@ -397,12 +397,12 @@ class SSOController extends Controller
                 'security_requirements' => [
                     'scopes_supported' => ['openid', 'profile', 'email'],
                     'response_types_supported' => ['code'],
-                ]
+                ],
             ]);
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -415,24 +415,24 @@ class SSOController extends Controller
         try {
             // Check if user belongs to the organization or is super admin
             $user = $request->user();
-            if ($user->organization_id !== $organizationId && !$user->hasRole('Super Admin')) {
+            if ($user->organization_id !== $organizationId && ! $user->hasRole('Super Admin')) {
                 return response()->json([
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
             $organization = Organization::findOrFail($organizationId);
-            
+
             // Get active SSO configuration for the organization
             $ssoConfig = SSOConfiguration::whereHas('application', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
             })
-            ->where('is_active', true)
-            ->first();
+                ->where('is_active', true)
+                ->first();
 
-            if (!$ssoConfig) {
+            if (! $ssoConfig) {
                 return response()->json([
-                    'message' => 'No active SSO configuration found for this organization'
+                    'message' => 'No active SSO configuration found for this organization',
                 ], 404);
             }
 
@@ -454,7 +454,7 @@ class SSOController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -491,7 +491,7 @@ class SSOController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -529,7 +529,7 @@ class SSOController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -544,12 +544,12 @@ class SSOController extends Controller
             $ssoConfig->delete();
 
             return response()->json([
-                'message' => 'SSO configuration deleted successfully'
+                'message' => 'SSO configuration deleted successfully',
             ]);
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -562,7 +562,7 @@ class SSOController extends Controller
         try {
             $session = $this->ssoService->validateSSOSession($sessionToken);
 
-            if (!$session) {
+            if (! $session) {
                 return response()->json([
                     'valid' => false,
                     'error' => 'Session has expired',
@@ -572,7 +572,7 @@ class SSOController extends Controller
             // Check if user owns this session
             if ($session->user_id !== $request->user()->id) {
                 return response()->json([
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -596,7 +596,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'valid' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -609,17 +609,17 @@ class SSOController extends Controller
         try {
             $session = $this->ssoService->validateSSOSession($sessionToken);
 
-            if (!$session) {
+            if (! $session) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid or expired session token'
+                    'message' => 'Invalid or expired session token',
                 ], 401);
             }
 
             // Check if user owns this session
             if ($session->user_id !== $request->user()->id) {
                 return response()->json([
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -634,7 +634,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -647,16 +647,16 @@ class SSOController extends Controller
         try {
             $session = $this->ssoService->validateSSOSession($sessionToken);
 
-            if (!$session) {
+            if (! $session) {
                 return response()->json([
-                    'message' => 'Invalid or expired session token'
+                    'message' => 'Invalid or expired session token',
                 ], 400);
             }
 
             // Check if user owns this session
             if ($session->user_id !== $request->user()->id) {
                 return response()->json([
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -668,13 +668,13 @@ class SSOController extends Controller
                 ]);
             } else {
                 return response()->json([
-                    'message' => 'Failed to logout session'
+                    'message' => 'Failed to logout session',
                 ], 400);
             }
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -694,7 +694,7 @@ class SSOController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }

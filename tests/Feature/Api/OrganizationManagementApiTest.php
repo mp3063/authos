@@ -16,20 +16,22 @@ class OrganizationManagementApiTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $superAdmin;
+
     private User $orgAdmin;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
-        
+
         // Create required roles for API guard
         Role::create(['name' => 'super admin', 'guard_name' => 'api']);
         Role::create(['name' => 'organization admin', 'guard_name' => 'api']);
         Role::create(['name' => 'user', 'guard_name' => 'api']);
-        
+
         // Create API users with proper permissions
         $this->superAdmin = $this->createApiSuperAdmin(['organization_id' => $this->organization->id]);
         $this->orgAdmin = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
@@ -59,7 +61,7 @@ class OrganizationManagementApiTest extends TestCase
                         'users_count',
                         'applications_count',
                         'created_at',
-                    ]
+                    ],
                 ],
                 'links',
                 'meta',
@@ -75,7 +77,7 @@ class OrganizationManagementApiTest extends TestCase
 
         // Filter by active status
         $response = $this->getJson('/api/v1/organizations?filter[is_active]=true');
-        
+
         $response->assertStatus(200);
         $orgIds = collect($response->json('data'))->pluck('id')->toArray();
         $this->assertContains($activeOrg->id, $orgIds);
@@ -83,7 +85,7 @@ class OrganizationManagementApiTest extends TestCase
 
         // Search by name
         $response = $this->getJson('/api/v1/organizations?search=Active');
-        
+
         $response->assertStatus(200);
         $orgIds = collect($response->json('data'))->pluck('id')->toArray();
         $this->assertContains($activeOrg->id, $orgIds);
@@ -136,7 +138,7 @@ class OrganizationManagementApiTest extends TestCase
         // Add some related data
         $applications = Application::factory()->count(3)->forOrganization($this->organization)->create();
         $users = User::factory()->count(5)->forOrganization($this->organization)->create();
-        
+
         // Attach users to applications so they count properly
         foreach ($users as $user) {
             $user->applications()->attach($applications->first()->id, [
@@ -289,7 +291,7 @@ class OrganizationManagementApiTest extends TestCase
                         'is_active',
                         'last_login_at',
                         'created_at',
-                    ]
+                    ],
                 ],
                 'meta',
             ]);
@@ -369,8 +371,8 @@ class OrganizationManagementApiTest extends TestCase
                         'is_active',
                         'users_count',
                         'created_at',
-                    ]
-                ]
+                    ],
+                ],
             ])
             ->assertJsonCount(5, 'data');
     }
@@ -413,7 +415,7 @@ class OrganizationManagementApiTest extends TestCase
     {
         $user = User::factory()->forOrganization($this->organization)->create();
         $application = Application::factory()->forOrganization($this->organization)->create();
-        
+
         // Associate user with application
         $user->applications()->attach($application->id);
 
@@ -422,14 +424,14 @@ class OrganizationManagementApiTest extends TestCase
             ->forUser($user)
             ->create([
                 'created_at' => now()->subDays(5),
-                'event' => 'login_success'
+                'event' => 'login_success',
             ]);
 
         AuthenticationLog::factory()
             ->forUser($user)
             ->create([
                 'created_at' => now()->subDays(15),
-                'event' => 'login_success'
+                'event' => 'login_success',
             ]);
 
         Passport::actingAs($this->orgAdmin, ['organizations.read']);
@@ -437,8 +439,8 @@ class OrganizationManagementApiTest extends TestCase
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/analytics?period=7d");
 
         $response->assertStatus(200);
-        
-        // Should only include recent activity within date range  
+
+        // Should only include recent activity within date range
         $this->assertEquals(1, $response->json('summary.total_logins_today'));
     }
 
@@ -491,8 +493,8 @@ class OrganizationManagementApiTest extends TestCase
                 'error',
                 'error_description',
                 'details' => [
-                    'name'
-                ]
+                    'name',
+                ],
             ]);
     }
 
@@ -524,7 +526,7 @@ class OrganizationManagementApiTest extends TestCase
         ]);
 
         $response->assertStatus(201);
-        
+
         $slug = $response->json('slug');
         $this->assertStringStartsWith('duplicate-name', $slug);
         $this->assertNotEquals('duplicate-name', $slug); // Should have suffix
@@ -551,8 +553,8 @@ class OrganizationManagementApiTest extends TestCase
                 'error_description',
                 'details' => [
                     'session_timeout',
-                    'password_policy.min_length'
-                ]
+                    'password_policy.min_length',
+                ],
             ]);
     }
 
@@ -571,7 +573,7 @@ class OrganizationManagementApiTest extends TestCase
 
         $response2->assertStatus(200);
         $this->assertEquals($response1->json(), $response2->json());
-        
+
         // Should be cached (very fast response)
         $this->assertLessThan(0.1, $endTime - $startTime);
     }
@@ -580,18 +582,18 @@ class OrganizationManagementApiTest extends TestCase
     {
         $org1 = Organization::factory()->create();
         $org2 = Organization::factory()->create();
-        
+
         $user1 = User::factory()->forOrganization($org1)->create();
         $user2 = User::factory()->forOrganization($org2)->create();
-        
+
         // Create applications for each organization
         $app1 = Application::factory()->forOrganization($org1)->create();
         $app2 = Application::factory()->forOrganization($org2)->create();
-        
+
         // Grant users access to their respective organization applications
         $user1->applications()->attach($app1->id, ['granted_at' => now()]);
         $user2->applications()->attach($app2->id, ['granted_at' => now()]);
-        
+
         $orgAdmin1 = $this->createApiOrganizationAdmin(['organization_id' => $org1->id]);
 
         Passport::actingAs($orgAdmin1, ['organizations.read']);

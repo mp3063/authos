@@ -4,15 +4,19 @@ namespace Authos\Client;
 
 /**
  * AuthOS PHP Client SDK
- * 
+ *
  * Simple PHP client for integrating with AuthOS SSO authentication service
  */
 class AuthosClient
 {
     private string $authosUrl;
+
     private int $applicationId;
+
     private array $allowedDomains;
+
     private string $callbackUrl;
+
     private string $logoutUrl;
 
     public function __construct(array $config)
@@ -27,10 +31,10 @@ class AuthosClient
     /**
      * Initiate SSO login flow
      */
-    public function initiateLogin(string $redirectUri = null): string
+    public function initiateLogin(?string $redirectUri = null): string
     {
         $redirectUri = $redirectUri ?: $this->callbackUrl;
-        
+
         $params = [
             'application_id' => $this->applicationId,
             'redirect_uri' => $redirectUri,
@@ -41,7 +45,7 @@ class AuthosClient
         $_SESSION['authos_state'] = $params['state'];
         $_SESSION['authos_redirect_uri'] = $redirectUri;
 
-        return $this->authosUrl . '/api/v1/sso/initiate?' . http_build_query($params);
+        return $this->authosUrl.'/api/v1/sso/initiate?'.http_build_query($params);
     }
 
     /**
@@ -50,13 +54,13 @@ class AuthosClient
     public function handleCallback(array $params): ?array
     {
         // Validate state parameter
-        if (!isset($_SESSION['authos_state']) || 
-            !isset($params['state']) || 
+        if (! isset($_SESSION['authos_state']) ||
+            ! isset($params['state']) ||
             $_SESSION['authos_state'] !== $params['state']) {
             throw new \Exception('Invalid state parameter');
         }
 
-        if (!isset($params['code'])) {
+        if (! isset($params['code'])) {
             throw new \Exception('No authorization code received');
         }
 
@@ -66,7 +70,7 @@ class AuthosClient
             'redirect_uri' => $_SESSION['authos_redirect_uri'],
         ]);
 
-        if (!$response['success']) {
+        if (! $response['success']) {
             throw new \Exception($response['message'] ?? 'Failed to exchange code for tokens');
         }
 
@@ -87,8 +91,8 @@ class AuthosClient
     public function validateSession(): ?array
     {
         $accessToken = $_SESSION['authos_access_token'] ?? null;
-        
-        if (!$accessToken) {
+
+        if (! $accessToken) {
             return null;
         }
 
@@ -96,7 +100,7 @@ class AuthosClient
             'token' => $accessToken,
         ]);
 
-        if (!$response['success']) {
+        if (! $response['success']) {
             // Try to refresh token
             return $this->refreshSession();
         }
@@ -110,8 +114,8 @@ class AuthosClient
     public function refreshSession(): ?array
     {
         $refreshToken = $_SESSION['authos_refresh_token'] ?? null;
-        
-        if (!$refreshToken) {
+
+        if (! $refreshToken) {
             return null;
         }
 
@@ -119,9 +123,10 @@ class AuthosClient
             'refresh_token' => $refreshToken,
         ]);
 
-        if (!$response['success']) {
+        if (! $response['success']) {
             // Clear invalid tokens
             $this->clearSession();
+
             return null;
         }
 
@@ -138,8 +143,8 @@ class AuthosClient
     public function logout(): array
     {
         $accessToken = $_SESSION['authos_access_token'] ?? null;
-        
-        if (!$accessToken) {
+
+        if (! $accessToken) {
             return ['success' => true, 'logout_urls' => []];
         }
 
@@ -172,7 +177,7 @@ class AuthosClient
     /**
      * Get login URL for redirecting users
      */
-    public function getLoginUrl(string $redirectUri = null): string
+    public function getLoginUrl(?string $redirectUri = null): string
     {
         return $this->initiateLogin($redirectUri);
     }
@@ -190,9 +195,9 @@ class AuthosClient
      */
     public function requireAuth(): void
     {
-        if (!$this->isAuthenticated()) {
+        if (! $this->isAuthenticated()) {
             $loginUrl = $this->getLoginUrl();
-            header('Location: ' . $loginUrl);
+            header('Location: '.$loginUrl);
             exit;
         }
     }
@@ -215,8 +220,8 @@ class AuthosClient
 
     private function makeRequest(string $method, string $endpoint, array $data = []): array
     {
-        $url = $this->authosUrl . $endpoint;
-        
+        $url = $this->authosUrl.$endpoint;
+
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -229,7 +234,7 @@ class AuthosClient
             ],
         ]);
 
-        if (!empty($data)) {
+        if (! empty($data)) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         }
 
@@ -239,11 +244,11 @@ class AuthosClient
         curl_close($ch);
 
         if ($error) {
-            throw new \Exception('CURL Error: ' . $error);
+            throw new \Exception('CURL Error: '.$error);
         }
 
         $decoded = json_decode($response, true);
-        
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \Exception('Invalid JSON response from AuthOS');
         }
@@ -254,7 +259,7 @@ class AuthosClient
 
 /**
  * Simple usage example:
- * 
+ *
  * // Initialize client
  * $authos = new AuthosClient([
  *     'authos_url' => 'https://auth.yourapp.com',
@@ -263,21 +268,21 @@ class AuthosClient
  *     'logout_url' => 'https://yourapp.com/logout',
  *     'allowed_domains' => ['yourapp.com'],
  * ]);
- * 
+ *
  * // Protect a route
  * $authos->requireAuth();
- * 
+ *
  * // Get current user
  * $user = $authos->getUser();
- * 
+ *
  * // Login redirect
  * header('Location: ' . $authos->getLoginUrl());
- * 
+ *
  * // Handle callback
  * if (isset($_GET['code'])) {
  *     $tokens = $authos->handleCallback($_GET);
  * }
- * 
+ *
  * // Logout
  * $result = $authos->logout();
  */

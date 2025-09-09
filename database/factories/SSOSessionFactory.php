@@ -99,7 +99,7 @@ class SSOSessionFactory extends Factory
             $metadata = $attributes['metadata'] ?? [];
             $metadata['device_type'] = 'mobile';
             $metadata['os'] = fake()->randomElement(['iOS', 'Android']);
-            
+
             return [
                 'metadata' => $metadata,
                 'user_agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',

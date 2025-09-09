@@ -18,46 +18,46 @@ class AuthStatsOverview extends BaseWidget
         $totalUsers = User::count();
         $activeUsers = User::whereHas('applications')->count();
         $mfaEnabledUsers = User::whereNotNull('mfa_methods')->count();
-        
+
         $totalApplications = Application::count();
         $activeApplications = Application::where('is_active', true)->count();
-        
+
         $totalOrganizations = Organization::count();
         $activeOrganizations = Organization::where('is_active', true)->count();
-        
+
         $todayLogins = AuthenticationLog::where('event', 'login_success')
             ->whereDate('created_at', today())
             ->count();
-        
+
         $todayFailedLogins = AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])
             ->whereDate('created_at', today())
             ->count();
-        
+
         $suspiciousActivity = AuthenticationLog::where('event', 'suspicious_activity')
             ->whereDate('created_at', today())
             ->count();
 
         return [
             Stat::make('Total Users', $totalUsers)
-                ->description($activeUsers . ' with app access')
+                ->description($activeUsers.' with app access')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary')
                 ->chart([7, 12, 9, 14, 18, 15, 22])
                 ->url(route('filament.admin.resources.users.index')),
 
             Stat::make('MFA Enabled', $mfaEnabledUsers)
-                ->description(round(($mfaEnabledUsers / max($totalUsers, 1)) * 100, 1) . '% of users')
+                ->description(round(($mfaEnabledUsers / max($totalUsers, 1)) * 100, 1).'% of users')
                 ->descriptionIcon('heroicon-m-shield-check')
                 ->color('success'),
 
             Stat::make('Applications', $totalApplications)
-                ->description($activeApplications . ' active')
+                ->description($activeApplications.' active')
                 ->descriptionIcon('heroicon-m-squares-2x2')
                 ->color('info')
                 ->url(route('filament.admin.resources.applications.index')),
 
             Stat::make('Organizations', $totalOrganizations)
-                ->description($activeOrganizations . ' active')
+                ->description($activeOrganizations.' active')
                 ->descriptionIcon('heroicon-m-building-office')
                 ->color('warning')
                 ->url(route('filament.admin.resources.organizations.index')),
@@ -79,7 +79,7 @@ class AuthStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($suspiciousActivity > 0 ? 'danger' : 'success')
                 ->url(route('filament.admin.resources.authentication-logs.index', [
-                    'activeTab' => 'suspicious'
+                    'activeTab' => 'suspicious',
                 ])),
 
             Stat::make('System Health', 'Good')

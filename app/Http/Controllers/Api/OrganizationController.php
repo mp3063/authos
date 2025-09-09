@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Organization;
-use App\Models\User;
 use App\Models\Application;
 use App\Models\AuthenticationLog;
+use App\Models\Organization;
+use App\Models\User;
 use App\Services\OAuthService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 
 class OrganizationController extends Controller
 {
@@ -58,7 +58,7 @@ class OrganizationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('slug', 'LIKE', "%{$search}%");
+                    ->orWhere('slug', 'LIKE', "%{$search}%");
             });
         }
 
@@ -137,12 +137,12 @@ class OrganizationController extends Controller
 
         // Generate slug if not provided
         $slug = $request->input('slug', Str::slug($request->name));
-        
+
         // Ensure slug is unique
         $originalSlug = $slug;
         $counter = 1;
         while (Organization::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
         }
 
@@ -187,8 +187,7 @@ class OrganizationController extends Controller
         );
 
         return response()->json(
-            $this->formatOrganizationResponse($organization)
-        , 201);
+            $this->formatOrganizationResponse($organization), 201);
     }
 
     /**
@@ -259,7 +258,7 @@ class OrganizationController extends Controller
         if ($request->has('settings')) {
             $currentSettings = $organization->settings ?? [];
             $newSettings = $request->input('settings');
-            
+
             // Deep merge settings
             $updateData['settings'] = array_merge_recursive($currentSettings, $newSettings);
         }
@@ -333,7 +332,7 @@ class OrganizationController extends Controller
         $this->authorize('organizations.read');
 
         $organization = Organization::findOrFail($id);
-        
+
         $settings = $organization->settings ?? [];
 
         return response()->json([
@@ -389,13 +388,13 @@ class OrganizationController extends Controller
 
         $currentSettings = $organization->settings ?? [];
         $newSettings = $request->only([
-            'require_mfa', 'password_policy', 'session_timeout', 
-            'allowed_domains', 'branding'
+            'require_mfa', 'password_policy', 'session_timeout',
+            'allowed_domains', 'branding',
         ]);
 
         // Merge settings (replacing values, not deep merging)
         $updatedSettings = array_replace_recursive($currentSettings, $newSettings);
-        
+
         $organization->update(['settings' => $updatedSettings]);
 
         // Log settings update
@@ -445,13 +444,13 @@ class OrganizationController extends Controller
         // Get users through applications
         $query = User::whereHas('applications', function ($q) use ($organization, $request) {
             $q->where('organization_id', $organization->id);
-            
+
             if ($request->has('application_id')) {
                 $q->where('application_id', $request->application_id);
             }
         })->with(['roles', 'applications' => function ($q) use ($organization) {
             $q->where('organization_id', $organization->id)
-              ->withPivot(['granted_at', 'last_login_at', 'login_count']);
+                ->withPivot(['granted_at', 'last_login_at', 'login_count']);
         }]);
 
         // Apply search filter
@@ -459,22 +458,22 @@ class OrganizationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
+                    ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
 
         // Apply sorting
         $sort = $request->input('sort', 'name');
         $order = $request->input('order', 'asc');
-        
+
         if (in_array($sort, ['last_login_at', 'login_count'])) {
             // Sort by pivot data requires special handling
             $query->join('user_applications', 'users.id', '=', 'user_applications.user_id')
-                  ->join('applications', 'user_applications.application_id', '=', 'applications.id')
-                  ->where('applications.organization_id', $organization->id)
-                  ->orderBy('user_applications.' . $sort, $order)
-                  ->select('users.*')
-                  ->distinct();
+                ->join('applications', 'user_applications.application_id', '=', 'applications.id')
+                ->where('applications.organization_id', $organization->id)
+                ->orderBy('user_applications.'.$sort, $order)
+                ->select('users.*')
+                ->distinct();
         } else {
             $query->orderBy($sort, $order);
         }
@@ -541,7 +540,7 @@ class OrganizationController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('client_id', 'LIKE', "%{$search}%");
+                    ->orWhere('client_id', 'LIKE', "%{$search}%");
             });
         }
 
@@ -680,7 +679,7 @@ class OrganizationController extends Controller
             ], 422);
         }
 
-        if (!$user->applications()->where('application_id', $application->id)->exists()) {
+        if (! $user->applications()->where('application_id', $application->id)->exists()) {
             return response()->json([
                 'error' => 'resource_not_found',
                 'error_description' => 'User does not have access to this application.',
@@ -765,8 +764,8 @@ class OrganizationController extends Controller
         $dailyLogins = $authLogs->clone()
             ->where('event', 'login_success')
             ->select(
-                DB::raw(config('database.default') === 'sqlite' ? 
-                    "DATE(created_at) as date" : 
+                DB::raw(config('database.default') === 'sqlite' ?
+                    'DATE(created_at) as date' :
                     "DATE_TRUNC('day', created_at AT TIME ZONE '{$timezone}') as date"
                 ),
                 DB::raw('COUNT(*) as count')
@@ -783,9 +782,9 @@ class OrganizationController extends Controller
 
         // Application usage
         $applicationUsage = $organization->applications()
-            ->with(['users' => function ($query) use ($startDate, $endDate) {
+            ->with(['users' => function ($query) use ($startDate) {
                 $query->withPivot(['last_login_at', 'login_count'])
-                      ->wherePivot('last_login_at', '>=', $startDate);
+                    ->wherePivot('last_login_at', '>=', $startDate);
             }])
             ->get()
             ->map(function ($app) {
@@ -801,27 +800,27 @@ class OrganizationController extends Controller
         // Top users by login activity
         $topUsers = User::whereHas('applications', function ($query) use ($applicationIds, $startDate) {
             $query->whereIn('application_id', $applicationIds)
-                  ->wherePivot('last_login_at', '>=', $startDate);
+                ->wherePivot('last_login_at', '>=', $startDate);
         })->with(['applications' => function ($query) use ($applicationIds) {
             $query->whereIn('application_id', $applicationIds)
-                  ->withPivot(['last_login_at', 'login_count']);
+                ->withPivot(['last_login_at', 'login_count']);
         }])
-        ->get()
-        ->map(function ($user) {
-            $totalLogins = $user->applications->sum('pivot.login_count');
-            $lastLogin = $user->applications->max('pivot.last_login_at');
-            
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'total_logins' => $totalLogins,
-                'last_login_at' => $lastLogin,
-            ];
-        })
-        ->sortByDesc('total_logins')
-        ->take(10)
-        ->values();
+            ->get()
+            ->map(function ($user) {
+                $totalLogins = $user->applications->sum('pivot.login_count');
+                $lastLogin = $user->applications->max('pivot.last_login_at');
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'total_logins' => $totalLogins,
+                    'last_login_at' => $lastLogin,
+                ];
+            })
+            ->sortByDesc('total_logins')
+            ->take(10)
+            ->values();
 
         // Security metrics
         $securityMetrics = [
@@ -858,7 +857,7 @@ class OrganizationController extends Controller
         $usersCount = User::whereHas('applications', function ($query) use ($organization) {
             $query->where('organization_id', $organization->id);
         })->count();
-        
+
         $data = [
             'id' => $organization->id,
             'name' => $organization->name,
@@ -877,7 +876,7 @@ class OrganizationController extends Controller
         if ($detailed) {
             // Additional detailed fields can be added here
             $data['recent_activity'] = [];  // Add placeholder for recent activity
-            
+
             if ($organization->relationLoaded('applications')) {
                 $data['applications'] = $organization->applications->map(function ($app) {
                     return [
@@ -899,7 +898,7 @@ class OrganizationController extends Controller
     private function formatUserResponse(User $user, Organization $organization): array
     {
         $orgApplications = $user->applications->where('organization_id', $organization->id);
-        
+
         return [
             'id' => $user->id,
             'name' => $user->name,

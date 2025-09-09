@@ -20,9 +20,9 @@ class AuthenticationApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
-        
+
         // Create required roles
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'super admin', 'guard_name' => 'web']);
@@ -289,7 +289,7 @@ class AuthenticationApiTest extends TestCase
 
         $loginData = $loginResponse->json();
         $this->assertArrayHasKey('refresh_token', $loginData);
-        
+
         $refreshToken = $loginData['refresh_token'];
 
         $response = $this->postJson('/api/v1/auth/refresh', [
@@ -447,7 +447,7 @@ class AuthenticationApiTest extends TestCase
             ->create([
                 'settings' => [
                     'allow_registration' => false,
-                ]
+                ],
             ]);
 
         $userData = [

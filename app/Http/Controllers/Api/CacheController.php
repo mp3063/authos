@@ -147,7 +147,7 @@ class CacheController extends Controller
         }
 
         $application = \App\Models\Application::findOrFail($request->application_id);
-        
+
         $this->cacheService->invalidateApplicationCaches(
             $application->id,
             $application->organization_id

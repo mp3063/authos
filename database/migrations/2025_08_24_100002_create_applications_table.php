@@ -24,7 +24,7 @@ return new class extends Migration
             $table->json('settings')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            
+
             $table->index('client_id');
             $table->index('organization_id');
             $table->index('is_active');

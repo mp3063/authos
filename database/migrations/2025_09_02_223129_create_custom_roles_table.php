@@ -27,7 +27,7 @@ return new class extends Migration
 
             // Unique role name per organization
             $table->unique(['organization_id', 'name'], 'custom_roles_org_name_unique');
-            
+
             // Indexes for performance
             $table->index(['organization_id', 'is_active']);
             $table->index(['organization_id', 'is_system']);

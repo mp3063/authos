@@ -23,7 +23,7 @@ class SSOService
         $ssoConfig = SSOConfiguration::findOrFail($ssoConfigId);
 
         // Check if config is active first
-        if ( !$ssoConfig->is_active) {
+        if (! $ssoConfig->is_active) {
             throw new Exception('SSO configuration is not active');
         }
 
@@ -38,7 +38,7 @@ class SSOService
         }
 
         // Check user access
-        if ( !$this->userCanAccessApplication($user, $application)) {
+        if (! $this->userCanAccessApplication($user, $application)) {
             throw new Exception('User does not have access to this application');
         }
 
@@ -53,27 +53,27 @@ class SSOService
         $authEndpoint = $configuration['authorization_endpoint'] ?? $ssoConfig->callback_url;
 
         // Generate redirect URL
-        $redirectUrl = $authEndpoint . '?' . http_build_query([
+        $redirectUrl = $authEndpoint.'?'.http_build_query([
             'client_id' => $application->client_id ?? $application->id,
             'response_type' => 'code',
             'scope' => 'openid profile email',
             'redirect_uri' => $ssoConfig->callback_url,
             'state' => $state,
-          ]);
+        ]);
 
         // Store state in session metadata
         $session->update([
-          'metadata' => array_merge($session->metadata ?? [], [
-            'state' => $state,
-            'redirect_uri' => $ssoConfig->callback_url,
-          ]),
+            'metadata' => array_merge($session->metadata ?? [], [
+                'state' => $state,
+                'redirect_uri' => $ssoConfig->callback_url,
+            ]),
         ]);
 
         return [
-          'redirect_url' => $redirectUrl,
-          'session_token' => $session->session_token,
-          'state' => $state,
-          'expires_at' => $session->expires_at->toISOString(),
+            'redirect_url' => $redirectUrl,
+            'session_token' => $session->session_token,
+            'state' => $state,
+            'expires_at' => $session->expires_at->toISOString(),
         ];
     }
 
@@ -81,29 +81,29 @@ class SSOService
      * Initiate SSO flow for an application (legacy method)
      */
     public function initiateSSO(
-      int $applicationId,
-      string $redirectUri,
-      User $user,
-      string $ipAddress,
-      string $userAgent
+        int $applicationId,
+        string $redirectUri,
+        User $user,
+        string $ipAddress,
+        string $userAgent
     ): array {
         $application = Application::with('ssoConfiguration')->findOrFail($applicationId);
 
-        if ( !$application->hasSSOEnabled()) {
+        if (! $application->hasSSOEnabled()) {
             throw new Exception('SSO is not enabled for this application');
         }
 
         $config = $application->ssoConfiguration;
 
         // Validate redirect URI
-        if ( !$this->isValidRedirectUri($redirectUri, $config)) {
+        if (! $this->isValidRedirectUri($redirectUri, $config)) {
             throw ValidationException::withMessages([
-              'redirect_uri' => 'Invalid redirect URI for this application',
+                'redirect_uri' => 'Invalid redirect URI for this application',
             ]);
         }
 
         // Check if user has access to this application
-        if ( !$this->userCanAccessApplication($user, $application)) {
+        if (! $this->userCanAccessApplication($user, $application)) {
             throw new Exception('User does not have access to this application');
         }
 
@@ -115,18 +115,18 @@ class SSOService
 
         // Store auth code in session metadata for validation
         $session->update([
-          'metadata' => array_merge($session->metadata ?? [], [
-            'auth_code' => $authCode,
-            'auth_code_expires' => now()->addMinutes(10)->timestamp,
-            'redirect_uri' => $redirectUri,
-          ]),
+            'metadata' => array_merge($session->metadata ?? [], [
+                'auth_code' => $authCode,
+                'auth_code_expires' => now()->addMinutes(10)->timestamp,
+                'redirect_uri' => $redirectUri,
+            ]),
         ]);
 
         return [
-          'auth_code' => $authCode,
-          'redirect_uri' => $redirectUri,
-          'expires_in' => 600, // 10 minutes
-          'state' => $session->session_token,
+            'auth_code' => $authCode,
+            'redirect_uri' => $redirectUri,
+            'expires_in' => 600, // 10 minutes
+            'state' => $session->session_token,
         ];
     }
 
@@ -134,26 +134,26 @@ class SSOService
      * Validate callback and exchange auth code for session token
      */
     public function validateCallback(
-      string $authCode,
-      int $applicationId,
-      string $redirectUri = null
+        string $authCode,
+        int $applicationId,
+        ?string $redirectUri = null
     ): array {
         $application = Application::findOrFail($applicationId);
 
         // Find session with this auth code
         $session = SSOSession::where('application_id', $applicationId)
-          ->whereJsonContains('metadata->auth_code', $authCode)
-          ->active()
-          ->first();
+            ->whereJsonContains('metadata->auth_code', $authCode)
+            ->active()
+            ->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Invalid or expired authorization code');
         }
 
         $metadata = $session->metadata ?? [];
 
         // Check auth code expiration
-        if ( !isset($metadata['auth_code_expires']) ||
+        if (! isset($metadata['auth_code_expires']) ||
           now()->timestamp > $metadata['auth_code_expires']) {
             throw new Exception('Authorization code has expired');
         }
@@ -169,15 +169,15 @@ class SSOService
         $session->update(['metadata' => $metadata]);
 
         return [
-          'access_token' => $session->session_token,
-          'refresh_token' => $session->refresh_token,
-          'token_type' => 'Bearer',
-          'expires_in' => $session->expires_at->timestamp - now()->timestamp,
-          'user' => [
-            'id' => $session->user->id,
-            'name' => $session->user->name,
-            'email' => $session->user->email,
-          ],
+            'access_token' => $session->session_token,
+            'refresh_token' => $session->refresh_token,
+            'token_type' => 'Bearer',
+            'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+            'user' => [
+                'id' => $session->user->id,
+                'name' => $session->user->name,
+                'email' => $session->user->email,
+            ],
         ];
     }
 
@@ -187,9 +187,9 @@ class SSOService
     public function validateSession(string $sessionToken): ?SSOSession
     {
         $session = SSOSession::with(['user', 'application'])
-          ->where('session_token', $sessionToken)
-          ->active()
-          ->first();
+            ->where('session_token', $sessionToken)
+            ->active()
+            ->first();
 
         if ($session) {
             $session->updateActivity();
@@ -204,10 +204,10 @@ class SSOService
     public function refreshSession(string $refreshToken): array
     {
         $session = SSOSession::where('refresh_token', $refreshToken)
-          ->active()
-          ->first();
+            ->active()
+            ->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Invalid or expired refresh token');
         }
 
@@ -216,10 +216,10 @@ class SSOService
         $newRefreshToken = $session->refresh();
 
         return [
-          'access_token' => $session->session_token,
-          'refresh_token' => $newRefreshToken,
-          'token_type' => 'Bearer',
-          'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+            'access_token' => $session->session_token,
+            'refresh_token' => $newRefreshToken,
+            'token_type' => 'Bearer',
+            'expires_in' => $session->expires_at->timestamp - now()->timestamp,
         ];
     }
 
@@ -229,10 +229,10 @@ class SSOService
     public function synchronizeLogout(string $sessionToken): array
     {
         $session = SSOSession::with(['application.ssoConfiguration'])
-          ->where('session_token', $sessionToken)
-          ->first();
+            ->where('session_token', $sessionToken)
+            ->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Session not found');
         }
 
@@ -245,10 +245,10 @@ class SSOService
         // Prepare logout URLs for all active sessions of this user
         $logoutUrls = [];
         $activeSessions = SSOSession::with(['application.ssoConfiguration'])
-          ->where('user_id', $session->user_id)
-          ->where('id', '!=', $session->id)
-          ->active()
-          ->get();
+            ->where('user_id', $session->user_id)
+            ->where('id', '!=', $session->id)
+            ->active()
+            ->get();
 
         foreach ($activeSessions as $activeSession) {
             if ($activeSession->application->ssoConfiguration) {
@@ -258,8 +258,8 @@ class SSOService
         }
 
         return [
-          'logout_urls' => array_unique($logoutUrls),
-          'revoked_sessions' => $activeSessions->count() + 1,
+            'logout_urls' => array_unique($logoutUrls),
+            'revoked_sessions' => $activeSessions->count() + 1,
         ];
     }
 
@@ -270,7 +270,7 @@ class SSOService
     {
         $application = Application::with('ssoConfiguration')->findOrFail($applicationId);
 
-        if ( !$application->ssoConfiguration) {
+        if (! $application->ssoConfiguration) {
             throw new Exception('SSO is not configured for this application');
         }
 
@@ -281,12 +281,12 @@ class SSOService
      * Create SSO configuration for an application
      */
     public function createConfiguration(
-      int $applicationId,
-      string $logoutUrl,
-      string $callbackUrl,
-      array $allowedDomains,
-      int $sessionLifetime = 3600,
-      array $settings = []
+        int $applicationId,
+        string $logoutUrl,
+        string $callbackUrl,
+        array $allowedDomains,
+        int $sessionLifetime = 3600,
+        array $settings = []
     ): SSOConfiguration {
         $application = Application::findOrFail($applicationId);
 
@@ -296,12 +296,12 @@ class SSOService
         }
 
         return SSOConfiguration::create([
-          'application_id' => $applicationId,
-          'logout_url' => $logoutUrl,
-          'callback_url' => $callbackUrl,
-          'allowed_domains' => $allowedDomains,
-          'session_lifetime' => $sessionLifetime,
-          'settings' => $settings,
+            'application_id' => $applicationId,
+            'logout_url' => $logoutUrl,
+            'callback_url' => $callbackUrl,
+            'allowed_domains' => $allowedDomains,
+            'session_lifetime' => $sessionLifetime,
+            'settings' => $settings,
         ]);
     }
 
@@ -309,12 +309,12 @@ class SSOService
      * Update SSO configuration
      */
     public function updateConfiguration(
-      int $applicationId,
-      array $updates
+        int $applicationId,
+        array $updates
     ): SSOConfiguration {
         $application = Application::with('ssoConfiguration')->findOrFail($applicationId);
 
-        if ( !$application->ssoConfiguration) {
+        if (! $application->ssoConfiguration) {
             throw new Exception('SSO configuration does not exist for this application');
         }
 
@@ -329,10 +329,10 @@ class SSOService
     public function getUserActiveSessions(int $userId): \Illuminate\Database\Eloquent\Collection
     {
         return SSOSession::with(['application'])
-          ->where('user_id', $userId)
-          ->active()
-          ->orderBy('last_activity_at', 'desc')
-          ->get();
+            ->where('user_id', $userId)
+            ->active()
+            ->orderBy('last_activity_at', 'desc')
+            ->get();
     }
 
     /**
@@ -342,15 +342,15 @@ class SSOService
     {
         // Get all sessions that are not already logged out
         $sessions = SSOSession::where('user_id', $userId)
-          ->whereNull('logged_out_at')
-          ->get();
+            ->whereNull('logged_out_at')
+            ->get();
 
         $updatedCount = 0;
         foreach ($sessions as $session) {
             $session->update([
-              'expires_at' => now()->subSecond(),
-              'logged_out_at' => now(),
-              'logged_out_by' => $userId,
+                'expires_at' => now()->subSecond(),
+                'logged_out_at' => now(),
+                'logged_out_by' => $userId,
             ]);
             $updatedCount++;
         }
@@ -373,7 +373,7 @@ class SSOService
     {
         $session = SSOSession::where('session_token', $sessionToken)->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('SSO session not found');
         }
 
@@ -390,10 +390,10 @@ class SSOService
     public function getActiveSSOSessions(int $userId): \Illuminate\Database\Eloquent\Collection
     {
         return SSOSession::with(['application'])
-          ->where('user_id', $userId)
-          ->active()
-          ->orderBy('last_activity_at', 'desc')
-          ->get();
+            ->where('user_id', $userId)
+            ->active()
+            ->orderBy('last_activity_at', 'desc')
+            ->get();
     }
 
     /**
@@ -412,10 +412,10 @@ class SSOService
     public function validateSSOSession(string $sessionToken): ?SSOSession
     {
         $session = SSOSession::with(['user', 'application'])
-          ->where('session_token', $sessionToken)
-          ->first();
+            ->where('session_token', $sessionToken)
+            ->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Invalid SSO session token');
         }
 
@@ -444,15 +444,15 @@ class SSOService
             \Illuminate\Support\Facades\Cache::forget("sso_sessions:{$userId}");
 
             Log::info('Synchronized logout completed', [
-              'user_id' => $userId,
-              'revoked_sessions' => $revokedCount,
+                'user_id' => $userId,
+                'revoked_sessions' => $revokedCount,
             ]);
 
             return true;
         } catch (\Exception $e) {
             Log::error('Synchronized logout failed', [
-              'user_id' => $userId,
-              'error' => $e->getMessage(),
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
             ]);
 
             return false;
@@ -462,30 +462,29 @@ class SSOService
     /**
      * Handle OIDC callback processing
      */
-    public function handleOIDCCallback(array $callbackData, int $applicationId = null): array
+    public function handleOIDCCallback(array $callbackData, ?int $applicationId = null): array
     {
         // Extract authorization code and state from callback data
         $authCode = $callbackData['code'] ?? null;
         $state = $callbackData['state'] ?? null;
 
-        if ( !$authCode) {
+        if (! $authCode) {
             throw new \InvalidArgumentException('Authorization code is required');
         }
 
-        if ( !$state) {
+        if (! $state) {
             throw new \InvalidArgumentException('State parameter is required');
         }
 
         // Find the session by external_session_id (state parameter)
         $session = SSOSession::where('external_session_id', $state)
-          ->first(); // Remove active() constraint for testing
+            ->first(); // Remove active() constraint for testing
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Invalid or expired authorization code');
         }
-        
 
-        if ( !$session->isActive()) {
+        if (! $session->isActive()) {
             throw new Exception('Session is not active');
         }
 
@@ -493,7 +492,7 @@ class SSOService
         $application = $session->application;
         $ssoConfig = $application->ssoConfiguration;
 
-        if ( !$ssoConfig) {
+        if (! $ssoConfig) {
             throw new Exception('SSO configuration not found');
         }
 
@@ -507,7 +506,7 @@ class SSOService
                 'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
             ]);
 
-            if (!$tokenResponse->successful()) {
+            if (! $tokenResponse->successful()) {
                 return [
                     'success' => false,
                     'error' => 'Token exchange failed',
@@ -522,7 +521,7 @@ class SSOService
             // Get user info from provider
             $userInfoResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)
                 ->get($ssoConfig->configuration['userinfo_endpoint'] ?? '');
-                
+
             $userInfo = $userInfoResponse->successful() ? $userInfoResponse->json() : [
                 'sub' => 'user-123',
                 'email' => $session->user->email,
@@ -532,7 +531,7 @@ class SSOService
         } catch (\Exception $e) {
             // Fallback to mock values for testing or if HTTP fails
             $accessToken = 'access-token-123';
-            $idToken = 'id-token-123';  
+            $idToken = 'id-token-123';
             $refreshToken = 'refresh-token-123';
             $userInfo = [
                 'sub' => 'user-123',
@@ -550,24 +549,24 @@ class SSOService
             'refresh_token' => $refreshToken,
             'user_info' => $userInfo,
         ]);
-        
+
         $session->update(['metadata' => $newMetadata]);
 
         // Refresh session to make sure we have the latest data
         $session->refresh();
 
         return [
-          'success' => true,
-          'user' => [
-            'id' => $session->user->id,
-            'name' => $session->user->name,
-            'email' => $session->user->email,
-          ],
-          'session' => [
-            'id' => $session->id,
-            'token' => $session->session_token,
-            'expires_at' => $session->expires_at->toISOString(),
-          ],
+            'success' => true,
+            'user' => [
+                'id' => $session->user->id,
+                'name' => $session->user->name,
+                'email' => $session->user->email,
+            ],
+            'session' => [
+                'id' => $session->id,
+                'token' => $session->session_token,
+                'expires_at' => $session->expires_at->toISOString(),
+            ],
         ];
     }
 
@@ -582,7 +581,7 @@ class SSOService
             // Try to find by saml_request_id in metadata first, then by external_session_id
             $session = SSOSession::whereJsonContains('metadata->saml_request_id', $requestId)->first() ??
               SSOSession::where('external_session_id', $requestId)->first();
-            if ( !$session) {
+            if (! $session) {
                 throw new Exception('SSO session not found');
             }
             $application = $session->application;
@@ -590,7 +589,7 @@ class SSOService
             $application = Application::findOrFail($requestId);
         }
 
-        if ( !$application->ssoConfiguration) {
+        if (! $application->ssoConfiguration) {
             throw new Exception('SSO configuration not found for application');
         }
 
@@ -604,22 +603,22 @@ class SSOService
         // Extract user information from SAML assertion (simplified)
         $userInfo = $this->parseSAMLAssertion($decodedResponse);
 
-        if ( !$userInfo) {
+        if (! $userInfo) {
             throw new Exception('Could not extract user information from SAML response');
         }
 
         return [
-          'user_info' => $userInfo,
-          'application_id' => $application->id,
-          'validated_at' => now(),
-          'success' => true,
+            'user_info' => $userInfo,
+            'application_id' => $application->id,
+            'validated_at' => now(),
+            'success' => true,
         ];
     }
 
     /**
      * Refresh SSO token
      */
-    public function refreshSSOToken(string $sessionToken, int $applicationId = null): array
+    public function refreshSSOToken(string $sessionToken, ?int $applicationId = null): array
     {
         // The test passes session_token, not refresh_token, so we need to find by session_token
         $query = SSOSession::where('session_token', $sessionToken)->active();
@@ -630,14 +629,14 @@ class SSOService
 
         $session = $query->first();
 
-        if ( !$session) {
+        if (! $session) {
             throw new Exception('Invalid or expired refresh token');
         }
 
         $application = $session->application;
         $ssoConfig = $application->ssoConfiguration;
 
-        if ( !$ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
+        if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
             throw new Exception('Token endpoint not configured');
         }
 
@@ -649,13 +648,13 @@ class SSOService
                 $newRefreshToken = 'new-refresh-token-123';
             } else {
                 $response = \Illuminate\Support\Facades\Http::post($ssoConfig->configuration['token_endpoint'], [
-                  'grant_type' => 'refresh_token',
-                  'refresh_token' => $session->refresh_token,
-                  'client_id' => $ssoConfig->configuration['client_id'] ?? '',
-                  'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
+                    'grant_type' => 'refresh_token',
+                    'refresh_token' => $session->refresh_token,
+                    'client_id' => $ssoConfig->configuration['client_id'] ?? '',
+                    'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
                 ]);
 
-                if ( !$response->successful()) {
+                if (! $response->successful()) {
                     throw new Exception('Token refresh failed');
                 }
 
@@ -664,7 +663,7 @@ class SSOService
                 $newRefreshToken = $tokenData['refresh_token'] ?? $session->refresh_token;
             }
         } catch (\Exception $e) {
-            if (!app()->environment('testing')) {
+            if (! app()->environment('testing')) {
                 throw new Exception('Invalid or expired refresh token');
             }
             // In testing, continue with mock tokens
@@ -673,21 +672,21 @@ class SSOService
         }
 
         $session->update([
-          'refresh_token' => $newRefreshToken,
-          'metadata' => array_merge($session->metadata ?? [], [
-            'access_token' => $newAccessToken,
             'refresh_token' => $newRefreshToken,
-            'token_updated_at' => now()->toISOString(),
-          ]),
+            'metadata' => array_merge($session->metadata ?? [], [
+                'access_token' => $newAccessToken,
+                'refresh_token' => $newRefreshToken,
+                'token_updated_at' => now()->toISOString(),
+            ]),
         ]);
 
         return [
-          'success' => true,
-          'access_token' => $newAccessToken,
-          'refresh_token' => $newRefreshToken,
-          'token_type' => 'Bearer',
-          'expires_at' => $session->expires_at->toISOString(),
-          'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+            'success' => true,
+            'access_token' => $newAccessToken,
+            'refresh_token' => $newRefreshToken,
+            'token_type' => 'Bearer',
+            'expires_at' => $session->expires_at->toISOString(),
+            'expires_in' => $session->expires_at->timestamp - now()->timestamp,
         ];
     }
 
@@ -695,7 +694,7 @@ class SSOService
     {
         $parsedUri = parse_url($redirectUri);
 
-        if ( !$parsedUri || !isset($parsedUri['host'])) {
+        if (! $parsedUri || ! isset($parsedUri['host'])) {
             return false;
         }
 
@@ -714,23 +713,23 @@ class SSOService
     }
 
     private function createOrUpdateSession(
-      User $user,
-      Application $application,
-      string $ipAddress,
-      string $userAgent
+        User $user,
+        Application $application,
+        string $ipAddress,
+        string $userAgent
     ): SSOSession {
         // Look for existing active session
         $existingSession = SSOSession::where('user_id', $user->id)
-          ->where('application_id', $application->id)
-          ->active()
-          ->first();
+            ->where('application_id', $application->id)
+            ->active()
+            ->first();
 
         if ($existingSession) {
             // Extend existing session
             $existingSession->extend();
             $existingSession->update([
-              'ip_address' => $ipAddress,
-              'user_agent' => $userAgent,
+                'ip_address' => $ipAddress,
+                'user_agent' => $userAgent,
             ]);
 
             return $existingSession;
@@ -741,11 +740,11 @@ class SSOService
         $sessionLifetime = $config->getSessionLifetimeInSeconds();
 
         return SSOSession::create([
-          'user_id' => $user->id,
-          'application_id' => $application->id,
-          'ip_address' => $ipAddress,
-          'user_agent' => $userAgent,
-          'expires_at' => now()->addSeconds($sessionLifetime),
+            'user_id' => $user->id,
+            'application_id' => $application->id,
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+            'expires_at' => now()->addSeconds($sessionLifetime),
         ]);
     }
 
@@ -759,28 +758,28 @@ class SSOService
 
         // Create or find user based on SAML response
         $userInfo = $validationResult['user_info'];
-        
+
         // For test scenarios, if we can find the session, use that user
         $session = null;
         if (is_string($relayState)) {
             $session = SSOSession::whereJsonContains('metadata->saml_request_id', $relayState)->first() ??
                       SSOSession::where('external_session_id', $relayState)->first();
         }
-        
+
         if ($session && $session->user) {
             $user = $session->user;
         } else {
             $user = User::where('email', $userInfo['email'])->first();
-            
-            if ( !$user) {
+
+            if (! $user) {
                 // In production, you might want to create the user or throw an exception
-                throw new Exception('User not found: ' . $userInfo['email']);
+                throw new Exception('User not found: '.$userInfo['email']);
             }
         }
 
         // Find or create application
         $application = Application::find($validationResult['application_id']);
-        if ( !$application) {
+        if (! $application) {
             throw new Exception('Application not found');
         }
 
@@ -789,26 +788,26 @@ class SSOService
 
         // Generate tokens for the response
         $tokens = [
-          'access_token' => $session->session_token,
-          'token_type' => 'Bearer',
-          'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+            'access_token' => $session->session_token,
+            'token_type' => 'Bearer',
+            'expires_in' => $session->expires_at->timestamp - now()->timestamp,
         ];
 
         return [
-          'user' => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-          ],
-          'session' => [
-            'id' => $session->id,
-            'expires_at' => $session->expires_at->toISOString(),
-          ],
-          'application' => [
-            'id' => $application->id,
-            'name' => $application->name,
-          ],
-          'tokens' => $tokens,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+            'session' => [
+                'id' => $session->id,
+                'expires_at' => $session->expires_at->toISOString(),
+            ],
+            'application' => [
+                'id' => $application->id,
+                'name' => $application->name,
+            ],
+            'tokens' => $tokens,
         ];
     }
 
@@ -819,37 +818,37 @@ class SSOService
     {
         $organization = \App\Models\Organization::where('slug', $organizationSlug)->first();
 
-        if ( !$organization) {
+        if (! $organization) {
             throw new Exception('Organization not found');
         }
 
         // Get SSO configuration for this organization
         $ssoConfiguration = $this->getSSOConfiguration($organization->id);
 
-        if ( !$ssoConfiguration) {
+        if (! $ssoConfiguration) {
             throw new Exception('No active SSO configuration found for this organization');
         }
 
         return [
-          'organization' => $organization,
-          'sso_configuration' => [
-            'provider' => $ssoConfiguration->configuration['provider'] ?? 'oidc',
-            'endpoints' => [
-              'callback_url' => $ssoConfiguration->callback_url,
-              'logout_url' => $ssoConfiguration->logout_url,
+            'organization' => $organization,
+            'sso_configuration' => [
+                'provider' => $ssoConfiguration->configuration['provider'] ?? 'oidc',
+                'endpoints' => [
+                    'callback_url' => $ssoConfiguration->callback_url,
+                    'logout_url' => $ssoConfiguration->logout_url,
+                ],
             ],
-          ],
-          'supported_flows' => ['authorization_code', 'saml2'],
-          'security_requirements' => [
-            'allowed_domains' => $ssoConfiguration->allowed_domains,
-            'session_lifetime' => $ssoConfiguration->session_lifetime,
-          ],
-          'endpoints' => [
-            'initiate' => url("/api/v1/sso/initiate"),
-            'callback' => url("/api/v1/sso/callback"),
-            'metadata' => url("/api/v1/sso/metadata/{$organizationSlug}"),
-            'logout' => url("/api/v1/sso/logout"),
-          ],
+            'supported_flows' => ['authorization_code', 'saml2'],
+            'security_requirements' => [
+                'allowed_domains' => $ssoConfiguration->allowed_domains,
+                'session_lifetime' => $ssoConfiguration->session_lifetime,
+            ],
+            'endpoints' => [
+                'initiate' => url('/api/v1/sso/initiate'),
+                'callback' => url('/api/v1/sso/callback'),
+                'metadata' => url("/api/v1/sso/metadata/{$organizationSlug}"),
+                'logout' => url('/api/v1/sso/logout'),
+            ],
         ];
     }
 
@@ -862,9 +861,9 @@ class SSOService
 
         // Extract basic user info (this is a simplified example)
         $userInfo = [
-          'id' => 'saml_user_' . uniqid(),
-          'email' => 'user@example.com',
-          'name' => 'SAML User',
+            'id' => 'saml_user_'.uniqid(),
+            'email' => 'user@example.com',
+            'name' => 'SAML User',
         ];
 
         return $userInfo;

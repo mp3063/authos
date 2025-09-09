@@ -42,7 +42,7 @@ class MonitorHealth extends Command
             }
 
             $statusSummary = $this->alertingService->getSystemStatusSummary();
-            
+
             if ($this->option('output-format') === 'json') {
                 $this->line(json_encode($statusSummary, JSON_PRETTY_PRINT));
             } else {
@@ -52,12 +52,12 @@ class MonitorHealth extends Command
             return $statusSummary['overall_status'] === 'healthy' ? 0 : 1;
 
         } catch (\Exception $e) {
-            $this->error('❌ Health monitoring failed: ' . $e->getMessage());
+            $this->error('❌ Health monitoring failed: '.$e->getMessage());
             Log::error('Health monitoring command failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return 1;
         }
     }
@@ -73,7 +73,7 @@ class MonitorHealth extends Command
 
         // Overall status
         $statusIcon = $statusSummary['overall_status'] === 'healthy' ? '✅' : '⚠️';
-        $this->line("Overall Status: {$statusIcon} " . strtoupper($statusSummary['overall_status']));
+        $this->line("Overall Status: {$statusIcon} ".strtoupper($statusSummary['overall_status']));
         $this->line("Active Alerts: {$statusSummary['active_alerts']}");
         $this->line("Checked At: {$statusSummary['timestamp']}");
         $this->line('');
@@ -86,7 +86,7 @@ class MonitorHealth extends Command
             $status = $check['triggered'] ? '⚠️ ALERT' : '✅ OK';
             $value = $check['value'] !== null ? $this->formatValue($check['value']) : 'N/A';
             $threshold = $check['threshold'] !== null ? $this->formatValue($check['threshold']) : 'N/A';
-            
+
             $rows[] = [
                 ucwords(str_replace('_', ' ', $checkName)),
                 $status,
@@ -97,25 +97,25 @@ class MonitorHealth extends Command
         }
 
         $this->table($headers, $rows);
-        
+
         // Show details for triggered alerts
         $triggeredChecks = array_filter($statusSummary['checks'], function ($check) {
             return $check['triggered'];
         });
 
-        if (!empty($triggeredChecks)) {
+        if (! empty($triggeredChecks)) {
             $this->line('');
             $this->warn('⚠️  Alert Details:');
-            
+
             foreach ($triggeredChecks as $checkName => $check) {
                 $this->line('');
-                $this->error("• " . ucwords(str_replace('_', ' ', $checkName)));
+                $this->error('• '.ucwords(str_replace('_', ' ', $checkName)));
                 $this->line("  Message: {$check['message']}");
-                
-                if (!empty($check['details'])) {
+
+                if (! empty($check['details'])) {
                     foreach ($check['details'] as $key => $value) {
                         $formattedValue = is_array($value) ? json_encode($value) : $value;
-                        $this->line("  " . ucwords(str_replace('_', ' ', $key)) . ": {$formattedValue}");
+                        $this->line('  '.ucwords(str_replace('_', ' ', $key)).": {$formattedValue}");
                     }
                 }
             }
@@ -129,14 +129,14 @@ class MonitorHealth extends Command
     {
         if (is_numeric($value)) {
             if ($value >= 1000000) {
-                return number_format($value / 1000000, 1) . 'M';
+                return number_format($value / 1000000, 1).'M';
             } elseif ($value >= 1000) {
-                return number_format($value / 1000, 1) . 'K';
+                return number_format($value / 1000, 1).'K';
             } elseif (is_float($value)) {
                 return number_format($value, 2);
             }
         }
-        
+
         return (string) $value;
     }
 
@@ -145,6 +145,6 @@ class MonitorHealth extends Command
      */
     private function truncateMessage(string $message): string
     {
-        return strlen($message) > 60 ? substr($message, 0, 57) . '...' : $message;
+        return strlen($message) > 60 ? substr($message, 0, 57).'...' : $message;
     }
 }

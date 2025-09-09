@@ -20,11 +20,11 @@ class AuthenticationLogFactory extends Factory
         $events = [
             'login_success', 'logout', 'login_failed', 'password_reset', 'password_changed',
             'mfa_enabled', 'mfa_disabled', 'mfa_verified', 'account_locked',
-            'account_unlocked', 'email_verified', 'profile_updated'
+            'account_unlocked', 'email_verified', 'profile_updated',
         ];
 
         $event = fake()->randomElement($events);
-        $success = !in_array($event, ['login_failed', 'account_locked']);
+        $success = ! in_array($event, ['login_failed', 'account_locked']);
 
         return [
             'user_id' => User::factory(),
@@ -36,7 +36,7 @@ class AuthenticationLogFactory extends Factory
                 'method' => fake()->randomElement(['password', 'oauth', 'sso', 'api_token']),
                 'device_type' => fake()->randomElement(['desktop', 'mobile', 'tablet']),
                 'browser' => fake()->randomElement(['Chrome', 'Firefox', 'Safari', 'Edge']),
-                'location' => fake()->city() . ', ' . fake()->country(),
+                'location' => fake()->city().', '.fake()->country(),
                 'risk_score' => fake()->numberBetween(0, 100),
             ],
             'created_at' => fake()->dateTimeBetween('-30 days', 'now'),
@@ -88,10 +88,10 @@ class AuthenticationLogFactory extends Factory
         return $this->state(function (array $attributes) use ($event) {
             $details = $attributes['details'] ?? [];
             $details['mfa_method'] = fake()->randomElement(['totp', 'sms', 'email']);
-            
+
             return [
                 'event' => $event,
-                'success' => !in_array($event, ['mfa_failed']),
+                'success' => ! in_array($event, ['mfa_failed']),
                 'details' => $details,
             ];
         });
@@ -127,9 +127,9 @@ class AuthenticationLogFactory extends Factory
             $details['risk_score'] = fake()->numberBetween(80, 100);
             $details['risk_factors'] = fake()->randomElements([
                 'unusual_location', 'new_device', 'suspicious_user_agent',
-                'multiple_failed_attempts', 'tor_network', 'vpn_detected'
+                'multiple_failed_attempts', 'tor_network', 'vpn_detected',
             ], fake()->numberBetween(1, 3));
-            
+
             return ['details' => $details];
         });
     }

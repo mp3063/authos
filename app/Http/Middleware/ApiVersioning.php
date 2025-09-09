@@ -27,28 +27,29 @@ class ApiVersioning
     public function handle(Request $request, Closure $next, ?string $requiredVersion = null): Response
     {
         $version = $this->getRequestedVersion($request);
-        
+
         // Validate version if required
         if ($requiredVersion && $version !== $requiredVersion) {
             return $this->versionMismatchResponse($version, $requiredVersion);
         }
 
         // Validate version is supported
-        if (!$this->isVersionSupported($version)) {
+        if (! $this->isVersionSupported($version)) {
             return $this->unsupportedVersionResponse($version);
         }
 
         // Check if version is deprecated
         if ($this->isVersionDeprecated($version)) {
             $response = $next($request);
+
             return $this->addDeprecationHeaders($response, $version);
         }
 
         // Set version in request for controllers to access
         $request->merge(['api_version' => $version]);
-        
+
         $response = $next($request);
-        
+
         // Add version headers to response
         return $this->addVersionHeaders($response, $version);
     }
@@ -97,7 +98,7 @@ class ApiVersioning
             // 'v1' => '2024-12-31', // Example: v1 deprecated on 2024-12-31
         ];
 
-        if (!isset($deprecatedVersions[$version])) {
+        if (! isset($deprecatedVersions[$version])) {
             return false;
         }
 
@@ -155,7 +156,7 @@ class ApiVersioning
             'X-API-Deprecated' => 'true',
             'X-API-Deprecation-Date' => '2024-12-31', // Example date
             'X-API-Sunset-Date' => '2025-06-30', // Example sunset date
-            'Warning' => '299 - "API version ' . $version . ' is deprecated"',
+            'Warning' => '299 - "API version '.$version.' is deprecated"',
         ]);
 
         return $response;
@@ -174,8 +175,8 @@ class ApiVersioning
      */
     public static function getVersionInfo(): array
     {
-        $middleware = new self();
-        
+        $middleware = new self;
+
         return [
             'supported_versions' => array_keys($middleware->supportedVersions),
             'default_version' => $middleware->defaultVersion,

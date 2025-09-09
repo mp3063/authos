@@ -6,9 +6,7 @@ use App\Models\Application;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class ApplicationAccessMatrix extends Widget
 {
@@ -25,9 +23,9 @@ class ApplicationAccessMatrix extends Widget
     public function getViewData(): array
     {
         $user = Filament::auth()->user();
-        
+
         // Only show for organization owners/admins
-        if (!$user->isOrganizationOwner() && !$user->isOrganizationAdmin()) {
+        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
             return [
                 'users' => collect(),
                 'applications' => collect(),
@@ -53,8 +51,8 @@ class ApplicationAccessMatrix extends Widget
                 $query->where('organization_id', $organizationId)
                     ->withPivot(['last_login_at', 'login_count', 'created_at']);
             }])
-            ->orderBy('name')
-            ->get();
+                ->orderBy('name')
+                ->get();
 
             // Build access matrix
             $accessMatrix = [];
@@ -84,8 +82,8 @@ class ApplicationAccessMatrix extends Widget
     public function grantAccess(int $userId, int $applicationId): void
     {
         $user = Filament::auth()->user();
-        
-        if (!$user->isOrganizationOwner() && !$user->isOrganizationAdmin()) {
+
+        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
             return;
         }
 
@@ -97,12 +95,12 @@ class ApplicationAccessMatrix extends Widget
                 $applicationId => [
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]
+                ],
             ]);
 
             // Clear cache
             Cache::forget("access_matrix_{$user->organization_id}");
-            
+
             // Refresh the component
             $this->dispatch('$refresh');
         }
@@ -111,8 +109,8 @@ class ApplicationAccessMatrix extends Widget
     public function revokeAccess(int $userId, int $applicationId): void
     {
         $user = Filament::auth()->user();
-        
-        if (!$user->isOrganizationOwner() && !$user->isOrganizationAdmin()) {
+
+        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
             return;
         }
 
@@ -124,7 +122,7 @@ class ApplicationAccessMatrix extends Widget
 
             // Clear cache
             Cache::forget("access_matrix_{$user->organization_id}");
-            
+
             // Refresh the component
             $this->dispatch('$refresh');
         }
@@ -133,8 +131,8 @@ class ApplicationAccessMatrix extends Widget
     public function getAccessStats(): array
     {
         $data = $this->getViewData();
-        
-        if (!$data['hasPermission']) {
+
+        if (! $data['hasPermission']) {
             return [];
         }
 

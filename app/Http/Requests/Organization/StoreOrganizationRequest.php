@@ -64,9 +64,9 @@ class StoreOrganizationRequest extends FormRequest
     protected function prepareForValidation()
     {
         // Auto-generate slug if not provided
-        if (!$this->has('slug') && $this->has('name')) {
+        if (! $this->has('slug') && $this->has('name')) {
             $this->merge([
-                'slug' => $this->generateUniqueSlug($this->name)
+                'slug' => $this->generateUniqueSlug($this->name),
             ]);
         }
     }
@@ -95,7 +95,7 @@ class StoreOrganizationRequest extends FormRequest
         $counter = 1;
 
         while (\App\Models\Organization::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . $counter;
+            $slug = $baseSlug.'-'.$counter;
             $counter++;
         }
 

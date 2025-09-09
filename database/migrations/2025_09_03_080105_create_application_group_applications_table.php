@@ -19,7 +19,7 @@ return new class extends Migration
 
             // Unique constraint to prevent duplicates
             $table->unique(['application_group_id', 'application_id']);
-            
+
             // Indexes for better performance
             $table->index('application_group_id');
             $table->index('application_id');

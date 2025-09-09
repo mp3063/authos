@@ -24,7 +24,7 @@ class CreateCustomRoleRequest extends FormRequest
     public function rules(): array
     {
         $organizationId = $this->route('organizationId');
-        
+
         return [
             'name' => [
                 'required',
@@ -77,9 +77,9 @@ class CreateCustomRoleRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         // Auto-generate display name if not provided
-        if (!$this->has('display_name') && $this->has('name')) {
+        if (! $this->has('display_name') && $this->has('name')) {
             $this->merge([
-                'display_name' => ucfirst(str_replace(['_', '-'], ' ', $this->name))
+                'display_name' => ucfirst(str_replace(['_', '-'], ' ', $this->name)),
             ]);
         }
     }
