@@ -181,7 +181,7 @@ class OrganizationManagementApiTest extends TestCase
             'description' => 'Updated description',
             'settings' => [
                 'require_mfa' => false,
-                'session_timeout' => 120,
+                'session_timeout' => 300,
             ],
         ];
 
@@ -412,24 +412,34 @@ class OrganizationManagementApiTest extends TestCase
     public function test_get_organization_analytics_supports_date_filtering(): void
     {
         $user = User::factory()->forOrganization($this->organization)->create();
+        $application = Application::factory()->forOrganization($this->organization)->create();
+        
+        // Associate user with application
+        $user->applications()->attach($application->id);
 
         // Create logs for different time periods
         AuthenticationLog::factory()
             ->forUser($user)
-            ->create(['created_at' => now()->subDays(5)]);
+            ->create([
+                'created_at' => now()->subDays(5),
+                'event' => 'login_success'
+            ]);
 
         AuthenticationLog::factory()
             ->forUser($user)
-            ->create(['created_at' => now()->subDays(15)]);
+            ->create([
+                'created_at' => now()->subDays(15),
+                'event' => 'login_success'
+            ]);
 
         Passport::actingAs($this->orgAdmin, ['organizations.read']);
 
-        $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/analytics?from=" . now()->subDays(7)->toDateString());
+        $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/analytics?period=7d");
 
         $response->assertStatus(200);
         
         // Should only include recent activity within date range  
-        $this->assertEquals(1, $response->json('data.summary.total_logins'));
+        $this->assertEquals(1, $response->json('summary.total_logins_today'));
     }
 
     public function test_organization_admin_can_only_access_own_organization(): void

@@ -164,21 +164,21 @@ abstract class TestCase extends BaseTestCase
         return $this->createUser($attributes, 'user', 'api');
     }
 
-    protected function actingAsUser(User $user = null): User
+    protected function actingAsUser(?User $user = null): User
     {
         $user = $user ?: $this->createUser();
         $this->actingAs($user);
         return $user;
     }
 
-    protected function actingAsAdmin(User $admin = null): User
+    protected function actingAsAdmin(?User $admin = null): User
     {
         $admin = $admin ?: $this->createSuperAdmin();
         $this->actingAs($admin);
         return $admin;
     }
 
-    protected function actingAsApiUser(User $user = null): User
+    protected function actingAsApiUser(?User $user = null): User
     {
         $user = $user ?: $this->createUser();
         Passport::actingAs($user);

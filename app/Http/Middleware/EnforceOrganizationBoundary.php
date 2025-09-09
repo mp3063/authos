@@ -71,7 +71,7 @@ class EnforceOrganizationBoundary
             $this->logViolationAttempt($user, 'organization', $organizationId, $request);
             return response()->json([
                 'error' => 'Access denied',
-                'message' => 'You do not have access to this organization.'
+                'message' => 'Access denied to this organization'
             ], 403);
         }
 

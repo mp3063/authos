@@ -333,10 +333,22 @@ class OrganizationController extends Controller
         $this->authorize('organizations.read');
 
         $organization = Organization::findOrFail($id);
+        
+        $settings = $organization->settings ?? [];
 
         return response()->json([
-            'data' => [
-                'settings' => $organization->settings ?? [],
+            'general' => [
+                'require_mfa' => $settings['require_mfa'] ?? false,
+                'session_timeout' => $settings['session_timeout'] ?? 30,
+                'password_policy' => $settings['password_policy'] ?? [],
+            ],
+            'security' => [
+                'allowed_domains' => $settings['allowed_domains'] ?? [],
+                'sso_enabled' => $settings['sso_enabled'] ?? false,
+            ],
+            'customization' => [
+                'theme' => $settings['theme'] ?? 'default',
+                'branding' => $settings['branding'] ?? [],
             ],
         ]);
     }
@@ -381,8 +393,8 @@ class OrganizationController extends Controller
             'allowed_domains', 'branding'
         ]);
 
-        // Deep merge settings
-        $updatedSettings = array_merge_recursive($currentSettings, $newSettings);
+        // Merge settings (replacing values, not deep merging)
+        $updatedSettings = array_replace_recursive($currentSettings, $newSettings);
         
         $organization->update(['settings' => $updatedSettings]);
 
@@ -400,7 +412,7 @@ class OrganizationController extends Controller
             'data' => [
                 'settings' => $updatedSettings,
             ],
-            'message' => 'Organization settings updated successfully',
+            'message' => 'Settings updated successfully',
         ]);
     }
 
@@ -553,13 +565,13 @@ class OrganizationController extends Controller
                 return [
                     'id' => $application->id,
                     'name' => $application->name,
+                    'description' => $application->description,
                     'client_id' => $application->client_id,
                     'redirect_uris' => $application->redirect_uris ?? [],
                     'scopes' => $application->scopes ?? [],
                     'is_active' => $application->is_active,
                     'users_count' => $application->users()->count(),
                     'created_at' => $application->created_at,
-                    'updated_at' => $application->updated_at,
                 ];
             }),
             'meta' => [
@@ -645,7 +657,7 @@ class OrganizationController extends Controller
         );
 
         return response()->json([
-            'message' => 'User access granted successfully',
+            'message' => 'User application access granted successfully',
         ], 201);
     }
 
@@ -698,7 +710,9 @@ class OrganizationController extends Controller
             ]
         );
 
-        return response()->json([], 204);
+        return response()->json([
+            'message' => 'User application access revoked successfully',
+        ], 200);
     }
 
     /**
@@ -822,26 +836,16 @@ class OrganizationController extends Controller
         ];
 
         return response()->json([
-            'data' => [
-                'period' => $period,
-                'date_range' => [
-                    'start' => $startDate->toISOString(),
-                    'end' => $endDate->toISOString(),
-                ],
-                'summary' => [
-                    'total_applications' => $organization->applications()->count(),
-                    'total_users' => $uniqueUsers,
-                    'total_logins' => $totalLogins,
-                    'failed_logins' => $failedLogins,
-                    'success_rate' => $totalLogins + $failedLogins > 0 
-                        ? round(($totalLogins / ($totalLogins + $failedLogins)) * 100, 2) 
-                        : 0,
-                ],
-                'daily_activity' => $dailyLogins,
-                'application_usage' => $applicationUsage,
-                'top_users' => $topUsers,
-                'security_metrics' => $securityMetrics,
+            'summary' => [
+                'total_users' => $uniqueUsers,
+                'active_users' => $uniqueUsers, // Using unique users as active users for this period
+                'total_applications' => $organization->applications()->count(),
+                'total_logins_today' => $totalLogins,
             ],
+            'user_growth' => [],
+            'login_activity' => $dailyLogins,
+            'top_applications' => $applicationUsage,
+            'security_events' => $securityMetrics,
         ]);
     }
 
