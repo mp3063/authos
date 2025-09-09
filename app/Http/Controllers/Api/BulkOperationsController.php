@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Validator;
 use League\Csv\Writer;
 use Maatwebsite\Excel\Facades\Excel;
 use SplTempFileObject;
+use Spatie\Activitylog\Facades\CauserResolver;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * BulkOperationsController handles bulk operations for organization management.
@@ -456,6 +458,23 @@ class BulkOperationsController extends Controller
                 'error_description' => 'Failed to process bulk access revocation: ' . $e->getMessage(),
             ], 500);
         }
+
+        // Log bulk revocation activity
+        Activity::create([
+            'log_name' => 'default',
+            'description' => 'Bulk application access revocation',
+            'subject_type' => Organization::class,
+            'subject_id' => $organization->id,
+            'causer_type' => User::class,
+            'causer_id' => $currentUser->id,
+            'properties' => [
+                'user_count' => count($results['successful']),
+                'application_ids' => $applicationIds,
+                'revoke_all_access' => $revokeAllAccess,
+                'revoke_tokens' => $revokeTokens,
+                'reason' => $request->input('reason'),
+            ]
+        ]);
 
         return response()->json([
           'data' => $results,

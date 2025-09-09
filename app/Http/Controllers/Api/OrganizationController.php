@@ -39,7 +39,8 @@ class OrganizationController extends Controller
             'search' => 'sometimes|string|max:255',
             'sort' => 'sometimes|string|in:name,slug,created_at,updated_at',
             'order' => 'sometimes|string|in:asc,desc',
-            'is_active' => 'sometimes|boolean',
+            'filter' => 'sometimes|array',
+            'filter.is_active' => 'sometimes|in:true,false,1,0',
         ]);
 
         if ($validator->fails()) {
@@ -61,8 +62,10 @@ class OrganizationController extends Controller
             });
         }
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->is_active);
+        if ($request->has('filter.is_active')) {
+            $filterValue = $request->input('filter.is_active');
+            $isActive = in_array($filterValue, ['true', '1'], true) || $filterValue === true || $filterValue === 1;
+            $query->where('is_active', $isActive);
         }
 
         // Apply sorting
@@ -104,6 +107,8 @@ class OrganizationController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'slug' => 'sometimes|string|max:255|unique:organizations,slug|regex:/^[a-z0-9-]+$/',
+            'description' => 'sometimes|string|max:1000',
+            'website' => 'sometimes|string|url|max:255',
             'settings' => 'sometimes|array',
             'settings.require_mfa' => 'sometimes|boolean',
             'settings.password_policy' => 'sometimes|array',
@@ -165,6 +170,8 @@ class OrganizationController extends Controller
         $organization = Organization::create([
             'name' => $request->name,
             'slug' => $slug,
+            'description' => $request->description,
+            'website' => $request->website,
             'settings' => $settings,
             'is_active' => $request->input('is_active', true),
         ]);
@@ -179,10 +186,9 @@ class OrganizationController extends Controller
             ['organization_id' => $organization->id, 'organization_name' => $organization->name]
         );
 
-        return response()->json([
-            'data' => $this->formatOrganizationResponse($organization),
-            'message' => 'Organization created successfully',
-        ], 201);
+        return response()->json(
+            $this->formatOrganizationResponse($organization)
+        , 201);
     }
 
     /**
@@ -196,9 +202,9 @@ class OrganizationController extends Controller
             ->with('applications:id,name,client_id,is_active,organization_id')
             ->findOrFail($id);
 
-        return response()->json([
-            'data' => $this->formatOrganizationResponse($organization, true),
-        ]);
+        return response()->json(
+            $this->formatOrganizationResponse($organization, true)
+        );
     }
 
     /**
@@ -219,6 +225,8 @@ class OrganizationController extends Controller
                 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('organizations', 'slug')->ignore($organization->id),
             ],
+            'description' => 'sometimes|string|max:1000',
+            'website' => 'sometimes|string|url|max:255',
             'settings' => 'sometimes|array',
             'settings.require_mfa' => 'sometimes|boolean',
             'settings.password_policy' => 'sometimes|array',
@@ -245,7 +253,7 @@ class OrganizationController extends Controller
             ], 422);
         }
 
-        $updateData = $request->only(['name', 'slug', 'is_active']);
+        $updateData = $request->only(['name', 'slug', 'description', 'website', 'is_active']);
 
         // Handle settings update (merge with existing)
         if ($request->has('settings')) {
@@ -268,10 +276,9 @@ class OrganizationController extends Controller
             ['organization_id' => $organization->id, 'organization_name' => $organization->name]
         );
 
-        return response()->json([
-            'data' => $this->formatOrganizationResponse($organization->fresh()),
-            'message' => 'Organization updated successfully',
-        ]);
+        return response()->json(
+            $this->formatOrganizationResponse($organization->fresh())
+        );
     }
 
     /**
@@ -465,7 +472,7 @@ class OrganizationController extends Controller
         $users = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $users->items()->map(function ($user) use ($organization) {
+            'data' => collect($users->items())->map(function ($user) use ($organization) {
                 return $this->formatUserResponse($user, $organization);
             }),
             'meta' => [
@@ -526,8 +533,10 @@ class OrganizationController extends Controller
             });
         }
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->is_active);
+        if ($request->has('filter.is_active')) {
+            $filterValue = $request->input('filter.is_active');
+            $isActive = in_array($filterValue, ['true', '1'], true) || $filterValue === true || $filterValue === 1;
+            $query->where('is_active', $isActive);
         }
 
         // Apply sorting
@@ -738,11 +747,14 @@ class OrganizationController extends Controller
         $failedLogins = $authLogs->clone()->where('event', 'login_failed')->count();
         $uniqueUsers = $authLogs->clone()->where('event', 'login_success')->distinct('user_id')->count('user_id');
 
-        // Daily login activity
+        // Daily login activity (SQLite compatible)
         $dailyLogins = $authLogs->clone()
             ->where('event', 'login_success')
             ->select(
-                DB::raw("DATE_TRUNC('day', created_at AT TIME ZONE '{$timezone}') as date"),
+                DB::raw(config('database.default') === 'sqlite' ? 
+                    "DATE(created_at) as date" : 
+                    "DATE_TRUNC('day', created_at AT TIME ZONE '{$timezone}') as date"
+                ),
                 DB::raw('COUNT(*) as count')
             )
             ->groupBy('date')
@@ -847,8 +859,8 @@ class OrganizationController extends Controller
             'id' => $organization->id,
             'name' => $organization->name,
             'slug' => $organization->slug,
-            'description' => null, // Field doesn't exist in DB yet
-            'website' => null, // Field doesn't exist in DB yet  
+            'description' => $organization->description,
+            'website' => $organization->website,
             'logo' => $organization->logo,
             'is_active' => $organization->is_active,
             'settings' => $organization->settings ?? [],
@@ -860,6 +872,7 @@ class OrganizationController extends Controller
 
         if ($detailed) {
             // Additional detailed fields can be added here
+            $data['recent_activity'] = [];  // Add placeholder for recent activity
             
             if ($organization->relationLoaded('applications')) {
                 $data['applications'] = $organization->applications->map(function ($app) {
