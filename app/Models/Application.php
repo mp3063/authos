@@ -68,7 +68,7 @@ class Application extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_applications')
-            ->withPivot(['metadata', 'last_login_at', 'login_count'])
+            ->withPivot(['granted_by', 'granted_at', 'metadata', 'permissions', 'last_login_at', 'login_count'])
             ->withTimestamps();
     }
 

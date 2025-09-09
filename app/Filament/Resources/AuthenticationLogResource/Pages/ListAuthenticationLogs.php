@@ -70,7 +70,7 @@ class ListAuthenticationLogs extends ListRecords
                 
             'suspicious' => Tab::make('Suspicious Activity')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('event', 'suspicious_activity'))
-                ->badge(\App\Models\AuthenticationLog::where('event', 'suspicious_activity')->whereDate('created_at', today())->count())
+                ->badge(\App\Models\AuthenticationLog::where('event', 'suspicious_activity')->count())
                 ->badgeColor('warning'),
         ];
     }

@@ -84,6 +84,6 @@ class UsersRelationManager extends RelationManager
               )
               ->label('MFA Enabled'),
           ])
-          ->defaultSort('pivot.created_at', 'desc');
+          ->defaultSort('user_applications.created_at', 'desc');
     }
 }

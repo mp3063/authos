@@ -539,10 +539,12 @@ class SecurityTest extends TestCase
     {
         $user = User::factory()
             ->forOrganization($this->organization1)
-            ->create();
+            ->create([
+                'password' => Hash::make('password123'),
+            ]);
 
         // Simulate suspicious activity (login from unusual location)
-        $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
             'password' => 'password123',
         ], [
@@ -550,14 +552,25 @@ class SecurityTest extends TestCase
             'User-Agent' => 'SuspiciousBot/1.0',
         ]);
 
+        // First verify login was successful
+        $response->assertStatus(200);
+
         // Verify suspicious activity is flagged
         $log = AuthenticationLog::where('user_id', $user->id)
-            ->where('event', 'login_success')
             ->latest()
             ->first();
 
-        if ($log && isset($log->details['risk_score'])) {
-            $this->assertGreaterThan(50, $log->details['risk_score']);
+        $this->assertNotNull($log, 'Authentication log should be created');
+        $this->assertEquals('login_success', $log->event);
+        $this->assertEquals('192.0.2.1', $log->ip_address);
+        $this->assertEquals('SuspiciousBot/1.0', $log->user_agent);
+        
+        // Check if risk scoring is implemented
+        if (isset($log->details['risk_score'])) {
+            $this->assertGreaterThan(50, $log->details['risk_score'], 'Suspicious activity should have high risk score');
+        } else {
+            // Risk scoring not implemented yet - just verify we captured the suspicious indicators
+            $this->assertStringContainsString('SuspiciousBot', $log->user_agent, 'Should log suspicious user agent');
         }
     }
 }

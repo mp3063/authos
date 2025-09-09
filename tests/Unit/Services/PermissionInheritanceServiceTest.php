@@ -330,9 +330,15 @@ class PermissionInheritanceServiceTest extends TestCase
 
     public function test_validate_inheritance_hierarchy_detects_issues(): void
     {
-        // Skip this test temporarily to focus on main functionality
-        $this->markTestSkipped('Foreign key constraint issue - will fix later');
+        // Create a group with missing inheritance settings to test inconsistent settings detection
+        $inconsistentGroup = ApplicationGroup::factory()
+            ->forOrganization($this->organization)
+            ->create([
+                'name' => 'Inconsistent Group',
+                'settings' => [] // Missing inheritance_enabled setting
+            ]);
 
+        // Test validation when there are no issues (should pass)
         $validationResults = $this->permissionService->validateInheritanceHierarchy(
             $this->organization->id
         );
@@ -340,7 +346,27 @@ class PermissionInheritanceServiceTest extends TestCase
         $this->assertArrayHasKey('orphaned_groups', $validationResults);
         $this->assertArrayHasKey('circular_dependencies', $validationResults);
         $this->assertArrayHasKey('inconsistent_settings', $validationResults);
-        $this->assertNotEmpty($validationResults['orphaned_groups']);
+        $this->assertArrayHasKey('validation_passed', $validationResults);
+        $this->assertArrayHasKey('validated_at', $validationResults);
+        
+        // Should have no orphaned groups (database constraints prevent them)
+        $this->assertEmpty($validationResults['orphaned_groups']);
+        
+        // Should have no circular dependencies (our test data is clean)
+        $this->assertEmpty($validationResults['circular_dependencies']);
+        
+        // Should have found inconsistent settings
+        $this->assertNotEmpty($validationResults['inconsistent_settings']);
+        $inconsistentGroupIds = array_column($validationResults['inconsistent_settings'], 'group_id');
+        $this->assertContains($inconsistentGroup->id, $inconsistentGroupIds);
+        
+        // Check the specific inconsistent group details
+        $inconsistentGroup = $validationResults['inconsistent_settings'][0];
+        $this->assertEquals('Inconsistent Group', $inconsistentGroup['group_name']);
+        $this->assertEquals('inheritance_enabled', $inconsistentGroup['missing_setting']);
+        
+        // Validation should fail due to inconsistent settings
+        $this->assertFalse($validationResults['validation_passed']);
     }
 
     public function test_get_users_with_inherited_access_finds_users_with_cascaded_permissions(): void
