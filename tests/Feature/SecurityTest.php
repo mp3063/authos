@@ -18,26 +18,30 @@ class SecurityTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization1;
+
     private Organization $organization2;
+
     private User $user1;
+
     private User $user2;
+
     private User $admin;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization1 = Organization::factory()->create();
         $this->organization2 = Organization::factory()->create();
-        
+
         // Seed roles and permissions
         $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
-        
+
         // Create API guard roles that might be missing
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'api']);
-        
+
         $this->user1 = User::factory()->forOrganization($this->organization1)->create();
         $this->user2 = User::factory()->forOrganization($this->organization2)->create();
         $this->admin = $this->createSuperAdmin();
@@ -47,22 +51,22 @@ class SecurityTest extends TestCase
     {
         // Give user1 the necessary permission to read users (API guard)
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
-        
+
         // Set team context before giving permission (important for organization-scoped permissions)
         $this->user1->setPermissionsTeamId($this->user1->organization_id);
         app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
-        
+
         $this->user1->givePermissionTo($permission);
-        
+
         // Clear permission cache and refresh
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
         $this->user1 = $this->user1->fresh();
-        
+
         Passport::actingAs($this->user1, ['read']);
 
         // User 1 should not be able to access user 2 (different organization)
         $response = $this->getJson("/api/v1/users/{$this->user2->id}");
-        
+
         $response->assertStatus(404); // Should appear as "not found" for security
     }
 
@@ -70,20 +74,20 @@ class SecurityTest extends TestCase
     {
         $app1 = Application::factory()->forOrganization($this->organization1)->create();
         $app2 = Application::factory()->forOrganization($this->organization2)->create();
-        
+
         // Give user1 the necessary permission to read applications (API guard)
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'applications.read', 'guard_name' => 'api']);
-        
+
         // Set team context before giving permission (important for organization-scoped permissions)
         $this->user1->setPermissionsTeamId($this->user1->organization_id);
         app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
-        
+
         $this->user1->givePermissionTo($permission);
-        
+
         // Clear permission cache and refresh
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
         $this->user1 = $this->user1->fresh();
-        
+
         Passport::actingAs($this->user1, ['read']);
 
         // User 1 should be able to access app from their organization
@@ -97,8 +101,8 @@ class SecurityTest extends TestCase
 
     public function test_api_rate_limiting_blocks_excessive_requests(): void
     {
-        RateLimiter::clear('api:' . request()->ip());
-        
+        RateLimiter::clear('api:'.request()->ip());
+
         $user = User::factory()
             ->forOrganization($this->organization1)
             ->create([
@@ -200,7 +204,7 @@ class SecurityTest extends TestCase
 
         $response->assertStatus(401) // Unauthorized
             ->assertJson([
-                'message' => 'Unauthenticated.'
+                'message' => 'Unauthenticated.',
             ]);
     }
 
@@ -212,10 +216,10 @@ class SecurityTest extends TestCase
 
         // Verify password is hashed (not plain text)
         $this->assertNotEquals('test-password', $user->password);
-        
+
         // Verify hash starts with bcrypt identifier
         $this->assertStringStartsWith('$2y$', $user->password);
-        
+
         // Verify password can be verified
         $this->assertTrue(Hash::check('test-password', $user->password));
     }
@@ -227,17 +231,17 @@ class SecurityTest extends TestCase
         $this->admin->givePermissionTo($permission);
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
         $this->admin = $this->admin->fresh();
-        
+
         Passport::actingAs($this->admin, ['read']);
 
         // Attempt SQL injection in search parameter
         $maliciousInput = "'; DROP TABLE users; --";
-        
-        $response = $this->getJson("/api/v1/users?search=" . urlencode($maliciousInput));
-        
+
+        $response = $this->getJson('/api/v1/users?search='.urlencode($maliciousInput));
+
         // Should not cause database error and should return safely
         $response->assertStatus(200);
-        
+
         // Verify users table still exists by making another request
         $response = $this->getJson('/api/v1/users');
         $response->assertStatus(200);
@@ -250,28 +254,28 @@ class SecurityTest extends TestCase
         $this->admin->givePermissionTo($permission);
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
         $this->admin = $this->admin->fresh();
-        
+
         Passport::actingAs($this->admin, ['write']);
 
         $xssPayload = "<script>alert('XSS')</script>";
-        
+
         $response = $this->postJson('/api/v1/users', [
             'name' => $xssPayload,
             'email' => 'test@example.com',
             'password' => 'SecurePass123!XssTest',
             'organization_id' => $this->organization1->id,
         ]);
-        
-        $response->assertStatus(201);
-        
-        // Get user data from response
-        $userData = $response->json();
+
+        $response->assertStatus(200);
+
+        // Get user data from response (now using standardized response format)
+        $userData = $response->json('data');
         $this->assertNotNull($userData, 'User data should be in response');
-        
+
         // For now, verify that the payload is stored as-is (indicating that XSS protection may need to be implemented)
         // In a production system, you would want to sanitize this input
         $this->assertEquals($xssPayload, $userData['name'], 'XSS payload is currently stored as-is');
-        
+
         // TODO: Implement proper XSS protection that would sanitize dangerous HTML
         // When implemented, the test should be:
         // $this->assertStringNotContainsString('<script>', $userData['name'], 'Script tags should be sanitized');
@@ -324,7 +328,7 @@ class SecurityTest extends TestCase
         $response->assertStatus(200);
 
         $userData = $response->json();
-        
+
         // Ensure sensitive fields are not exposed
         $this->assertArrayNotHasKey('password', $userData);
         $this->assertArrayNotHasKey('two_factor_secret', $userData);
@@ -350,7 +354,7 @@ class SecurityTest extends TestCase
         // Test that API handles malformed JSON gracefully
         $response = $this->post('/api/v1/auth/login', [], [
             'Content-Type' => 'application/json',
-            'Accept' => 'application/json'
+            'Accept' => 'application/json',
         ]);
 
         // Should get 400/422 for validation errors (empty required fields)
@@ -361,15 +365,15 @@ class SecurityTest extends TestCase
     {
         // Create organization admin in the same organization as user1
         $orgAdmin = User::factory()->create([
-            'organization_id' => $this->user1->organization_id
+            'organization_id' => $this->user1->organization_id,
         ]);
-        
+
         // Create role for both guards and assign
         $orgAdminRoleApi = Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'api']);
         $orgAdminRoleWeb = Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'web']);
         $orgAdmin->assignRole($orgAdminRoleApi);
         $orgAdmin->assignRole($orgAdminRoleWeb);
-        
+
         // Give basic role assignment permission but not super admin privileges
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.assign_roles', 'guard_name' => 'api']);
         $orgAdmin->givePermissionTo($permission);
@@ -386,7 +390,7 @@ class SecurityTest extends TestCase
         // Organization boundary middleware blocks access with 404 for users without proper org admin role
         // This is correct security behavior - prevents privilege escalation
         $response->assertStatus(404);
-        
+
         // Verify user did not get super admin role
         $this->user1->refresh();
         $this->assertFalse($this->user1->hasRole('super admin'));
@@ -409,15 +413,15 @@ class SecurityTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-        
+
         $response->assertJsonStructure([
             'access_token',
             'token_type',
         ]);
-        
+
         // Verify token is present and properly structured
         $this->assertNotEmpty($response->json('access_token'), 'Access token should be present');
-        
+
         // In a stateless API authentication system, each login should generate a valid token
         // The actual uniqueness depends on the token generation strategy
         $token = $response->json('access_token');
@@ -487,7 +491,7 @@ class SecurityTest extends TestCase
         // This would be tested in production environment
         // For now, we just verify that the middleware exists
         $response = $this->get('/api/v1/auth/user', [
-            'X-Forwarded-Proto' => 'http'
+            'X-Forwarded-Proto' => 'http',
         ]);
 
         // In production, this should redirect to HTTPS
@@ -497,7 +501,7 @@ class SecurityTest extends TestCase
 
     public function test_api_handles_malformed_json_gracefully(): void
     {
-        $response = $this->call('POST', '/api/v1/auth/login', [], [], [], [], 
+        $response = $this->call('POST', '/api/v1/auth/login', [], [], [], [],
             '{"email":"test@example.com","password":malformed}');
 
         $response->assertStatus(400); // Bad Request
@@ -510,7 +514,7 @@ class SecurityTest extends TestCase
     {
         // Use API admin from the same organization to avoid boundary issues
         $apiAdmin = $this->createUser(['organization_id' => $this->organization1->id], 'Super Admin', 'api');
-        
+
         Passport::actingAs($apiAdmin, ['write']);
 
         // Try to upload a potentially malicious file
@@ -530,8 +534,8 @@ class SecurityTest extends TestCase
                 'error',
                 'error_description',
                 'details' => [
-                    'file'
-                ]
+                    'file',
+                ],
             ]);
     }
 
@@ -564,7 +568,7 @@ class SecurityTest extends TestCase
         $this->assertEquals('login_success', $log->event);
         $this->assertEquals('192.0.2.1', $log->ip_address);
         $this->assertEquals('SuspiciousBot/1.0', $log->user_agent);
-        
+
         // Check if risk scoring is implemented
         if (isset($log->details['risk_score'])) {
             $this->assertGreaterThan(50, $log->details['risk_score'], 'Suspicious activity should have high risk score');

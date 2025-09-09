@@ -2,30 +2,22 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
-use App\Models\Application;
-use App\Models\SSOSession;
-use App\Services\OAuthService;
+use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use Spatie\Permission\Models\Role;
 
-class UserController extends Controller
+class UserController extends BaseApiController
 {
-    protected OAuthService $oAuthService;
+    protected UserManagementService $userManagementService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(UserManagementService $userManagementService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->userManagementService = $userManagementService;
         $this->middleware('auth:api');
     }
 
@@ -60,7 +52,7 @@ class UserController extends Controller
             $search = $params['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
+                    ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
 
@@ -104,24 +96,12 @@ class UserController extends Controller
         // Paginate
         $users = $query->paginate($params['per_page']);
 
-        return response()->json([
-            'data' => $users->getCollection()->map(function ($user) {
-                return $this->formatUserResponse($user);
-            }),
-            'meta' => [
-                'pagination' => [
-                    'current_page' => $users->currentPage(),
-                    'per_page' => $users->perPage(),
-                    'total' => $users->total(),
-                    'total_pages' => $users->lastPage(),
-                ],
-            ],
-            'links' => [
-                'self' => $users->url($users->currentPage()),
-                'next' => $users->nextPageUrl(),
-                'prev' => $users->previousPageUrl(),
-            ],
-        ]);
+        // Transform the paginated data using the service
+        $users->getCollection()->transform(function ($user) {
+            return $this->userManagementService->formatUserResponse($user);
+        });
+
+        return $this->paginatedResponse($users);
     }
 
     /**
@@ -129,32 +109,21 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
-
-        $user = User::create([
+        $userData = [
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'organization_id' => $request->organization_id,
+            'password' => $request->password,
             'profile' => $request->input('profile', []),
-            'email_verified_at' => now(), // Admin-created users are verified by default
-        ]);
+            'roles' => $request->getRoles(),
+        ];
 
-        // Assign roles
-        $roles = $request->getRoles();
-        $user->syncRoles($roles);
+        $organization = \App\Models\Organization::findOrFail($request->organization_id);
+        $user = $this->userManagementService->createUser($userData, $organization);
 
-        // Log user creation event
-        $this->oAuthService->logAuthenticationEvent(
-            $user,
-            'user_created_by_admin',
-            $request,
-            null
-        );
-
-        $response = $this->formatUserResponse($user);
+        $response = $this->userManagementService->formatUserResponse($user);
         $response['message'] = 'User created successfully';
-        
-        return response()->json($response, 201);
+
+        return $this->successResponse($response, 201);
     }
 
     /**
@@ -168,7 +137,7 @@ class UserController extends Controller
             ->withCount(['applications', 'ssoSessions'])
             ->findOrFail($id);
 
-        return response()->json($this->formatUserResponse($user, true));
+        return $this->successResponse($this->userManagementService->formatUserResponse($user, true));
     }
 
     /**
@@ -179,29 +148,17 @@ class UserController extends Controller
         $user = User::findOrFail($id);
 
         $updateData = $request->only(['name', 'email', 'organization_id', 'profile', 'is_active']);
-        
+
         if ($request->has('password')) {
-            $updateData['password'] = Hash::make($request->password);
+            $updateData['password'] = $request->password;
         }
 
-        if ($request->has('profile')) {
-            $updateData['profile'] = array_merge($user->profile ?? [], $request->profile);
-        }
+        $updatedUser = $this->userManagementService->updateUser($user, $updateData);
 
-        $user->update($updateData);
-
-        // Log user update event
-        $this->oAuthService->logAuthenticationEvent(
-            $user,
-            'user_updated_by_admin',
-            $request,
-            null
-        );
-
-        $response = $this->formatUserResponse($user->fresh());
+        $response = $this->userManagementService->formatUserResponse($updatedUser);
         $response['message'] = 'User updated successfully';
-        
-        return response()->json($response);
+
+        return $this->successResponse($response);
     }
 
     /**
@@ -215,57 +172,10 @@ class UserController extends Controller
 
         // Prevent self-deletion
         if ($user->id === auth()->id()) {
-            return response()->json([
-                'error' => 'authorization_failed',
-                'error_description' => 'Cannot delete your own account.',
-            ], 403);
+            return $this->errorResponse('Cannot delete your own account.', 'authorization_failed', 403);
         }
 
-        // Revoke all user tokens before deletion
-        $user->tokens()->delete();
-        
-        // Remove user relationships to prevent foreign key constraints
-        $user->applications()->detach();
-        $user->roles()->detach();
-        $user->ssoSessions()->update([
-            'logged_out_at' => now(),
-            'logged_out_by' => auth()->id()
-        ]);
-
-        // Log user deletion event
-        $this->oAuthService->logAuthenticationEvent(
-            $user,
-            'user_deleted_by_admin',
-            request(),
-            null
-        );
-
-        // Handle foreign key constraints before deleting user
-        // Nullify invitations where user is inviter, accepted_by, or cancelled_by
-        \App\Models\Invitation::where('inviter_id', $user->id)->update(['inviter_id' => null]);
-        \App\Models\Invitation::where('accepted_by', $user->id)->update(['accepted_by' => null]);
-        \App\Models\Invitation::where('cancelled_by', $user->id)->update(['cancelled_by' => null]);
-        
-        // Delete authentication logs
-        \App\Models\AuthenticationLog::where('user_id', $user->id)->delete();
-        
-        // Delete oauth access tokens
-        \DB::table('oauth_access_tokens')->where('user_id', $user->id)->delete();
-        
-        // Delete related SSOSessions
-        $user->ssoSessions()->delete();
-        
-        // Nullify CustomRole created_by references
-        \App\Models\CustomRole::where('created_by', $user->id)->update(['created_by' => null]);
-        
-        // Delete user's tokens/sessions (in case some remain)
-        $user->tokens()->delete();
-        
-        // Detach user from applications and roles
-        $user->applications()->detach();
-        $user->roles()->detach();
-
-        $user->delete();
+        $this->userManagementService->deleteUser($user);
 
         return response()->json([], 204);
     }
@@ -282,20 +192,8 @@ class UserController extends Controller
             ->withPivot(['last_login_at', 'login_count', 'permissions'])
             ->get();
 
-        return response()->json([
-            'data' => $applications->map(function ($app) {
-                return [
-                    'id' => $app->id,
-                    'name' => $app->name,
-                    'client_id' => $app->client_id,
-                    'permissions' => $app->pivot->permissions ?? [],
-                    'last_accessed_at' => $app->pivot->last_login_at, // Use last_login_at as fallback
-                    'access_count' => $app->pivot->login_count ?? 0, // Use login_count as fallback
-                    'last_login_at' => $app->pivot->last_login_at,
-                    'login_count' => $app->pivot->login_count ?? 0,
-                    'is_active' => $app->is_active,
-                ];
-            }),
+        return $this->successResponse([
+            'data' => $this->userManagementService->formatUserApplicationsResponse($applications),
         ]);
     }
 
@@ -311,30 +209,17 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $user = User::findOrFail($id);
-        $application = Application::findOrFail($request->application_id);
+        $granted = $this->userManagementService->grantApplicationAccess($user, $request->application_id);
 
-        // Check if access already exists
-        if ($user->applications()->where('application_id', $application->id)->exists()) {
-            return response()->json([
-                'error' => 'resource_conflict',
-                'error_description' => 'User already has access to this application.',
-            ], 409);
+        if (! $granted) {
+            return $this->errorResponse('User already has access to this application.', 'resource_conflict', 409);
         }
 
-        $user->applications()->attach($application->id, [
-            'granted_at' => now(),
-            'login_count' => 0,
-        ]);
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'Application access granted successfully',
         ], 201);
     }
@@ -347,20 +232,15 @@ class UserController extends Controller
         $this->authorize('users.update');
 
         $user = User::findOrFail($id);
-        $application = Application::findOrFail($applicationId);
+        $revoked = $this->userManagementService->revokeApplicationAccess($user, (int) $applicationId);
 
-        if (!$user->applications()->where('application_id', $application->id)->exists()) {
-            return response()->json([
-                'error' => 'resource_not_found',
-                'error_description' => 'User does not have access to this application.',
-            ], 404);
+        if (! $revoked) {
+            return $this->errorResponse('User does not have access to this application.', 'resource_not_found', 404);
         }
 
-        $user->applications()->detach($application->id);
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'Application access revoked successfully',
-        ], 200);
+        ]);
     }
 
     /**
@@ -372,15 +252,8 @@ class UserController extends Controller
 
         $user = User::findOrFail($id);
 
-        return response()->json([
-            'data' => $user->roles->map(function ($role) {
-                return [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                    'display_name' => $role->display_name ?? ucfirst($role->name),
-                    'permissions' => $role->permissions->pluck('name'),
-                ];
-            }),
+        return $this->successResponse([
+            'data' => $this->userManagementService->formatUserRolesResponse($user->roles),
         ]);
     }
 
@@ -396,26 +269,17 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $user = User::findOrFail($id);
-        $role = Role::findOrFail($request->role_id);
+        $assigned = $this->userManagementService->assignRole($user, (string) $request->role_id);
 
-        if ($user->hasRole($role)) {
-            return response()->json([
-                'error' => 'resource_conflict',
-                'error_description' => 'User already has this role.',
-            ], 409);
+        if (! $assigned) {
+            return $this->errorResponse('User already has this role.', 'resource_conflict', 409);
         }
 
-        $user->assignRole($role);
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'Role assigned successfully',
         ], 201);
     }
@@ -428,20 +292,15 @@ class UserController extends Controller
         $this->authorize('roles.assign');
 
         $user = User::findOrFail($id);
-        $role = Role::findOrFail($roleId);
+        $removed = $this->userManagementService->removeRole($user, $roleId);
 
-        if (!$user->hasRole($role)) {
-            return response()->json([
-                'error' => 'resource_not_found',
-                'error_description' => 'User does not have this role.',
-            ], 404);
+        if (! $removed) {
+            return $this->errorResponse('User does not have this role.', 'resource_not_found', 404);
         }
 
-        $user->removeRole($role);
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'Role removed successfully',
-        ], 200);
+        ]);
     }
 
     /**
@@ -452,25 +311,10 @@ class UserController extends Controller
         $this->authorize('users.read');
 
         $user = User::findOrFail($id);
-        $sessions = $user->ssoSessions()
-            ->with('application')
-            ->active()
-            ->get();
+        $sessions = $this->userManagementService->getUserSessions($user);
 
-        return response()->json([
-            'data' => $sessions->map(function ($session) {
-                return [
-                    'id' => $session->id,
-                    'application' => [
-                        'id' => $session->application->id,
-                        'name' => $session->application->name,
-                    ],
-                    'ip_address' => $session->ip_address,
-                    'user_agent' => $session->user_agent,
-                    'last_activity_at' => $session->last_activity_at,
-                    'expires_at' => $session->expires_at,
-                ];
-            }),
+        return $this->successResponse([
+            'data' => $this->userManagementService->formatUserSessionsResponse($sessions),
         ]);
     }
 
@@ -482,27 +326,9 @@ class UserController extends Controller
         $this->authorize('users.update');
 
         $user = User::findOrFail($id);
-        $activeSessions = $user->ssoSessions()->active()->get();
-        $revokedCount = $activeSessions->count();
-        
-        // Log out each session  
-        $adminUser = auth()->user() ?? User::find(1);
-        foreach ($activeSessions as $session) {
-            $session->update([
-                'logged_out_at' => now(),
-                'logged_out_by' => $adminUser->id,
-            ]);
-        }
+        $revokedCount = $this->userManagementService->revokeAllUserSessions($user);
 
-        // Log session revocation
-        $this->oAuthService->logAuthenticationEvent(
-            $user,
-            'all_sessions_revoked_by_admin',
-            request(),
-            null
-        );
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'All user sessions revoked successfully',
             'revoked_count' => $revokedCount,
         ]);
@@ -516,90 +342,15 @@ class UserController extends Controller
         $this->authorize('users.update');
 
         $user = User::findOrFail($id);
-        $session = $user->ssoSessions()->where('id', $sessionId)->first();
+        $revoked = $this->userManagementService->revokeUserSession($user, $sessionId);
 
-        if (!$session) {
-            return response()->json([
-                'error' => 'resource_not_found',
-                'error_description' => 'Session not found.',
-            ], 404);
+        if (! $revoked) {
+            return $this->errorResponse('Session not found.', 'resource_not_found', 404);
         }
 
-        // Use the admin user making the request
-        $adminUser = auth()->user() ?? User::find(1);
-        
-        // Force the logout with explicit update
-        $session->update([
-            'logged_out_at' => now(),
-            'logged_out_by' => $adminUser->id,
-        ]);
-
-        return response()->json([
+        return $this->successResponse([
             'message' => 'Session revoked successfully',
         ]);
-    }
-
-    /**
-     * Format user response
-     */
-    private function formatUserResponse(User $user, bool $detailed = false): array
-    {
-        $data = [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'email_verified_at' => $user->email_verified_at,
-            'profile' => $user->profile ?? [],
-            'mfa_enabled' => $user->hasMfaEnabled(),
-            'mfa_methods' => $user->mfa_methods ?? [],
-            'is_active' => $user->is_active ?? true,
-            'organization_id' => $user->organization_id,
-            'organization' => $user->organization ? [
-                'id' => $user->organization->id,
-                'name' => $user->organization->name,
-                'slug' => $user->organization->slug,
-            ] : null,
-            'roles' => $user->roles->map(function ($role) {
-                return [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                    'display_name' => $role->display_name ?? ucfirst($role->name),
-                ];
-            }),
-            'created_at' => $user->created_at,
-            'updated_at' => $user->updated_at,
-        ];
-
-        if ($detailed) {
-            // Add detailed fields for show() method
-            $permissions = collect();
-            if ($user->relationLoaded('roles')) {
-                foreach ($user->roles as $role) {
-                    if ($role->relationLoaded('permissions')) {
-                        $permissions = $permissions->merge($role->permissions);
-                    }
-                }
-            }
-            
-            $data['permissions'] = $permissions->pluck('name')->unique()->values();
-            $data['last_login_at'] = $user->last_login_at ?? null;
-            $data['applications_count'] = $user->applications_count ?? $user->applications()->count();
-            $data['sessions_count'] = $user->sso_sessions_count ?? $user->ssoSessions()->active()->count();
-
-            if ($user->relationLoaded('applications')) {
-                $data['applications'] = $user->applications->map(function ($app) {
-                    return [
-                        'id' => $app->id,
-                        'name' => $app->name,
-                        'client_id' => $app->client_id,
-                        'last_login_at' => $app->pivot->last_login_at ?? null,
-                        'login_count' => $app->pivot->login_count ?? 0,
-                    ];
-                });
-            }
-        }
-
-        return $data;
     }
 
     /**
@@ -616,65 +367,22 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
-        $userIds = $request->input('user_ids');
-        $action = $request->input('action');
-        $currentUser = $request->user();
+        try {
+            $result = $this->userManagementService->performBulkOperation(
+                $request->input('user_ids'),
+                $request->input('action'),
+                $request->user()
+            );
 
-        // Get users from the same organization as the current user
-        $users = User::whereIn('id', $userIds)
-            ->where('organization_id', $currentUser->organization_id)
-            ->get();
-
-        if ($users->count() !== count($userIds)) {
-            return response()->json([
-                'error' => 'access_denied',
-                'error_description' => 'Some users not found or not accessible.',
-            ], 403);
+            return $this->successResponse([
+                'message' => 'Bulk operation completed successfully',
+                'affected_count' => $result['affected_count'],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse('Some users not found or not accessible.', 'access_denied', 403);
         }
-
-        $affectedCount = 0;
-        
-        foreach ($users as $user) {
-            // Don't allow bulk operations on self
-            if ($user->id === $currentUser->id) {
-                continue;
-            }
-
-            switch ($action) {
-                case 'activate':
-                    $user->update(['is_active' => true]);
-                    $affectedCount++;
-                    break;
-                case 'deactivate':
-                    $user->update(['is_active' => false]);
-                    $affectedCount++;
-                    break;
-                case 'delete':
-                    $user->delete();
-                    $affectedCount++;
-                    break;
-            }
-        }
-
-        // Log the bulk operation
-        Log::info('Bulk user operation performed', [
-            'operator_id' => $currentUser->id,
-            'organization_id' => $currentUser->organization_id,
-            'action' => $action,
-            'affected_count' => $affectedCount,
-            'user_ids' => $userIds
-        ]);
-
-        return response()->json([
-            'message' => 'Bulk operation completed successfully',
-            'affected_count' => $affectedCount,
-        ], 200);
     }
 }

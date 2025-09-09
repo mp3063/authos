@@ -17,31 +17,33 @@ class UserManagementApiTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $adminUser;
+
     private User $regularUser;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->organization = Organization::factory()->create();
-        
+
         // Create required roles and permissions with API guard using firstOrCreate to avoid duplicates
         Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
         Permission::firstOrCreate(['name' => 'users.create', 'guard_name' => 'api']);
         Permission::firstOrCreate(['name' => 'users.update', 'guard_name' => 'api']);
         Permission::firstOrCreate(['name' => 'users.delete', 'guard_name' => 'api']);
         Permission::firstOrCreate(['name' => 'roles.assign', 'guard_name' => 'api']);
-        
+
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'api']);
-        
+
         // Assign permissions to Super Admin role
         $superAdminRole->givePermissionTo(['users.read', 'users.create', 'users.update', 'users.delete', 'roles.assign']);
-        
+
         $this->adminUser = $this->createApiSuperAdmin([
-            'organization_id' => $this->organization->id
+            'organization_id' => $this->organization->id,
         ]);
         $this->regularUser = User::factory()
             ->forOrganization($this->organization)
@@ -62,6 +64,7 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
+                'success',
                 'data' => [
                     '*' => [
                         'id',
@@ -80,19 +83,21 @@ class UserManagementApiTest extends TestCase
                         'roles',
                         'created_at',
                         'updated_at',
-                    ]
-                ],
-                'links',
-                'meta' => [
-                    'pagination' => [
-                        'current_page',
-                        'per_page',
-                        'total',
-                        'total_pages',
                     ],
                 ],
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total',
+                    'from',
+                    'to',
+                    'path',
+                    'next_page_url',
+                    'prev_page_url',
+                ],
             ])
-            ->assertJsonPath('meta.pagination.per_page', 15);
+            ->assertJsonPath('meta.per_page', 15);
     }
 
     public function test_list_users_supports_filtering_and_search(): void
@@ -141,21 +146,27 @@ class UserManagementApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/users', $userData);
 
-        $response->assertStatus(201)
+        $response->assertStatus(200)
             ->assertJsonStructure([
-                'id',
-                'name',
-                'email',
-                'organization_id',
-                'roles',
-                'profile',
-                'is_active',
+                'success',
+                'data' => [
+                    'id',
+                    'name',
+                    'email',
+                    'organization_id',
+                    'roles',
+                    'profile',
+                    'is_active',
+                ],
             ])
             ->assertJson([
-                'name' => 'New User',
-                'email' => 'newuser@example.com',
-                'organization_id' => $this->organization->id,
-                'is_active' => true,
+                'success' => true,
+                'data' => [
+                    'name' => 'New User',
+                    'email' => 'newuser@example.com',
+                    'organization_id' => $this->organization->id,
+                    'is_active' => true,
+                ],
             ]);
 
         $this->assertDatabaseHas('users', [
@@ -180,28 +191,34 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'id',
-                'name',
-                'email',
-                'organization' => [
+                'success',
+                'data' => [
                     'id',
                     'name',
-                    'slug',
+                    'email',
+                    'organization' => [
+                        'id',
+                        'name',
+                        'slug',
+                    ],
+                    'roles',
+                    'permissions',
+                    'profile',
+                    'mfa_enabled',
+                    'is_active',
+                    'created_at',
+                    'updated_at',
+                    'last_login_at',
+                    'applications_count',
+                    'sessions_count',
                 ],
-                'roles',
-                'permissions',
-                'profile',
-                'mfa_enabled',
-                'is_active',
-                'created_at',
-                'updated_at',
-                'last_login_at',
-                'applications_count',
-                'sessions_count',
             ])
             ->assertJson([
-                'id' => $user->id,
-                'mfa_enabled' => true,
+                'success' => true,
+                'data' => [
+                    'id' => $user->id,
+                    'mfa_enabled' => true,
+                ],
             ]);
     }
 
@@ -226,9 +243,12 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'id' => $user->id,
-                'name' => 'Updated Name',
-                'is_active' => false,
+                'success' => true,
+                'data' => [
+                    'id' => $user->id,
+                    'name' => 'Updated Name',
+                    'is_active' => false,
+                ],
             ]);
 
         $this->assertDatabaseHas('users', [
@@ -283,17 +303,20 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
+                'success',
                 'data' => [
-                    '*' => [
-                        'id',
-                        'name',
-                        'permissions',
-                        'last_accessed_at',
-                        'access_count',
-                    ]
-                ]
+                    'data' => [
+                        '*' => [
+                            'id',
+                            'name',
+                            'permissions',
+                            'last_accessed_at',
+                            'access_count',
+                        ],
+                    ],
+                ],
             ])
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(2, 'data.data');
     }
 
     public function test_grant_application_access_creates_user_app_relationship(): void
@@ -317,9 +340,12 @@ class UserManagementApiTest extends TestCase
             'permissions' => ['read', 'write'],
         ]);
 
-        $response->assertStatus(201)
+        $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Application access granted successfully',
+                'success' => true,
+                'data' => [
+                    'message' => 'Application access granted successfully',
+                ],
             ]);
 
         $this->assertDatabaseHas('user_applications', [
@@ -349,7 +375,10 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Application access revoked successfully',
+                'success' => true,
+                'data' => [
+                    'message' => 'Application access revoked successfully',
+                ],
             ]);
 
         $this->assertDatabaseMissing('user_applications', [
@@ -375,16 +404,19 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
+                'success',
                 'data' => [
-                    '*' => [
-                        'id',
-                        'name',
-                        'display_name',
-                        'permissions',
-                    ]
-                ]
+                    'data' => [
+                        '*' => [
+                            'id',
+                            'name',
+                            'display_name',
+                            'permissions',
+                        ],
+                    ],
+                ],
             ])
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(2, 'data.data');
     }
 
     public function test_assign_role_to_user_creates_role_assignment(): void
@@ -401,9 +433,12 @@ class UserManagementApiTest extends TestCase
             'role_id' => $role->id,
         ]);
 
-        $response->assertStatus(201)
+        $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Role assigned successfully',
+                'success' => true,
+                'data' => [
+                    'message' => 'Role assigned successfully',
+                ],
             ]);
 
         $this->assertTrue($user->hasRole($role));
@@ -424,7 +459,10 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Role removed successfully',
+                'success' => true,
+                'data' => [
+                    'message' => 'Role removed successfully',
+                ],
             ]);
 
         $this->assertFalse($user->hasRole($role));
@@ -460,21 +498,24 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
+                'success',
                 'data' => [
-                    '*' => [
-                        'id',
-                        'application' => [
+                    'data' => [
+                        '*' => [
                             'id',
-                            'name',
+                            'application' => [
+                                'id',
+                                'name',
+                            ],
+                            'ip_address',
+                            'user_agent',
+                            'last_activity_at',
+                            'expires_at',
                         ],
-                        'ip_address',
-                        'user_agent',
-                        'last_activity_at',
-                        'expires_at',
-                    ]
-                ]
+                    ],
+                ],
             ])
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(2, 'data.data');
     }
 
     public function test_revoke_all_user_sessions_invalidates_sessions(): void
@@ -482,7 +523,7 @@ class UserManagementApiTest extends TestCase
         $user = User::factory()
             ->forOrganization($this->organization)
             ->create();
-            
+
         $application = Application::factory()
             ->forOrganization($this->organization)
             ->create();
@@ -500,8 +541,11 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'All user sessions revoked successfully',
-                'revoked_count' => 3,
+                'success' => true,
+                'data' => [
+                    'message' => 'All user sessions revoked successfully',
+                    'revoked_count' => 3,
+                ],
             ]);
 
         foreach ($sessions as $session) {
@@ -515,7 +559,7 @@ class UserManagementApiTest extends TestCase
         $user = User::factory()
             ->forOrganization($this->organization)
             ->create();
-            
+
         $application = Application::factory()
             ->forOrganization($this->organization)
             ->create();
@@ -532,7 +576,10 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Session revoked successfully',
+                'success' => true,
+                'data' => [
+                    'message' => 'Session revoked successfully',
+                ],
             ]);
 
         // Check if session was updated by fetching fresh from DB
@@ -596,10 +643,10 @@ class UserManagementApiTest extends TestCase
                 'error_description',
                 'details' => [
                     'name',
-                    'email', 
+                    'email',
                     'password',
-                    'organization_id'
-                ]
+                    'organization_id',
+                ],
             ]);
     }
 
@@ -628,8 +675,8 @@ class UserManagementApiTest extends TestCase
                 'error',
                 'error_description',
                 'details' => [
-                    'email'
-                ]
+                    'email',
+                ],
             ]);
     }
 
@@ -652,8 +699,11 @@ class UserManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Bulk operation completed successfully',
-                'affected_count' => 5,
+                'success' => true,
+                'data' => [
+                    'message' => 'Bulk operation completed successfully',
+                    'affected_count' => 5,
+                ],
             ]);
 
         foreach ($users as $user) {
