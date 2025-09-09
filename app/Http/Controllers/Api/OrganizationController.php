@@ -50,7 +50,7 @@ class OrganizationController extends Controller
             ], 422);
         }
 
-        $query = Organization::query()->withCount(['applications', 'users']);
+        $query = Organization::query()->withCount('applications');
 
         // Apply filters
         if ($request->has('search')) {
@@ -75,7 +75,7 @@ class OrganizationController extends Controller
         $organizations = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $organizations->items()->map(function ($organization) {
+            'data' => collect($organizations->items())->map(function ($organization) {
                 return $this->formatOrganizationResponse($organization);
             }),
             'meta' => [
@@ -192,7 +192,7 @@ class OrganizationController extends Controller
     {
         $this->authorize('organizations.read');
 
-        $organization = Organization::withCount(['applications', 'users'])
+        $organization = Organization::withCount('applications')
             ->with('applications:id,name,client_id,is_active,organization_id')
             ->findOrFail($id);
 
@@ -281,7 +281,7 @@ class OrganizationController extends Controller
     {
         $this->authorize('organizations.delete');
 
-        $organization = Organization::withCount(['applications', 'users'])->findOrFail($id);
+        $organization = Organization::withCount('applications')->findOrFail($id);
 
         // Prevent deletion if organization has active applications or users
         if ($organization->applications_count > 0) {
@@ -291,7 +291,12 @@ class OrganizationController extends Controller
             ], 409);
         }
 
-        if ($organization->users_count > 0) {
+        // Manually calculate users count
+        $usersCount = User::whereHas('applications', function ($query) use ($organization) {
+            $query->where('organization_id', $organization->id);
+        })->count();
+
+        if ($usersCount > 0) {
             return response()->json([
                 'error' => 'resource_conflict',
                 'error_description' => 'Cannot delete organization with active users.',
@@ -510,7 +515,7 @@ class OrganizationController extends Controller
             ], 422);
         }
 
-        $query = $organization->applications()->withCount('users');
+        $query = $organization->applications();
 
         // Apply filters
         if ($request->has('search')) {
@@ -535,7 +540,7 @@ class OrganizationController extends Controller
         $applications = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $applications->items()->map(function ($application) {
+            'data' => collect($applications->items())->map(function ($application) {
                 return [
                     'id' => $application->id,
                     'name' => $application->name,
@@ -543,7 +548,7 @@ class OrganizationController extends Controller
                     'redirect_uris' => $application->redirect_uris ?? [],
                     'scopes' => $application->scopes ?? [],
                     'is_active' => $application->is_active,
-                    'users_count' => $application->users_count,
+                    'users_count' => $application->users()->count(),
                     'created_at' => $application->created_at,
                     'updated_at' => $application->updated_at,
                 ];
@@ -752,7 +757,6 @@ class OrganizationController extends Controller
 
         // Application usage
         $applicationUsage = $organization->applications()
-            ->withCount(['users as total_users'])
             ->with(['users' => function ($query) use ($startDate, $endDate) {
                 $query->withPivot(['last_login_at', 'login_count'])
                       ->wherePivot('last_login_at', '>=', $startDate);
@@ -762,7 +766,7 @@ class OrganizationController extends Controller
                 return [
                     'id' => $app->id,
                     'name' => $app->name,
-                    'total_users' => $app->total_users,
+                    'total_users' => $app->users->count(),
                     'active_users' => $app->users->count(),
                     'total_logins' => $app->users->sum('pivot.login_count'),
                 ];
@@ -834,19 +838,28 @@ class OrganizationController extends Controller
      */
     private function formatOrganizationResponse(Organization $organization, bool $detailed = false): array
     {
+        // Manually calculate users count since users() is not a proper relationship
+        $usersCount = User::whereHas('applications', function ($query) use ($organization) {
+            $query->where('organization_id', $organization->id);
+        })->count();
+        
         $data = [
             'id' => $organization->id,
             'name' => $organization->name,
             'slug' => $organization->slug,
+            'description' => null, // Field doesn't exist in DB yet
+            'website' => null, // Field doesn't exist in DB yet  
+            'logo' => $organization->logo,
             'is_active' => $organization->is_active,
+            'settings' => $organization->settings ?? [],
             'applications_count' => $organization->applications_count ?? 0,
-            'users_count' => $organization->users_count ?? 0,
+            'users_count' => $usersCount,
             'created_at' => $organization->created_at,
             'updated_at' => $organization->updated_at,
         ];
 
         if ($detailed) {
-            $data['settings'] = $organization->settings ?? [];
+            // Additional detailed fields can be added here
             
             if ($organization->relationLoaded('applications')) {
                 $data['applications'] = $organization->applications->map(function ($app) {

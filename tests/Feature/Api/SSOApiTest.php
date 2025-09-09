@@ -147,9 +147,11 @@ class SSOApiTest extends TestCase
             ]);
 
         // Verify session was updated with token information
-        $session->refresh();
-        $this->assertArrayHasKey('access_token', $session->metadata);
-        $this->assertArrayHasKey('user_info', $session->metadata);
+        // Fetch fresh session instance from database
+        $updatedSession = SSOSession::find($session->id);
+        
+        $this->assertArrayHasKey('access_token', $updatedSession->metadata);
+        $this->assertArrayHasKey('user_info', $updatedSession->metadata);
     }
 
     public function test_handle_sso_callback_fails_with_invalid_state(): void
@@ -287,9 +289,9 @@ class SSOApiTest extends TestCase
             ]);
 
         // Verify session was updated
-        $session->refresh();
-        $this->assertEquals('new-access-token-123', $session->metadata['access_token']);
-        $this->assertEquals('new-refresh-token-123', $session->refresh_token);
+        $updatedSession = SSOSession::find($session->id);
+        $this->assertEquals('new-access-token-123', $updatedSession->metadata['access_token']);
+        $this->assertEquals('new-refresh-token-123', $updatedSession->refresh_token);
     }
 
     public function test_logout_sso_session_invalidates_session(): void
@@ -310,9 +312,9 @@ class SSOApiTest extends TestCase
             ]);
 
         // Verify session is logged out
-        $session->refresh();
-        $this->assertNotNull($session->logged_out_at);
-        $this->assertEquals($this->user->id, $session->logged_out_by);
+        $updatedSession = SSOSession::find($session->id);
+        $this->assertNotNull($updatedSession->logged_out_at);
+        $this->assertEquals($this->user->id, $updatedSession->logged_out_by);
     }
 
     public function test_synchronized_logout_revokes_all_user_sessions(): void
@@ -343,13 +345,13 @@ class SSOApiTest extends TestCase
 
         // Verify all user's sessions are logged out
         foreach ($sessions as $session) {
-            $session->refresh();
-            $this->assertNotNull($session->logged_out_at);
+            $updatedSession = SSOSession::find($session->id);
+            $this->assertNotNull($updatedSession->logged_out_at);
         }
 
         // Verify other user's session is not affected
-        $otherSession->refresh();
-        $this->assertNull($otherSession->logged_out_at);
+        $updatedOtherSession = SSOSession::find($otherSession->id);
+        $this->assertNull($updatedOtherSession->logged_out_at);
     }
 
     public function test_get_active_sso_sessions_returns_user_sessions(): void
