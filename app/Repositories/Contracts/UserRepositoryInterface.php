@@ -76,4 +76,9 @@ interface UserRepositoryInterface extends BaseRepositoryInterface
      * Find user by email in organization
      */
     public function findByEmailInOrganization(string $email, Organization $organization): ?User;
+
+    /**
+     * Find users by IDs within organization
+     */
+    public function findByIdsInOrganization(array $userIds, Organization $organization): Collection;
 }

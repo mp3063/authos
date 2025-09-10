@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
+use App\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Services\Contracts\OrganizationAnalyticsServiceInterface;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,13 @@ use Illuminate\Support\Facades\DB;
 
 class OrganizationAnalyticsService extends BaseService implements OrganizationAnalyticsServiceInterface
 {
+    protected OrganizationRepositoryInterface $organizationRepository;
+
+    public function __construct(OrganizationRepositoryInterface $organizationRepository)
+    {
+        $this->organizationRepository = $organizationRepository;
+    }
+
     /**
      * Get comprehensive analytics for an organization
      */

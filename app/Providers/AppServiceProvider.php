@@ -8,6 +8,12 @@ use App\Models\User;
 use App\Observers\ApplicationObserver;
 use App\Observers\OrganizationObserver;
 use App\Observers\UserObserver;
+use App\Repositories\ApplicationRepository;
+use App\Repositories\Contracts\ApplicationRepositoryInterface;
+use App\Repositories\Contracts\OrganizationRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Repositories\OrganizationRepository;
+use App\Repositories\UserRepository;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -21,7 +27,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register repositories
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
+        $this->app->bind(OrganizationRepositoryInterface::class, OrganizationRepository::class);
+        $this->app->bind(ApplicationRepositoryInterface::class, ApplicationRepository::class);
     }
 
     /**
@@ -63,6 +72,6 @@ class AppServiceProvider extends ServiceProvider
             'write' => 'Write access to your account',
         ]);
 
-        Passport::setDefaultScope(['openid']);
+        Passport::defaultScopes(['openid']);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\Contracts\UserManagementServiceInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -16,9 +17,12 @@ class UserManagementService extends BaseService implements UserManagementService
 {
     protected OAuthService $oAuthService;
 
-    public function __construct(OAuthService $oAuthService)
+    protected UserRepositoryInterface $userRepository;
+
+    public function __construct(OAuthService $oAuthService, UserRepositoryInterface $userRepository)
     {
         $this->oAuthService = $oAuthService;
+        $this->userRepository = $userRepository;
     }
 
     /**
@@ -62,46 +66,7 @@ class UserManagementService extends BaseService implements UserManagementService
      */
     public function getUsersForOrganization(Organization $organization, array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
-        $query = User::query()->with(['roles', 'organization'])
-            ->where('organization_id', $organization->id);
-
-        // Apply filters
-        if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('email', 'LIKE', "%{$search}%");
-            });
-        }
-
-        if (! empty($filters['role'])) {
-            $query->whereHas('roles', function ($q) use ($filters) {
-                $q->where('name', $filters['role']);
-            });
-        }
-
-        if (isset($filters['mfa_enabled'])) {
-            if ($filters['mfa_enabled']) {
-                $query->whereNotNull('mfa_methods');
-            } else {
-                $query->whereNull('mfa_methods');
-            }
-        }
-
-        if (isset($filters['is_active'])) {
-            $query->where('is_active', $filters['is_active']);
-        }
-
-        // Apply sorting
-        $sort = $filters['sort'] ?? 'created_at';
-        $order = $filters['order'] ?? 'desc';
-        if (in_array($sort, ['name', 'email', 'created_at', 'updated_at'])) {
-            $query->orderBy($sort, $order);
-        } else {
-            $query->orderBy('created_at', $order);
-        }
-
-        return $query->paginate($perPage);
+        return $this->userRepository->getOrganizationUsers($organization, $filters, $perPage);
     }
 
     /**
@@ -303,9 +268,7 @@ class UserManagementService extends BaseService implements UserManagementService
     public function performBulkOperation(array $userIds, string $action, User $currentUser): array
     {
         // Get users from the same organization as the current user
-        $users = User::whereIn('id', $userIds)
-            ->where('organization_id', $currentUser->organization_id)
-            ->get();
+        $users = $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization);
 
         if ($users->count() !== count($userIds)) {
             throw new \InvalidArgumentException('Some users not found or not accessible.');
