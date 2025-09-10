@@ -2,14 +2,30 @@
 
 Comprehensive API documentation for the Laravel 12 authentication service - An Auth0 alternative providing OAuth 2.0, OpenID Connect, multi-factor authentication, and single sign-on capabilities.
 
+**Current Status**: Production-Ready with 306/306 passing tests (100% success rate) and unified API response format across all endpoints.
+
 ## 📋 Documentation Overview
 
 This API documentation package includes:
 
-- **OpenAPI 3.0 Specification** (`openapi.yaml`) - Complete API specification following OpenAPI standards
-- **Postman Collection** (`postman-collection.json`) - Ready-to-import collection with examples and tests
+- **OpenAPI 3.0 Specification** (`openapi.yaml`) - Complete API specification following OpenAPI standards with unified response format
+- **Postman Collection** (`postman-collection.json`) - Ready-to-import collection with examples, tests, and comprehensive endpoint coverage
+- **Environment Files** - Pre-configured environment variables for different deployment stages:
+  - `postman-environment-development.json` - HERD development environment
+  - `postman-environment-staging.json` - Staging environment configuration
+  - `postman-environment-production.json` - Production environment configuration
 - **Interactive Documentation** (`public/docs/index.html`) - Swagger UI interface for live API testing
 - **Developer Guide** (this file) - Integration guides and best practices
+
+## 🆕 New Features in Latest Update
+
+- **Social Authentication Endpoints** - Complete integration with Google, GitHub, Facebook, Twitter, LinkedIn
+- **Comprehensive Organization Management** - Analytics, user management, invitations, bulk operations
+- **SSO (Single Sign-On)** - SAML and OAuth2 SSO configuration and session management
+- **OAuth Token Introspection** - RFC 7662 compliant token validation endpoint
+- **Bulk User Operations** - Mass user management capabilities
+- **Enhanced Testing** - Comprehensive test scenarios with auto-validation scripts
+- **Multi-Environment Support** - Pre-configured environments for seamless deployment
 
 ## 🚀 Quick Start
 

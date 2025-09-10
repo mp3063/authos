@@ -40,6 +40,21 @@
       "key": "organizationId",
       "value": "1",
       "description": "Organization ID for testing"
+    },
+    {
+      "key": "invitationToken",
+      "value": "",
+      "description": "Invitation token for testing invitation acceptance"
+    },
+    {
+      "key": "ssoSessionToken",
+      "value": "",
+      "description": "SSO session token for testing SSO flows"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "description": "OAuth refresh token for token refresh flows"
     }
   ],
   "auth": {
@@ -368,6 +383,75 @@
             "description": "Get public keys for JWT token verification"
           },
           "response": []
+        },
+        {
+          "name": "OAuth Token Introspection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "text",
+                  "description": "Access token to introspect"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{clientSecret}}",
+                  "type": "text"
+                },
+                {
+                  "key": "token_type_hint",
+                  "value": "access_token",
+                  "type": "text",
+                  "description": "Hint about token type"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/oauth/introspect",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "introspect"]
+            },
+            "description": "RFC 7662 compliant token introspection for real-time token validation"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains introspection data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('active');",
+                  "    if (responseJson.active) {",
+                  "        pm.expect(responseJson).to.have.property('client_id');",
+                  "        pm.expect(responseJson).to.have.property('scope');",
+                  "        pm.expect(responseJson).to.have.property('exp');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "OpenID Connect Discovery",
@@ -1148,6 +1232,549 @@
             "description": "Get organization usage analytics"
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "Social Authentication",
+      "item": [
+        {
+          "name": "Get Available Social Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/social/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "social", "providers"]
+            },
+            "description": "Retrieve list of configured and enabled social authentication providers"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success field', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('success', true);",
+                  "});",
+                  "",
+                  "pm.test('Response contains providers data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('providers');",
+                  "    pm.expect(responseJson.data).to.have.property('count');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Initiate Social Authentication - Google",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/social/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "social", "google"]
+            },
+            "description": "Get redirect URL for Google social authentication"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains redirect URL', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('redirect_url');",
+                  "    pm.expect(responseJson.data).to.have.property('provider', 'google');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Initiate Social Authentication - GitHub",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/social/github",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "social", "github"]
+            },
+            "description": "Get redirect URL for GitHub social authentication"
+          },
+          "response": []
+        },
+        {
+          "name": "Handle Social Auth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/social/google/callback?code=AUTHORIZATION_CODE&state=STATE_VALUE",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "social", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "AUTHORIZATION_CODE",
+                  "description": "OAuth authorization code from provider"
+                },
+                {
+                  "key": "state",
+                  "value": "STATE_VALUE",
+                  "description": "OAuth state parameter for CSRF protection"
+                }
+              ]
+            },
+            "description": "Process OAuth callback from social provider and return authentication tokens"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains access token', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('access_token');",
+                  "    pm.expect(responseJson.data).to.have.property('user');",
+                  "});",
+                  "",
+                  "// Auto-extract access token",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.data && responseJson.data.access_token) {",
+                  "        pm.collectionVariables.set('accessToken', responseJson.data.access_token);",
+                  "        console.log('Access token extracted from social authentication');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unlink Social Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"provider\": \"google\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/social/unlink",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "social", "unlink"]
+            },
+            "description": "Remove social authentication link from user account"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response indicates success', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('success', true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Organization Management",
+      "item": [
+        {
+          "name": "List Organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations?page=1&per_page=15",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15"
+                }
+              ]
+            },
+            "description": "Get paginated list of organizations"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('data');",
+                  "    pm.expect(responseJson).to.have.property('meta');",
+                  "});",
+                  "",
+                  "// Store first organization ID for other tests",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.data && responseJson.data.length > 0) {",
+                  "        pm.collectionVariables.set('organizationId', responseJson.data[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Organization Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}"]
+            },
+            "description": "Retrieve detailed information about a specific organization"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains organization data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('id');",
+                  "    pm.expect(responseJson.data).to.have.property('name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Organization Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/analytics?period=month",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month",
+                  "description": "Analytics period (day, week, month, year)"
+                }
+              ]
+            },
+            "description": "Retrieve comprehensive analytics and metrics for an organization"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains analytics data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('summary');",
+                  "    pm.expect(responseJson.data).to.have.property('user_growth');",
+                  "    pm.expect(responseJson.data).to.have.property('login_activity');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Organization Invitation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"newuser@example.com\",\n    \"role\": \"user\",\n    \"application_ids\": [1, 2]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{organizationId}}/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{organizationId}}", "invitations"]
+            },
+            "description": "Create a new user invitation for the organization"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response contains invitation data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('id');",
+                  "    pm.expect(responseJson.data).to.have.property('email');",
+                  "    pm.expect(responseJson.data).to.have.property('token');",
+                  "});",
+                  "",
+                  "// Store invitation token for testing",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.data && responseJson.data.token) {",
+                  "        pm.collectionVariables.set('invitationToken', responseJson.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk User Operations",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"operation\": \"assign_role\",\n    \"user_ids\": [1, 2, 3],\n    \"data\": {\n        \"role_name\": \"admin\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "bulk"]
+            },
+            "description": "Perform bulk operations on multiple users (role assignment, status updates, etc.)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains bulk operation results', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('processed');",
+                  "    pm.expect(responseJson.data).to.have.property('successful');",
+                  "    pm.expect(responseJson.data).to.have.property('failed');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SSO (Single Sign-On)",
+      "item": [
+        {
+          "name": "Initiate SSO Flow",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"application_id\": 1,\n    \"sso_configuration_id\": 1,\n    \"redirect_uri\": \"https://app.example.com/sso/callback\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sso/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["sso", "initiate"]
+            },
+            "description": "Start SSO authentication flow for an application"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains SSO flow data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('redirect_url');",
+                  "    pm.expect(responseJson).to.have.property('state');",
+                  "    pm.expect(responseJson).to.have.property('session_token');",
+                  "});",
+                  "",
+                  "// Store SSO session token for other tests",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.session_token) {",
+                  "        pm.collectionVariables.set('ssoSessionToken', responseJson.session_token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate SSO Session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"session_token\": \"{{ssoSessionToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sso/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["sso", "validate"]
+            },
+            "description": "Validate an SSO session token"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains validation result', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('valid');",
+                  "    if (responseJson.valid) {",
+                  "        pm.expect(responseJson).to.have.property('user_id');",
+                  "        pm.expect(responseJson).to.have.property('application_id');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get SSO Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sso/configurations/{{organizationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sso", "configurations", "{{organizationId}}"]
+            },
+            "description": "Retrieve SSO configuration for an organization"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains SSO configuration', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('provider_type');",
+                  "    pm.expect(responseJson.data).to.have.property('settings');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },

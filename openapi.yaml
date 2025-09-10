@@ -277,6 +277,195 @@ paths:
                     type: string
                     example: "Token revoked successfully"
 
+  # Social Authentication Endpoints
+  /auth/social/providers:
+    get:
+      tags:
+        - Social Authentication
+      summary: Get available social providers
+      description: Retrieve list of configured and enabled social authentication providers
+      operationId: getSocialProviders
+      responses:
+        200:
+          description: Social providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      providers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "google"
+                            display_name:
+                              type: string
+                              example: "Google"
+                            enabled:
+                              type: boolean
+                              example: true
+                            icon:
+                              type: string
+                              example: "fab fa-google"
+                      count:
+                        type: integer
+                        example: 3
+        500:
+          $ref: '#/components/responses/ServerError'
+
+  /auth/social/{provider}:
+    get:
+      tags:
+        - Social Authentication
+      summary: Initiate social authentication
+      description: Get redirect URL for social authentication provider
+      operationId: socialAuthRedirect
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, facebook, twitter, linkedin]
+          example: "google"
+      responses:
+        200:
+          description: Social authentication redirect URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      redirect_url:
+                        type: string
+                        format: uri
+                        example: "https://accounts.google.com/oauth/authorize?..."
+                      provider:
+                        type: string
+                        example: "google"
+        400:
+          $ref: '#/components/responses/BadRequestError'
+
+  /auth/social/{provider}/callback:
+    get:
+      tags:
+        - Social Authentication
+      summary: Handle social auth callback
+      description: Process OAuth callback from social provider and return authentication tokens
+      operationId: socialAuthCallback
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, facebook, twitter, linkedin]
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "OAuth authorization code"
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: "OAuth state parameter"
+      responses:
+        200:
+          description: Social authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      access_token:
+                        type: string
+                        example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+                      token_type:
+                        type: string
+                        example: "Bearer"
+                      expires_in:
+                        type: integer
+                        example: 3600
+                      scope:
+                        type: string
+                        example: "openid profile email"
+                      provider:
+                        type: string
+                        example: "google"
+                  message:
+                    type: string
+                    example: "Social authentication successful"
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        500:
+          $ref: '#/components/responses/ServerError'
+
+  /auth/social/unlink:
+    delete:
+      tags:
+        - Social Authentication
+      summary: Unlink social account
+      description: Remove social authentication link from user account
+      operationId: unlinkSocialAccount
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+              properties:
+                provider:
+                  type: string
+                  enum: [google, github, facebook, twitter, linkedin]
+                  example: "google"
+      responses:
+        200:
+          description: Social account unlinked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Social account unlinked successfully"
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
   # OAuth 2.0 Endpoints
   /oauth/authorize:
     get:
@@ -412,6 +601,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserInfo'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /oauth/introspect:
+    post:
+      tags:
+        - OAuth 2.0
+      summary: Token introspection endpoint
+      description: RFC 7662 compliant token introspection for real-time token validation
+      operationId: introspectToken
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - token
+                - client_id
+              properties:
+                token:
+                  type: string
+                  description: "Access token to introspect"
+                  example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+                client_id:
+                  type: string
+                  description: "OAuth client ID"
+                  example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+                client_secret:
+                  type: string
+                  description: "OAuth client secret (for confidential clients)"
+                token_type_hint:
+                  type: string
+                  enum: [access_token, refresh_token]
+                  description: "Hint about token type"
+      responses:
+        200:
+          description: Token introspection response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    type: boolean
+                    description: "Whether the token is active and valid"
+                    example: true
+                  client_id:
+                    type: string
+                    description: "Client ID the token was issued for"
+                    example: "9c2b8a1e-4f5d-4a7b-8c9d-1e2f3g4h5i6j"
+                  username:
+                    type: string
+                    description: "Username of the token owner"
+                    example: "john@example.com"
+                  scope:
+                    type: string
+                    description: "Space-separated list of scopes"
+                    example: "openid profile email"
+                  exp:
+                    type: integer
+                    description: "Token expiration timestamp"
+                    example: 1693012800
+                  iat:
+                    type: integer
+                    description: "Token issued at timestamp"
+                    example: 1693009200
+                  sub:
+                    type: string
+                    description: "Subject identifier (user ID)"
+                    example: "1"
+                  aud:
+                    type: string
+                    description: "Intended audience"
+                    example: "api.authos.dev"
+        400:
+          $ref: '#/components/responses/BadRequestError'
         401:
           $ref: '#/components/responses/UnauthorizedError'
 
@@ -843,6 +1109,289 @@ paths:
                   message:
                     type: string
                     example: "Application access revoked successfully"
+
+  /users/bulk:
+    patch:
+      tags:
+        - User Management
+      summary: Bulk user operations
+      description: Perform bulk operations on multiple users (role assignment, status updates, etc.)
+      operationId: bulkUserOperations
+      security:
+        - bearerAuth: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - operation
+                - user_ids
+              properties:
+                operation:
+                  type: string
+                  enum: [assign_role, remove_role, activate, deactivate, grant_application_access, revoke_application_access]
+                  example: "assign_role"
+                user_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+                data:
+                  type: object
+                  description: "Operation-specific data (e.g., role_name for role operations)"
+                  example: {"role_name": "admin"}
+      responses:
+        200:
+          description: Bulk operation completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      processed:
+                        type: integer
+                        example: 3
+                      successful:
+                        type: integer
+                        example: 2
+                      failed:
+                        type: integer
+                        example: 1
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user_id:
+                              type: integer
+                            error:
+                              type: string
+                  message:
+                    type: string
+                    example: "Bulk operation completed"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        422:
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{id}/roles:
+    get:
+      tags:
+        - User Management
+      summary: Get user roles
+      description: List all roles assigned to a specific user
+      operationId: getUserRoles
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: User roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                          example: "admin"
+                        display_name:
+                          type: string
+                          example: "Administrator"
+                        permissions:
+                          type: array
+                          items:
+                            type: string
+                          example: ["users.read", "users.write"]
+
+    post:
+      tags:
+        - User Management
+      summary: Assign role to user
+      description: Assign a specific role to a user
+      operationId: assignUserRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role_name
+              properties:
+                role_name:
+                  type: string
+                  example: "admin"
+      responses:
+        201:
+          description: Role assigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Role assigned successfully"
+
+  /users/{id}/roles/{roleId}:
+    delete:
+      tags:
+        - User Management
+      summary: Remove role from user
+      description: Remove a specific role from a user
+      operationId: removeUserRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Role removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Role removed successfully"
+
+  /users/{id}/sessions:
+    get:
+      tags:
+        - User Management
+      summary: Get user sessions
+      description: List all active sessions for a specific user
+      operationId: getUserSessions
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: User sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        ip_address:
+                          type: string
+                          example: "192.168.1.1"
+                        user_agent:
+                          type: string
+                          example: "Mozilla/5.0..."
+                        last_activity:
+                          type: string
+                          format: date-time
+                        created_at:
+                          type: string
+                          format: date-time
+
+    delete:
+      tags:
+        - User Management
+      summary: Revoke all user sessions
+      description: Revoke all active sessions for a specific user
+      operationId: revokeAllUserSessions
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        200:
+          description: All sessions revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "All sessions revoked successfully"
+
+  /users/{id}/sessions/{sessionId}:
+    delete:
+      tags:
+        - User Management
+      summary: Revoke specific user session
+      description: Revoke a specific session for a user
+      operationId: revokeUserSession
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "abc123"
+      responses:
+        200:
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Session revoked successfully"
 
   # Application Management Endpoints
   /applications:
@@ -1343,6 +1892,1593 @@ paths:
                     type: string
                     example: "Organization created successfully"
 
+  /organizations/{id}:
+    get:
+      tags:
+        - Organization Management
+      summary: Get organization details
+      description: Retrieve detailed information about a specific organization
+      operationId: getOrganization
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Organization details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/OrganizationDetail'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Organization Management
+      summary: Update organization
+      description: Update organization information and settings
+      operationId: updateOrganization
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "TechCorp Solutions Updated"
+                settings:
+                  type: object
+                  properties:
+                    require_mfa:
+                      type: boolean
+                    session_timeout:
+                      type: integer
+                    password_policy:
+                      type: object
+                is_active:
+                  type: boolean
+      responses:
+        200:
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    example: "Organization updated successfully"
+
+    delete:
+      tags:
+        - Organization Management
+      summary: Delete organization
+      description: Delete an organization and all associated data
+      operationId: deleteOrganization
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Organization deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Organization deleted successfully"
+
+  /organizations/{id}/settings:
+    get:
+      tags:
+        - Organization Management
+      summary: Get organization settings
+      description: Retrieve organization-specific settings and policies
+      operationId: getOrganizationSettings
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Organization settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      require_mfa:
+                        type: boolean
+                        example: false
+                      session_timeout:
+                        type: integer
+                        example: 1440
+                      password_policy:
+                        type: object
+                      security_level:
+                        type: string
+                        enum: [low, medium, high]
+                        example: "medium"
+
+    put:
+      tags:
+        - Organization Management
+      summary: Update organization settings
+      description: Update organization settings and security policies
+      operationId: updateOrganizationSettings
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                require_mfa:
+                  type: boolean
+                session_timeout:
+                  type: integer
+                  minimum: 60
+                  maximum: 10080
+                password_policy:
+                  type: object
+                  properties:
+                    min_length:
+                      type: integer
+                      minimum: 8
+                      maximum: 128
+                    require_uppercase:
+                      type: boolean
+                    require_lowercase:
+                      type: boolean
+                    require_numbers:
+                      type: boolean
+                    require_symbols:
+                      type: boolean
+                security_level:
+                  type: string
+                  enum: [low, medium, high]
+                allow_registration:
+                  type: boolean
+      responses:
+        200:
+          description: Organization settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Organization settings updated successfully"
+
+  /organizations/{id}/users:
+    get:
+      tags:
+        - Organization Management
+      summary: Get organization users
+      description: List all users associated with an organization
+      operationId: getOrganizationUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        200:
+          description: Organization users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+
+    post:
+      tags:
+        - Organization Management
+      summary: Grant user access to organization
+      description: Grant a user access to organization applications
+      operationId: grantOrganizationUserAccess
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - application_id
+              properties:
+                user_id:
+                  type: integer
+                  example: 1
+                application_id:
+                  type: integer
+                  example: 1
+                metadata:
+                  type: object
+                  description: "Additional metadata for the access grant"
+      responses:
+        201:
+          description: User access granted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "User access granted successfully"
+
+  /organizations/{id}/users/{userId}/applications/{applicationId}:
+    delete:
+      tags:
+        - Organization Management
+      summary: Revoke user access
+      description: Revoke user access to organization application
+      operationId: revokeOrganizationUserAccess
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: User access revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "User access revoked successfully"
+
+  /organizations/{id}/applications:
+    get:
+      tags:
+        - Organization Management
+      summary: Get organization applications
+      description: List all applications belonging to an organization
+      operationId: getOrganizationApplications
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        200:
+          description: Organization applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+
+  /organizations/{id}/analytics:
+    get:
+      tags:
+        - Organization Management
+      summary: Get organization analytics
+      description: Retrieve comprehensive analytics and metrics for an organization
+      operationId: getOrganizationAnalytics
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+          description: "Analytics period"
+      responses:
+        200:
+          description: Organization analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      summary:
+                        type: object
+                        properties:
+                          total_users:
+                            type: integer
+                            example: 150
+                          active_users:
+                            type: integer
+                            example: 120
+                          total_applications:
+                            type: integer
+                            example: 5
+                          total_logins:
+                            type: integer
+                            example: 2500
+                      user_growth:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            count:
+                              type: integer
+                      login_activity:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            logins:
+                              type: integer
+                      top_applications:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            usage_count:
+                              type: integer
+                      security_events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                            count:
+                              type: integer
+
+  /organizations/{id}/metrics/users:
+    get:
+      tags:
+        - Organization Management
+      summary: Get user metrics
+      description: Retrieve detailed user metrics for an organization
+      operationId: getOrganizationUserMetrics
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: User metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      total_users:
+                        type: integer
+                      active_users:
+                        type: integer
+                      inactive_users:
+                        type: integer
+                      mfa_enabled_users:
+                        type: integer
+                      role_distribution:
+                        type: object
+
+  /organizations/{id}/metrics/applications:
+    get:
+      tags:
+        - Organization Management
+      summary: Get application metrics
+      description: Retrieve detailed application usage metrics for an organization
+      operationId: getOrganizationApplicationMetrics
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Application metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      total_applications:
+                        type: integer
+                      active_applications:
+                        type: integer
+                      total_tokens_issued:
+                        type: integer
+                      usage_by_application:
+                        type: array
+                        items:
+                          type: object
+
+  /organizations/{id}/metrics/security:
+    get:
+      tags:
+        - Organization Management
+      summary: Get security metrics
+      description: Retrieve security-related metrics and events for an organization
+      operationId: getOrganizationSecurityMetrics
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Security metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      failed_login_attempts:
+                        type: integer
+                      successful_logins:
+                        type: integer
+                      mfa_usage:
+                        type: integer
+                      security_events:
+                        type: array
+                        items:
+                          type: object
+
+  /organizations/{id}/export:
+    post:
+      tags:
+        - Organization Management
+      summary: Export organization data
+      description: Export organization data in various formats
+      operationId: exportOrganizationData
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - format
+              properties:
+                format:
+                  type: string
+                  enum: [csv, json, xlsx]
+                  example: "csv"
+                data_types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [users, applications, analytics, security_logs]
+                  example: ["users", "applications"]
+                date_range:
+                  type: object
+                  properties:
+                    start:
+                      type: string
+                      format: date
+                    end:
+                      type: string
+                      format: date
+      responses:
+        200:
+          description: Export initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      export_id:
+                        type: string
+                        example: "exp_123456"
+                      download_url:
+                        type: string
+                        format: uri
+                        example: "https://api.authos.dev/exports/exp_123456.csv"
+                      expires_at:
+                        type: string
+                        format: date-time
+                  message:
+                    type: string
+                    example: "Export completed successfully"
+
+  # Invitation Management
+  /organizations/{id}/invitations:
+    get:
+      tags:
+        - Organization Management
+      summary: List organization invitations
+      description: Get paginated list of pending invitations for an organization
+      operationId: listOrganizationInvitations
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, expired]
+          description: "Filter invitations by status"
+      responses:
+        200:
+          description: Invitations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invitation'
+
+    post:
+      tags:
+        - Organization Management
+      summary: Create invitation
+      description: Create a new user invitation for the organization
+      operationId: createOrganizationInvitation
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "newuser@example.com"
+                role:
+                  type: string
+                  example: "user"
+                application_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2]
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: "Invitation expiration (defaults to 7 days)"
+      responses:
+        201:
+          description: Invitation created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    example: "Invitation created successfully"
+
+  /organizations/{id}/invitations/{invitationId}:
+    delete:
+      tags:
+        - Organization Management
+      summary: Delete invitation
+      description: Cancel a pending invitation
+      operationId: deleteOrganizationInvitation
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Invitation deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Invitation deleted successfully"
+
+  /organizations/{id}/invitations/{invitationId}/resend:
+    post:
+      tags:
+        - Organization Management
+      summary: Resend invitation
+      description: Resend a pending invitation email
+      operationId: resendOrganizationInvitation
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Invitation resent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Invitation resent successfully"
+
+  /organizations/{id}/invitations/bulk:
+    post:
+      tags:
+        - Organization Management
+      summary: Bulk invite users
+      description: Create multiple invitations at once
+      operationId: bulkInviteUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - invitations
+              properties:
+                invitations:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - email
+                    properties:
+                      email:
+                        type: string
+                        format: email
+                      role:
+                        type: string
+                      application_ids:
+                        type: array
+                        items:
+                          type: integer
+                  example:
+                    - email: "user1@example.com"
+                      role: "user"
+                      application_ids: [1]
+                    - email: "user2@example.com"
+                      role: "admin"
+                      application_ids: [1, 2]
+      responses:
+        200:
+          description: Bulk invitations processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 2
+                      successful:
+                        type: integer
+                        example: 2
+                      failed:
+                        type: integer
+                        example: 0
+                      invitations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    example: "Bulk invitations processed successfully"
+
+  # Bulk Operations for Organizations
+  /organizations/{id}/bulk/invite-users:
+    post:
+      tags:
+        - Organization Management
+      summary: Bulk invite users to organization
+      description: Send invitations to multiple users for organization access
+      operationId: bulkInviteOrganizationUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - emails
+              properties:
+                emails:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                  example: ["user1@example.com", "user2@example.com"]
+                role:
+                  type: string
+                  example: "user"
+                application_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2]
+      responses:
+        200:
+          description: Bulk invitations sent successfully
+
+  /organizations/{id}/bulk/assign-roles:
+    post:
+      tags:
+        - Organization Management
+      summary: Bulk assign roles to users
+      description: Assign roles to multiple users within an organization
+      operationId: bulkAssignOrganizationRoles
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_ids
+                - role_name
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+                role_name:
+                  type: string
+                  example: "admin"
+      responses:
+        200:
+          description: Roles assigned successfully
+
+  /organizations/{id}/bulk/revoke-access:
+    post:
+      tags:
+        - Organization Management
+      summary: Bulk revoke access
+      description: Revoke application access for multiple users
+      operationId: bulkRevokeOrganizationAccess
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_ids
+                - application_id
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+                application_id:
+                  type: integer
+                  example: 1
+      responses:
+        200:
+          description: Access revoked successfully
+
+  /organizations/{id}/bulk/export-users:
+    post:
+      tags:
+        - Organization Management
+      summary: Export organization users
+      description: Export user data for an organization in various formats
+      operationId: exportOrganizationUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - format
+              properties:
+                format:
+                  type: string
+                  enum: [csv, json, xlsx]
+                  example: "csv"
+                include_fields:
+                  type: array
+                  items:
+                    type: string
+                  example: ["name", "email", "roles", "last_login"]
+      responses:
+        200:
+          description: Export completed successfully
+
+  /organizations/{id}/bulk/import-users:
+    post:
+      tags:
+        - Organization Management
+      summary: Import organization users
+      description: Import multiple users from file upload
+      operationId: importOrganizationUsers
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "CSV or Excel file with user data"
+                role:
+                  type: string
+                  example: "user"
+                  description: "Default role for imported users"
+                send_invitations:
+                  type: boolean
+                  example: true
+                  description: "Whether to send invitation emails"
+      responses:
+        200:
+          description: Import completed successfully
+
+  # Custom Roles Management for Organizations
+  /organizations/{id}/custom-roles:
+    get:
+      tags:
+        - Organization Management
+      summary: List custom roles
+      description: Get organization-specific custom roles
+      operationId: listOrganizationCustomRoles
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Custom roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomRole'
+
+    post:
+      tags:
+        - Organization Management
+      summary: Create custom role
+      description: Create a new custom role for the organization
+      operationId: createOrganizationCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - permissions
+              properties:
+                name:
+                  type: string
+                  example: "Application Manager"
+                display_name:
+                  type: string
+                  example: "Application Manager"
+                description:
+                  type: string
+                  example: "Manages organization applications"
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                  example: ["applications.read", "applications.write"]
+      responses:
+        201:
+          description: Custom role created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CustomRole'
+                  message:
+                    type: string
+                    example: "Custom role created successfully"
+
+  /organizations/{id}/custom-roles/{roleId}:
+    get:
+      tags:
+        - Organization Management
+      summary: Get custom role details
+      description: Retrieve detailed information about a custom role
+      operationId: getOrganizationCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Custom role details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CustomRole'
+
+    put:
+      tags:
+        - Organization Management
+      summary: Update custom role
+      description: Update a custom role's permissions and details
+      operationId: updateOrganizationCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                permissions:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        200:
+          description: Custom role updated successfully
+
+    delete:
+      tags:
+        - Organization Management
+      summary: Delete custom role
+      description: Delete a custom role from the organization
+      operationId: deleteOrganizationCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        200:
+          description: Custom role deleted successfully
+
+  /organizations/{id}/custom-roles/{roleId}/assign-users:
+    post:
+      tags:
+        - Organization Management
+      summary: Assign users to custom role
+      description: Assign multiple users to a custom role
+      operationId: assignUsersToCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_ids
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+      responses:
+        200:
+          description: Users assigned to role successfully
+
+  /organizations/{id}/custom-roles/{roleId}/remove-users:
+    post:
+      tags:
+        - Organization Management
+      summary: Remove users from custom role
+      description: Remove multiple users from a custom role
+      operationId: removeUsersFromCustomRole
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_ids
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+      responses:
+        200:
+          description: Users removed from role successfully
+
+  # Organization Reports
+  /organizations/{id}/reports/user-activity:
+    get:
+      tags:
+        - Organization Management
+      summary: Get user activity report
+      description: Generate detailed user activity report for the organization
+      operationId: getOrganizationUserActivityReport
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+            default: json
+      responses:
+        200:
+          description: User activity report generated successfully
+
+  /organizations/{id}/reports/application-usage:
+    get:
+      tags:
+        - Organization Management
+      summary: Get application usage report
+      description: Generate application usage statistics report
+      operationId: getOrganizationApplicationUsageReport
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Application usage report generated successfully
+
+  /organizations/{id}/reports/security-audit:
+    get:
+      tags:
+        - Organization Management
+      summary: Get security audit report
+      description: Generate comprehensive security audit report
+      operationId: getOrganizationSecurityAuditReport
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Security audit report generated successfully
+
+  # Public Invitation Endpoints
+  /invitations/{token}:
+    get:
+      tags:
+        - Invitations
+      summary: View invitation details
+      description: View invitation details using invitation token (public endpoint)
+      operationId: viewInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "abc123def456"
+      responses:
+        200:
+          description: Invitation details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/InvitationDetail'
+        404:
+          $ref: '#/components/responses/NotFoundError'
+
+  /invitations/{token}/accept:
+    post:
+      tags:
+        - Invitations
+      summary: Accept invitation
+      description: Accept an invitation and complete user registration
+      operationId: acceptInvitation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "abc123def456"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - password
+                - password_confirmation
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "StrongP@ss123"
+                password_confirmation:
+                  type: string
+                  example: "StrongP@ss123"
+                profile:
+                  type: object
+                  description: "Optional profile information"
+      responses:
+        200:
+          description: Invitation accepted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      access_token:
+                        type: string
+                      token_type:
+                        type: string
+                        example: "Bearer"
+                      expires_in:
+                        type: integer
+                        example: 3600
+                  message:
+                    type: string
+                    example: "Invitation accepted successfully"
+
   # Version Information
   /api/version:
     get:
@@ -1374,6 +3510,65 @@ paths:
                   environment:
                     type: string
                     example: "production"
+
+  # SSO (Single Sign-On) API Endpoints
+  /sso/initiate:
+    post:
+      tags:
+        - SSO (Single Sign-On)
+      summary: Initiate SSO flow
+      description: Start SSO authentication flow for an application
+      operationId: initiateSSOFlow
+      security:
+        - bearerAuth: [sso]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - application_id
+                - sso_configuration_id
+                - redirect_uri
+              properties:
+                application_id:
+                  type: integer
+                  example: 1
+                sso_configuration_id:
+                  type: integer
+                  example: 1
+                redirect_uri:
+                  type: string
+                  format: uri
+                  example: "https://app.example.com/sso/callback"
+      responses:
+        200:
+          description: SSO flow initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url:
+                    type: string
+                    format: uri
+                    example: "https://sso.provider.com/auth?state=xyz123"
+                  state:
+                    type: string
+                    example: "xyz123"
+                  session_token:
+                    type: string
+                    example: "sso_session_abc123"
+                  expires_at:
+                    type: string
+                    format: date-time
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        422:
+          $ref: '#/components/responses/ValidationError'
 
 components:
   schemas:
@@ -1773,6 +3968,306 @@ components:
             email: ["The email field is required."]
             password: ["The password must be at least 8 characters."]
 
+    # Missing Schemas
+    OrganizationDetail:
+      allOf:
+        - $ref: '#/components/schemas/Organization'
+        - type: object
+          properties:
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+            settings_detail:
+              type: object
+              properties:
+                security_level:
+                  type: string
+                  enum: [low, medium, high]
+                password_policy:
+                  type: object
+                  properties:
+                    min_length:
+                      type: integer
+                    require_uppercase:
+                      type: boolean
+                    require_lowercase:
+                      type: boolean
+                    require_numbers:
+                      type: boolean
+                    require_symbols:
+                      type: boolean
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: "newuser@example.com"
+        organization_id:
+          type: integer
+          example: 1
+        organization:
+          $ref: '#/components/schemas/Organization'
+        role:
+          type: string
+          example: "user"
+        status:
+          type: string
+          enum: [pending, accepted, expired]
+          example: "pending"
+        token:
+          type: string
+          example: "abc123def456"
+        invited_by:
+          $ref: '#/components/schemas/User'
+        expires_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+        application_ids:
+          type: array
+          items:
+            type: integer
+          example: [1, 2]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InvitationDetail:
+      allOf:
+        - $ref: '#/components/schemas/Invitation'
+        - type: object
+          properties:
+            applications:
+              type: array
+              items:
+                $ref: '#/components/schemas/Application'
+            permissions:
+              type: array
+              items:
+                type: string
+              example: ["users.read", "applications.read"]
+
+    CustomRole:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "application_manager"
+        display_name:
+          type: string
+          example: "Application Manager"
+        description:
+          type: string
+          example: "Manages organization applications"
+        organization_id:
+          type: integer
+          example: 1
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["applications.read", "applications.write"]
+        users_count:
+          type: integer
+          description: "Number of users with this role"
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SSOSession:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "sso_session_abc123"
+        user_id:
+          type: integer
+          example: 1
+        application_id:
+          type: integer
+          example: 1
+        session_token:
+          type: string
+          example: "sso_session_abc123"
+        expires_at:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          example: "Mozilla/5.0..."
+        last_activity:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    SSOConfiguration:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        organization_id:
+          type: integer
+          example: 1
+        application_id:
+          type: integer
+          example: 1
+        provider_type:
+          type: string
+          enum: [saml, oauth2, oidc]
+          example: "oidc"
+        provider_name:
+          type: string
+          example: "Google SSO"
+        settings:
+          type: object
+          properties:
+            client_id:
+              type: string
+              example: "google_client_id"
+            client_secret:
+              type: string
+              example: "google_client_secret"
+            redirect_uri:
+              type: string
+              format: uri
+              example: "https://app.example.com/sso/callback"
+            scopes:
+              type: array
+              items:
+                type: string
+              example: ["openid", "profile", "email"]
+            metadata_url:
+              type: string
+              format: uri
+              example: "https://accounts.google.com/.well-known/openid-configuration"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SSOConfigurationCreate:
+      type: object
+      required:
+        - organization_id
+        - application_id
+        - provider_type
+        - provider_name
+        - settings
+      properties:
+        organization_id:
+          type: integer
+          example: 1
+        application_id:
+          type: integer
+          example: 1
+        provider_type:
+          type: string
+          enum: [saml, oauth2, oidc]
+          example: "oidc"
+        provider_name:
+          type: string
+          example: "Google SSO"
+        settings:
+          type: object
+          required:
+            - client_id
+            - redirect_uri
+          properties:
+            client_id:
+              type: string
+              example: "google_client_id"
+            client_secret:
+              type: string
+              example: "google_client_secret"
+            redirect_uri:
+              type: string
+              format: uri
+              example: "https://app.example.com/sso/callback"
+            scopes:
+              type: array
+              items:
+                type: string
+              example: ["openid", "profile", "email"]
+            metadata_url:
+              type: string
+              format: uri
+              example: "https://accounts.google.com/.well-known/openid-configuration"
+
+    SSOConfigurationUpdate:
+      type: object
+      properties:
+        provider_name:
+          type: string
+          example: "Updated Google SSO"
+        settings:
+          type: object
+          properties:
+            client_id:
+              type: string
+            client_secret:
+              type: string
+            redirect_uri:
+              type: string
+              format: uri
+            scopes:
+              type: array
+              items:
+                type: string
+            metadata_url:
+              type: string
+              format: uri
+        is_active:
+          type: boolean
+
+    ServerError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Internal server error"
+            code:
+              type: string
+              example: "server_error"
+        message:
+          type: string
+          example: "An unexpected error occurred"
+
   parameters:
     UserId:
       name: id
@@ -1812,6 +4307,13 @@ components:
         default: 15
 
   responses:
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ServerError'
+
     UnauthorizedError:
       description: "Authentication required"
       content:
@@ -1963,10 +4465,22 @@ tags:
     description: "User profile and preference management endpoints"
   - name: MFA Management
     description: "Multi-factor authentication setup and management endpoints"
+  - name: Social Authentication
+    description: "Social authentication endpoints for OAuth providers (Google, GitHub, Facebook, etc.)"
   - name: Organization Management
     description: "Administrative endpoints for organization management (requires admin permissions)"
+  - name: SSO (Single Sign-On)
+    description: "Single Sign-On configuration and session management endpoints"
+  - name: Invitations
+    description: "User invitation management endpoints"
   - name: System Information
     description: "System and API version information endpoints"
+  - name: Monitoring
+    description: "System monitoring and metrics endpoints (admin only)"
+  - name: Cache Management
+    description: "Cache management and statistics endpoints (admin only)"
+  - name: Configuration
+    description: "Global configuration and settings endpoints"
 
 externalDocs:
   description: "AuthOS Documentation"
