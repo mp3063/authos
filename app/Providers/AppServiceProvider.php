@@ -31,6 +31,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(OrganizationRepositoryInterface::class, OrganizationRepository::class);
         $this->app->bind(ApplicationRepositoryInterface::class, ApplicationRepository::class);
+
+        // Performance optimization services
+        $this->app->singleton(\App\Services\Database\OptimizedQueryService::class);
+        $this->app->singleton(\App\Services\Database\UserQueryService::class);
+        $this->app->singleton(\App\Services\Database\AnalyticsQueryService::class);
+        $this->app->singleton(\App\Services\PerformanceMonitoringService::class);
     }
 
     /**
