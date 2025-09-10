@@ -10,57 +10,61 @@ use Symfony\Component\HttpFoundation\Response;
 class ApiRateLimiter
 {
     /**
-     * Rate limiting configurations for different endpoint categories
+     * Get rate limiting configurations for different endpoint categories
      */
-    protected array $rateLimits = [
-        'authentication' => [
-            'limit' => 10,
-            'window' => 60, // 1 minute
-            'by' => 'ip',
-        ],
-        'registration' => [
-            'limit' => 5,
-            'window' => 3600, // 1 hour
-            'by' => 'ip',
-        ],
-        'password_reset' => [
-            'limit' => 3,
-            'window' => 3600, // 1 hour
-            'by' => 'ip',
-        ],
-        'api_standard' => [
-            'limit' => 1000,
-            'window' => 3600, // 1 hour
-            'by' => 'user',
-        ],
-        'api_bulk' => [
-            'limit' => 100,
-            'window' => 3600, // 1 hour
-            'by' => 'user',
-        ],
-        'api_admin' => [
-            'limit' => 200,
-            'window' => 3600, // 1 hour
-            'by' => 'user',
-        ],
-        'mfa' => [
-            'limit' => 20,
-            'window' => 3600, // 1 hour
-            'by' => 'user',
-        ],
-        'oauth' => [
-            'limit' => 20,
-            'window' => 60, // 1 minute
-            'by' => 'ip',
-        ],
-    ];
+    protected function getRateLimits(): array
+    {
+        return [
+            'authentication' => [
+                'limit' => 10,
+                'window' => 60, // 1 minute
+                'by' => 'ip',
+            ],
+            'registration' => [
+                'limit' => config('app.debug', false) ? 100 : 5, // Higher limit in debug mode
+                'window' => config('app.debug', false) ? 60 : 3600, // 1 minute in debug, 1 hour in production
+                'by' => 'ip',
+            ],
+            'password_reset' => [
+                'limit' => 3,
+                'window' => 3600, // 1 hour
+                'by' => 'ip',
+            ],
+            'api_standard' => [
+                'limit' => 1000,
+                'window' => 3600, // 1 hour
+                'by' => 'user',
+            ],
+            'api_bulk' => [
+                'limit' => 100,
+                'window' => 3600, // 1 hour
+                'by' => 'user',
+            ],
+            'api_admin' => [
+                'limit' => 200,
+                'window' => 3600, // 1 hour
+                'by' => 'user',
+            ],
+            'mfa' => [
+                'limit' => 20,
+                'window' => 3600, // 1 hour
+                'by' => 'user',
+            ],
+            'oauth' => [
+                'limit' => 20,
+                'window' => 60, // 1 minute
+                'by' => 'ip',
+            ],
+        ];
+    }
 
     /**
      * Handle an incoming request
      */
     public function handle(Request $request, Closure $next, string $category = 'api_standard'): Response
     {
-        $config = $this->rateLimits[$category] ?? $this->rateLimits['api_standard'];
+        $rateLimits = $this->getRateLimits();
+        $config = $rateLimits[$category] ?? $rateLimits['api_standard'];
 
         $key = $this->generateKey($request, $config['by'], $category);
         $limit = $this->getLimit($request, $config);
@@ -178,7 +182,8 @@ class ApiRateLimiter
     public static function getStatus(Request $request, string $category = 'api_standard'): array
     {
         $middleware = new self;
-        $config = $middleware->rateLimits[$category] ?? $middleware->rateLimits['api_standard'];
+        $rateLimits = $middleware->getRateLimits();
+        $config = $rateLimits[$category] ?? $rateLimits['api_standard'];
 
         $key = $middleware->generateKey($request, $config['by'], $category);
         $limit = $middleware->getLimit($request, $config);

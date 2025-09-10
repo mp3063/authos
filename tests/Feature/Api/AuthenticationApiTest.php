@@ -23,7 +23,9 @@ class AuthenticationApiTest extends TestCase
 
         $this->organization = Organization::factory()->create();
 
-        // Create required roles
+        // Create required roles for API guard
+        Role::create(['name' => 'User', 'guard_name' => 'api']);
+        Role::create(['name' => 'Super Admin', 'guard_name' => 'api']);
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'super admin', 'guard_name' => 'web']);
     }
@@ -71,7 +73,7 @@ class AuthenticationApiTest extends TestCase
 
         // Verify user has default role
         $user = User::where('email', 'john@example.com')->first();
-        $this->assertTrue($user->hasRole('user'));
+        $this->assertTrue($user->hasRole('User'));
 
         // Verify authentication log
         $this->assertDatabaseHas('authentication_logs', [

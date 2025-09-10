@@ -33,6 +33,14 @@ herd php artisan passport:keys             # Generate OAuth keys
 herd php artisan test                      # Full test suite (307 total: 306 pass, 1 skip)
 herd php artisan test tests/Unit/          # Unit tests (all passing)
 herd php artisan test --stop-on-failure    # Debug mode
+
+# Code Coverage Analysis
+herd coverage ./vendor/bin/phpunit                                      # Basic coverage with Herd
+herd coverage ./vendor/bin/phpunit --coverage-text                      # Coverage with text output
+herd coverage ./vendor/bin/phpunit tests/Unit --coverage-text           # Unit tests coverage only
+
+# PhpStorm Coverage Command (with Xdebug)
+"/Users/sin/Library/Application Support/Herd/bin/php84" -dzend_extension=/Applications/Herd.app/Contents/Resources/xdebug/xdebug-84-arm64.so -dxdebug.mode=coverage -d memory_limit=1G ./vendor/bin/phpunit --coverage-text
 ```
 
 ## Core Architecture
@@ -232,8 +240,28 @@ RATE_LIMIT_AUTH=10
 15. **API response sanitization**: Production-grade security ✅ (Sensitive data protection middleware)
 16. **API response format inconsistency**: Fixed in Phase 9 ✅ (Complete unified response format across all endpoints)
 
+## Test Coverage Status ✅ ANALYZED
+
+### Current Coverage Metrics (Unit Tests Only)
+- **Lines Coverage**: **11.06%** (1,604/14,500 lines)
+- **Methods Coverage**: **15.15%** (152/1,003 methods)  
+- **Total Tests**: 307 (306 passing, 1 skipped)
+- **Total Assertions**: 1,722 assertions
+
+### Coverage Analysis Summary
+- **High Coverage (80%+)**: SSOSession (90%), ApplicationGroup (96%), SocialAuthService (89%)
+- **Medium Coverage (50-80%)**: OrganizationReportingService (84%), InvitationService (70%)
+- **Low Coverage (<50%)**: User Model (31%), Controllers/APIs (varies), Filament Resources (2-9%)
+
+### Next Steps
+- See `.claude/test-coverage-improvement-plan.md` for detailed improvement strategy
+- Target: 75% coverage with ~223 new tests across 4 phases
+- Priority: ProfileController, InvitationController, ApplicationController (0% coverage)
+
 ## Important Notes
 - use specialized subagents when you see fit!
 - Don't use --verbose flag uppon testing because you will get error "Unknown option "--verbose""
 - instead of running php commands for example php artisan test please run them with herd prefix like "herd php artisan test" because php versions mismatch
 - we don't have production so we don't need backward compatibility code!!! don't create any!!!
+- when you run test coverage you use this command "herd coverage ./vendor/bin/phpunit"
+- For PhpStorm coverage with Xdebug, increase memory limit to avoid exhaustion: `-d memory_limit=1G`

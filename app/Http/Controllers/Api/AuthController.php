@@ -62,8 +62,20 @@ class AuthController extends Controller
             'email_verified_at' => null, // Will be verified later
         ]);
 
-        // Assign default user role
-        $user->assignRole('user');
+        // Assign default user role for API guard
+        try {
+            // Set the guard context for role assignment
+            $user->guard_name = 'api';
+            $user->assignRole('User');
+        } catch (\Exception $e) {
+            // Fallback: try to find role by direct query
+            $userRole = \Spatie\Permission\Models\Role::where('name', 'User')
+                ->where('guard_name', 'api')
+                ->first();
+            if ($userRole) {
+                $user->roles()->attach($userRole->id);
+            }
+        }
 
         // Log registration event
         $this->oAuthService->logAuthenticationEvent(
