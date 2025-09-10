@@ -11,7 +11,7 @@ class BulkInviteUsersRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->can('organization.manage_invitations');
+        return auth()->check() && auth()->user()->can('users.create');
     }
 
     /**

@@ -2,13 +2,17 @@
 
 use App\Http\Controllers\Api\ApplicationController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\BulkOperationsController;
+use App\Http\Controllers\Api\Bulk\BulkAccessController;
+use App\Http\Controllers\Api\Bulk\BulkDataController;
+use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OpenIdController;
-use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\OrganizationReportController;
+use App\Http\Controllers\Api\Organizations\OrganizationAnalyticsController;
+use App\Http\Controllers\Api\Organizations\OrganizationCrudController;
+use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\UserController;
@@ -163,26 +167,29 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // Organization Management API
     Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('organizations')->group(function () {
-        Route::get('/', [OrganizationController::class, 'index'])->middleware('api.cache:300');
-        Route::post('/', [OrganizationController::class, 'store']);
-        Route::get('/{id}', [OrganizationController::class, 'show'])->middleware('api.cache:600');
-        Route::put('/{id}', [OrganizationController::class, 'update']);
-        Route::delete('/{id}', [OrganizationController::class, 'destroy']);
+        // Basic CRUD operations
+        Route::get('/', [OrganizationCrudController::class, 'index'])->middleware('api.cache:300');
+        Route::post('/', [OrganizationCrudController::class, 'store']);
+        Route::get('/{id}', [OrganizationCrudController::class, 'show'])->middleware('api.cache:600');
+        Route::put('/{id}', [OrganizationCrudController::class, 'update']);
+        Route::delete('/{id}', [OrganizationCrudController::class, 'destroy']);
 
         // Organization settings
-        Route::get('/{id}/settings', [OrganizationController::class, 'settings']);
-        Route::put('/{id}/settings', [OrganizationController::class, 'updateSettings']);
+        Route::get('/{id}/settings', [OrganizationCrudController::class, 'settings']);
+        Route::put('/{id}/settings', [OrganizationCrudController::class, 'updateSettings']);
 
-        // Organization users
-        Route::get('/{id}/users', [OrganizationController::class, 'users']);
-        Route::post('/{id}/users', [OrganizationController::class, 'grantUserAccess']);
-        Route::delete('/{id}/users/{userId}/applications/{applicationId}', [OrganizationController::class, 'revokeUserAccess']);
+        // Organization users and applications
+        Route::get('/{id}/users', [OrganizationUsersController::class, 'users']);
+        Route::post('/{id}/users', [OrganizationUsersController::class, 'grantUserAccess']);
+        Route::delete('/{id}/users/{userId}/applications/{applicationId}', [OrganizationUsersController::class, 'revokeUserAccess']);
+        Route::get('/{id}/applications', [OrganizationUsersController::class, 'applications']);
 
-        // Organization applications
-        Route::get('/{id}/applications', [OrganizationController::class, 'applications']);
-
-        // Organization analytics
-        Route::get('/{id}/analytics', [OrganizationController::class, 'analytics']);
+        // Organization analytics and metrics
+        Route::get('/{id}/analytics', [OrganizationAnalyticsController::class, 'analytics'])->middleware('api.cache:300');
+        Route::get('/{id}/metrics/users', [OrganizationAnalyticsController::class, 'userMetrics'])->middleware('api.cache:300');
+        Route::get('/{id}/metrics/applications', [OrganizationAnalyticsController::class, 'applicationMetrics'])->middleware('api.cache:300');
+        Route::get('/{id}/metrics/security', [OrganizationAnalyticsController::class, 'securityMetrics'])->middleware('api.cache:300');
+        Route::post('/{id}/export', [OrganizationAnalyticsController::class, 'export']);
 
         // Organization invitations
         Route::get('/{id}/invitations', [InvitationController::class, 'index']);
@@ -191,12 +198,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/invitations/{invitationId}/resend', [InvitationController::class, 'resend']);
         Route::post('/{id}/invitations/bulk', [InvitationController::class, 'bulkInvite']);
 
-        // Bulk Operations
-        Route::post('/{id}/bulk/invite-users', [BulkOperationsController::class, 'bulkInviteUsers']);
-        Route::post('/{id}/bulk/assign-roles', [BulkOperationsController::class, 'bulkAssignRoles']);
-        Route::post('/{id}/bulk/revoke-access', [BulkOperationsController::class, 'bulkRevokeAccess']);
-        Route::post('/{id}/bulk/export-users', [BulkOperationsController::class, 'exportUsers']);
-        Route::post('/{id}/bulk/import-users', [BulkOperationsController::class, 'importUsers']);
+        // Bulk Operations (split into specialized controllers)
+        Route::post('/{id}/bulk/invite-users', [BulkUserOperationsController::class, 'bulkInviteUsers']);
+        Route::post('/{id}/bulk/assign-roles', [BulkUserOperationsController::class, 'bulkAssignRoles']);
+        Route::post('/{id}/bulk/revoke-access', [BulkAccessController::class, 'bulkRevokeAccess']);
+        Route::post('/{id}/bulk/export-users', [BulkDataController::class, 'exportUsers']);
+        Route::post('/{id}/bulk/import-users', [BulkDataController::class, 'importUsers']);
 
         // Custom Roles Management
         Route::get('/{id}/custom-roles', [CustomRoleController::class, 'index']);
