@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Traits;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Response;
 
 /**
@@ -21,7 +23,12 @@ trait ApiResponse
         ];
 
         if ($data !== null) {
-            $response['data'] = $data;
+            // Handle API Resources
+            if ($data instanceof JsonResource || $data instanceof AnonymousResourceCollection) {
+                $response['data'] = $data->resolve();
+            } else {
+                $response['data'] = $data;
+            }
         }
 
         if ($message) {
@@ -94,11 +101,18 @@ trait ApiResponse
     /**
      * Return paginated response
      */
-    protected function paginatedResponse(LengthAwarePaginator $paginator, ?string $message = null): JsonResponse
+    protected function paginatedResponse(LengthAwarePaginator $paginator, ?string $message = null, ?string $resourceClass = null): JsonResponse
     {
+        $data = $paginator->items();
+
+        // Transform data using resource class if provided
+        if ($resourceClass && class_exists($resourceClass)) {
+            $data = $resourceClass::collection($data)->resolve();
+        }
+
         $response = [
             'success' => true,
-            'data' => $paginator->items(),
+            'data' => $data,
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -122,9 +136,51 @@ trait ApiResponse
     /**
      * Return collection response
      */
-    protected function collectionResponse($data, ?string $message = null): JsonResponse
+    protected function collectionResponse($data, ?string $message = null, ?string $resourceClass = null): JsonResponse
     {
+        // Transform data using resource class if provided
+        if ($resourceClass && class_exists($resourceClass)) {
+            $data = $resourceClass::collection($data);
+        }
+
         return $this->successResponse($data, $message);
+    }
+
+    /**
+     * Return resource response (single item)
+     */
+    protected function resourceResponse($data, string $resourceClass, ?string $message = null, int $status = Response::HTTP_OK): JsonResponse
+    {
+        if (class_exists($resourceClass)) {
+            $data = new $resourceClass($data);
+        }
+
+        return $this->successResponse($data, $message, $status);
+    }
+
+    /**
+     * Return created resource response
+     */
+    protected function createdResourceResponse($data, string $resourceClass, ?string $message = null): JsonResponse
+    {
+        return $this->resourceResponse(
+            $data,
+            $resourceClass,
+            $message ?? 'Resource created successfully',
+            Response::HTTP_CREATED
+        );
+    }
+
+    /**
+     * Return updated resource response
+     */
+    protected function updatedResourceResponse($data, string $resourceClass, ?string $message = null): JsonResponse
+    {
+        return $this->resourceResponse(
+            $data,
+            $resourceClass,
+            $message ?? 'Resource updated successfully'
+        );
     }
 
     /**

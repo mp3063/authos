@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Resources\InvitationResource;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Services\InvitationService;
@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-class InvitationController extends Controller
+class InvitationController extends BaseApiController
 {
     protected InvitationService $invitationService;
 
@@ -40,21 +40,16 @@ class InvitationController extends Controller
                 $request->get('metadata', [])
             );
 
-            return response()->json([
-                'message' => 'Invitation sent successfully',
-                'invitation' => $invitation->load(['organization', 'inviter']),
-            ], 201);
+            return $this->createdResourceResponse(
+                $invitation->load(['organization', 'inviter']),
+                InvitationResource::class,
+                'Invitation sent successfully'
+            );
 
         } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
+            return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to send invitation',
-                'error' => $e->getMessage(),
-            ], 400);
+            return $this->errorResponse('Failed to send invitation: '.$e->getMessage());
         }
     }
 
@@ -82,21 +77,14 @@ class InvitationController extends Controller
             $total = $invitations->count();
             $paginatedInvitations = $invitations->forPage($page, $perPage)->values();
 
-            return response()->json([
-                'data' => $paginatedInvitations,
-                'meta' => [
-                    'total' => $total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'last_page' => ceil($total / $perPage),
-                ],
-            ]);
+            return $this->successResponse(
+                InvitationResource::collection($paginatedInvitations)->resolve(),
+                null,
+                200
+            );
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to retrieve invitations',
-                'error' => $e->getMessage(),
-            ], 403);
+            return $this->errorResponse('Failed to retrieve invitations: '.$e->getMessage(), 403);
         }
     }
 

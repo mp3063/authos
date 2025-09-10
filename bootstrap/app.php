@@ -44,32 +44,91 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Customize authorization exception messages for API
+        // Use standardized error responses for API requests
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
+            if ($request->is('api/*')) {
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->validationErrorResponse($e);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*')) {
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->authenticationErrorResponse('Unauthenticated.');
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
             if ($request->is('api/*')) {
-                return response()->json([
-                    'message' => 'Insufficient permissions',
-                    'exception' => 'Illuminate\\Auth\\Access\\AuthorizationException',
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => collect($e->getTrace())->map(function ($trace) {
-                        return collect($trace)->only(['file', 'line', 'function', 'class', 'type']);
-                    })->all(),
-                ], 403);
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->authorizationErrorResponse('Insufficient permissions');
             }
         });
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
             if ($request->is('api/*')) {
-                return response()->json([
-                    'message' => 'Insufficient permissions',
-                    'exception' => 'Symfony\\Component\\HttpKernel\\Exception\\AccessDeniedHttpException',
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => collect($e->getTrace())->map(function ($trace) {
-                        return collect($trace)->only(['file', 'line', 'function', 'class', 'type']);
-                    })->all(),
-                ], 403);
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->authorizationErrorResponse('Insufficient permissions');
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->notFoundErrorResponse();
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->errorResponse(
+                    'Method not allowed',
+                    405,
+                    'method_not_allowed',
+                    ['allowed_methods' => $e->getHeaders()['Allow'] ?? null],
+                    $e
+                );
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->rateLimitErrorResponse($e->getRetryAfter());
+            }
+        });
+
+        // Catch-all for any other exceptions in API routes
+        $exceptions->render(function (\Throwable $e, $request) {
+            if ($request->is('api/*')) {
+                // Don't catch HTTP exceptions that were already handled above
+                if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+                    return null; // Let other handlers manage it
+                }
+
+                return (new class
+                {
+                    use \App\Http\Traits\ApiErrorResponse;
+                })->serverErrorResponse(
+                    app()->environment(['local', 'development']) ? $e->getMessage() : null,
+                    $e
+                );
             }
         });
     })->create();
