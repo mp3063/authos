@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\SetPermissionContext::class,
+            \App\Http\Middleware\SanitizeApiResponse::class,
         ]);
 
         $middleware->throttleApi();

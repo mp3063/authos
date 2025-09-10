@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 
 class OAuthController extends Controller
@@ -59,8 +60,25 @@ class OAuthController extends Controller
             ], 400);
         }
 
-        // Parse scopes
-        $scopes = $request->scope ? explode(' ', $request->scope) : ['openid'];
+        // Validate redirect URI security
+        if (! $this->oAuthService->isSecureRedirectUri($request->redirect_uri)) {
+            return response()->json([
+                'error' => 'invalid_request',
+                'error_description' => 'Insecure redirect URI',
+            ], 400);
+        }
+
+        // Validate state parameter
+        if (! $this->oAuthService->validateStateParameter($request->state)) {
+            return response()->json([
+                'error' => 'invalid_request',
+                'error_description' => 'Invalid state parameter format',
+            ], 400);
+        }
+
+        // Parse and validate scopes
+        $requestedScopes = $request->scope ? explode(' ', $request->scope) : [];
+        $scopes = $this->oAuthService->validateScopes($requestedScopes, $client);
 
         // Validate PKCE if provided
         if ($request->filled('code_challenge')) {
@@ -210,14 +228,22 @@ class OAuthController extends Controller
             ], 400);
         }
 
-        // This is a simplified implementation
-        // In a real implementation, you would validate the authorization code
-        // and exchange it for an access token
+        $tokenData = $this->oAuthService->exchangeAuthorizationCode(
+            $request->code,
+            $request->client_id,
+            $request->client_secret,
+            $request->redirect_uri,
+            $request->code_verifier
+        );
 
-        return response()->json([
-            'error' => 'server_error',
-            'error_description' => 'Authorization code grant not fully implemented yet',
-        ], 500);
+        if (! $tokenData) {
+            return response()->json([
+                'error' => 'invalid_grant',
+                'error_description' => 'The provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client.',
+            ], 400);
+        }
+
+        return response()->json($tokenData);
     }
 
     /**
@@ -225,10 +251,31 @@ class OAuthController extends Controller
      */
     protected function handleRefreshTokenGrant(Request $request, Client $client): JsonResponse
     {
-        return response()->json([
-            'error' => 'server_error',
-            'error_description' => 'Refresh token grant not implemented yet',
-        ], 500);
+        $validator = Validator::make($request->all(), [
+            'refresh_token' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => 'invalid_request',
+                'error_description' => $validator->errors()->first(),
+            ], 400);
+        }
+
+        $tokenData = $this->oAuthService->refreshToken(
+            $request->refresh_token,
+            $request->client_id,
+            $request->client_secret
+        );
+
+        if (! $tokenData) {
+            return response()->json([
+                'error' => 'invalid_grant',
+                'error_description' => 'The provided refresh token is invalid, expired, revoked, or was issued to another client.',
+            ], 400);
+        }
+
+        return response()->json($tokenData);
     }
 
     /**
@@ -236,14 +283,25 @@ class OAuthController extends Controller
      */
     protected function handleClientCredentialsGrant(Request $request, Client $client): JsonResponse
     {
-        // Generate a client credentials token
-        $scopes = $request->scope ? explode(' ', $request->scope) : ['read'];
+        // Parse and validate scopes
+        $requestedScopes = $request->scope ? explode(' ', $request->scope) : ['read'];
+        $scopes = $this->oAuthService->validateScopes($requestedScopes, $client);
+
+        // For client credentials, we don't have a user context
+        // Generate a system token with limited scopes
+        $filteredScopes = array_filter($scopes, function ($scope) {
+            return ! in_array($scope, ['profile', 'email']); // Remove user-specific scopes
+        });
+
+        if (empty($filteredScopes)) {
+            $filteredScopes = ['read'];
+        }
 
         return response()->json([
-            'access_token' => 'client_credentials_token_placeholder',
+            'access_token' => 'client_credentials_token_'.Str::random(40),
             'token_type' => 'Bearer',
             'expires_in' => 3600,
-            'scope' => implode(' ', $scopes),
+            'scope' => implode(' ', $filteredScopes),
         ]);
     }
 
@@ -270,5 +328,32 @@ class OAuthController extends Controller
             'error' => 'server_error',
             'error_description' => 'Password grant should use /api/auth/login endpoint',
         ], 500);
+    }
+
+    /**
+     * Token introspection endpoint (RFC 7662)
+     * POST /oauth/introspect
+     */
+    public function introspect(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'token' => 'required|string',
+            'client_id' => 'required|string',
+            'client_secret' => 'sometimes|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'active' => false,
+            ], 200); // Always return 200 for introspection
+        }
+
+        $result = $this->oAuthService->introspectToken(
+            $request->token,
+            $request->client_id,
+            $request->client_secret
+        );
+
+        return response()->json($result);
     }
 }

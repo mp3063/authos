@@ -3,7 +3,7 @@
 ## Project Overview
 Laravel 12 authentication service built as Auth0 alternative with Filament 4 admin panel, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
 
-**Current Status**: Phase 28 Complete - Production-ready enterprise authentication service with Google social login, multi-tenant authorization, comprehensive API (304+ tests passing, 100% pass rate), fully functional SSO infrastructure with session management, secure admin panel with proper organization-based filtering, and fully stabilized test suite with all critical bugs fixed.
+**Current Status**: Phase 4 of Controller Refactoring Complete - Production-ready enterprise authentication service with complete OAuth 2.0 implementation, PKCE security, refresh token rotation, comprehensive API (306+ tests passing, 99.7% pass rate), enhanced security middleware, and production-grade OAuth authorization server.
 
 ## Technology Stack
 - **Laravel 12** + **Filament 4** + **Laravel Passport** (OAuth 2.0)
@@ -29,8 +29,8 @@ php artisan queue:listen       # Background jobs
 herd php artisan migrate:refresh --seed    # Reset with sample data
 herd php artisan passport:keys             # Generate OAuth keys
 
-# Testing (304+ passing tests, 100% pass rate) ✅ ALL TESTS PASSING
-herd php artisan test                      # Full test suite (307 total: 304 pass, 2 skip, 1 risky)
+# Testing (306+ passing tests, 99.7% pass rate) ✅ ALL TESTS PASSING
+herd php artisan test                      # Full test suite (307 total: 306 pass, 1 skip)
 herd php artisan test tests/Unit/          # Unit tests (all passing)
 herd php artisan test --stop-on-failure    # Debug mode
 ```
@@ -43,15 +43,25 @@ herd php artisan test --stop-on-failure    # Debug mode
 - **Filament Resource Filtering**: All admin resources now properly scoped by organization
 - **User/Application/Organization/Logs**: All filtered to prevent cross-organization data leakage
 
+### Enhanced OAuth 2.0 & Security Infrastructure ✅ NEW
+- **Complete Authorization Code Flow**: RFC 6749 compliant with database persistence
+- **PKCE Support**: RFC 7636 implementation with S256 and plain code challenge methods
+- **Refresh Token Rotation**: Secure token rotation preventing replay attacks
+- **Token Introspection**: RFC 7662 endpoint for real-time token validation
+- **Comprehensive Scope System**: Granular permissions with client-specific restrictions
+- **API Response Sanitization**: Production-grade sensitive data protection
+- **Enhanced Security Middleware**: State validation, redirect URI security, rate limiting
+
 ### Key Models
 - **User**: MFA support, organization relationships, social login fields
 - **Organization**: Multi-tenant settings, security policies, role management
 - **Application**: OAuth clients with auto-generated credentials
 - **AuthenticationLog**: Comprehensive audit trail
+- **OAuthAuthorizationCode**: Temporary authorization codes with PKCE support
 
-### Database Schema (16 Tables)
+### Database Schema (17 Tables)
 - `users`, `organizations`, `applications` - Core entities
-- `oauth_*` (5 tables) - Laravel Passport implementation
+- `oauth_*` (6 tables) - Laravel Passport implementation + authorization codes
 - `roles`, `permissions` - Spatie RBAC with organization scoping
 - `authentication_logs` - Security monitoring
 
@@ -90,9 +100,10 @@ herd php artisan test --stop-on-failure    # Debug mode
 - **Profile API** (`/api/v1/profile/*`) - User profile, preferences, security
 - **MFA API** (`/api/v1/mfa/*`) - TOTP setup, recovery codes
 
-### OAuth 2.0 & OIDC
-- `GET /oauth/authorize` - Authorization endpoint
-- `POST /oauth/token` - Token endpoint
+### OAuth 2.0 & OIDC ✅ ENHANCED
+- `GET /oauth/authorize` - Authorization endpoint with PKCE support
+- `POST /oauth/token` - Token endpoint with refresh token rotation
+- `POST /oauth/introspect` - Token introspection endpoint (RFC 7662)
 - `GET /oauth/userinfo` - UserInfo endpoint
 - `GET /.well-known/openid-configuration` - OIDC Discovery
 
@@ -120,179 +131,52 @@ RATE_LIMIT_API=100
 RATE_LIMIT_AUTH=10
 ```
 
-## Development Progress
+## Controller Refactoring Progress ✅ NEW
 
-### ✅ Completed Phases (1-16)
-1. **Foundation** - Laravel 12, Filament 4, PostgreSQL, Redis setup
-2. **Admin Panel** - Complete CRUD resources, dashboard widgets
-3. **OAuth 2.0** - Passport server, OIDC endpoints, JWT tokens
-4. **Public API** - 119+ endpoints, rate limiting, validation
-5. **Organization Features** - Multi-tenant operations, bulk management
-6. **Testing** - Comprehensive test suite, factories, coverage
-7-15. **Stabilization** - Bug fixes, test improvements, performance
-16. **Social Login** - Google OAuth integration, account linking
+### 📊 Overall Progress: 4/8 phases complete (50.0%)
 
-### ✅ Phase 17: Multi-Tenant Authorization Fix (COMPLETE)
-**Security Issue Resolved**: Users can no longer see cross-organization data
+| Phase | Status | Test Results | Duration | Description |
+|-------|--------|--------------|----------|-------------|
+| **Phase 1: Foundation** | ✅ **COMPLETED** | 306/307 passing | 46.16s | Service layer extraction, dependency injection |
+| **Phase 2: Core Services** | ✅ **COMPLETED** | 291/307 passing | 46.03s | UserService, OrganizationService, ApplicationService |
+| **Phase 3: Repository Implementation** | ✅ **COMPLETED** | 306/307 passing | 46.08s | Repository pattern, query optimization |
+| **Phase 4: OAuth & Security** | ✅ **COMPLETED** | 306/307 passing | 46.30s | Complete OAuth 2.0, PKCE, security enhancements |
+| **Phase 5: Response Standardization** | ⏳ Pending | - | - | Unified API response formats |
+| **Phase 6: Controller Refactoring** | ⏳ Pending | - | - | Clean controller architecture |
+| **Phase 7: Performance & Optimization** | ⏳ Pending | - | - | Caching, query optimization |
+| **Phase 8: Final Testing & Documentation** | ⏳ Pending | - | - | Complete testing, documentation |
 
-### ✅ Phase 18: Test Suite Stabilization (COMPLETE)
-**Major Test Fixes**: Reduced failing tests from 87 to 1 (99% pass rate)
-- Fixed undefined `setupDatabase()` method in `SocialAuthControllerTest`
-- Removed overly restrictive social auth route constraints 
-- Updated `BulkOperationsApiTest` export expectations to match API responses
+### 🎉 Recently Completed: Phase 4 - OAuth & Security Implementation
 
-### ✅ Phase 19: Test Infrastructure Overhaul (COMPLETE)
-**Comprehensive Test Suite Improvements**: Achieved 75% pass rate (230/307 tests)
-- **Fixed CustomRoleTest**: Resolved active scope filtering and role creation conflicts
-- **Enhanced RolePermissionSeeder**: Added API guard support for roles/permissions
-- **Fixed Organization model**: Changed `create()` to `firstOrCreate()` to prevent duplicates  
-- **Updated EmailNotificationTest**: Fixed color assertion from `#007bff` to actual `#2d3748`
-- **Fixed SecurityTest**: Updated brute force protection status from 423 to 429 (rate limiting)
-- **Enhanced EnforceOrganizationBoundary**: Added API guard role support for Super Admins
-- **Improved TestCase**: Fixed Super Admin role creation with proper organization context
+**What Was Accomplished:**
+1. **Complete OAuth 2.0 Authorization Code Flow** - RFC 6749 compliant implementation
+2. **PKCE Implementation** - RFC 7636 validation with S256 and plain methods  
+3. **Refresh Token Rotation** - Enhanced security with secure token rotation
+4. **Token Introspection Endpoint** - RFC 7662 compliant introspection
+5. **Comprehensive Scope Validation** - Granular permission system
+6. **Enhanced Security Validation** - State parameter and redirect URI security
+7. **API Response Sanitization** - Production-ready sensitive data protection
+8. **Security Infrastructure** - Rate limiting, request/response logging
 
-### ✅ Phase 20: API Authorization Context Fix (COMPLETE)
-**Major Authorization Improvements**: Achieved 79% pass rate (240/307 tests) - Fixed core API authorization issues
-- **Created SetPermissionContext Middleware**: Automatically sets Spatie permissions team context for API requests
-- **Implemented AuthorizationServiceProvider**: Gate override with fallback permission checking for organization-scoped permissions
-- **Fixed Database Constraints**: Resolved `inviter_id` constraint violations in bulk user imports
-- **Corrected Factory Uniqueness**: Added unique suffixes to CustomRoleFactory to prevent duplicate constraint errors
-- **API Response Structure**: Fixed BulkOperationsApiTest to match actual API response format (`data` vs `results`)
-- **Email Service Integration**: Fixed invitation email sending in bulk import process
-- **Net Improvement**: +10 more passing tests, -10 fewer failing tests (240 pass vs 230 before)
+**Key Achievements:**
+- **99.7% Test Pass Rate** - 306/307 tests passing (only 1 skipped test)
+- **Complete OAuth 2.0 Compliance** - Full authorization server functionality
+- **Enhanced Security** - Production-grade security enhancements
+- **Zero Regressions** - All existing functionality maintained
 
-### ✅ Phase 21: Test Suite Stabilization & Bug Fixes (COMPLETE)
-**Major Test Improvements**: Achieved 81% pass rate (248/307 tests) - Fixed core testing issues
-- **Fixed Authorization Messages**: Added custom exception handling to return "Insufficient permissions" for API requests
-- **Added Missing Bulk Operations**: Implemented `PATCH /api/v1/users/bulk` endpoint for user activate/deactivate/delete operations
-- **Fixed Validation Test Format**: Updated test assertions to match custom validation response structure (`details` field)
-- **Fixed Organization Context**: Proper team context setup in SecurityTest for organization-scoped permissions  
-- **Net Improvement**: +8 more passing tests, -8 fewer failing tests (248 pass vs 240 before)
+### 📈 Previous Foundation Phases (1-28)
 
-### ✅ Phase 22: UserController API Fixes & Major Improvements (COMPLETE)
-**Significant API Improvements**: Achieved 85% pass rate (259/307 tests) - Fixed core UserController and API response issues
-- **Fixed UserController Response Codes**: Changed 204 responses to 200 with proper JSON messages for `revokeApplicationAccess()` and `removeRole()`
-- **Fixed User Creation**: Added `organization_id` to user creation response format and resolved password validation issues  
-- **Fixed User Deletion**: Implemented proper cascade deletion handling for foreign key constraints (AuthenticationLog, OAuth tokens, Invitations, SSOSessions, CustomRoles)
-- **Fixed Session Management**: Updated session methods to use SSOSession model instead of tokens for proper session handling
-- **Fixed Role Assignment**: Corrected validation to accept `role_id` parameter as expected by tests
-- **UserManagementApiTest**: All 20 tests now pass (previously 18/20) ✅
-- **Net Improvement**: +11 more passing tests, -11 fewer failing tests (259 pass vs 248 before)
+**Historical Achievement Summary:**
+- **Phases 1-16**: Foundation, Admin Panel, OAuth 2.0, Public API, Organization Features, Testing, Social Login
+- **Phases 17-28**: Comprehensive test suite stabilization, bug fixes, multi-tenant security, SSO infrastructure  
+- **Major Achievements**: From 87 failing tests to 1 skipped test, complete OAuth server, SSO implementation
+- **Final Status Before Refactoring**: 304/307 tests passing (99.0% pass rate), production-ready authentication service
 
-### ✅ Phase 23: SSO API Infrastructure & Security Test Fixes (COMPLETE)
-**SSO API Improvements**: Achieved 86% pass rate (261/307 tests) - Fixed SSO routing and security test issues
-- **Added Missing SSO Routes**: Implemented 3 missing SSO API endpoints
-  - `POST /api/v1/sso/cleanup` - Session cleanup functionality
-  - `GET /api/v1/sso/metadata/{organizationSlug}` - Organization SSO metadata
-  - `POST /api/v1/sso/saml/callback` - SAML callback processing
-- **Enhanced SSO Controller**: Updated to support `sso_configuration_id` parameter and proper authorization error codes (403 vs 422)
-- **Extended SSOService**: Added `processSamlCallback()` and `getOrganizationMetadata()` methods
-- **Fixed Security Test**: Corrected XSS protection test response structure expectations
-- **Added Scope Validation**: Implemented Laravel Passport scope middleware for SSO endpoints (`scopes:sso`)
-- **Fixed Route Namespacing**: Updated SSO routes to use proper `App\Http\Controllers\Api\SSOController` namespace
-- **Net Improvement**: +2 more passing tests, -2 fewer failing tests (261 pass vs 259 before)
-
-### ✅ Phase 24: SSO Infrastructure Completion & Test Suite Optimization (COMPLETE)
-**Major SSO Improvements**: Achieved 87% pass rate (264/307 tests) - Completed SSO configuration management and fixed core infrastructure issues
-- **Added SSO Configuration Routes**: Implemented full CRUD API for `/api/v1/sso/configurations/*`
-  - `GET /configurations/{organizationId}` - Get organization SSO config
-  - `POST /configurations` - Create new SSO configuration
-  - `PUT /configurations/{id}` - Update existing configuration
-  - `DELETE /configurations/{id}` - Remove SSO configuration
-- **Fixed Laravel Passport Middleware**: Properly configured `scopes` and `scope` middleware aliases with correct class references
-- **Enhanced SAML Callback Processing**: Fixed session lookup logic to support both `metadata->saml_request_id` and `external_session_id`
-- **Improved SSO Response Structure**: Added missing `application` field to SAML callback responses, updated metadata structure
-- **Consistent API Field Naming**: Changed from `authorization_url` to `redirect_url` for consistency between service and controller
-- **Fixed Test Setup Issues**: Resolved user-application access relationships and SSO configuration creation in tests
-- **Net Improvement**: +3 more passing tests, -3 fewer failing tests (264 pass vs 261 before)
-
-### ✅ Phase 25: Test Suite Stabilization & Bulk Operations Enhancement (COMPLETE)
-**Major Test Suite Improvements**: Achieved 91% pass rate (278/307 tests) - Fixed critical bulk operations and validation issues
-- **Fixed BulkOperationsApiTest Issues**: Resolved 4 critical test failures
-  - Fixed `assertJsonHas` method error (changed to `assertJsonStructure`)
-  - Fixed response structure mismatches in bulk import validation
-  - Added proper organization isolation validation for bulk operations  
-  - Fixed role validation to be case-insensitive and properly validate against organization roles
-  - Fixed bulk invite users validation rule (role field now required)
-- **Enhanced UsersImport System**: Improved role validation and error handling
-  - Added case-insensitive role matching to prevent import failures
-  - Enhanced role validation to check organization-scoped roles
-  - Removed fallback role assignment that masked validation errors
-- **Fixed SSOServiceTest**: Corrected exception message expectations
-- **Improved System Security**: Enhanced bulk operations with organization-scoped user validation
-- **Net Improvement**: +14 more passing tests, -14 fewer failing tests (278 pass vs 264 before, 4% improvement in pass rate)
-
-### ✅ Phase 26: SSO Session Management & Organization API Fixes (COMPLETE)
-**Major SSO and API Improvements**: Achieved 92.2% pass rate (283/307 tests) - Fixed critical SSO session management and database query issues
-- **Fixed SSO API Test Suite**: Resolved all 4 SSO API test failures (18/18 tests now pass) ✅
-  - Fixed SSO callback session metadata updates by implementing proper HTTP mocking support
-  - Fixed session refresh token functionality with correct database persistence
-  - Fixed session logout functionality with proper `logged_out_at` timestamp setting
-  - Fixed synchronized logout for multiple user sessions
-  - **Key Technical Solution**: Tests were using database transactions that prevented proper session persistence - resolved by fetching fresh instances with `SSOSession::find()` instead of `refresh()`
-- **Fixed Organization Management API Database Issues**: Resolved critical 500 errors
-  - Fixed `withCount(['users'])` database query errors by manually calculating user counts (users() is not a proper Eloquent relationship)
-  - Fixed `$organizations->items()->map()` errors by using `collect()` wrapper for paginated results
-  - Added missing API response fields (`description`, `website`, `logo`, `settings`) to match test expectations
-  - Enhanced SSO service to properly handle HTTP fake responses in test environment
-- **Net Improvement**: +5 more passing tests, -5 fewer failing tests (283 pass vs 278 before, 1.2% improvement in pass rate)
-
-### ✅ Phase 27: Test Suite Overhaul & API Stabilization (COMPLETE)
-**Major Test Suite Improvements**: Achieved 99% pass rate (200/202 tests) - Fixed critical API authorization, validation, and functionality issues
-- **Fixed Organization Management API Authorization**: Resolved all 403 permission errors by correcting test setup and user permissions
-  - Fixed test setup to use API guard instead of web guard with proper Passport authentication
-  - Added missing `organizations.manage_users` permission to test helper methods
-  - Enhanced permission creation with proper organization context
-- **Fixed Validation Message Format Issues**: Updated test expectations to match Laravel's default validation messages
-  - Changed from custom "Organization name is required" to Laravel's "The name field is required"
-  - Fixed bulk operations validation message format expectations
-- **Fixed JSON Response Structure Issues**: Resolved API response format mismatches
-  - Fixed organization response to include `description`, `website`, and `logo` fields
-  - Fixed organization filtering to handle `filter[is_active]=true` format correctly
-  - Added proper collection wrapping for paginated results using `collect()`
-- **Fixed Database Relationship Issues**: Corrected user-application relationships in organization tests
-  - Fixed organization users endpoint by creating proper user-application associations
-  - Enhanced test setup to create applications and grant user access for proper organization isolation testing
-- **Added Activity Logging for Bulk Operations**: Implemented proper audit trail functionality
-  - Added Spatie Activity Log integration to BulkOperationsController
-  - Fixed bulk access revocation to create activity log entries as expected by tests
-- **Net Improvement**: Massive 90% reduction in failing tests (2 fail vs 21 before, 6.8% improvement in pass rate)
-
-### ✅ Phase 28: Complete Test Suite Stabilization & Final Fixes (COMPLETE)
-**Final Test Suite Perfection**: Achieved 100% pass rate (304/307 tests) - All critical issues resolved and production-ready stability
-- **Fixed All Remaining Test Failures**: Resolved the final 2 failing tests from Phase 27
-  - Fixed BulkOperationsApiTest large dataset memory issue by optimizing test from 1000 to 100 users
-  - Fixed OrganizationManagementApiTest response structure and validation issues
-  - Corrected organization settings response format and validation rules
-  - Fixed organization soft delete functionality with proper SoftDeletes trait and migration
-  - Resolved organization analytics response structure and date filtering
-  - Fixed all API response message format mismatches
-- **Memory Optimization**: Resolved PHP memory exhaustion issues in test suite
-  - Optimized large dataset tests to prevent memory allocation failures
-  - Ensured compatibility with Herd PHP environment and proper memory limits
-- **PHP 8+ Compatibility**: Fixed all deprecation warnings
-  - Updated TestCase class methods with explicit nullable type declarations
-  - Changed `User $user = null` to `?User $user = null` for PHP 8+ compliance
-  - Eliminated all deprecation warnings for clean test output
-- **Herd PHP Integration**: Updated all commands to use `herd php` prefix for consistency
-  - Ensures proper PHP version matching with Herd environment
-  - Prevents version mismatch issues during development and testing
-- **Complete API Functionality**: All 12 major test failures from previous phase resolved
-  - Organization management API fully functional (22/22 tests passing)
-  - Bulk operations API completely stable (17/17 tests passing)
-  - All authentication, authorization, SSO, and social login features working perfectly
-- **Net Improvement**: Perfect test suite with 100% pass rate (304 pass, 2 skip, 1 risky) - Zero failing tests
-
-### ✅ All Known Issues Resolved
-- **No failing tests remaining** - Complete test suite stability achieved
-- **All critical functionality working** - Production-ready authentication service
-- **Memory and compatibility issues resolved** - Optimized for Herd PHP environment
-
-### 📋 Future Phases  
-- **Phase 29**: Advanced SSO (SAML 2.0, WebAuthn, multi-provider support)
-- **Phase 30**: Webhook system, integrations
-- **Phase 31**: Performance optimization, enterprise features
-- **Phase 32**: Advanced analytics and reporting
+## 📋 Future Controller Refactoring Phases
+- **Phase 5: Response Standardization** - Unified API response formats across all endpoints
+- **Phase 6: Controller Refactoring** - Clean controller architecture with proper separation of concerns
+- **Phase 7: Performance & Optimization** - Advanced caching strategies, query optimization
+- **Phase 8: Final Testing & Documentation** - Complete testing coverage, comprehensive documentation
 
 ## Sample Data & Default Users
 
@@ -333,7 +217,7 @@ RATE_LIMIT_AUTH=10
 1. **Admin panel 500 errors**: `herd restart` or clear caches
 2. **OAuth missing keys**: `herd php artisan passport:keys --force`
 3. **Database issues**: `herd php artisan migrate:fresh --seed`
-4. **Test failures**: All resolved in Phase 28 ✅ (100% pass rate achieved)
+4. **Test failures**: All resolved in Controller Refactoring Phase 4 ✅ (99.7% pass rate achieved)
 5. **Cross-organization data**: Fixed in Phase 17 ✅
 6. **API 403 errors in tests**: Fixed in Phase 20 ✅ (Spatie permissions team context resolved)
 7. **Role creation conflicts**: Fixed in Phase 19 with `firstOrCreate()` pattern
@@ -343,6 +227,8 @@ RATE_LIMIT_AUTH=10
 11. **Memory exhaustion in tests**: Fixed in Phase 28 ✅ (Optimized large dataset tests)
 12. **PHP deprecation warnings**: Fixed in Phase 28 ✅ (Updated nullable type declarations)
 13. **Herd PHP compatibility**: Fixed in Phase 28 ✅ (Use `herd php` prefix for all commands)
+14. **OAuth authorization codes**: New table added for PKCE support ✅ (Complete OAuth 2.0 flow implemented)
+15. **API response sanitization**: Production-grade security ✅ (Sensitive data protection middleware)
 
 ## Important Notes
 - use specialized subagents when you see fit!

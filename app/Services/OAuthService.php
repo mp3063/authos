@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Models\Application;
 use App\Models\AuthenticationLog;
+use App\Models\OAuthAuthorizationCode;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Passport\Client;
+use Laravel\Passport\RefreshToken;
 
 class OAuthService
 {
@@ -117,9 +120,326 @@ class OAuthService
         ?string $codeChallenge = null,
         ?string $codeChallengeMethod = null
     ): string {
-        // Implementation would integrate with Laravel Passport's authorization server
-        // This is a simplified version for the service layer
-        return bin2hex(random_bytes(40));
+        $code = bin2hex(random_bytes(40));
+
+        OAuthAuthorizationCode::create([
+            'id' => $code,
+            'user_id' => $user->id,
+            'client_id' => $client->id,
+            'scopes' => $scopes,
+            'redirect_uri' => $redirectUri,
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => $codeChallengeMethod,
+            'state' => $state,
+            'expires_at' => now()->addMinutes(10), // RFC 6749 recommends maximum 10 minutes
+        ]);
+
+        return $code;
+    }
+
+    /**
+     * Exchange authorization code for access token
+     */
+    public function exchangeAuthorizationCode(
+        string $code,
+        string $clientId,
+        ?string $clientSecret,
+        string $redirectUri,
+        ?string $codeVerifier = null
+    ): ?array {
+        $authCode = OAuthAuthorizationCode::find($code);
+
+        if (! $authCode || ! $authCode->isValid()) {
+            return null;
+        }
+
+        // Validate client
+        $client = $this->validateClient($clientId, $clientSecret);
+        if (! $client || $client->id !== $authCode->client_id) {
+            return null;
+        }
+
+        // Validate redirect URI
+        if ($authCode->redirect_uri !== $redirectUri) {
+            return null;
+        }
+
+        // Validate PKCE if present
+        if ($authCode->code_challenge) {
+            if (! $codeVerifier || ! $this->validatePKCE($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method ?? 'S256')) {
+                return null;
+            }
+        }
+
+        // Revoke the authorization code (single use)
+        $authCode->update(['revoked' => true]);
+
+        // Generate access token
+        $user = $authCode->user;
+        $scopes = $authCode->scopes ?? ['openid'];
+
+        $tokenResponse = $this->generateAccessToken($user, $scopes);
+        $refreshToken = $this->generateRefreshToken($user, $client, $scopes);
+
+        return [
+            'access_token' => $tokenResponse->accessToken,
+            'token_type' => 'Bearer',
+            'expires_in' => $tokenResponse->token->expires_at->diffInSeconds(now()),
+            'refresh_token' => $refreshToken,
+            'scope' => implode(' ', $scopes),
+        ];
+    }
+
+    /**
+     * Generate refresh token
+     */
+    public function generateRefreshToken(User $user, Client $client, array $scopes): string
+    {
+        $refreshTokenId = Str::random(40);
+
+        // Create refresh token record
+        RefreshToken::create([
+            'id' => $refreshTokenId,
+            'access_token_id' => null, // Will be set when access token is created
+            'revoked' => false,
+            'expires_at' => now()->addDays(30), // 30 days for refresh token
+        ]);
+
+        return $refreshTokenId;
+    }
+
+    /**
+     * Introspect token (RFC 7662)
+     */
+    public function introspectToken(string $token, string $clientId, ?string $clientSecret): array
+    {
+        // Validate client
+        $client = $this->validateClient($clientId, $clientSecret);
+        if (! $client) {
+            return ['active' => false];
+        }
+
+        // Check if it's an access token
+        $accessToken = \Laravel\Passport\Token::find($token);
+        if ($accessToken && ! $accessToken->revoked && $accessToken->expires_at->isFuture()) {
+            $user = User::find($accessToken->user_id);
+
+            return [
+                'active' => true,
+                'scope' => implode(' ', $accessToken->scopes ?? ['openid']),
+                'client_id' => $accessToken->client_id,
+                'username' => $user?->email,
+                'sub' => (string) $accessToken->user_id,
+                'exp' => $accessToken->expires_at->timestamp,
+                'iat' => $accessToken->created_at->timestamp,
+                'token_type' => 'Bearer',
+            ];
+        }
+
+        // Check if it's a refresh token
+        $refreshToken = RefreshToken::find($token);
+        if ($refreshToken && ! $refreshToken->revoked && $refreshToken->expires_at->isFuture()) {
+            return [
+                'active' => true,
+                'token_type' => 'refresh_token',
+                'exp' => $refreshToken->expires_at->timestamp,
+                'iat' => $refreshToken->created_at->timestamp,
+            ];
+        }
+
+        return ['active' => false];
+    }
+
+    /**
+     * Validate requested scopes
+     */
+    public function validateScopes(array $requestedScopes, Client $client): array
+    {
+        // Define available scopes
+        $availableScopes = [
+            'openid' => 'OpenID Connect authentication',
+            'profile' => 'Access to basic profile information',
+            'email' => 'Access to email address',
+            'read' => 'Read access to user data',
+            'write' => 'Write access to user data',
+            'admin' => 'Administrative access (restricted)',
+        ];
+
+        // Default scopes if none requested
+        if (empty($requestedScopes)) {
+            return ['openid'];
+        }
+
+        $validScopes = [];
+
+        foreach ($requestedScopes as $scope) {
+            // Check if scope exists
+            if (! isset($availableScopes[$scope])) {
+                continue; // Skip invalid scopes
+            }
+
+            // Check if client is authorized for admin scope
+            if ($scope === 'admin' && ! $this->clientCanUseAdminScope($client)) {
+                continue; // Skip admin scope for unauthorized clients
+            }
+
+            $validScopes[] = $scope;
+        }
+
+        // Always include openid for OIDC compliance
+        if (! in_array('openid', $validScopes)) {
+            array_unshift($validScopes, 'openid');
+        }
+
+        return array_unique($validScopes);
+    }
+
+    /**
+     * Check if client can use admin scope
+     */
+    protected function clientCanUseAdminScope(Client $client): bool
+    {
+        // Check if this client belongs to a trusted application
+        $application = Application::where('client_id', $client->id)->first();
+
+        if (! $application) {
+            return false;
+        }
+
+        // Only allow admin scope for applications with specific settings
+        $settings = $application->settings ?? [];
+
+        return isset($settings['allow_admin_scope']) && $settings['allow_admin_scope'] === true;
+    }
+
+    /**
+     * Get scope description
+     */
+    public function getScopeDescription(string $scope): ?string
+    {
+        $descriptions = [
+            'openid' => 'OpenID Connect authentication',
+            'profile' => 'Access to basic profile information (name, avatar)',
+            'email' => 'Access to email address and verification status',
+            'read' => 'Read access to user data and resources',
+            'write' => 'Write access to modify user data',
+            'admin' => 'Administrative access to manage users and applications',
+        ];
+
+        return $descriptions[$scope] ?? null;
+    }
+
+    /**
+     * Validate state parameter (CSRF protection)
+     */
+    public function validateStateParameter(?string $state): bool
+    {
+        // State parameter is optional but recommended
+        if ($state === null) {
+            return true; // Allow null state for backwards compatibility
+        }
+
+        // State should be between 8-512 characters for security
+        if (strlen($state) < 8 || strlen($state) > 512) {
+            return false;
+        }
+
+        // State should only contain URL-safe characters
+        if (! preg_match('/^[A-Za-z0-9\-\._~]+$/', $state)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Generate secure state parameter
+     */
+    public function generateSecureState(): string
+    {
+        return Str::random(32);
+    }
+
+    /**
+     * Validate redirect URI security
+     */
+    public function isSecureRedirectUri(string $redirectUri): bool
+    {
+        $parsedUrl = parse_url($redirectUri);
+
+        // Must have a scheme
+        if (! isset($parsedUrl['scheme'])) {
+            return false;
+        }
+
+        // For production, require HTTPS except for localhost
+        if (app()->environment('production')) {
+            if ($parsedUrl['scheme'] !== 'https') {
+                // Allow HTTP for localhost in development
+                if (! isset($parsedUrl['host']) || ! in_array($parsedUrl['host'], ['localhost', '127.0.0.1'])) {
+                    return false;
+                }
+            }
+        }
+
+        // Reject javascript: and data: schemes
+        if (in_array(strtolower($parsedUrl['scheme']), ['javascript', 'data', 'vbscript'])) {
+            return false;
+        }
+
+        // Reject fragment identifiers in redirect URI
+        if (isset($parsedUrl['fragment'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Handle refresh token grant with rotation
+     */
+    public function refreshToken(string $refreshTokenId, string $clientId, ?string $clientSecret): ?array
+    {
+        $refreshToken = RefreshToken::find($refreshTokenId);
+
+        if (! $refreshToken || $refreshToken->revoked || $refreshToken->expires_at->isPast()) {
+            return null;
+        }
+
+        // Validate client
+        $client = $this->validateClient($clientId, $clientSecret);
+        if (! $client) {
+            return null;
+        }
+
+        // Get the user from the original access token (if exists)
+        $user = null;
+        if ($refreshToken->access_token_id) {
+            $accessToken = \Laravel\Passport\Token::find($refreshToken->access_token_id);
+            if ($accessToken) {
+                $user = User::find($accessToken->user_id);
+            }
+        }
+
+        if (! $user) {
+            return null;
+        }
+
+        // Revoke the old refresh token (rotation)
+        $refreshToken->update(['revoked' => true]);
+
+        // Generate new access token and refresh token
+        $scopes = ['openid']; // Default scopes - could be retrieved from original token
+        $newAccessToken = $this->generateAccessToken($user, $scopes);
+        $newRefreshToken = $this->generateRefreshToken($user, $client, $scopes);
+
+        return [
+            'access_token' => $newAccessToken->accessToken,
+            'token_type' => 'Bearer',
+            'expires_in' => $newAccessToken->token->expires_at->diffInSeconds(now()),
+            'refresh_token' => $newRefreshToken,
+            'scope' => implode(' ', $scopes),
+        ];
     }
 
     /**
@@ -199,15 +519,25 @@ class OAuthService
      */
     public function validatePKCE(string $codeVerifier, string $codeChallenge, string $method = 'S256'): bool
     {
+        // RFC 7636: code_verifier must be 43-128 characters
+        if (strlen($codeVerifier) < 43 || strlen($codeVerifier) > 128) {
+            return false;
+        }
+
+        // RFC 7636: code_verifier must only contain [A-Z] [a-z] [0-9] "-" "." "_" "~"
+        if (! preg_match('/^[A-Za-z0-9\-\._~]+$/', $codeVerifier)) {
+            return false;
+        }
+
         if ($method === 'S256') {
             $hash = hash('sha256', $codeVerifier, true);
             $challenge = rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
 
-            return $challenge === $codeChallenge;
+            return hash_equals($challenge, $codeChallenge);
         }
 
         if ($method === 'plain') {
-            return $codeVerifier === $codeChallenge;
+            return hash_equals($codeVerifier, $codeChallenge);
         }
 
         return false;

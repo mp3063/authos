@@ -84,6 +84,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     Route::prefix('oauth')->middleware(['oauth.security', 'api.rate_limit:oauth'])->group(function () {
         Route::get('/authorize', [OAuthController::class, 'oauthAuthorize']);
         Route::post('/token', [OAuthController::class, 'token']);
+        Route::post('/introspect', [OAuthController::class, 'introspect']);
         Route::middleware('auth:api')->get('/userinfo', [OpenIdController::class, 'userinfo']);
         Route::get('/jwks', [OpenIdController::class, 'jwks']);
     });
