@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\Bulk;
 
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\BulkInviteUsersRequest;
-use App\Http\Resources\InvitationResource;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\BulkOperationService;
 use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
@@ -41,21 +41,35 @@ class BulkUserOperationsController extends BaseApiController
                 'user' // default role
             );
 
-            if ($result['success']) {
-                return $this->successResponse([
-                    'invited' => $result['data']['invited'],
-                    'failed' => $result['data']['failed'],
-                    'invitations' => InvitationResource::collection($result['data']['created_invitations']),
-                    'summary' => [
-                        'total_processed' => count($request->validated()['invitations']),
-                        'successful' => count($result['data']['invited']),
-                        'failed' => count($result['data']['failed']),
-                        'success_rate' => count($result['data']['invited']) / count($request->validated()['invitations']) * 100,
-                    ],
-                ], $result['message']);
-            }
+            // The service returns the result directly, not wrapped in success/data structure
+            $successful = $result['successful'] ?? [];
+            $failed = $result['failed'] ?? [];
+            $alreadyExists = $result['already_exists'] ?? [];
 
-            return $this->errorResponse($result['message'], 400);
+            $totalProcessed = count($request->validated()['invitations']);
+            $successfulCount = count($successful);
+            $failedCount = count($failed);
+            $existsCount = count($alreadyExists);
+
+            $message = sprintf(
+                'Bulk invitation completed: %d successful, %d failed, %d already exist',
+                $successfulCount,
+                $failedCount,
+                $existsCount
+            );
+
+            return $this->successResponse([
+                'successful' => $successful,
+                'failed' => $failed,
+                'already_exists' => $alreadyExists,
+                'summary' => [
+                    'total_processed' => $totalProcessed,
+                    'successful' => $successfulCount,
+                    'failed' => $failedCount,
+                    'already_exists' => $existsCount,
+                    'success_rate' => $totalProcessed > 0 ? round(($successfulCount / $totalProcessed) * 100, 2) : 0,
+                ],
+            ], $message);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to process bulk invitations: '.$e->getMessage());
         }
@@ -71,42 +85,71 @@ class BulkUserOperationsController extends BaseApiController
         $organization = Organization::findOrFail($organizationId);
 
         $validator = Validator::make($request->all(), [
-            'assignments' => 'required|array|min:1|max:100',
-            'assignments.*.user_id' => 'required|exists:users,id',
-            'assignments.*.role_ids' => 'required|array|min:1',
-            'assignments.*.role_ids.*' => 'exists:roles,id',
-            'assignments.*.action' => 'sometimes|string|in:assign,remove',
+            'user_ids' => 'required|array|min:1|max:100',
+            'user_ids.*' => 'required|exists:users,id',
+            'custom_roles' => 'sometimes|array|min:1',
+            'custom_roles.*' => 'exists:custom_roles,id',
+            'role' => 'sometimes|string',
+            'action' => 'sometimes|string|in:assign,revoke,remove',
         ]);
 
         if ($validator->fails()) {
             return $this->validationErrorResponse($validator->errors());
         }
 
-        try {
-            // Extract user IDs and role ID from assignments
-            $userIds = collect($request->input('assignments'))->pluck('user_id')->toArray();
-            $roleId = $request->input('assignments')[0]['role_ids'][0] ?? 'user'; // Get first role from first assignment
+        $userIds = $request->input('user_ids');
+        $customRoleIds = $request->input('custom_roles', []);
+        $action = $request->input('action', 'assign');
 
-            $result = $this->bulkOperationService->bulkAssignRoles(
+        // Validate that all users belong to the organization
+        $users = User::whereIn('id', $userIds)->get();
+        $invalidUsers = $users->filter(function ($user) use ($organization) {
+            return $user->organization_id !== $organization->id;
+        });
+
+        if ($invalidUsers->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Some users do not belong to this organization.',
+                'invalid_users' => $invalidUsers->pluck('id')->toArray(),
+            ], 422);
+        }
+
+        try {
+            $result = $this->bulkOperationService->bulkAssignOrRevokeRoles(
                 $userIds,
-                $roleId,
-                $organization
+                [], // no standard roles
+                $customRoleIds, // custom role IDs
+                $action,
+                $organization,
+                auth()->user() ?? \App\Models\User::first()
             );
 
-            if ($result['success']) {
-                return $this->successResponse([
-                    'processed' => $result['data']['processed'],
-                    'failed' => $result['data']['failed'],
-                    'summary' => [
-                        'total_assignments' => count($request->input('assignments')),
-                        'successful' => count($result['data']['processed']),
-                        'failed' => count($result['data']['failed']),
-                        'success_rate' => count($result['data']['processed']) / count($request->input('assignments')) * 100,
-                    ],
-                ], $result['message']);
-            }
+            // The service returns the result directly, not wrapped in success/data structure
+            $successful = $result['successful'] ?? [];
+            $failed = $result['failed'] ?? [];
 
-            return $this->errorResponse($result['message'], 400);
+            $totalAssignments = count($request->input('user_ids'));
+            $successfulCount = count($successful);
+            $failedCount = count($failed);
+
+            $actionText = $action === 'revoke' ? 'revoke' : 'assign';
+            $message = sprintf(
+                'Bulk role %s completed: %d successful, %d failed',
+                $actionText,
+                $successfulCount,
+                $failedCount
+            );
+
+            return $this->successResponse([
+                'successful' => $successful,
+                'failed' => $failed,
+                'summary' => [
+                    'total_assignments' => $totalAssignments,
+                    'successful' => $successfulCount,
+                    'failed' => $failedCount,
+                    'success_rate' => $totalAssignments > 0 ? round(($successfulCount / $totalAssignments) * 100, 2) : 0,
+                ],
+            ], $message);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to process bulk role assignments: '.$e->getMessage());
         }

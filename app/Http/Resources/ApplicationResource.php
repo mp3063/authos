@@ -20,6 +20,7 @@ class ApplicationResource extends JsonResource
             'description' => $this->description,
             'client_id' => $this->client_id,
             'redirect_uris' => $this->redirect_uris,
+            'scopes' => $this->allowed_scopes,  // For API consistency
             'allowed_scopes' => $this->allowed_scopes,
             'is_active' => $this->is_active,
             'logo_url' => $this->logo_url,
@@ -34,7 +35,7 @@ class ApplicationResource extends JsonResource
             'client_secret' => $this->when(
                 $request->user()?->hasRole('super-admin') ||
                 ($request->user()?->organization_id === $this->organization_id &&
-                 $request->user()?->can('manage applications')),
+                 $request->user()?->can('applications.update')),
                 $this->client_secret
             ),
 

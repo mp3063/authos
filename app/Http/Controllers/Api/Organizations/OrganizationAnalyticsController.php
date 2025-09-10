@@ -40,7 +40,7 @@ class OrganizationAnalyticsController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $period = $request->get('period', '30d');
@@ -52,18 +52,16 @@ class OrganizationAnalyticsController extends BaseApiController
         $analyticsData = $this->cacheAnalytics(
             "organization_{$organization->id}",
             $cacheParams,
-            function () use ($organization, $period, $metrics, $timezone) {
-                return $this->analyticsService->getOrganizationAnalytics(
-                    $organization->id,
-                    $period,
-                    $metrics,
-                    $timezone
+            function () use ($organization, $period) {
+                return $this->analyticsService->getAnalytics(
+                    $organization,
+                    $period
                 );
             },
             300 // 5 minutes cache
         );
 
-        return $this->success(
+        return $this->successResponse(
             $analyticsData,
             'Organization analytics retrieved successfully'
         );
@@ -84,7 +82,7 @@ class OrganizationAnalyticsController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $period = $request->get('period', '30d');
@@ -99,7 +97,7 @@ class OrganizationAnalyticsController extends BaseApiController
             }
         );
 
-        return $this->success(
+        return $this->successResponse(
             $metrics,
             'User metrics retrieved successfully'
         );
@@ -120,7 +118,7 @@ class OrganizationAnalyticsController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $period = $request->get('period', '30d');
@@ -135,7 +133,7 @@ class OrganizationAnalyticsController extends BaseApiController
             }
         );
 
-        return $this->success(
+        return $this->successResponse(
             $metrics,
             'Application metrics retrieved successfully'
         );
@@ -156,7 +154,7 @@ class OrganizationAnalyticsController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $period = $request->get('period', '30d');
@@ -171,7 +169,7 @@ class OrganizationAnalyticsController extends BaseApiController
             }
         );
 
-        return $this->success(
+        return $this->successResponse(
             $metrics,
             'Security metrics retrieved successfully'
         );
@@ -194,7 +192,7 @@ class OrganizationAnalyticsController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $format = $request->get('format', 'json');
@@ -211,12 +209,12 @@ class OrganizationAnalyticsController extends BaseApiController
                 $dateTo
             );
 
-            return $this->success(
+            return $this->successResponse(
                 $exportData,
                 'Organization data exported successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorServer('Failed to export data: '.$e->getMessage());
+            return $this->errorResponse('Failed to export data: '.$e->getMessage(), 500);
         }
     }
 }

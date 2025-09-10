@@ -11,7 +11,7 @@ class GrantUserAccessRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('applications.manage');
+        return $this->user()->can('applications.update');
     }
 
     /**

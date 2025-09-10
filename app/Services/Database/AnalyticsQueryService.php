@@ -106,131 +106,172 @@ class AnalyticsQueryService
     }
 
     /**
-     * Get daily activity trends with optimized query
+     * Get daily activity trends with optimized query using collections
      */
     public function getDailyActivityTrends(Organization $organization, int $days = 30): array
     {
         $startDate = Carbon::now()->subDays($days)->startOfDay();
 
-        $results = DB::select('
-            SELECT 
-                DATE(al.created_at) as activity_date,
-                COUNT(CASE WHEN al.event = "login_success" THEN 1 END) as successful_logins,
-                COUNT(CASE WHEN al.event = "login_failed" THEN 1 END) as failed_logins,
-                COUNT(DISTINCT al.user_id) as unique_users,
-                COUNT(DISTINCT al.application_id) as unique_applications,
-                AVG(CASE WHEN al.event = "login_success" THEN 1.0 ELSE 0.0 END) as success_rate
-            FROM authentication_logs al
-            JOIN users u ON al.user_id = u.id  
-            WHERE u.organization_id = ? 
-                AND al.created_at >= ?
-            GROUP BY DATE(al.created_at)
-            ORDER BY activity_date DESC
-        ', [$organization->id, $startDate]);
+        // Get raw authentication logs for the organization
+        $logs = DB::table('authentication_logs as al')
+            ->join('users as u', 'al.user_id', '=', 'u.id')
+            ->where('u.organization_id', $organization->id)
+            ->where('al.created_at', '>=', $startDate)
+            ->select([
+                'al.created_at',
+                'al.event',
+                'al.user_id',
+                'al.application_id',
+            ])
+            ->get();
 
-        return array_map(function ($row) {
+        // Use collections to group and aggregate data
+        return $logs->groupBy(function ($log) {
+            return Carbon::parse($log->created_at)->toDateString();
+        })->map(function ($dayLogs, $date) {
+            $successfulLogins = $dayLogs->where('event', 'login_success')->count();
+            $failedLogins = $dayLogs->where('event', 'login_failed')->count();
+            $uniqueUsers = $dayLogs->pluck('user_id')->unique()->count();
+            $uniqueApplications = $dayLogs->pluck('application_id')->unique()->count();
+            $totalAttempts = $successfulLogins + $failedLogins;
+
             return [
-                'date' => $row->activity_date,
-                'successful_logins' => (int) $row->successful_logins,
-                'failed_logins' => (int) $row->failed_logins,
-                'unique_users' => (int) $row->unique_users,
-                'unique_applications' => (int) $row->unique_applications,
-                'success_rate' => round($row->success_rate * 100, 2),
+                'date' => $date,
+                'successful_logins' => $successfulLogins,
+                'failed_logins' => $failedLogins,
+                'unique_users' => $uniqueUsers,
+                'unique_applications' => $uniqueApplications,
+                'success_rate' => $totalAttempts > 0 ? round(($successfulLogins / $totalAttempts) * 100, 2) : 0,
             ];
-        }, $results);
+        })->sortByDesc('date')->values()->toArray();
     }
 
     /**
-     * Get application usage analytics efficiently
+     * Get application usage analytics using collections
      */
     public function getApplicationUsageAnalytics(Organization $organization, int $days = 30): array
     {
         $startDate = Carbon::now()->subDays($days)->startOfDay();
 
-        $results = DB::select('
-            SELECT 
-                a.id,
-                a.name,
-                a.client_id,
-                a.is_active,
-                COUNT(DISTINCT ua.user_id) as total_users,
-                COUNT(DISTINCT CASE WHEN ua.last_login_at >= ? THEN ua.user_id END) as active_users,
-                COALESCE(SUM(ua.login_count), 0) as total_logins,
-                COALESCE(MAX(ua.last_login_at), a.created_at) as latest_activity,
-                COUNT(DISTINCT al.id) as auth_events_period,
-                COUNT(DISTINCT CASE WHEN al.event = "login_success" THEN al.id END) as successful_logins_period,
-                COUNT(DISTINCT CASE WHEN al.event = "login_failed" THEN al.id END) as failed_logins_period
-            FROM applications a
-            LEFT JOIN user_applications ua ON a.id = ua.application_id
-            LEFT JOIN authentication_logs al ON a.id = al.application_id AND al.created_at >= ?
-            WHERE a.organization_id = ?
-            GROUP BY a.id, a.name, a.client_id, a.is_active, a.created_at
-            ORDER BY active_users DESC, total_logins DESC
-        ', [$startDate, $startDate, $organization->id]);
+        // Get applications with basic info
+        $applications = DB::table('applications')
+            ->where('organization_id', $organization->id)
+            ->select(['id', 'name', 'client_id', 'is_active', 'created_at'])
+            ->get()
+            ->keyBy('id');
 
-        return array_map(function ($row) {
-            $successRate = ($row->successful_logins_period + $row->failed_logins_period) > 0
-                ? round(($row->successful_logins_period / ($row->successful_logins_period + $row->failed_logins_period)) * 100, 2)
-                : 0;
+        // Get user application relationships
+        $userApplications = DB::table('user_applications')
+            ->whereIn('application_id', $applications->keys())
+            ->select(['application_id', 'user_id', 'last_login_at', 'login_count'])
+            ->get()
+            ->groupBy('application_id');
+
+        // Get authentication logs for the period
+        $authLogs = DB::table('authentication_logs')
+            ->whereIn('application_id', $applications->keys())
+            ->where('created_at', '>=', $startDate)
+            ->select(['application_id', 'event', 'id'])
+            ->get()
+            ->groupBy('application_id');
+
+        return $applications->map(function ($app) use ($userApplications, $authLogs, $startDate) {
+            $appUserRelations = collect($userApplications->get($app->id, []));
+            $appAuthLogs = collect($authLogs->get($app->id, []));
+
+            // Calculate metrics using collections
+            $totalUsers = $appUserRelations->pluck('user_id')->unique()->count();
+            $activeUsers = $appUserRelations->filter(function ($relation) use ($startDate) {
+                return $relation->last_login_at && Carbon::parse($relation->last_login_at)->gte($startDate);
+            })->pluck('user_id')->unique()->count();
+
+            $totalLogins = $appUserRelations->sum('login_count') ?? 0;
+            $latestActivity = $appUserRelations->max('last_login_at') ?? $app->created_at;
+
+            $authEventsCount = $appAuthLogs->count();
+            $successfulLogins = $appAuthLogs->where('event', 'login_success')->count();
+            $failedLogins = $appAuthLogs->where('event', 'login_failed')->count();
+            $totalAttempts = $successfulLogins + $failedLogins;
 
             return [
-                'id' => (int) $row->id,
-                'name' => $row->name,
-                'client_id' => $row->client_id,
-                'is_active' => (bool) $row->is_active,
-                'total_users' => (int) $row->total_users,
-                'active_users' => (int) $row->active_users,
-                'total_logins' => (int) $row->total_logins,
-                'latest_activity' => $row->latest_activity,
-                'auth_events_period' => (int) $row->auth_events_period,
-                'success_rate_period' => $successRate,
-                'activity_score' => ($row->active_users * 2) + ($row->total_logins * 0.1),
+                'id' => (int) $app->id,
+                'name' => $app->name,
+                'client_id' => $app->client_id,
+                'is_active' => (bool) $app->is_active,
+                'total_users' => $totalUsers,
+                'active_users' => $activeUsers,
+                'total_logins' => $totalLogins,
+                'latest_activity' => $latestActivity,
+                'auth_events_period' => $authEventsCount,
+                'success_rate_period' => $totalAttempts > 0 ? round(($successfulLogins / $totalAttempts) * 100, 2) : 0,
+                'activity_score' => ($activeUsers * 2) + ($totalLogins * 0.1),
             ];
-        }, $results);
+        })->sortByDesc('active_users')
+            ->sortByDesc('total_logins')
+            ->values()
+            ->toArray();
     }
 
     /**
-     * Get security analytics and risk metrics
+     * Get security analytics using collections for data processing
      */
     public function getSecurityAnalytics(Organization $organization, int $days = 30): array
     {
         $startDate = Carbon::now()->subDays($days)->startOfDay();
 
-        $results = DB::select('
-            SELECT 
-                COUNT(DISTINCT CASE WHEN al.event = "login_failed" THEN al.ip_address END) as suspicious_ips,
-                COUNT(DISTINCT CASE WHEN al.event = "login_failed" THEN al.user_id END) as users_with_failed_attempts,
-                COUNT(CASE WHEN al.event = "login_failed" THEN 1 END) as total_failed_attempts,
-                COUNT(CASE WHEN al.event = "login_success" THEN 1 END) as total_successful_logins,
-                COUNT(DISTINCT CASE WHEN al.event IN ("mfa_challenge_sent", "mfa_verified") THEN al.user_id END) as mfa_active_users,
-                COUNT(CASE WHEN al.event = "mfa_failed" THEN 1 END) as mfa_failed_attempts,
-                COUNT(DISTINCT al.ip_address) as total_unique_ips,
-                COUNT(DISTINCT al.user_agent) as total_unique_agents
-            FROM authentication_logs al
-            JOIN users u ON al.user_id = u.id
-            WHERE u.organization_id = ? AND al.created_at >= ?
-        ', [$organization->id, $startDate]);
+        // Get all authentication logs for the period
+        $logs = DB::table('authentication_logs as al')
+            ->join('users as u', 'al.user_id', '=', 'u.id')
+            ->where('u.organization_id', $organization->id)
+            ->where('al.created_at', '>=', $startDate)
+            ->select([
+                'al.event',
+                'al.ip_address',
+                'al.user_agent',
+                'al.user_id',
+                'al.created_at',
+            ])
+            ->get();
 
-        $data = (array) $results[0];
+        // Process security metrics using collections
+        $failedLogs = $logs->where('event', 'login_failed');
+        $successfulLogs = $logs->where('event', 'login_success');
+        $mfaLogs = $logs->whereIn('event', ['mfa_challenge_sent', 'mfa_verified']);
+        $mfaFailedLogs = $logs->where('event', 'mfa_failed');
 
-        // Get top risky IPs
-        $riskyIps = DB::select('
-            SELECT 
-                al.ip_address,
-                COUNT(CASE WHEN al.event = "login_failed" THEN 1 END) as failed_attempts,
-                COUNT(CASE WHEN al.event = "login_success" THEN 1 END) as successful_attempts,
-                COUNT(DISTINCT al.user_id) as targeted_users,
-                MAX(al.created_at) as latest_attempt
-            FROM authentication_logs al
-            JOIN users u ON al.user_id = u.id
-            WHERE u.organization_id = ? 
-                AND al.created_at >= ?
-                AND al.event IN ("login_failed", "login_success")
-            GROUP BY al.ip_address
-            HAVING failed_attempts >= 3
-            ORDER BY failed_attempts DESC, targeted_users DESC
-            LIMIT 20
-        ', [$organization->id, $startDate]);
+        // Calculate threat metrics
+        $suspiciousIps = $failedLogs->pluck('ip_address')->unique()->count();
+        $usersWithFailedAttempts = $failedLogs->pluck('user_id')->unique()->count();
+        $totalFailedAttempts = $failedLogs->count();
+        $totalSuccessfulLogins = $successfulLogs->count();
+        $totalUniqueIps = $logs->pluck('ip_address')->unique()->count();
+        $totalUniqueAgents = $logs->pluck('user_agent')->unique()->count();
+        $mfaActiveUsers = $mfaLogs->pluck('user_id')->unique()->count();
+        $mfaFailedAttempts = $mfaFailedLogs->count();
+
+        // Get risky IPs using collections
+        $ipAnalysis = $logs->whereIn('event', ['login_failed', 'login_success'])
+            ->groupBy('ip_address')
+            ->map(function ($ipLogs, $ip) {
+                $failedAttempts = $ipLogs->where('event', 'login_failed')->count();
+                $successfulAttempts = $ipLogs->where('event', 'login_success')->count();
+                $targetedUsers = $ipLogs->pluck('user_id')->unique()->count();
+                $latestAttempt = $ipLogs->max('created_at');
+
+                return [
+                    'ip_address' => $ip,
+                    'failed_attempts' => $failedAttempts,
+                    'successful_attempts' => $successfulAttempts,
+                    'targeted_users' => $targetedUsers,
+                    'latest_attempt' => $latestAttempt,
+                ];
+            })
+            ->filter(function ($ipData) {
+                return $ipData['failed_attempts'] >= 3; // Only risky IPs
+            })
+            ->sortByDesc('failed_attempts')
+            ->sortByDesc('targeted_users')
+            ->take(20);
 
         return [
             'period' => [
@@ -238,101 +279,134 @@ class AnalyticsQueryService
                 'days' => $days,
             ],
             'threat_metrics' => [
-                'suspicious_ips' => (int) $data['suspicious_ips'],
-                'users_with_failed_attempts' => (int) $data['users_with_failed_attempts'],
-                'total_failed_attempts' => (int) $data['total_failed_attempts'],
-                'attack_success_rate' => $data['total_failed_attempts'] > 0
-                    ? round(($data['total_successful_logins'] / ($data['total_failed_attempts'] + $data['total_successful_logins'])) * 100, 2)
+                'suspicious_ips' => $suspiciousIps,
+                'users_with_failed_attempts' => $usersWithFailedAttempts,
+                'total_failed_attempts' => $totalFailedAttempts,
+                'attack_success_rate' => ($totalFailedAttempts + $totalSuccessfulLogins) > 0
+                    ? round(($totalSuccessfulLogins / ($totalFailedAttempts + $totalSuccessfulLogins)) * 100, 2)
                     : 0,
-                'total_unique_ips' => (int) $data['total_unique_ips'],
-                'total_unique_agents' => (int) $data['total_unique_agents'],
+                'total_unique_ips' => $totalUniqueIps,
+                'total_unique_agents' => $totalUniqueAgents,
             ],
             'mfa_metrics' => [
-                'active_mfa_users' => (int) $data['mfa_active_users'],
-                'mfa_failed_attempts' => (int) $data['mfa_failed_attempts'],
+                'active_mfa_users' => $mfaActiveUsers,
+                'mfa_failed_attempts' => $mfaFailedAttempts,
             ],
-            'risky_ips' => array_map(function ($row) {
-                $totalAttempts = $row->failed_attempts + $row->successful_attempts;
+            'risky_ips' => $ipAnalysis->map(function ($ipData) {
+                $totalAttempts = $ipData['failed_attempts'] + $ipData['successful_attempts'];
 
                 return [
-                    'ip_address' => $row->ip_address,
-                    'failed_attempts' => (int) $row->failed_attempts,
-                    'successful_attempts' => (int) $row->successful_attempts,
-                    'targeted_users' => (int) $row->targeted_users,
-                    'risk_score' => round(($row->failed_attempts * 2) + ($row->targeted_users * 1.5), 2),
-                    'success_rate' => $totalAttempts > 0 ? round(($row->successful_attempts / $totalAttempts) * 100, 2) : 0,
-                    'latest_attempt' => $row->latest_attempt,
+                    'ip_address' => $ipData['ip_address'],
+                    'failed_attempts' => $ipData['failed_attempts'],
+                    'successful_attempts' => $ipData['successful_attempts'],
+                    'targeted_users' => $ipData['targeted_users'],
+                    'risk_score' => round(($ipData['failed_attempts'] * 2) + ($ipData['targeted_users'] * 1.5), 2),
+                    'success_rate' => $totalAttempts > 0 ? round(($ipData['successful_attempts'] / $totalAttempts) * 100, 2) : 0,
+                    'latest_attempt' => $ipData['latest_attempt'],
                 ];
-            }, $riskyIps),
+            })->values()->toArray(),
         ];
     }
 
     /**
-     * Get role and permission analytics
+     * Get role analytics using collections for data processing
      */
     public function getRoleAnalytics(Organization $organization): array
     {
-        $results = DB::select('
-            SELECT 
-                r.name as role_name,
-                COUNT(DISTINCT mhr.model_id) as user_count,
-                COUNT(DISTINCT rhp.permission_id) as permission_count,
-                AVG(CASE WHEN u.is_active = 1 THEN 1.0 ELSE 0.0 END) as active_user_rate,
-                MAX(u.last_login_at) as latest_user_login
-            FROM roles r
-            LEFT JOIN model_has_roles mhr ON r.id = mhr.role_id AND mhr.model_type = ?
-            LEFT JOIN users u ON mhr.model_id = u.id AND u.organization_id = ?
-            LEFT JOIN role_has_permissions rhp ON r.id = rhp.role_id
-            WHERE r.name NOT LIKE "system.%"
-            GROUP BY r.id, r.name
-            ORDER BY user_count DESC
-        ', ['App\\Models\\User', $organization->id]);
+        // Get all roles (excluding system roles)
+        $roles = DB::table('roles')
+            ->where('name', 'NOT LIKE', 'system.%')
+            ->select(['id', 'name'])
+            ->get()
+            ->keyBy('id');
 
-        return array_map(function ($row) {
+        // Get role-user relationships for this organization
+        $roleUsers = DB::table('model_has_roles as mhr')
+            ->join('users as u', 'mhr.model_id', '=', 'u.id')
+            ->where('mhr.model_type', 'App\\Models\\User')
+            ->where('u.organization_id', $organization->id)
+            ->whereIn('mhr.role_id', $roles->keys())
+            ->select([
+                'mhr.role_id',
+                'u.id as user_id',
+                'u.is_active',
+                'u.last_login_at',
+            ])
+            ->get()
+            ->groupBy('role_id');
+
+        // Get role permissions
+        $rolePermissions = DB::table('role_has_permissions')
+            ->whereIn('role_id', $roles->keys())
+            ->select(['role_id', 'permission_id'])
+            ->get()
+            ->groupBy('role_id');
+
+        return $roles->map(function ($role) use ($roleUsers, $rolePermissions) {
+            $usersInRole = collect($roleUsers->get($role->id, []));
+            $permissionsInRole = collect($rolePermissions->get($role->id, []));
+
+            // Calculate metrics using collections
+            $userCount = $usersInRole->count();
+            $permissionCount = $permissionsInRole->count();
+            $activeUsers = $usersInRole->where('is_active', true);
+            $activeUserRate = $userCount > 0 ? ($activeUsers->count() / $userCount) : 0;
+            $latestLogin = $usersInRole->max('last_login_at');
+
             return [
-                'role_name' => $row->role_name,
-                'user_count' => (int) $row->user_count,
-                'permission_count' => (int) $row->permission_count,
-                'active_user_rate' => round($row->active_user_rate * 100, 2),
-                'latest_user_login' => $row->latest_user_login,
-                'utilization_score' => ($row->user_count * 2) + ($row->permission_count * 0.5),
+                'role_name' => $role->name,
+                'user_count' => $userCount,
+                'permission_count' => $permissionCount,
+                'active_user_rate' => round($activeUserRate * 100, 2),
+                'latest_user_login' => $latestLogin,
+                'utilization_score' => ($userCount * 2) + ($permissionCount * 0.5),
             ];
-        }, $results);
+        })->sortByDesc('user_count')
+            ->values()
+            ->toArray();
     }
 
     /**
-     * Get comprehensive activity heat map data
+     * Get comprehensive activity heat map using collections
      */
     public function getActivityHeatMap(Organization $organization, int $days = 7): array
     {
         $startDate = Carbon::now()->subDays($days)->startOfDay();
 
-        $results = DB::select('
-            SELECT 
-                DATE(al.created_at) as activity_date,
-                HOUR(al.created_at) as activity_hour,
-                COUNT(CASE WHEN al.event = "login_success" THEN 1 END) as login_count,
-                COUNT(DISTINCT al.user_id) as unique_users,
-                COUNT(DISTINCT al.application_id) as unique_apps
-            FROM authentication_logs al
-            JOIN users u ON al.user_id = u.id
-            WHERE u.organization_id = ? 
-                AND al.created_at >= ?
-                AND al.event = "login_success"
-            GROUP BY DATE(al.created_at), HOUR(al.created_at)
-            ORDER BY activity_date DESC, activity_hour ASC
-        ', [$organization->id, $startDate]);
+        // Get successful login logs only
+        $logs = DB::table('authentication_logs as al')
+            ->join('users as u', 'al.user_id', '=', 'u.id')
+            ->where('u.organization_id', $organization->id)
+            ->where('al.created_at', '>=', $startDate)
+            ->where('al.event', 'login_success')
+            ->select([
+                'al.created_at',
+                'al.user_id',
+                'al.application_id',
+            ])
+            ->get();
 
-        $heatMap = [];
-        foreach ($results as $row) {
-            $heatMap[$row->activity_date][$row->activity_hour] = [
-                'login_count' => (int) $row->login_count,
-                'unique_users' => (int) $row->unique_users,
-                'unique_apps' => (int) $row->unique_apps,
-                'intensity' => min(($row->login_count / 10) * 100, 100), // Scale to 0-100
-            ];
-        }
+        // Process logs using collections to create heat map
+        return $logs->groupBy(function ($log) {
+            return Carbon::parse($log->created_at)->toDateString();
+        })->map(function ($dayLogs) {
+            // Group by hour within each day
+            return $dayLogs->groupBy(function ($log) {
+                return Carbon::parse($log->created_at)->hour;
+            })->map(function ($hourLogs) {
+                $loginCount = $hourLogs->count();
+                $uniqueUsers = $hourLogs->pluck('user_id')->unique()->count();
+                $uniqueApps = $hourLogs->pluck('application_id')->unique()->count();
 
-        return $heatMap;
+                return [
+                    'login_count' => $loginCount,
+                    'unique_users' => $uniqueUsers,
+                    'unique_apps' => $uniqueApps,
+                    'intensity' => min(($loginCount / 10) * 100, 100), // Scale to 0-100
+                ];
+            })->toArray();
+        })->sortByDesc(function ($hourData, $date) {
+            return $date; // Sort by date desc
+        })->toArray();
     }
 }

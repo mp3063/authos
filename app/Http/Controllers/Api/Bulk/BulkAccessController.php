@@ -24,55 +24,61 @@ class BulkAccessController extends BaseApiController
      */
     public function bulkRevokeAccess(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('applications.manage');
+        $this->authorize('applications.update');
 
         $organization = Organization::findOrFail($organizationId);
 
         $validator = Validator::make($request->all(), [
-            'revocations' => 'required|array|min:1|max:100',
-            'revocations.*.user_id' => 'required|exists:users,id',
-            'revocations.*.application_ids' => 'sometimes|array',
-            'revocations.*.application_ids.*' => 'exists:applications,id',
-            'revocations.*.revoke_all_applications' => 'sometimes|boolean',
-            'revocations.*.revoke_sessions' => 'sometimes|boolean',
-            'revocations.*.reason' => 'sometimes|string|max:500',
+            'user_ids' => 'required|array|min:1|max:100',
+            'user_ids.*' => 'required|exists:users,id',
+            'application_id' => 'sometimes|exists:applications,id',
+            'application_ids' => 'sometimes|array|min:1',
+            'application_ids.*' => 'exists:applications,id',
         ]);
 
         if ($validator->fails()) {
             return $this->validationErrorResponse($validator->errors());
         }
 
+        // Check that at least one application field is provided
+        if (! $request->has('application_id') && ! $request->has('application_ids')) {
+            return $this->validationErrorResponse(['application_id' => ['Either application_id or application_ids is required']]);
+        }
+
+        $userIds = $request->input('user_ids');
+        $applicationId = $request->input('application_id') ?: ($request->input('application_ids')[0] ?? null);
+
         try {
-            // Extract user IDs and application ID from revocations
-            $userIds = collect($request->input('revocations'))->pluck('user_id')->toArray();
-            $applicationId = $request->input('revocations')[0]['application_ids'][0] ?? null;
-
-            if (! $applicationId) {
-                return $this->errorResponse('Application ID is required for access revocation', 400);
-            }
-
             $result = $this->bulkOperationService->bulkRevokeAccess(
                 $userIds,
                 $applicationId,
                 $organization
             );
 
-            if ($result['success']) {
-                return $this->successResponse([
-                    'processed' => $result['data']['processed'],
-                    'failed' => $result['data']['failed'],
-                    'summary' => [
-                        'total_revocations' => count($request->input('revocations')),
-                        'successful' => count($result['data']['processed']),
-                        'failed' => count($result['data']['failed']),
-                        'applications_revoked' => $result['data']['applications_revoked'] ?? 0,
-                        'sessions_revoked' => $result['data']['sessions_revoked'] ?? 0,
-                        'success_rate' => count($result['data']['processed']) / count($request->input('revocations')) * 100,
-                    ],
-                ], $result['message']);
-            }
+            // The service returns the result directly, not wrapped in success/data structure
+            $successful = $result['successful'] ?? [];
+            $failed = $result['failed'] ?? [];
 
-            return $this->errorResponse($result['message'], 400);
+            $totalRevocations = count($request->input('user_ids'));
+            $successfulCount = count($successful);
+            $failedCount = count($failed);
+
+            $message = sprintf(
+                'Bulk access revocation completed: %d successful, %d failed',
+                $successfulCount,
+                $failedCount
+            );
+
+            return $this->successResponse([
+                'successful' => $successful,
+                'failed' => $failed,
+                'summary' => [
+                    'total_revocations' => $totalRevocations,
+                    'successful' => $successfulCount,
+                    'failed' => $failedCount,
+                    'success_rate' => $totalRevocations > 0 ? round(($successfulCount / $totalRevocations) * 100, 2) : 0,
+                ],
+            ], $message);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to process bulk access revocations: '.$e->getMessage());
         }

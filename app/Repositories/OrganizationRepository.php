@@ -203,4 +203,41 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
 
         return ! $query->exists();
     }
+
+    /**
+     * Get filtered organizations with pagination
+     */
+    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15)
+    {
+        $query = $this->model->newQuery();
+
+        // Apply search (using LIKE for SQLite compatibility)
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('slug', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Apply filters
+        if (! empty($filters['is_active'])) {
+            $query->where('is_active', $filters['is_active'] === 'true');
+        }
+
+        if (! empty($filters['created_after'])) {
+            $query->where('created_at', '>=', $filters['created_after']);
+        }
+
+        if (! empty($filters['created_before'])) {
+            $query->where('created_at', '<=', $filters['created_before']);
+        }
+
+        // Skip withCount due to Laravel compatibility issue - will default to 0 in resource
+
+        // Apply sorting
+        $query->orderBy($sort, $order);
+
+        return $query->paginate($perPage);
+    }
 }

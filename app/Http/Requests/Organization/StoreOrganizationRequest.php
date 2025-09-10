@@ -48,7 +48,7 @@ class StoreOrganizationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'Organization name is required',
+            'name.required' => 'The name field is required.',
             'slug.unique' => 'This organization slug is already taken',
             'slug.regex' => 'Organization slug can only contain lowercase letters, numbers, and hyphens',
             'settings.password_policy.min_length.min' => 'Password minimum length must be at least 6 characters',
@@ -64,25 +64,11 @@ class StoreOrganizationRequest extends FormRequest
     protected function prepareForValidation()
     {
         // Auto-generate slug if not provided
-        if (! $this->has('slug') && $this->has('name')) {
+        if (! $this->has('slug') && $this->has('name') && ! empty($this->name)) {
             $this->merge([
                 'slug' => $this->generateUniqueSlug($this->name),
             ]);
         }
-    }
-
-    /**
-     * Handle a failed validation attempt.
-     */
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
-    {
-        throw new \Illuminate\Http\Exceptions\HttpResponseException(
-            response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422)
-        );
     }
 
     /**

@@ -533,7 +533,7 @@ class SecurityTest extends TestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'file',
                 ],
             ]);

@@ -45,23 +45,51 @@ class OrganizationUsersController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
+        }
+
+        $query = User::with(['roles', 'organization'])
+            ->where('organization_id', $organization->id);
+
+        if ($request->has('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%$search%")
+                    ->orWhere('email', 'LIKE', "%$search%");
+            });
         }
 
         $filters = $request->get('filter', []);
-        $filters['organization_id'] = $organization->id;
+        if (isset($filters['is_active'])) {
+            $isActive = filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN);
+            $query->where('is_active', $isActive);
+        }
 
-        $users = $this->userService->getFilteredUsers(
-            $request->get('search'),
-            $filters,
-            $request->get('sort', 'created_at'),
-            $request->get('order', 'desc'),
-            (int) $request->get('per_page', 15)
-        );
+        if (isset($filters['has_mfa'])) {
+            $hasMfa = filter_var($filters['has_mfa'], FILTER_VALIDATE_BOOLEAN);
+            if ($hasMfa) {
+                $query->whereNotNull('mfa_methods');
+            } else {
+                $query->whereNull('mfa_methods');
+            }
+        }
 
-        return $this->successResourceCollection(
-            UserResource::collection($users),
-            'Organization users retrieved successfully'
+        if (isset($filters['role'])) {
+            $query->whereHas('roles', function ($q) use ($filters) {
+                $q->where('name', $filters['role']);
+            });
+        }
+
+        $sort = $request->get('sort', 'created_at');
+        $order = $request->get('order', 'desc');
+        $query->orderBy($sort, $order);
+
+        $users = $query->paginate((int) $request->get('per_page', 15));
+
+        return $this->paginatedResponse(
+            $users,
+            'Organization users retrieved successfully',
+            UserResource::class
         );
     }
 
@@ -85,17 +113,18 @@ class OrganizationUsersController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $query = Application::where('organization_id', $organization->id)
-            ->with(['organization', 'users']);
+            ->with(['organization', 'users'])
+            ->withCount('users');
 
         if ($request->has('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'ILIKE', "%{$search}%")
-                    ->orWhere('description', 'ILIKE', "%{$search}%");
+                $q->where('name', 'LIKE', "%$search%")
+                    ->orWhere('description', 'LIKE', "%$search%");
             });
         }
 
@@ -110,9 +139,10 @@ class OrganizationUsersController extends BaseApiController
 
         $applications = $query->paginate((int) $request->get('per_page', 15));
 
-        return $this->successResourceCollection(
+        return $this->paginatedResponse(
             $applications,
-            'Organization applications retrieved successfully'
+            'Organization applications retrieved successfully',
+            \App\Http\Resources\ApplicationResource::class
         );
     }
 
@@ -121,7 +151,7 @@ class OrganizationUsersController extends BaseApiController
      */
     public function grantUserAccess(GrantUserAccessRequest $request, string $id): JsonResponse
     {
-        $this->authorize('applications.manage');
+        $this->authorize('applications.update');
 
         $organization = Organization::findOrFail($id);
 
@@ -131,34 +161,34 @@ class OrganizationUsersController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return $this->errorValidation($validator->errors());
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $user = User::findOrFail($request->input('user_id'));
         $application = Application::findOrFail($request->input('application_id'));
 
         if ($user->organization_id !== $organization->id) {
-            return $this->errorBadRequest('User does not belong to this organization');
+            return $this->errorResponse('User does not belong to this organization');
         }
 
         if ($application->organization_id !== $organization->id) {
-            return $this->errorBadRequest('Application does not belong to this organization');
+            return $this->errorResponse('Application does not belong to this organization');
         }
 
         if ($user->applications()->where('application_id', $application->id)->exists()) {
-            return $this->errorBadRequest('User already has access to this application');
+            return $this->errorResponse('User already has access to this application');
         }
 
-        $result = $this->userService->grantApplicationAccess($user->id, $application->id);
+        $result = $this->userService->grantApplicationAccess($user, $application->id);
 
-        if ($result['success']) {
-            return $this->success(
-                $result['data'],
-                'User access granted successfully'
+        if ($result) {
+            return $this->createdResponse(
+                ['user_id' => $user->id, 'application_id' => $application->id],
+                'User application access granted successfully'
             );
         }
 
-        return $this->errorBadRequest($result['message']);
+        return $this->errorResponse('Failed to grant user access to application');
     }
 
     /**
@@ -166,7 +196,7 @@ class OrganizationUsersController extends BaseApiController
      */
     public function revokeUserAccess(string $id, string $userId, string $applicationId): JsonResponse
     {
-        $this->authorize('applications.manage');
+        $this->authorize('applications.update');
 
         $organization = Organization::findOrFail($id);
 
@@ -174,26 +204,26 @@ class OrganizationUsersController extends BaseApiController
         $application = Application::findOrFail($applicationId);
 
         if ($user->organization_id !== $organization->id) {
-            return $this->errorBadRequest('User does not belong to this organization');
+            return $this->errorResponse('User does not belong to this organization');
         }
 
         if ($application->organization_id !== $organization->id) {
-            return $this->errorBadRequest('Application does not belong to this organization');
+            return $this->errorResponse('Application does not belong to this organization');
         }
 
         if (! $user->applications()->where('application_id', $application->id)->exists()) {
-            return $this->errorBadRequest('User does not have access to this application');
+            return $this->errorResponse('User does not have access to this application');
         }
 
-        $result = $this->userService->revokeApplicationAccess($user->id, $application->id);
+        $result = $this->userService->revokeApplicationAccess($user, $application->id);
 
-        if ($result['success']) {
-            return $this->success(
-                $result['data'],
-                'User access revoked successfully'
+        if ($result) {
+            return $this->successResponse(
+                ['user_id' => $user->id, 'application_id' => $application->id],
+                'User application access revoked successfully'
             );
         }
 
-        return $this->errorBadRequest($result['message']);
+        return $this->errorResponse('Failed to revoke user access from application');
     }
 }

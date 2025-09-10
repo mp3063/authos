@@ -59,14 +59,8 @@ trait ApiErrorResponse
     {
         $response = [
             'success' => false,
-            'error' => [
-                'code' => 'validation_failed',
-                'message' => 'The given data was invalid',
-                'details' => [
-                    'validation_errors' => $exception->errors(),
-                ],
-            ],
-            // Include Laravel's expected format for compatibility with test assertions
+            'error' => 'validation_failed',
+            'error_description' => 'The given data was invalid.',
             'errors' => $exception->errors(),
         ];
 

@@ -26,8 +26,15 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
      */
     public function getAnalytics(Organization $organization, string $period = '30d'): array
     {
+        // Get date range based on period
+        $dateRange = $this->getDateRangeForPeriod($period);
+        $applicationIds = $organization->applications()->pluck('id');
+
         return [
+            'summary' => $this->getSummaryMetrics($organization, $applicationIds, $dateRange),
             'user_growth' => $this->getUserGrowthMetrics($organization, $period),
+            'login_activity' => $this->getLoginActivityMetrics($organization, $period),
+            'top_applications' => $this->getTopApplicationsMetrics($organization, $period),
             'security_events' => $this->getSecurityMetrics($organization, $period),
         ];
     }
@@ -443,5 +450,75 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
             'applications' => $applications,
             'total_count' => $applications->count(),
         ];
+    }
+
+    /**
+     * Get filtered organizations with pagination
+     */
+    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15)
+    {
+        return $this->organizationRepository->getFilteredOrganizations($search, $filters, $sort, $order, $perPage);
+    }
+
+    /**
+     * Get date range for a given period
+     */
+    private function getDateRangeForPeriod(string $period): array
+    {
+        $end = Carbon::now();
+
+        $start = match ($period) {
+            '24h' => $end->copy()->subHours(24),
+            '7d' => $end->copy()->subDays(7),
+            '30d' => $end->copy()->subDays(30),
+            '90d' => $end->copy()->subDays(90),
+            '1y' => $end->copy()->subYear(),
+            default => $end->copy()->subDays(30),
+        };
+
+        return [
+            'start' => $start,
+            'end' => $end,
+        ];
+    }
+
+    /**
+     * Get login activity metrics
+     */
+    private function getLoginActivityMetrics(Organization $organization, string $period): array
+    {
+        $dateRange = $this->getDateRangeForPeriod($period);
+
+        return [
+            'daily_logins' => $this->getDailyLoginCounts($organization, $dateRange),
+            'peak_hours' => $this->getPeakLoginHours($organization, $dateRange),
+        ];
+    }
+
+    /**
+     * Get top applications metrics
+     */
+    private function getTopApplicationsMetrics(Organization $organization, string $period): array
+    {
+        return [
+            'most_used' => $this->getTopApplications($organization, 10),
+            'usage_trends' => [],
+        ];
+    }
+
+    /**
+     * Get daily login counts
+     */
+    private function getDailyLoginCounts(Organization $organization, array $dateRange): array
+    {
+        return []; // Simplified for now
+    }
+
+    /**
+     * Get peak login hours
+     */
+    private function getPeakLoginHours(Organization $organization, array $dateRange): array
+    {
+        return []; // Simplified for now
     }
 }

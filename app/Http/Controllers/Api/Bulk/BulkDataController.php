@@ -54,30 +54,21 @@ class BulkDataController extends BaseApiController
             $includeRoles = $request->boolean('include_roles', false);
             $includeApplications = $request->boolean('include_applications', false);
 
-            $result = $this->bulkOperationService->exportUsers(
+            // Use the extended method that returns the proper array format
+            $options = array_merge($filters, [
+                'format' => $format,
+                'include_roles' => $includeRoles,
+                'include_applications' => $includeApplications,
+                'fields' => $fields,
+            ]);
+
+            $result = $this->bulkOperationService->exportUsersExtended(
                 $organization,
-                $format,
-                $filters
+                $options,
+                auth()->user()
             );
 
-            if ($result['success']) {
-                if ($format === 'json') {
-                    return $this->successResponse([
-                        'users' => $result['data']['users'],
-                        'export_metadata' => [
-                            'total_users' => $result['data']['total'],
-                            'export_date' => now()->toISOString(),
-                            'organization' => $organization->name,
-                            'format' => $format,
-                            'filters_applied' => $filters,
-                        ],
-                    ], 'Users exported successfully');
-                }
-
-                return $result['data']['file_response'];
-            }
-
-            return $this->errorResponse($result['message'], 400);
+            return $this->successResponse($result, 'Export completed successfully');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to export users: '.$e->getMessage());
         }
@@ -94,6 +85,11 @@ class BulkDataController extends BaseApiController
 
         $validator = Validator::make($request->all(), [
             'file' => 'required|file|mimes:csv,xlsx,json|max:10240',
+            'send_invitations' => 'sometimes|boolean',
+            'default_role' => 'sometimes|string|exists:roles,name',
+            'skip_duplicates' => 'sometimes|boolean',
+            'update_existing' => 'sometimes|boolean',
+            'invite_expires_in_days' => 'sometimes|integer|min:1|max:30',
             'options' => 'sometimes|array',
             'options.send_invitations' => 'sometimes|boolean',
             'options.default_role' => 'sometimes|string|exists:roles,name',
@@ -106,38 +102,49 @@ class BulkDataController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
+            // Use flat format to match test expectations
             return $this->validationErrorResponse($validator->errors());
         }
 
         try {
             $file = $request->file('file');
-            $options = $request->get('options', []);
+            $requestOptions = $request->get('options', []);
             $mapping = $request->get('mapping', []);
 
-            $defaultRole = $options['default_role'] ?? 'user';
+            // Merge top-level options with nested options object
+            $options = [
+                'send_invitations' => $request->boolean('send_invitations', $requestOptions['send_invitations'] ?? false),
+                'default_role' => $request->get('default_role', $requestOptions['default_role'] ?? 'user'),
+                'skip_duplicates' => $request->boolean('skip_duplicates', $requestOptions['skip_duplicates'] ?? false),
+                'update_existing' => $request->boolean('update_existing', $requestOptions['update_existing'] ?? false),
+                'invite_expires_in_days' => $request->integer('invite_expires_in_days', 7),
+            ];
 
-            $result = $this->bulkOperationService->importUsers(
+            $result = $this->bulkOperationService->importUsersExtended(
                 $file,
                 $organization,
-                $defaultRole
+                $options,
+                auth()->user()
             );
 
-            if ($result['success']) {
-                return $this->successResponse([
-                    'imported' => $result['data']['imported'],
-                    'failed' => $result['data']['failed'],
-                    'skipped' => $result['data']['skipped'] ?? [],
-                    'summary' => [
-                        'total_processed' => $result['data']['total_processed'],
-                        'successful' => count($result['data']['imported']),
-                        'failed' => count($result['data']['failed']),
-                        'skipped' => count($result['data']['skipped'] ?? []),
-                        'success_rate' => count($result['data']['imported']) / $result['data']['total_processed'] * 100,
-                    ],
-                ], $result['message']);
-            }
+            // The service returns the direct result from UsersImport::getResults()
+            // which has the structure: ['created' => [], 'updated' => [], 'invited' => [], 'failed' => []]
 
-            return $this->errorResponse($result['message'], 400);
+            $totalProcessed = count($result['created']) + count($result['updated']) + count($result['invited']) + count($result['failed']);
+            $successful = count($result['created']) + count($result['updated']) + count($result['invited']);
+
+            return $this->successResponse([
+                'created' => $result['created'],
+                'updated' => $result['updated'],
+                'invited' => $result['invited'],
+                'failed' => $result['failed'],
+                'summary' => [
+                    'total_processed' => $totalProcessed,
+                    'successful' => $successful,
+                    'failed' => count($result['failed']),
+                    'success_rate' => $totalProcessed > 0 ? ($successful / $totalProcessed * 100) : 0,
+                ],
+            ], 'Import completed successfully');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to import users: '.$e->getMessage());
         }

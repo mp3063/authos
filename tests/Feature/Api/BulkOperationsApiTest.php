@@ -67,21 +67,6 @@ class BulkOperationsApiTest extends TestCase
             'expires_in_days' => 7,
         ]);
 
-        // Debug the response
-        if ($response->status() !== 200) {
-            dump('Response status: '.$response->status());
-            dump('User: '.$this->organizationOwner->email);
-            dump('User organization_id: '.$this->organizationOwner->organization_id);
-            dump('Request organization_id: '.$this->organization->id);
-            dump('User roles (all guards): '.$this->organizationOwner->roles->pluck('name'));
-            dump('User roles (api): '.$this->organizationOwner->getRoleNames('api'));
-            dump('User permissions (api): '.$this->organizationOwner->getAllPermissions('api')->pluck('name'));
-        } else {
-            // Debug successful response structure
-            dump('Response status: '.$response->status());
-            dump('Response JSON: '.json_encode($response->json(), JSON_PRETTY_PRINT));
-        }
-
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'message',
@@ -157,7 +142,7 @@ class BulkOperationsApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonPath('details.invitations.0', 'The invitations field must not have more than 100 items.');
+            ->assertJsonPath('errors.invitations.0', 'Cannot send more than 100 invitations at once.');
     }
 
     public function test_bulk_assign_roles_assigns_roles_to_multiple_users(): void
@@ -430,7 +415,8 @@ class BulkOperationsApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonStructure(['details' => ['file']]);
+            ->assertJson(['error' => 'validation_failed'])
+            ->assertJsonStructure(['errors' => ['file']]);
     }
 
     public function test_bulk_import_users_handles_invalid_data(): void
@@ -532,8 +518,9 @@ class BulkOperationsApiTest extends TestCase
         ]);
 
         $response->assertStatus(422)
+            ->assertJson(['error' => 'validation_failed'])
             ->assertJsonStructure([
-                'details' => [
+                'errors' => [
                     'invitations.0.role',
                     'invitations.1.email',
                 ],

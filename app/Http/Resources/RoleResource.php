@@ -38,8 +38,10 @@ class RoleResource extends JsonResource
             ),
 
             'is_system_role' => $this->when(
-                method_exists($this->resource, 'isSystemRole'),
-                $this->isSystemRole()
+                method_exists($this, 'isSystemRole'),
+                function () {
+                    return method_exists($this, 'isSystemRole') ? $this->isSystemRole() : false;
+                }
             ),
         ];
     }

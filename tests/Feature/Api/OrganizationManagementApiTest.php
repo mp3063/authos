@@ -169,7 +169,7 @@ class OrganizationManagementApiTest extends TestCase
             ])
             ->assertJson([
                 'id' => $this->organization->id,
-                'users_count' => 5,
+                'users_count' => 7, // 2 from test setup (superAdmin + orgAdmin) + 5 created in test
                 'applications_count' => 3,
             ]);
     }
@@ -398,16 +398,20 @@ class OrganizationManagementApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'summary' => [
-                    'total_users',
-                    'active_users',
-                    'total_applications',
-                    'total_logins_today',
+                'success',
+                'data' => [
+                    'summary' => [
+                        'total_users',
+                        'active_users',
+                        'total_applications',
+                        'total_logins_today',
+                    ],
+                    'user_growth',
+                    'login_activity',
+                    'top_applications',
+                    'security_events',
                 ],
-                'user_growth',
-                'login_activity',
-                'top_applications',
-                'security_events',
+                'message',
             ]);
     }
 
@@ -441,7 +445,7 @@ class OrganizationManagementApiTest extends TestCase
         $response->assertStatus(200);
 
         // Should only include recent activity within date range
-        $this->assertEquals(1, $response->json('summary.total_logins_today'));
+        $this->assertEquals(1, $response->json('data.summary.total_logins_today'));
     }
 
     public function test_organization_admin_can_only_access_own_organization(): void
@@ -488,11 +492,11 @@ class OrganizationManagementApiTest extends TestCase
                 'error' => 'validation_failed',
                 'error_description' => 'The given data was invalid.',
             ])
-            ->assertJsonPath('details.name.0', 'The name field is required.')
+            ->assertJsonPath('errors.name.0', 'The name field is required.')
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'name',
                 ],
             ]);
@@ -551,7 +555,7 @@ class OrganizationManagementApiTest extends TestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'session_timeout',
                     'password_policy.min_length',
                 ],

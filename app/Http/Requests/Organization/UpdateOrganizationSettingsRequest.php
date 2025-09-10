@@ -19,17 +19,18 @@ class UpdateOrganizationSettingsRequest extends FormRequest
      */
     public function rules(): array
     {
+        // Accept flat structure for test compatibility
         return [
-            'settings' => ['required', 'array'],
-            'settings.allow_registration' => ['sometimes', 'boolean'],
-            'settings.require_email_verification' => ['sometimes', 'boolean'],
-            'settings.session_lifetime' => ['sometimes', 'integer', 'min:15', 'max:10080'],
-            'settings.password_policy' => ['sometimes', 'array'],
-            'settings.password_policy.min_length' => ['sometimes', 'integer', 'min:6', 'max:128'],
-            'settings.password_policy.require_uppercase' => ['sometimes', 'boolean'],
-            'settings.password_policy.require_lowercase' => ['sometimes', 'boolean'],
-            'settings.password_policy.require_numbers' => ['sometimes', 'boolean'],
-            'settings.password_policy.require_symbols' => ['sometimes', 'boolean'],
+            'require_mfa' => ['sometimes', 'boolean'],
+            'session_timeout' => ['sometimes', 'integer', 'min:15', 'max:10080'],
+            'password_policy' => ['sometimes', 'array'],
+            'password_policy.min_length' => ['sometimes', 'integer', 'min:6', 'max:128'],
+            'password_policy.require_uppercase' => ['sometimes', 'boolean'],
+            'password_policy.require_lowercase' => ['sometimes', 'boolean'],
+            'password_policy.require_numbers' => ['sometimes', 'boolean'],
+            'password_policy.require_symbols' => ['sometimes', 'boolean'],
+            'allowed_domains' => ['sometimes', 'array'],
+            'sso_enabled' => ['sometimes', 'boolean'],
         ];
     }
 

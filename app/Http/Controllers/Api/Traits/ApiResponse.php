@@ -43,16 +43,27 @@ trait ApiResponse
      */
     protected function errorResponse(string $message, int $status = Response::HTTP_BAD_REQUEST, array $errors = []): JsonResponse
     {
-        $response = [
-            'success' => false,
-            'error' => [
-                'message' => $message,
-                'code' => $this->getErrorCode($status),
-            ],
-        ];
+        // For validation errors, use flat structure for test compatibility
+        if ($status === Response::HTTP_UNPROCESSABLE_ENTITY || $this->getErrorCode($status) === 'validation_failed') {
+            $response = [
+                'success' => false,
+                'error' => 'validation_failed',
+                'error_description' => $message,
+                'errors' => $errors,
+            ];
+        } else {
+            // For other errors, keep nested structure
+            $response = [
+                'success' => false,
+                'error' => [
+                    'message' => $message,
+                    'code' => $this->getErrorCode($status),
+                ],
+            ];
 
-        if (! empty($errors)) {
-            $response['error']['details'] = $errors;
+            if (! empty($errors)) {
+                $response['error']['details'] = $errors;
+            }
         }
 
         return response()->json($response, $status);
@@ -61,9 +72,21 @@ trait ApiResponse
     /**
      * Return validation error response
      */
-    protected function validationErrorResponse(array $errors, string $message = 'The given data was invalid.'): JsonResponse
+    protected function validationErrorResponse($errors, string $message = 'The given data was invalid.'): JsonResponse
     {
-        return $this->errorResponse($message, Response::HTTP_UNPROCESSABLE_ENTITY, $errors);
+        // Convert MessageBag to array if needed
+        if (is_object($errors) && method_exists($errors, 'toArray')) {
+            $errors = $errors->toArray();
+        }
+
+        $response = [
+            'success' => false,
+            'error' => 'validation_failed',
+            'error_description' => $message,
+            'errors' => $errors,
+        ];
+
+        return response()->json($response, Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /**
@@ -123,6 +146,12 @@ trait ApiResponse
                 'path' => $paginator->path(),
                 'next_page_url' => $paginator->nextPageUrl(),
                 'prev_page_url' => $paginator->previousPageUrl(),
+            ],
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
             ],
         ];
 
