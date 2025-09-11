@@ -93,7 +93,7 @@ class CustomRoleController extends Controller
         $customRoles = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $customRoles->items()->map(function ($role) {
+            'data' => collect($customRoles->items())->map(function ($role) {
                 return $this->formatCustomRoleResponse($role);
             }),
             'meta' => [

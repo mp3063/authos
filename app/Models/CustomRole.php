@@ -8,26 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/**
- * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
- * @method static \Illuminate\Database\Eloquent\Builder whereIn($column, $values, $boolean = 'and', $not = false)
- * @method static static create(array $attributes = [])
- * @method static static findOrFail($id, $columns = ['*'])
- * @method static \Illuminate\Database\Eloquent\Builder with($relations)
- * @method static \Illuminate\Database\Eloquent\Builder withCount($relations)
- * @method static \Illuminate\Database\Eloquent\Builder forOrganization($organizationId)
- * @method static \Illuminate\Database\Eloquent\Builder active()
- * @method static \Illuminate\Database\Eloquent\Builder system()
- * @method static \Illuminate\Database\Eloquent\Builder userDefined()
- * @method static array getAvailablePermissions()
- * @method static array getPermissionCategories()
- * @method canBeDeleted()
- * @method isSystemRole()
- *
- * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
- * @property-read User|null $creator
- * @property-read Organization $organization
- */
 class CustomRole extends Model
 {
     use HasFactory, SoftDeletes;
@@ -37,7 +17,9 @@ class CustomRole extends Model
         'display_name',
         'description',
         'organization_id',
+        'created_by',
         'permissions',
+        'is_system',
         'is_active',
         'is_default',
     ];

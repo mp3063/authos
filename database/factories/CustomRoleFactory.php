@@ -30,6 +30,7 @@ class CustomRoleFactory extends Factory
             'display_name' => $roleBaseName, // Keep display name clean
             'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
+            'created_by' => \App\Models\User::factory(),
             'permissions' => fake()->randomElements([
                 'users.view', 'users.create', 'users.edit', 'users.delete',
                 'applications.view', 'applications.create', 'applications.edit',

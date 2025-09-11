@@ -59,7 +59,10 @@ class SanitizeApiResponse
                 return $response;
             }
 
-            $sanitizedData = $this->sanitizeData($data);
+            // Allow secret field for TOTP setup endpoints
+            $allowSecrets = $this->shouldAllowSecrets($request);
+
+            $sanitizedData = $this->sanitizeData($data, $allowSecrets);
             $response->setData($sanitizedData);
         }
 
@@ -67,16 +70,41 @@ class SanitizeApiResponse
     }
 
     /**
+     * Determine if secrets should be allowed for this request
+     */
+    protected function shouldAllowSecrets(Request $request): bool
+    {
+        $allowedPaths = [
+            'api/v1/mfa/setup/totp',
+            'api/v1/applications/*/client-credentials',
+        ];
+
+        foreach ($allowedPaths as $path) {
+            if ($request->is($path)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Recursively sanitize data by removing sensitive fields
      */
-    protected function sanitizeData(mixed $data): mixed
+    protected function sanitizeData(mixed $data, bool $allowSecrets = false): mixed
     {
         if (is_array($data)) {
             $sanitized = [];
 
             foreach ($data as $key => $value) {
-                // Remove sensitive fields entirely
+                // Remove sensitive fields entirely, unless secrets are allowed
                 if (in_array($key, $this->sensitiveFields)) {
+                    if ($allowSecrets && $key === 'secret') {
+                        $sanitized[$key] = $value;
+
+                        continue;
+                    }
+
                     continue;
                 }
 
@@ -84,7 +112,7 @@ class SanitizeApiResponse
                 if (array_key_exists($key, $this->maskableFields) && app()->environment('production')) {
                     $sanitized[$key] = $this->maskField($value, $this->maskableFields[$key]);
                 } else {
-                    $sanitized[$key] = $this->sanitizeData($value);
+                    $sanitized[$key] = $this->sanitizeData($value, $allowSecrets);
                 }
             }
 

@@ -92,7 +92,7 @@ abstract class TestCase extends BaseTestCase
             } elseif ($role === 'Organization Admin') {
                 $permissions = [
                     'users.create', 'users.read', 'users.update',
-                    'applications.create', 'applications.read', 'applications.update',
+                    'applications.create', 'applications.read', 'applications.update', 'applications.delete',
                     'organizations.read', 'organizations.update', 'organizations.manage_users',
                     'roles.read', 'roles.assign',
                     'permissions.read',

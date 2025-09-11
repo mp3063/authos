@@ -35,7 +35,7 @@ class InvitationController extends BaseApiController
             $invitation = $this->invitationService->sendInvitation(
                 $organizationId,
                 $request->email,
-                $request->user()->id,
+                $request->user(), // Pass user instance instead of ID
                 $request->role,
                 $request->get('metadata', [])
             );
@@ -133,13 +133,11 @@ class InvitationController extends BaseApiController
     public function accept(Request $request, string $token): JsonResponse
     {
         if (! $request->user()) {
-            return response()->json([
-                'message' => 'Authentication required to accept invitation',
-            ], 401);
+            return $this->errorResponse('Unauthenticated.', 401, 'authentication_required');
         }
 
         try {
-            $accepted = $this->invitationService->acceptInvitation(
+            $accepted = $this->invitationService->acceptInvitationAsExistingUser(
                 $token,
                 $request->user()
             );
@@ -228,30 +226,32 @@ class InvitationController extends BaseApiController
         ]);
 
         try {
-            $results = $this->invitationService->bulkInvite(
+            $serviceResults = $this->invitationService->bulkInvite(
                 $organizationId,
                 $request->invitations,
-                $request->user()->id
+                $request->user()->id // Keep as ID for bulk operations for now
             );
 
-            $successCount = count(array_filter($results, fn ($r) => $r['status'] === 'success'));
-            $errorCount = count($results) - $successCount;
+            // Merge successful and failed results into one array
+            $allResults = array_merge($serviceResults['successful'], $serviceResults['failed']);
+
+            $successCount = count($serviceResults['successful']);
+            $errorCount = count($serviceResults['failed']);
 
             return response()->json([
                 'message' => "Bulk invite completed. {$successCount} sent, {$errorCount} failed.",
-                'results' => $results,
+                'results' => $allResults,
                 'summary' => [
-                    'total' => count($results),
+                    'total' => $successCount + $errorCount,
                     'successful' => $successCount,
                     'failed' => $errorCount,
                 ],
             ]);
 
+        } catch (ValidationException $e) {
+            return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Bulk invite failed',
-                'error' => $e->getMessage(),
-            ], 400);
+            return $this->errorResponse('Bulk invite failed: '.$e->getMessage());
         }
     }
 }

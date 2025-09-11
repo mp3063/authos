@@ -77,7 +77,7 @@ class ApplicationController extends Controller
         $applications = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $applications->items()->map(function ($app) {
+            'data' => collect($applications->items())->map(function ($app) {
                 return $this->formatApplicationResponse($app);
             }),
             'meta' => [

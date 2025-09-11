@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,35 +10,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
+use Spatie\Permission\Exceptions\RoleDoesNotExist;
 use Spatie\Permission\Traits\HasRoles;
 
-/**
- * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
- * @method static \Illuminate\Database\Eloquent\Builder whereIn($column, $values, $boolean = 'and', $not = false)
- * @method static \Illuminate\Database\Eloquent\Builder whereHas($relation, $callback = null, $operator = '>=', $count = 1)
- * @method static \Illuminate\Database\Eloquent\Builder whereBetween($column, $values, $boolean = 'and', $not = false)
- * @method static static create(array $attributes = [])
- * @method static static findOrFail($id, $columns = ['*'])
- * @method static static firstOrCreate(array $attributes = [], array $values = [])
- * @method static \Illuminate\Database\Eloquent\Builder with($relations)
- * @method static \Illuminate\Database\Eloquent\Builder withCount($relations)
- * @method assignRole(...$roles)
- * @method removeRole($role)
- * @method hasRole($role, $guardName = null)
- * @method hasOrganizationRole($role, $organizationId)
- * @method assignOrganizationRole($role, $organizationId)
- * @method removeOrganizationRole($role, $organizationId)
- * @method isSuperAdmin()
- * @method hasMfaEnabled()
- *
- * @property-read \Illuminate\Database\Eloquent\Collection|\Spatie\Permission\Models\Role[] $roles
- * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
- * @property-read \Illuminate\Database\Eloquent\Collection|CustomRole[] $customRoles
- * @property-read Organization|null $organization
- */
 class User extends Authenticatable
 {
     use BelongsToOrganization, HasApiTokens, HasFactory, HasRoles, Notifiable;
+
+    /**
+     * Transient properties that should not be saved to database
+     */
+    public $permissionsTeamId;
 
     protected $fillable = [
         'name',
@@ -71,6 +52,11 @@ class User extends Authenticatable
         'provider_refresh_token',
     ];
 
+    /**
+     * Attributes that should never be mass assigned or saved to database
+     */
+    protected $guarded = ['permissionsTeamId'];
+
     protected function casts(): array
     {
         return [
@@ -93,12 +79,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Application::class, 'user_applications')
             ->withPivot(['permissions', 'metadata', 'last_login_at', 'login_count', 'granted_at', 'granted_by'])
             ->withTimestamps()
-            ->using(\App\Models\UserApplication::class);
+            ->using(UserApplication::class);
     }
 
     public function ssoSessions(): HasMany
     {
-        return $this->hasMany(\App\Models\SSOSession::class);
+        return $this->hasMany(SSOSession::class);
     }
 
     public function customRoles(): BelongsToMany
@@ -198,7 +184,7 @@ class User extends Authenticatable
             ->first();
 
         if (! $roleModel) {
-            throw new \Spatie\Permission\Exceptions\RoleDoesNotExist("Role '{$role}' does not exist for organization {$orgId}");
+            throw new RoleDoesNotExist("Role '$role' does not exist for organization $orgId");
         }
 
         // Attach the role with organization context

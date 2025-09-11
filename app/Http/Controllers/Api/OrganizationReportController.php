@@ -29,7 +29,7 @@ class OrganizationReportController extends Controller
      */
     public function userActivity(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organization.view_analytics');
+        $this->authorize('organizations.read');
 
         $validator = Validator::make($request->all(), [
             'start_date' => 'sometimes|date|before_or_equal:end_date',
@@ -112,7 +112,7 @@ class OrganizationReportController extends Controller
      */
     public function applicationUsage(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organization.view_analytics');
+        $this->authorize('organizations.read');
 
         $validator = Validator::make($request->all(), [
             'format' => 'sometimes|string|in:json,pdf',
@@ -184,7 +184,7 @@ class OrganizationReportController extends Controller
      */
     public function securityAudit(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('security.view_logs');
+        $this->authorize('organizations.read');
 
         $validator = Validator::make($request->all(), [
             'format' => 'sometimes|string|in:json,pdf',
