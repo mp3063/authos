@@ -172,7 +172,7 @@ class UserController extends BaseApiController
 
         // Prevent self-deletion
         if ($user->id === auth()->id()) {
-            return $this->errorResponse('Cannot delete your own account.', 'authorization_failed', 403);
+            return $this->errorResponse('Cannot delete your own account.', 403);
         }
 
         $this->userManagementService->deleteUser($user);
@@ -216,7 +216,7 @@ class UserController extends BaseApiController
         $granted = $this->userManagementService->grantApplicationAccess($user, $request->application_id);
 
         if (! $granted) {
-            return $this->errorResponse('User already has access to this application.', 'resource_conflict', 409);
+            return $this->errorResponse('User already has access to this application.', 409);
         }
 
         return $this->successResponse([
@@ -235,7 +235,7 @@ class UserController extends BaseApiController
         $revoked = $this->userManagementService->revokeApplicationAccess($user, (int) $applicationId);
 
         if (! $revoked) {
-            return $this->errorResponse('User does not have access to this application.', 'resource_not_found', 404);
+            return $this->errorResponse('User does not have access to this application.', 404);
         }
 
         return $this->successResponse([
@@ -276,7 +276,7 @@ class UserController extends BaseApiController
         $assigned = $this->userManagementService->assignRole($user, (string) $request->role_id);
 
         if (! $assigned) {
-            return $this->errorResponse('User already has this role.', 'resource_conflict', 409);
+            return $this->errorResponse('User already has this role.', 409);
         }
 
         return $this->successResponse([
@@ -295,7 +295,7 @@ class UserController extends BaseApiController
         $removed = $this->userManagementService->removeRole($user, $roleId);
 
         if (! $removed) {
-            return $this->errorResponse('User does not have this role.', 'resource_not_found', 404);
+            return $this->errorResponse('User does not have this role.', 404);
         }
 
         return $this->successResponse([
@@ -345,7 +345,7 @@ class UserController extends BaseApiController
         $revoked = $this->userManagementService->revokeUserSession($user, $sessionId);
 
         if (! $revoked) {
-            return $this->errorResponse('Session not found.', 'resource_not_found', 404);
+            return $this->errorResponse('Session not found.', 404);
         }
 
         return $this->successResponse([
@@ -382,7 +382,7 @@ class UserController extends BaseApiController
                 'affected_count' => $result['affected_count'],
             ]);
         } catch (\InvalidArgumentException $e) {
-            return $this->errorResponse('Some users not found or not accessible.', 'access_denied', 403);
+            return $this->errorResponse('Some users not found or not accessible.', 403);
         }
     }
 }

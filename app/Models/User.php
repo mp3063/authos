@@ -238,7 +238,23 @@ class User extends Authenticatable
      */
     public function hasGlobalRole($role): bool
     {
-        return $this->roles()->where('roles.name', $role)->whereNull('roles.organization_id')->exists();
+        // Temporarily clear team context to check global roles
+        $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+        $registrarTeamId = $registrar->getPermissionsTeamId();
+
+        // Clear team context
+        $this->setPermissionsTeamId(null);
+        $registrar->setPermissionsTeamId(null);
+
+        try {
+            $hasRole = $this->roles()->where('roles.name', $role)->whereNull('roles.organization_id')->exists();
+        } finally {
+            // Restore original team context
+            $this->setPermissionsTeamId($registrarTeamId);
+            $registrar->setPermissionsTeamId($registrarTeamId);
+        }
+
+        return $hasRole;
     }
 
     /**

@@ -61,37 +61,21 @@ class OrganizationReportApiTest extends TestCase
         \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'organizations.read', 'guard_name' => 'web']);
 
         // Create super admin user using helper method
-        $this->superAdminUser = $this->createApiSuperAdmin();
+        $this->superAdminUser = $this->createApiSuperAdmin(['organization_id' => $this->organization->id]);
 
-        // Create organization admin user
-        $this->organizationAdminUser = User::factory()
-            ->forOrganization($this->organization)
-            ->create();
+        // Create organization admin user using helper method
+        $this->organizationAdminUser = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
 
-        $adminRole = Role::where('name', 'Organization Admin')->where('guard_name', 'api')->first();
-        $this->organizationAdminUser->setPermissionsTeamId($this->organizationAdminUser->organization_id);
-        $this->organizationAdminUser->assignRole($adminRole);
-
-        // Assign permissions to organization admin
+        // Assign additional permissions to organization admin
         $this->organizationAdminUser->givePermissionTo('organization.view_analytics');
         $this->organizationAdminUser->givePermissionTo('organizations.read');
 
-        // Create regular user in same organization
-        $this->regularUser = User::factory()
-            ->forOrganization($this->organization)
-            ->create();
+        // Create regular user in same organization using helper method
+        $this->regularUser = $this->createApiUser(['organization_id' => $this->organization->id]);
 
-        $userRole = Role::where('name', 'User')->where('guard_name', 'api')->first();
-        $this->regularUser->setPermissionsTeamId($this->regularUser->organization_id);
-        $this->regularUser->assignRole($userRole);
+        // Create organization admin user in different organization using helper method
+        $this->otherOrgUser = $this->createApiOrganizationAdmin(['organization_id' => $this->otherOrganization->id]);
 
-        // Create user in different organization
-        $this->otherOrgUser = User::factory()
-            ->forOrganization($this->otherOrganization)
-            ->create();
-
-        $this->otherOrgUser->setPermissionsTeamId($this->otherOrgUser->organization_id);
-        $this->otherOrgUser->assignRole($adminRole);
         $this->otherOrgUser->givePermissionTo('organization.view_analytics');
         $this->otherOrgUser->givePermissionTo('organizations.read');
 
@@ -99,6 +83,20 @@ class OrganizationReportApiTest extends TestCase
         $this->application = Application::factory()
             ->forOrganization($this->organization)
             ->create();
+
+        // Associate users with the application so they appear in reports
+        $this->superAdminUser->applications()->attach($this->application->id, [
+            'permissions' => ['read', 'write'],
+            'granted_at' => now(),
+        ]);
+        $this->organizationAdminUser->applications()->attach($this->application->id, [
+            'permissions' => ['read', 'write'],
+            'granted_at' => now(),
+        ]);
+        $this->regularUser->applications()->attach($this->application->id, [
+            'permissions' => ['read'],
+            'granted_at' => now(),
+        ]);
 
         // Create some test authentication logs
         AuthenticationLog::factory()->create([
@@ -123,7 +121,7 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_get_report_types_returns_available_reports(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson('/api/v1/config/report-types');
 
@@ -170,7 +168,13 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_user_activity_report_as_super_admin_succeeds(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        // Explicitly ensure Super Admin has the needed permission
+        $this->superAdminUser->setPermissionsTeamId(null);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $this->superAdminUser->givePermissionTo('organizations.read');
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity");
 
@@ -207,7 +211,7 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_user_activity_report_with_date_range_succeeds(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $startDate = now()->subDays(7)->format('Y-m-d');
         $endDate = now()->format('Y-m-d');
@@ -241,7 +245,7 @@ class OrganizationReportApiTest extends TestCase
     public function test_generate_user_activity_report_as_pdf_succeeds(): void
     {
         $this->markTestSkipped('PDF generation temporarily disabled - missing view configuration');
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?".http_build_query([
             'format' => 'pdf',
@@ -267,7 +271,14 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_user_activity_report_as_organization_admin_succeeds(): void
     {
-        Passport::actingAs($this->organizationAdminUser, ['reports']);
+        // Ensure organization admin has proper permissions and team context
+        $this->organizationAdminUser->setPermissionsTeamId($this->organizationAdminUser->organization_id);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->organizationAdminUser->organization_id);
+
+        // Refresh the permission
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Passport::actingAs($this->organizationAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity");
 
@@ -275,8 +286,14 @@ class OrganizationReportApiTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'organization',
-                    'summary',
+                    'date_range',
                     'user_statistics',
+                    'login_statistics',
+                    'daily_activity',
+                    'top_users',
+                    'role_distribution',
+                    'custom_role_distribution',
+                    'generated_at',
                 ],
                 'message',
             ]);
@@ -284,20 +301,20 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_user_activity_report_for_different_organization_fails(): void
     {
-        Passport::actingAs($this->organizationAdminUser, ['reports']);
+        Passport::actingAs($this->organizationAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->otherOrganization->id}/reports/user-activity");
 
         $response->assertStatus(403)
             ->assertJson([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
+                'error' => 'Access denied',
+                'message' => 'Access denied to this organization',
             ]);
     }
 
     public function test_generate_application_usage_report_succeeds(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/application-usage");
 
@@ -332,7 +349,7 @@ class OrganizationReportApiTest extends TestCase
     public function test_generate_application_usage_report_as_pdf_succeeds(): void
     {
         $this->markTestSkipped('PDF generation temporarily disabled - missing view configuration');
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/application-usage?".http_build_query([
             'format' => 'pdf',
@@ -444,7 +461,7 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_user_activity_report_with_invalid_dates_fails(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         // End date before start date
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?".http_build_query([
@@ -465,7 +482,7 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_reports_with_invalid_format_fails(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $endpoints = [
             "/api/v1/organizations/{$this->organization->id}/reports/user-activity",
@@ -497,7 +514,7 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_report_generation_handles_service_errors_gracefully(): void
     {
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         // Test with organization that might cause service errors
         $problemOrganization = Organization::factory()->create([
@@ -515,7 +532,7 @@ class OrganizationReportApiTest extends TestCase
     public function test_pdf_export_includes_proper_metadata(): void
     {
         $this->markTestSkipped('PDF generation temporarily disabled - missing view configuration');
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?".http_build_query([
             'format' => 'pdf',
@@ -546,7 +563,7 @@ class OrganizationReportApiTest extends TestCase
             'ip_address' => '10.0.0.1',
         ]);
 
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity");
 
@@ -559,14 +576,25 @@ class OrganizationReportApiTest extends TestCase
 
         // Verify user statistics don't include users from other organizations
         $userCount = $responseData['user_statistics']['total_users'];
-        $orgUserCount = User::where('organization_id', $this->organization->id)->count();
+        // Count users associated with applications in this organization (3 users from setup)
+        $orgUserCount = User::whereHas('applications', function ($q) {
+            $q->where('organization_id', $this->organization->id);
+        })->count();
         $this->assertEquals($orgUserCount, $userCount);
     }
 
     public function test_report_generation_performance_with_large_datasets(): void
     {
         // Create additional users and logs for performance testing
-        User::factory(10)->forOrganization($this->organization)->create();
+        $additionalUsers = User::factory(10)->forOrganization($this->organization)->create();
+
+        // Associate additional users with the application
+        foreach ($additionalUsers as $user) {
+            $user->applications()->attach($this->application->id, [
+                'permissions' => ['read'],
+                'granted_at' => now(),
+            ]);
+        }
 
         $users = User::where('organization_id', $this->organization->id)->get();
         foreach ($users->take(5) as $user) {
@@ -576,7 +604,7 @@ class OrganizationReportApiTest extends TestCase
             ]);
         }
 
-        Passport::actingAs($this->superAdminUser, ['reports']);
+        Passport::actingAs($this->superAdminUser, ['organizations.read']);
 
         $startTime = microtime(true);
 

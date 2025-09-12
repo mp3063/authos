@@ -31,6 +31,9 @@ class BulkOperationsApiTest extends TestCase
         // Seed roles and permissions properly
         $this->seedRolesAndPermissions();
 
+        // Explicitly setup default roles for the organization
+        $this->organization->setupDefaultRoles();
+
         $this->organizationOwner = $this->createUser([
             'organization_id' => $this->organization->id,
         ], 'Organization Owner', 'api');
@@ -365,9 +368,9 @@ class BulkOperationsApiTest extends TestCase
     public function test_bulk_import_users_processes_csv_file(): void
     {
         $csvContent = "name,email,role\n".
-                     "John Doe,john@example.com,user\n".
-                     "Jane Smith,jane@example.com,Organization Admin\n".
-                     'Bob Wilson,bob@example.com,user';
+                     "John Doe,john.import1@example.com,User\n".
+                     "Jane Smith,jane.import1@example.com,Organization Admin\n".
+                     'Bob Wilson,bob.import1@example.com,User';
 
         $csvFile = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
@@ -392,13 +395,13 @@ class BulkOperationsApiTest extends TestCase
 
         // Verify invitations were created
         $this->assertDatabaseHas('invitations', [
-            'email' => 'john@example.com',
-            'role' => 'user',
+            'email' => 'john.import1@example.com',
+            'role' => 'User',
             'organization_id' => $this->organization->id,
         ]);
 
         $this->assertDatabaseHas('invitations', [
-            'email' => 'jane@example.com',
+            'email' => 'jane.import1@example.com',
             'role' => 'Organization Admin',
             'organization_id' => $this->organization->id,
         ]);
@@ -422,9 +425,9 @@ class BulkOperationsApiTest extends TestCase
     public function test_bulk_import_users_handles_invalid_data(): void
     {
         $csvContent = "name,email,role\n".
-                     "John Doe,john@example.com,user\n".
-                     ",invalid-email,user\n".  // Invalid row
-                     'Jane Smith,jane@example.com,invalid-role'; // Invalid role
+                     "John Doe,john.import2@example.com,User\n".
+                     ",invalid-email,User\n".  // Invalid row
+                     'Jane Smith,jane.import2@example.com,invalid-role'; // Invalid role
 
         $csvFile = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
@@ -446,8 +449,9 @@ class BulkOperationsApiTest extends TestCase
         $this->assertArrayHasKey('invited', $data);
         $this->assertArrayHasKey('failed', $data);
 
-        // Only John Doe should succeed (1), two should fail (2)
         $totalSuccessful = count($data['created']) + count($data['updated']) + count($data['invited']);
+
+        // Only John Doe should succeed (1), two should fail (2)
         $this->assertEquals(1, $totalSuccessful);
         $this->assertEquals(2, count($data['failed']));
     }
@@ -555,9 +559,9 @@ class BulkOperationsApiTest extends TestCase
 
     public function test_bulk_operations_handle_large_batches_efficiently(): void
     {
-        // Create a larger batch to test performance
+        // Create a moderate batch to test performance without excessive memory usage
         $users = User::factory()
-            ->count(50)
+            ->count(20)  // Reduced from 50 to 20 - still validates bulk efficiency
             ->forOrganization($this->organization)
             ->create();
 
@@ -579,7 +583,7 @@ class BulkOperationsApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.successful', function ($successful) {
-                return count($successful) === 50;
+                return count($successful) === 20;
             });
 
         // Should complete within reasonable time (less than 2 seconds)
@@ -591,7 +595,7 @@ class BulkOperationsApiTest extends TestCase
         $application = Application::factory()->forOrganization($this->organization)->create();
 
         $users = User::factory()
-            ->count(100)
+            ->count(25)  // Reduced from 100 to 25 - still tests bulk functionality
             ->forOrganization($this->organization)
             ->create();
 

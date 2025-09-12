@@ -105,6 +105,12 @@ class EnforceOrganizationBoundary
      */
     private function canAccessOrganization(User $user, int $organizationId): bool
     {
+        // Super admins can access any organization
+        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
+            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+            return true;
+        }
+
         // Users can only access their own organization
         return $user->organization_id === $organizationId;
     }
@@ -118,6 +124,12 @@ class EnforceOrganizationBoundary
 
         if (! $application) {
             return false;
+        }
+
+        // Super admins can access any application
+        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
+            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+            return true;
         }
 
         // Users can only access applications from their organization
@@ -138,6 +150,12 @@ class EnforceOrganizationBoundary
 
         if (! $targetUser) {
             return false;
+        }
+
+        // Super admins can access any user
+        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
+            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+            return true;
         }
 
         // Organization admins can manage users in their organization

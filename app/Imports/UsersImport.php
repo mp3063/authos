@@ -149,7 +149,7 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         // Assign role
         if ($role) {
-            $user->assignOrganizationRole($role, $this->organization->id);
+            $this->assignRoleToUser($user, $role);
         }
 
         // Assign custom role if provided
@@ -270,11 +270,80 @@ class UsersImport implements ToCollection, WithHeadingRow
 
     protected function isValidRole(string $role): bool
     {
-        // Check if the role exists for this organization (case-insensitive)
+        // Check if the role exists for this organization or is a global role (case-insensitive)
         $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
-            ->where('organization_id', $this->organization->id)
+            ->where(function ($query) {
+                $query->where('organization_id', $this->organization->id)
+                    ->orWhereNull('organization_id');
+            })
             ->first();
 
+        // If not found, also check for common role variations
+        if (! $roleModel) {
+            $rolesToTry = [];
+            if (strtolower($role) === 'user') {
+                $rolesToTry = ['User', 'user'];
+            } elseif (strtolower($role) === 'organization admin') {
+                $rolesToTry = ['Organization Admin', 'organization admin'];
+            }
+
+            foreach ($rolesToTry as $tryRole) {
+                $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
+                    ->where(function ($query) {
+                        $query->where('organization_id', $this->organization->id)
+                            ->orWhereNull('organization_id');
+                    })
+                    ->first();
+                if ($roleModel) {
+                    break;
+                }
+            }
+        }
+
         return $roleModel !== null;
+    }
+
+    protected function assignRoleToUser(User $user, string $role): void
+    {
+        // Find the role using case-insensitive search
+        $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+            ->where(function ($query) {
+                $query->where('organization_id', $this->organization->id)
+                    ->orWhereNull('organization_id');
+            })
+            ->first();
+
+        // If not found, also check for common role variations
+        if (! $roleModel) {
+            $rolesToTry = [];
+            if (strtolower($role) === 'user') {
+                $rolesToTry = ['User', 'user'];
+            } elseif (strtolower($role) === 'organization admin') {
+                $rolesToTry = ['Organization Admin', 'organization admin'];
+            }
+
+            foreach ($rolesToTry as $tryRole) {
+                $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
+                    ->where(function ($query) {
+                        $query->where('organization_id', $this->organization->id)
+                            ->orWhereNull('organization_id');
+                    })
+                    ->first();
+                if ($roleModel) {
+                    break;
+                }
+            }
+        }
+
+        if ($roleModel) {
+            // Set the team context for proper role assignment
+            $user->setPermissionsTeamId($this->organization->id);
+            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->organization->id);
+
+            // Assign the role using Spatie's method
+            $user->assignRole($roleModel);
+        } else {
+            throw new \Exception("Role '$role' does not exist for organization {$this->organization->id}");
+        }
     }
 }

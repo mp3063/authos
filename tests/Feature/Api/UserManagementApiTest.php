@@ -393,8 +393,20 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role1 = Role::firstOrCreate(['name' => 'test-role-1', 'guard_name' => 'api']);
-        $role2 = Role::firstOrCreate(['name' => 'test-role-2', 'guard_name' => 'api']);
+        $role1 = Role::firstOrCreate([
+            'name' => 'test-role-1',
+            'guard_name' => 'api',
+            'organization_id' => $user->organization_id,
+        ]);
+        $role2 = Role::firstOrCreate([
+            'name' => 'test-role-2',
+            'guard_name' => 'api',
+            'organization_id' => $user->organization_id,
+        ]);
+
+        // Set team context before role assignment
+        $user->setPermissionsTeamId($user->organization_id);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
 
         $user->assignRole([$role1, $role2]);
 
@@ -425,7 +437,11 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::firstOrCreate(['name' => 'test-role', 'guard_name' => 'api']);
+        $role = Role::firstOrCreate([
+            'name' => 'test-role',
+            'guard_name' => 'api',
+            'organization_id' => $user->organization_id,
+        ]);
 
         Passport::actingAs($this->adminUser, ['users.update']);
 
@@ -450,7 +466,16 @@ class UserManagementApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
-        $role = Role::firstOrCreate(['name' => 'test-role', 'guard_name' => 'api']);
+        $role = Role::firstOrCreate([
+            'name' => 'test-role',
+            'guard_name' => 'api',
+            'organization_id' => $user->organization_id,
+        ]);
+
+        // Set team context before role assignment
+        $user->setPermissionsTeamId($user->organization_id);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
+
         $user->assignRole($role);
 
         Passport::actingAs($this->adminUser, ['users.update']);

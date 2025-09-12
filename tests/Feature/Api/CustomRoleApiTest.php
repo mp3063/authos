@@ -625,9 +625,9 @@ class CustomRoleApiTest extends TestCase
 
     public function test_super_admin_can_access_any_organization(): void
     {
-        // Set team context for super admin too
-        $this->superAdmin->setPermissionsTeamId($this->superAdmin->organization_id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->superAdmin->organization_id);
+        // Super Admin should NOT have team context - they are global
+        $this->superAdmin->setPermissionsTeamId(null);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId(null);
 
         Passport::actingAs($this->superAdmin, ['roles.read']);
 
@@ -687,9 +687,12 @@ class CustomRoleApiTest extends TestCase
 
     public function test_bulk_operations_respect_limits(): void
     {
-        // Create many users
-        $users = User::factory()->count(1001)->forOrganization($this->organization)->create();
-        $userIds = $users->pluck('id')->toArray();
+        // Create fewer users but generate a large array of IDs to test the limit
+        $users = User::factory()->count(10)->forOrganization($this->organization)->create();
+        $baseIds = $users->pluck('id')->toArray();
+
+        // Generate 1001 IDs (mix of real and fake to test validation)
+        $userIds = array_merge($baseIds, range(9999, 9999 + 991));
 
         Passport::actingAs($this->adminUser, ['roles.assign']);
 

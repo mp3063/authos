@@ -38,8 +38,13 @@ class AuthorizationServiceProvider extends ServiceProvider
             app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
 
             // Check if user has permission within their organization
-            if ($user->hasPermissionTo($ability)) {
-                return true;
+            try {
+                if ($user->hasPermissionTo($ability)) {
+                    return true;
+                }
+            } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+                // Permission doesn't exist, return false instead of throwing
+                return false;
             }
 
             // Fallback: Manual check for organization-scoped permissions

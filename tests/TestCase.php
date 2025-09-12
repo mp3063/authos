@@ -26,6 +26,31 @@ abstract class TestCase extends BaseTestCase
 
         // Set up Passport for testing (cached)
         $this->setupPassport();
+
+        // Memory optimization: Force garbage collection before each test
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        // Memory optimization: Clear large objects and force garbage collection
+        $this->beforeApplicationDestroyed(function () {
+            if (isset($this->app)) {
+                // Clear any large collections or cached data
+                if (method_exists($this->app, 'flush')) {
+                    $this->app->flush();
+                }
+            }
+        });
+
+        parent::tearDown();
+
+        // Force garbage collection after each test
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
     }
 
     /**
@@ -33,7 +58,7 @@ abstract class TestCase extends BaseTestCase
      */
     protected function setupPassport(): void
     {
-        // Only initialize Passport once per test suite
+        // Generate keys only once
         if (! static::$passportInitialized) {
             // Use proper Passport setup for v13.x testing
             if (file_exists(storage_path('oauth-keys'))) {
@@ -42,15 +67,21 @@ abstract class TestCase extends BaseTestCase
                 // Generate keys only once
                 Artisan::call('passport:keys', ['--force' => true]);
             }
-
-            // Create personal access client only once
-            Artisan::call('passport:client', [
-                '--personal' => true,
-                '--no-interaction' => true,
-                '--name' => 'Test Personal Access Client',
-            ]);
-
             static::$passportInitialized = true;
+        }
+
+        // Always ensure personal access client exists (check every time)
+        // This needs to be checked each time because RefreshDatabase might clear it
+        $existingClient = \Laravel\Passport\Client::where('personal_access_client', true)
+            ->where('provider', 'users')
+            ->first();
+
+        if (! $existingClient) {
+            // Create client directly using Passport's client repository
+            $clientRepository = app(\Laravel\Passport\ClientRepository::class);
+            $clientRepository->createPersonalAccessGrantClient(
+                'Test Personal Access Client', 'users'
+            );
         }
     }
 
@@ -90,8 +121,10 @@ abstract class TestCase extends BaseTestCase
                 ->first();
 
             if ($roleModel) {
-                // CRITICAL FIX: Set team context on user before role assignment
-                $user->setPermissionsTeamId($user->organization_id);
+                // CRITICAL FIX: Set team context based on role type
+                $teamId = $role === 'Super Admin' ? null : $user->organization_id;
+                $user->setPermissionsTeamId($teamId);
+                app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($teamId);
 
                 // Assign role with proper team context
                 $user->assignRole($roleModel);

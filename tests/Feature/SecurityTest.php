@@ -226,13 +226,8 @@ class SecurityTest extends TestCase
 
     public function test_sql_injection_protection(): void
     {
-        // Give admin proper API permissions
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
-        $this->admin->givePermissionTo($permission);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-        $this->admin = $this->admin->fresh();
-
-        Passport::actingAs($this->admin, ['read']);
+        // Use OAuth scopes for API access (same pattern as UserManagementApiTest)
+        Passport::actingAs($this->admin, ['users.read']);
 
         // Attempt SQL injection in search parameter
         $maliciousInput = "'; DROP TABLE users; --";
@@ -249,13 +244,8 @@ class SecurityTest extends TestCase
 
     public function test_xss_protection_in_user_input(): void
     {
-        // Give admin proper API permissions for creating users
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.create', 'guard_name' => 'api']);
-        $this->admin->givePermissionTo($permission);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-        $this->admin = $this->admin->fresh();
-
-        Passport::actingAs($this->admin, ['write']);
+        // Use OAuth scopes for API access (same pattern as UserManagementApiTest)
+        Passport::actingAs($this->admin, ['users.create']);
 
         $xssPayload = "<script>alert('XSS')</script>";
 
