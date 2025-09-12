@@ -37,7 +37,8 @@ class InvitationController extends BaseApiController
                 $request->email,
                 $request->user(), // Pass user instance instead of ID
                 $request->role,
-                $request->get('metadata', [])
+                $request->get('metadata', []),
+                true // Prevent duplicates for individual API calls
             );
 
             return $this->createdResourceResponse(
@@ -229,7 +230,7 @@ class InvitationController extends BaseApiController
             $serviceResults = $this->invitationService->bulkInvite(
                 $organizationId,
                 $request->invitations,
-                $request->user()->id // Keep as ID for bulk operations for now
+                $request->user() // Pass user instance like individual invitations
             );
 
             // Merge successful and failed results into one array

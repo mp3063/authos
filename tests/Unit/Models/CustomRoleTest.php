@@ -352,7 +352,7 @@ class CustomRoleTest extends TestCase
     {
         $fillable = [
             'name', 'display_name', 'description', 'organization_id',
-            'permissions', 'is_active', 'is_default',
+            'created_by', 'permissions', 'is_system', 'is_active', 'is_default',
         ];
 
         $role = new CustomRole;

@@ -221,9 +221,10 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonStructure([
+                'success',
                 'error',
                 'error_description',
-                'details',
+                'errors',
             ])
             ->assertJsonValidationErrors(['name', 'permissions']);
     }
@@ -340,7 +341,7 @@ class CustomRoleApiTest extends TestCase
         $updateData = [
             'display_name' => 'Updated Display Name',
             'description' => 'Updated description',
-            'permissions' => ['users.read', 'applications.read', 'organizations.read'],
+            'permissions' => ['users.read', 'applications.read', 'organization.read'],
             'is_active' => false,
         ];
 
@@ -355,7 +356,7 @@ class CustomRoleApiTest extends TestCase
                 'data' => [
                     'display_name' => 'Updated Display Name',
                     'description' => 'Updated description',
-                    'permissions' => ['users.read', 'applications.read', 'organizations.read'],
+                    'permissions' => ['users.read', 'applications.read', 'organization.read'],
                     'is_active' => false,
                 ],
                 'message' => 'Custom role updated successfully',
@@ -435,9 +436,12 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(204);
 
-        $this->assertDatabaseMissing('custom_roles', [
+        $this->assertDatabaseHas('custom_roles', [
             'id' => $deletableRole->id,
         ]);
+
+        // Verify the role is soft deleted
+        $this->assertNotNull(CustomRole::withTrashed()->find($deletableRole->id)->deleted_at);
 
         // Verify authentication log was created
         $this->assertDatabaseHas('authentication_logs', [
@@ -462,10 +466,14 @@ class CustomRoleApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$systemRole->id}");
 
         $response->assertStatus(409)
-            ->assertJson([
-                'error' => 'resource_conflict',
-                'error_description' => 'System roles cannot be deleted.',
-            ]);
+            ->assertJsonStructure([
+                'success',
+                'error' => [
+                    'message',
+                    'code',
+                ],
+            ])
+            ->assertJsonPath('error.message', 'System roles cannot be deleted.');
     }
 
     public function test_destroy_prevents_deleting_roles_assigned_to_users(): void
@@ -485,10 +493,14 @@ class CustomRoleApiTest extends TestCase
         $response = $this->deleteJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}");
 
         $response->assertStatus(409)
-            ->assertJson([
-                'error' => 'resource_conflict',
-                'error_description' => 'Role is assigned to users and cannot be deleted.',
-            ]);
+            ->assertJsonStructure([
+                'success',
+                'error' => [
+                    'message',
+                    'code',
+                ],
+            ])
+            ->assertJsonPath('error.message', 'Role is assigned to users and cannot be deleted.');
     }
 
     public function test_permissions_returns_available_permissions(): void
@@ -633,8 +645,8 @@ class CustomRoleApiTest extends TestCase
             ['GET', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}"],
             ['PUT', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}"],
             ['DELETE', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}"],
-            ['POST', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}/users"],
-            ['DELETE', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}/users"],
+            ['POST', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}/assign-users"],
+            ['POST', "/api/v1/organizations/{$this->organization->id}/custom-roles/{$this->customRole->id}/remove-users"],
         ];
 
         foreach ($endpoints as [$method, $endpoint]) {

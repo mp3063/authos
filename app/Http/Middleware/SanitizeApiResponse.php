@@ -77,6 +77,7 @@ class SanitizeApiResponse
         $allowedPaths = [
             'api/v1/mfa/setup/totp',
             'api/v1/applications/*/client-credentials',
+            'api/v1/applications/*/credentials/regenerate',
         ];
 
         foreach ($allowedPaths as $path) {
@@ -99,7 +100,7 @@ class SanitizeApiResponse
             foreach ($data as $key => $value) {
                 // Remove sensitive fields entirely, unless secrets are allowed
                 if (in_array($key, $this->sensitiveFields)) {
-                    if ($allowSecrets && $key === 'secret') {
+                    if ($allowSecrets && in_array($key, ['secret', 'client_secret'])) {
                         $sanitized[$key] = $value;
 
                         continue;

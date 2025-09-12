@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\CustomRole;
 use App\Models\Organization;
@@ -13,6 +14,8 @@ use Illuminate\Validation\Rule;
 
 class CustomRoleController extends Controller
 {
+    use ApiResponse;
+
     protected OAuthService $oAuthService;
 
     public function __construct(OAuthService $oAuthService)
@@ -39,11 +42,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -51,10 +50,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
-            ], 403);
+            return $this->errorResponse('Access denied to this organization', 403);
         }
 
         $query = CustomRole::forOrganization($organizationId)
@@ -141,11 +137,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -153,10 +145,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to create roles in this organization.',
-            ], 403);
+            return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
         }
 
         $customRole = CustomRole::create([
@@ -185,10 +174,11 @@ class CustomRoleController extends Controller
             ]
         );
 
-        return response()->json([
-            'data' => $this->formatCustomRoleResponse($customRole->load('creator')),
-            'message' => 'Custom role created successfully',
-        ], 201);
+        return $this->successResponse(
+            $this->formatCustomRoleResponse($customRole->load('creator')),
+            'Custom role created successfully',
+            201
+        );
     }
 
     /**
@@ -203,10 +193,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
-            ], 403);
+            return $this->errorResponse('Access denied to this organization', 403);
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)
@@ -246,11 +233,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -310,10 +293,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to delete roles in this organization.',
-            ], 403);
+            return $this->errorResponse('You do not have permission to delete roles in this organization.', 403);
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)
@@ -326,10 +306,7 @@ class CustomRoleController extends Controller
                 ? 'System roles cannot be deleted.'
                 : 'Role is assigned to users and cannot be deleted.';
 
-            return response()->json([
-                'error' => 'resource_conflict',
-                'error_description' => $reason,
-            ], 409);
+            return $this->errorResponse($reason, 409);
         }
 
         // Log role deletion
@@ -377,11 +354,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -442,11 +415,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
         }
 
         $organization = Organization::findOrFail($organizationId);

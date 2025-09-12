@@ -410,19 +410,21 @@ class ApplicationController extends Controller
         $application = Application::findOrFail($id);
         $tokens = Token::where('client_id', $application->passport_client_id)
             ->where('expires_at', '>', now())
-            ->with('user')
             ->get();
 
         return response()->json([
             'data' => $tokens->map(function ($token) {
+                // Load user manually to avoid relationship issues
+                $user = User::find($token->user_id);
+
                 return [
                     'id' => $token->id,
                     'name' => $token->name,
                     'scopes' => $token->scopes,
-                    'user' => $token->user ? [
-                        'id' => $token->user->id,
-                        'name' => $token->user->name,
-                        'email' => $token->user->email,
+                    'user' => $user ? [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
                     ] : null,
                     'created_at' => $token->created_at,
                     'expires_at' => $token->expires_at,

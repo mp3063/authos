@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exports\UsersExport;
 use App\Imports\UsersImport;
+use App\Mail\OrganizationInvitation;
 use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
@@ -14,6 +15,7 @@ use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -67,13 +69,16 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
 
                     // Send an invitation email if requested
                     if ($invitationData['send_email'] ?? true) {
-                        $this->invitationService->sendInvitation(
-                            $organization->id,
-                            $invitation->email,
-                            $inviter->id,
-                            $invitation->role,
-                            $invitation->metadata ?? []
-                        );
+                        try {
+                            Mail::to($invitation->email)->send(new OrganizationInvitation($invitation));
+                        } catch (Exception $e) {
+                            // Log the error but don't fail the invitation creation
+                            logger()->error('Failed to send invitation email', [
+                                'invitation_id' => $invitation->id,
+                                'email' => $invitation->email,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
                     }
 
                     $results['successful'][] = [

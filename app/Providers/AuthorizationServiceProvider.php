@@ -23,6 +23,11 @@ class AuthorizationServiceProvider extends ServiceProvider
     {
         // Override Gate authorization to handle team context
         Gate::before(function ($user, $ability) {
+            // Super admins have access to all abilities
+            if ($user->isSuperAdmin()) {
+                return true;
+            }
+
             // Only process for API requests with organization context
             if (! request()->is('api/*') || ! $user->organization_id) {
                 return null; // Let normal authorization proceed

@@ -31,6 +31,7 @@ class Application extends Model
         'name',
         'client_id',
         'client_secret',
+        'passport_client_id',
         'redirect_uris',
         'allowed_origins',
         'allowed_grant_types',

@@ -529,7 +529,7 @@ class InvitationApiTest extends TestCase
 
         $responseData = $response->json();
         $this->assertEquals(3, $responseData['summary']['total']);
-        $this->assertStringContains('3 sent', $responseData['message']);
+        $this->assertStringContainsString('3 sent', $responseData['message']);
 
         // Verify all invitations were created
         $this->assertDatabaseHas('invitations', ['email' => 'bulk1@example.com']);

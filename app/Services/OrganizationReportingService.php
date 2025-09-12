@@ -444,7 +444,7 @@ class OrganizationReportingService
         );
 
         // Generate PDF using DOMPDF
-        $pdf = PDF::loadView("reports.{$reportType}", compact('report'));
+        $pdf = Pdf::loadView("reports.{$reportType}", compact('report'));
         $pdf->setPaper('a4', 'portrait');
 
         $exportPath = 'reports/'.$filename;

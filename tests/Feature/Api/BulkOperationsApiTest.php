@@ -366,7 +366,7 @@ class BulkOperationsApiTest extends TestCase
     {
         $csvContent = "name,email,role\n".
                      "John Doe,john@example.com,user\n".
-                     "Jane Smith,jane@example.com,organization admin\n".
+                     "Jane Smith,jane@example.com,Organization Admin\n".
                      'Bob Wilson,bob@example.com,user';
 
         $csvFile = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
@@ -399,7 +399,7 @@ class BulkOperationsApiTest extends TestCase
 
         $this->assertDatabaseHas('invitations', [
             'email' => 'jane@example.com',
-            'role' => 'organization admin',
+            'role' => 'Organization Admin',
             'organization_id' => $this->organization->id,
         ]);
     }

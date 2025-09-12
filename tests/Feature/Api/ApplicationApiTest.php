@@ -518,9 +518,11 @@ class ApplicationApiTest extends TestCase
         $passportClient = Client::create([
             'name' => $this->application->name,
             'secret' => 'test-secret',
+            'provider' => null,
             'redirect' => 'https://example.com',
             'personal_access_client' => false,
             'password_client' => false,
+            'revoked' => false,
         ]);
 
         $this->application->update(['passport_client_id' => $passportClient->id]);
@@ -577,9 +579,11 @@ class ApplicationApiTest extends TestCase
         $passportClient = Client::create([
             'name' => $this->application->name,
             'secret' => 'test-secret',
+            'provider' => null,
             'redirect' => 'https://example.com',
             'personal_access_client' => false,
             'password_client' => false,
+            'revoked' => false,
         ]);
 
         $this->application->update(['passport_client_id' => $passportClient->id]);
@@ -607,7 +611,7 @@ class ApplicationApiTest extends TestCase
 
         Passport::actingAs($this->adminUser, ['applications.update']);
 
-        $response = $this->postJson("/api/v1/applications/{$this->application->id}/tokens/revoke-all");
+        $response = $this->deleteJson("/api/v1/applications/{$this->application->id}/tokens");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -625,9 +629,11 @@ class ApplicationApiTest extends TestCase
         $passportClient = Client::create([
             'name' => $this->application->name,
             'secret' => 'test-secret',
+            'provider' => null,
             'redirect' => 'https://example.com',
             'personal_access_client' => false,
             'password_client' => false,
+            'revoked' => false,
         ]);
 
         $this->application->update(['passport_client_id' => $passportClient->id]);
@@ -713,7 +719,7 @@ class ApplicationApiTest extends TestCase
             ['POST', "/api/v1/applications/{$this->application->id}/users"],
             ['DELETE', "/api/v1/applications/{$this->application->id}/users/{$this->regularUser->id}"],
             ['GET', "/api/v1/applications/{$this->application->id}/tokens"],
-            ['POST', "/api/v1/applications/{$this->application->id}/tokens/revoke-all"],
+            ['DELETE', "/api/v1/applications/{$this->application->id}/tokens"],
             ['DELETE', "/api/v1/applications/{$this->application->id}/tokens/test-token"],
             ['GET', "/api/v1/applications/{$this->application->id}/analytics"],
         ];

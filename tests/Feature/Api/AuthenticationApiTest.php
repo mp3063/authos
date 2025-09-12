@@ -325,6 +325,9 @@ class AuthenticationApiTest extends TestCase
             ->forOrganization($this->organization)
             ->create();
 
+        // Ensure personal access client is created before creating token
+        $this->setupPassport();
+
         $token = $user->createToken('TestToken', ['*']);
 
         Passport::actingAs($user, ['*']);

@@ -19,7 +19,8 @@ class InvitationService
         string $email,
         $inviter, // Can be User instance or int
         string $role = 'user',
-        array $metadata = []
+        array $metadata = [],
+        bool $preventDuplicates = false
     ): Invitation {
         $organization = Organization::findOrFail($organizationId);
 
@@ -47,16 +48,21 @@ class InvitationService
             ]);
         }
 
-        // Check for existing pending invitation - prevent duplicates
+        // Check for existing pending invitation
         $existingInvitation = Invitation::where('organization_id', $organizationId)
             ->where('email', $email)
             ->pending()
             ->first();
 
         if ($existingInvitation) {
-            throw ValidationException::withMessages([
-                'email' => 'A pending invitation already exists for this email address',
-            ]);
+            if ($preventDuplicates) {
+                throw ValidationException::withMessages([
+                    'email' => 'A pending invitation for this email already exists in this organization',
+                ]);
+            } else {
+                // Delete existing pending invitation to replace it
+                $existingInvitation->delete();
+            }
         }
 
         // Create the invitation
@@ -252,7 +258,7 @@ class InvitationService
     public function bulkInvite(
         int $organizationId,
         array $invitations,
-        int $inviterId
+        $inviter // Can be User instance or int for backward compatibility
     ): array {
         // Add validation for maximum batch size
         if (count($invitations) > 100) {
@@ -264,12 +270,18 @@ class InvitationService
         $successful = [];
         $failed = [];
         $organization = Organization::findOrFail($organizationId);
-        $inviter = User::with('roles')->findOrFail($inviterId);
+
+        // Handle inviter - can be User instance or ID for backward compatibility
+        if ($inviter instanceof User) {
+            $inviterUser = $inviter;
+        } else {
+            $inviterUser = User::with('roles')->findOrFail($inviter);
+        }
 
         // Set permissions team context
-        $inviter->setPermissionsTeamId($inviter->organization_id);
+        $inviterUser->setPermissionsTeamId($inviterUser->organization_id);
 
-        if (! $this->canInviteToOrganization($inviter, $organization)) {
+        if (! $this->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
 
@@ -278,9 +290,10 @@ class InvitationService
                 $invitation = $this->sendInvitation(
                     $organizationId,
                     $inviteData['email'],
-                    $inviter, // Pass user instance instead of ID
+                    $inviterUser, // Pass user instance
                     $inviteData['role'] ?? 'user',
-                    $inviteData['metadata'] ?? []
+                    $inviteData['metadata'] ?? [],
+                    true // Prevent duplicates for API bulk operations
                 );
 
                 $successful[] = [
