@@ -273,7 +273,12 @@ class ProfileController extends Controller
 
         // Revoke all other sessions except current
         $currentToken = $user->token();
-        $user->tokens()->where('id', '!=', $currentToken->id)->delete();
+        if ($currentToken) {
+            $user->tokens()->where('id', '!=', $currentToken->id)->delete();
+        } else {
+            // No current token (e.g., in testing), revoke all tokens
+            $user->tokens()->delete();
+        }
 
         // Log password change
         $this->oAuthService->logAuthenticationEvent(
@@ -299,7 +304,7 @@ class ProfileController extends Controller
             'data' => [
                 'mfa_enabled' => $user->hasMfaEnabled(),
                 'mfa_methods' => $user->mfa_methods ?? [],
-                'backup_codes_count' => is_array($user->two_factor_recovery_codes) ? count(json_decode($user->two_factor_recovery_codes, true) ?? []) : 0,
+                'backup_codes_count' => $user->two_factor_recovery_codes ? count(json_decode($user->two_factor_recovery_codes, true) ?? []) : 0,
                 'totp_configured' => ! empty($user->two_factor_secret),
             ],
         ]);

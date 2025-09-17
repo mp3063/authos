@@ -3,23 +3,32 @@
 namespace App\Services;
 
 use App\Models\Application;
+use App\Models\Organization;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 class SSOService
 {
     /**
      * Initiate SSO flow for an application
+     *
+     * @throws Exception
      */
     public function initiateSSOFlow(int $userId, int $applicationId, int $ssoConfigId): array
     {
         $user = User::findOrFail($userId);
+        /** @var User $user */
         $application = Application::findOrFail($applicationId);
+        /** @var Application $application */
         $ssoConfig = SSOConfiguration::findOrFail($ssoConfigId);
 
         // Check if config is active first
@@ -61,13 +70,14 @@ class SSOService
             'state' => $state,
         ]);
 
-        // Store state in session metadata
-        $session->update([
-            'metadata' => array_merge($session->metadata ?? [], [
-                'state' => $state,
-                'redirect_uri' => $ssoConfig->callback_url,
-            ]),
+        // Store state in session metadata and external_session_id for callback lookup
+        // Update external_session_id and metadata separately to avoid guarded attribute issues
+        $session->external_session_id = $state;
+        $session->metadata = array_merge($session->metadata ?? [], [
+            'state' => $state,
+            'redirect_uri' => $ssoConfig->callback_url,
         ]);
+        $session->save();
 
         return [
             'redirect_url' => $redirectUrl,
@@ -79,6 +89,9 @@ class SSOService
 
     /**
      * Initiate SSO flow for an application (legacy method)
+     *
+     * @throws Exception
+     * @throws ValidationException
      */
     public function initiateSSO(
         int $applicationId,
@@ -88,15 +101,15 @@ class SSOService
         string $userAgent
     ): array {
         $application = Application::with('ssoConfiguration')->findOrFail($applicationId);
-
+        /** @var Application $application */
         if (! $application->hasSSOEnabled()) {
             throw new Exception('SSO is not enabled for this application');
         }
 
-        $config = $application->ssoConfiguration;
+        $ssoConfig = $application->ssoConfiguration;
 
         // Validate redirect URI
-        if (! $this->isValidRedirectUri($redirectUri, $config)) {
+        if (! $this->isValidRedirectUri($redirectUri, $ssoConfig)) {
             throw ValidationException::withMessages([
                 'redirect_uri' => 'Invalid redirect URI for this application',
             ]);
@@ -114,13 +127,13 @@ class SSOService
         $authCode = Str::random(32);
 
         // Store auth code in session metadata for validation
-        $session->update([
-            'metadata' => array_merge($session->metadata ?? [], [
-                'auth_code' => $authCode,
-                'auth_code_expires' => now()->addMinutes(10)->timestamp,
-                'redirect_uri' => $redirectUri,
-            ]),
+        // Update metadata directly to avoid guarded attribute issues
+        $session->metadata = array_merge($session->metadata ?? [], [
+            'auth_code' => $authCode,
+            'auth_code_expires' => now()->addMinutes(10)->timestamp,
+            'redirect_uri' => $redirectUri,
         ]);
+        $session->save();
 
         return [
             'auth_code' => $authCode,
@@ -132,6 +145,8 @@ class SSOService
 
     /**
      * Validate callback and exchange auth code for session token
+     *
+     * @throws Exception
      */
     public function validateCallback(
         string $authCode,
@@ -139,6 +154,7 @@ class SSOService
         ?string $redirectUri = null
     ): array {
         $application = Application::findOrFail($applicationId);
+        /** @var Application $application */
 
         // Find session with this auth code
         $session = SSOSession::where('application_id', $applicationId)
@@ -166,7 +182,8 @@ class SSOService
 
         // Clear auth code from metadata
         unset($metadata['auth_code'], $metadata['auth_code_expires']);
-        $session->update(['metadata' => $metadata]);
+        $session->metadata = $metadata;
+        $session->save();
 
         return [
             'access_token' => $session->session_token,
@@ -191,15 +208,15 @@ class SSOService
             ->active()
             ->first();
 
-        if ($session) {
-            $session->updateActivity();
-        }
+        $session->updateActivity();
 
         return $session;
     }
 
     /**
      * Refresh SSO session
+     *
+     * @throws Exception
      */
     public function refreshSession(string $refreshToken): array
     {
@@ -225,6 +242,8 @@ class SSOService
 
     /**
      * Synchronize logout across applications
+     *
+     * @throws Exception
      */
     public function synchronizeLogout(string $sessionToken): array
     {
@@ -237,7 +256,6 @@ class SSOService
         }
 
         $application = $session->application;
-        $config = $application->ssoConfiguration;
 
         // Revoke the session
         $session->revoke();
@@ -265,6 +283,8 @@ class SSOService
 
     /**
      * Get SSO configuration for an application
+     *
+     * @throws Exception
      */
     public function getConfiguration(int $applicationId): SSOConfiguration
     {
@@ -279,6 +299,8 @@ class SSOService
 
     /**
      * Create SSO configuration for an application
+     *
+     * @throws Exception
      */
     public function createConfiguration(
         int $applicationId,
@@ -307,6 +329,8 @@ class SSOService
 
     /**
      * Update SSO configuration
+     *
+     * @throws Exception
      */
     public function updateConfiguration(
         int $applicationId,
@@ -325,8 +349,10 @@ class SSOService
 
     /**
      * Get active sessions for a user
+     *
+     * @return Collection<int, SSOSession>
      */
-    public function getUserActiveSessions(int $userId): \Illuminate\Database\Eloquent\Collection
+    public function getUserActiveSessions(int $userId): Collection
     {
         return SSOSession::with(['application'])
             ->where('user_id', $userId)
@@ -363,11 +389,15 @@ class SSOService
      */
     public function cleanupExpiredSessions(): int
     {
-        return SSOSession::expired()->delete();
+        $deletedCount = SSOSession::expired()->delete();
+
+        return $deletedCount ?: 0;
     }
 
     /**
      * Revoke a specific SSO session
+     *
+     * @throws Exception
      */
     public function revokeSSOSession(string $sessionToken, int $userId): bool
     {
@@ -386,8 +416,10 @@ class SSOService
 
     /**
      * Get active SSO sessions for a user
+     *
+     * @return Collection<int, SSOSession>
      */
-    public function getActiveSSOSessions(int $userId): \Illuminate\Database\Eloquent\Collection
+    public function getActiveSSOSessions(int $userId): Collection
     {
         return SSOSession::with(['application'])
             ->where('user_id', $userId)
@@ -408,6 +440,8 @@ class SSOService
 
     /**
      * Validate SSO session token
+     *
+     * @throws Exception
      */
     public function validateSSOSession(string $sessionToken): ?SSOSession
     {
@@ -441,7 +475,7 @@ class SSOService
             $revokedCount = $this->revokeUserSessions($userId);
 
             // Clear cache for user sessions
-            \Illuminate\Support\Facades\Cache::forget("sso_sessions:{$userId}");
+            Cache::forget("sso_sessions:{$userId}");
 
             Log::info('Synchronized logout completed', [
                 'user_id' => $userId,
@@ -449,10 +483,9 @@ class SSOService
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception) {
             Log::error('Synchronized logout failed', [
                 'user_id' => $userId,
-                'error' => $e->getMessage(),
             ]);
 
             return false;
@@ -461,19 +494,22 @@ class SSOService
 
     /**
      * Handle OIDC callback processing
+     *
+     * @throws Exception
+     * @throws InvalidArgumentException
      */
-    public function handleOIDCCallback(array $callbackData, ?int $applicationId = null): array
+    public function handleOIDCCallback(array $callbackData): array
     {
         // Extract authorization code and state from callback data
         $authCode = $callbackData['code'] ?? null;
         $state = $callbackData['state'] ?? null;
 
         if (! $authCode) {
-            throw new \InvalidArgumentException('Authorization code is required');
+            throw new InvalidArgumentException('Authorization code is required');
         }
 
         if (! $state) {
-            throw new \InvalidArgumentException('State parameter is required');
+            throw new InvalidArgumentException('State parameter is required');
         }
 
         // Find the session by external_session_id (state parameter)
@@ -488,7 +524,6 @@ class SSOService
             throw new Exception('Session is not active');
         }
 
-        $applicationId = $session->application_id;
         $application = $session->application;
         $ssoConfig = $application->ssoConfiguration;
 
@@ -498,7 +533,7 @@ class SSOService
 
         // Exchange auth code for tokens
         try {
-            $tokenResponse = \Illuminate\Support\Facades\Http::post($ssoConfig->configuration['token_endpoint'], [
+            $tokenResponse = Http::post($ssoConfig->configuration['token_endpoint'], [
                 'grant_type' => 'authorization_code',
                 'code' => $authCode,
                 'redirect_uri' => $ssoConfig->callback_url,
@@ -519,7 +554,7 @@ class SSOService
             $refreshToken = $tokenData['refresh_token'] ?? 'refresh-token-123';
 
             // Get user info from provider
-            $userInfoResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)
+            $userInfoResponse = Http::withToken($accessToken)
                 ->get($ssoConfig->configuration['userinfo_endpoint'] ?? '');
 
             $userInfo = $userInfoResponse->successful() ? $userInfoResponse->json() : [
@@ -528,7 +563,7 @@ class SSOService
                 'name' => $session->user->name,
                 'email_verified' => true,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception) {
             // Fallback to mock values for testing or if HTTP fails
             $accessToken = 'access-token-123';
             $idToken = 'id-token-123';
@@ -550,7 +585,8 @@ class SSOService
             'user_info' => $userInfo,
         ]);
 
-        $session->update(['metadata' => $newMetadata]);
+        $session->metadata = $newMetadata;
+        $session->save();
 
         // Refresh session to make sure we have the latest data
         $session->refresh();
@@ -572,6 +608,8 @@ class SSOService
 
     /**
      * Validate SAML response
+     *
+     * @throws Exception
      */
     public function validateSAMLResponse(string $samlResponse, string|int $requestId): array
     {
@@ -617,6 +655,8 @@ class SSOService
 
     /**
      * Refresh SSO token
+     *
+     * @throws Exception
      */
     public function refreshSSOToken(string $sessionToken, ?int $applicationId = null): array
     {
@@ -634,11 +674,6 @@ class SSOService
         }
 
         $application = $session->application;
-        $ssoConfig = $application->ssoConfiguration;
-
-        if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
-            throw new Exception('Token endpoint not configured');
-        }
 
         // Make request to token endpoint for refresh
         try {
@@ -647,7 +682,13 @@ class SSOService
                 $newAccessToken = 'new-access-token-123';
                 $newRefreshToken = 'new-refresh-token-123';
             } else {
-                $response = \Illuminate\Support\Facades\Http::post($ssoConfig->configuration['token_endpoint'], [
+                $ssoConfig = $application->ssoConfiguration;
+
+                if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
+                    throw new Exception('Token endpoint not configured');
+                }
+
+                $response = Http::post($ssoConfig->configuration['token_endpoint'], [
                     'grant_type' => 'refresh_token',
                     'refresh_token' => $session->refresh_token,
                     'client_id' => $ssoConfig->configuration['client_id'] ?? '',
@@ -662,7 +703,7 @@ class SSOService
                 $newAccessToken = $tokenData['access_token'];
                 $newRefreshToken = $tokenData['refresh_token'] ?? $session->refresh_token;
             }
-        } catch (\Exception $e) {
+        } catch (Exception) {
             if (! app()->environment('testing')) {
                 throw new Exception('Invalid or expired refresh token');
             }
@@ -671,14 +712,16 @@ class SSOService
             $newRefreshToken = 'new-refresh-token-123';
         }
 
-        $session->update([
+        $updatedMetadata = array_merge($session->metadata ?? [], [
+            'access_token' => $newAccessToken,
             'refresh_token' => $newRefreshToken,
-            'metadata' => array_merge($session->metadata ?? [], [
-                'access_token' => $newAccessToken,
-                'refresh_token' => $newRefreshToken,
-                'token_updated_at' => now()->toISOString(),
-            ]),
+            'token_updated_at' => now()->toISOString(),
         ]);
+
+        // Update attributes separately to avoid guarded attribute issues
+        $session->refresh_token = $newRefreshToken;
+        $session->metadata = $updatedMetadata;
+        $session->save();
 
         return [
             'success' => true,
@@ -750,6 +793,8 @@ class SSOService
 
     /**
      * Process SAML callback
+     *
+     * @throws Exception
      */
     public function processSamlCallback(string $samlResponse, ?string $relayState = null): array
     {
@@ -813,10 +858,12 @@ class SSOService
 
     /**
      * Get organization metadata for SSO
+     *
+     * @throws Exception
      */
     public function getOrganizationMetadata(string $organizationSlug): array
     {
-        $organization = \App\Models\Organization::where('slug', $organizationSlug)->first();
+        $organization = Organization::where('slug', $organizationSlug)->first();
 
         if (! $organization) {
             throw new Exception('Organization not found');
@@ -846,7 +893,7 @@ class SSOService
             'endpoints' => [
                 'initiate' => url('/api/v1/sso/initiate'),
                 'callback' => url('/api/v1/sso/callback'),
-                'metadata' => url("/api/v1/sso/metadata/{$organizationSlug}"),
+                'metadata' => url('/api/v1/sso/metadata/'.$organizationSlug),
                 'logout' => url('/api/v1/sso/logout'),
             ],
         ];
@@ -855,17 +902,15 @@ class SSOService
     private function parseSAMLAssertion(string $samlResponse): ?array
     {
         // Simplified SAML parsing - in production this would use proper SAML libraries
-        if (strpos($samlResponse, '<saml:Assertion') === false) {
+        if (! str_contains($samlResponse, '<saml:Assertion')) {
             return null;
         }
 
         // Extract basic user info (this is a simplified example)
-        $userInfo = [
+        return [
             'id' => 'saml_user_'.uniqid(),
             'email' => 'user@example.com',
             'name' => 'SAML User',
         ];
-
-        return $userInfo;
     }
 }

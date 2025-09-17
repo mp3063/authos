@@ -121,9 +121,8 @@ class UserController extends BaseApiController
         $user = $this->userManagementService->createUser($userData, $organization);
 
         $response = $this->userManagementService->formatUserResponse($user);
-        $response['message'] = 'User created successfully';
 
-        return $this->successResponse($response, 201);
+        return $this->successResponse($response, 'User created successfully', 201);
     }
 
     /**

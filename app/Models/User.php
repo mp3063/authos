@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Traits\BelongsToOrganization;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -13,7 +15,7 @@ use Laravel\Passport\HasApiTokens;
 use Spatie\Permission\Exceptions\RoleDoesNotExist;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use BelongsToOrganization, HasApiTokens, HasFactory, HasRoles, Notifiable;
 
@@ -92,6 +94,11 @@ class User extends Authenticatable
         return $this->belongsToMany(CustomRole::class, 'user_custom_roles')
             ->withPivot(['granted_at', 'granted_by'])
             ->withTimestamps();
+    }
+
+    public function authenticationLogs(): HasMany
+    {
+        return $this->hasMany(AuthenticationLog::class);
     }
 
     public function hasMfaEnabled(): bool
@@ -347,5 +354,17 @@ class User extends Authenticatable
 
         // Create new user
         return static::create($attributes);
+    }
+
+    /**
+     * Check if user can access the Filament admin panel
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Allow access if user has admin permissions or is super admin
+        return $this->isSuperAdmin() ||
+               $this->isOrganizationAdmin() ||
+               $this->isOrganizationOwner() ||
+               $this->hasOrganizationPermission('admin.access');
     }
 }

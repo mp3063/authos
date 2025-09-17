@@ -345,6 +345,7 @@ class SSOController extends Controller
                     'id' => $result['session']['application_id'] ?? null,
                     'name' => $result['session']['application_name'] ?? 'Unknown Application',
                 ],
+                'tokens' => $result['tokens'] ?? [],
             ]);
 
         } catch (Exception $e) {

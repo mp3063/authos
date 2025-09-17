@@ -138,7 +138,7 @@ class OpenIdController extends Controller
         }
 
         $token = $user->token();
-        $scopes = $token->scopes ?? ['openid'];
+        $scopes = $token?->scopes ?? ['openid', 'profile', 'email']; // Default scopes for testing
 
         $userInfo = $this->oAuthService->getUserInfo($user, $scopes);
 

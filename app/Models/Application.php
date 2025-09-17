@@ -35,6 +35,7 @@ class Application extends Model
         'redirect_uris',
         'allowed_origins',
         'allowed_grant_types',
+        'scopes',
         'webhook_url',
         'settings',
         'is_active',
@@ -44,6 +45,7 @@ class Application extends Model
         'redirect_uris' => 'array',
         'allowed_origins' => 'array',
         'allowed_grant_types' => 'array',
+        'scopes' => 'array',
         'settings' => 'array',
         'is_active' => 'boolean',
     ];

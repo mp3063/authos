@@ -214,7 +214,7 @@ abstract class TestCase extends BaseTestCase
     /**
      * Setup role with permissions (memory optimized)
      */
-    protected function setupRoleWithPermissions(string $role, string $guard, int $organizationId): void
+    protected function setupRoleWithPermissions(string $role, string $guard, ?int $organizationId): void
     {
         $roleModel = Role::firstOrCreate([
             'name' => $role,
@@ -282,6 +282,12 @@ abstract class TestCase extends BaseTestCase
                 'organizations.read', 'organizations.update', 'organizations.manage_users',
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.read',
+                'auth_logs.read',
+            ],
+            'User' => [
+                'users.read',
+                'applications.read',
+                'organizations.read',
                 'auth_logs.read',
             ],
         ];
