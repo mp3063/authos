@@ -767,7 +767,7 @@ class OAuthFlowsTest extends EndToEndTestCase
         $tokenData = $this->performCompleteOAuthFlow(['openid', 'profile', 'email']);
 
         // Test UserInfo endpoint (using actingAs for test tokens)
-        $this->actingAs($this->testUser, 'api');
+        Passport::actingAs($this->testUser, ['openid', 'profile', 'email']);
         $userInfoResponse = $this->getJson('/api/v1/oauth/userinfo');
 
         $userInfoResponse->assertStatus(200);

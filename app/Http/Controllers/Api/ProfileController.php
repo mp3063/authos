@@ -304,7 +304,8 @@ class ProfileController extends Controller
             'data' => [
                 'mfa_enabled' => $user->hasMfaEnabled(),
                 'mfa_methods' => $user->mfa_methods ?? [],
-                'backup_codes_count' => $user->two_factor_recovery_codes ? count(json_decode($user->two_factor_recovery_codes, true) ?? []) : 0,
+                'backup_codes' => $user->mfa_backup_codes ?? [],
+                'backup_codes_count' => count($user->mfa_backup_codes ?? []),
                 'totp_configured' => ! empty($user->two_factor_secret),
             ],
         ]);
@@ -319,27 +320,31 @@ class ProfileController extends Controller
 
         if ($user->hasMfaEnabled()) {
             return response()->json([
+                'success' => false,
                 'error' => 'resource_conflict',
                 'error_description' => 'MFA is already enabled for this account.',
             ], 409);
         }
 
         $google2fa = new Google2FA;
-        $secretKey = $google2fa->generateSecretKey();
+
+        // Generate secret key with proper length (minimum 16 characters)
+        $secretKey = $google2fa->generateSecretKey(32); // 32 chars for better security
 
         // Store the secret temporarily (not confirmed yet)
         $user->update(['two_factor_secret' => encrypt($secretKey)]);
 
         $qrCodeUrl = $google2fa->getQRCodeUrl(
-            config('app.name'),
+            config('app.name', 'Auth Service'),
             $user->email,
             $secretKey
         );
 
         return response()->json([
+            'success' => true,
             'data' => [
                 'secret' => $secretKey,
-                'qr_code_url' => $qrCodeUrl,
+                'qr_code' => $qrCodeUrl,
                 'backup_codes' => [], // Will be generated after verification
             ],
             'message' => 'TOTP setup initiated. Please verify to complete setup.',
@@ -569,6 +574,137 @@ class ProfileController extends Controller
                 'recovery_codes' => $backupCodes,
             ],
             'message' => 'Recovery codes regenerated successfully.',
+        ]);
+    }
+
+    /**
+     * Enable MFA after setup
+     */
+    public function enableMfa(Request $request): JsonResponse
+    {
+        $request->validate([
+            'code' => 'required|string|size:6',
+        ]);
+
+        $user = Auth::user();
+
+        if (! $user->two_factor_secret) {
+            return response()->json([
+                'success' => false,
+                'error' => 'resource_not_found',
+                'error_description' => 'TOTP setup not initiated.',
+            ], 404);
+        }
+
+        $google2fa = new Google2FA;
+        $secretKey = decrypt($user->two_factor_secret);
+
+        if (! $google2fa->verifyKey($secretKey, $request->code)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'authentication_failed',
+                'error_description' => 'Invalid TOTP code.',
+            ], 401);
+        }
+
+        // Generate backup codes
+        $backupCodes = [];
+        for ($i = 0; $i < 8; $i++) {
+            $backupCodes[] = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
+        }
+
+        // Enable MFA
+        $user->update([
+            'mfa_methods' => ['totp'],
+            'mfa_backup_codes' => $backupCodes,
+            'two_factor_recovery_codes' => json_encode($backupCodes),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        // Log MFA enabled event
+        $this->oAuthService->logAuthenticationEvent(
+            $user,
+            'mfa_enabled',
+            $request,
+            null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'backup_codes' => $backupCodes,
+                'mfa_enabled' => true,
+                'methods' => ['totp'],
+            ],
+            'message' => 'MFA enabled successfully. Please store your backup codes safely.',
+        ]);
+    }
+
+    /**
+     * Disable MFA
+     */
+    public function disableMfa(Request $request): JsonResponse
+    {
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+
+        // Disable MFA for the user
+        $user->update([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_confirmed_at' => null,
+            'mfa_methods' => null,
+        ]);
+
+        // Log MFA disabled event
+        $this->oAuthService->logAuthenticationEvent(
+            $user,
+            'mfa_disabled',
+            $request,
+            null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'mfa_enabled' => false,
+                'methods' => [],
+            ],
+            'message' => 'MFA disabled successfully',
+        ]);
+    }
+
+    /**
+     * Get user's social accounts
+     */
+    public function socialAccounts(): JsonResponse
+    {
+        $user = Auth::user();
+
+        $linkedProviders = [];
+        if ($user->provider && $user->provider_id) {
+            $linkedProviders[] = [
+                'provider' => $user->provider,
+                'provider_id' => $user->provider_id,
+                'connected_at' => $user->created_at, // Approximation
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'linked_providers' => $linkedProviders,
+                'available_providers' => [
+                    'google' => ['name' => 'Google', 'connected' => $user->provider === 'google'],
+                    'github' => ['name' => 'GitHub', 'connected' => $user->provider === 'github'],
+                    'facebook' => ['name' => 'Facebook', 'connected' => $user->provider === 'facebook'],
+                    'twitter' => ['name' => 'Twitter', 'connected' => $user->provider === 'twitter'],
+                    'linkedin' => ['name' => 'LinkedIn', 'connected' => $user->provider === 'linkedin'],
+                ],
+            ],
         ]);
     }
 }

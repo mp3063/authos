@@ -1296,7 +1296,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
         $response = $this->getJson("/api/v1/organizations/{$this->defaultOrganization->id}/metrics/security");
         $response->assertStatus(200);
 
-        $metrics = $response->json();
+        $metrics = $response->json('data');
         $this->assertArrayHasKey('failed_login_attempts', $metrics);
         $this->assertArrayHasKey('mfa_enabled_users', $metrics);
         $this->assertArrayHasKey('suspicious_activity', $metrics);
@@ -1330,7 +1330,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
         $response = $this->getJson("/api/v1/organizations/{$this->defaultOrganization->id}/metrics/applications");
         $response->assertStatus(200);
 
-        $metrics = $response->json();
+        $metrics = $response->json('data');
         $this->assertIsArray($metrics);
 
         foreach ($metrics as $appMetric) {

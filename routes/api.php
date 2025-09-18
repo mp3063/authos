@@ -63,6 +63,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/register', [AuthController::class, 'register'])->middleware('api.rate_limit:registration');
         Route::post('/login', [AuthController::class, 'login'])->middleware('api.rate_limit:authentication');
         Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('api.rate_limit:authentication');
+        Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('api.rate_limit:authentication');
 
         // Social Authentication routes
         Route::prefix('social')->middleware('api.rate_limit:authentication')->group(function () {
@@ -72,6 +73,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
             // Protected social auth routes
             Route::middleware('auth:api')->group(function () {
+                Route::post('/link', [SocialAuthController::class, 'link']);
                 Route::delete('/unlink', [SocialAuthController::class, 'unlink']);
             });
         });
@@ -153,16 +155,21 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::put('/preferences', [ProfileController::class, 'updatePreferences']);
         Route::get('/security', [ProfileController::class, 'security']);
         Route::post('/change-password', [ProfileController::class, 'changePassword']);
+        Route::get('/social-accounts', [ProfileController::class, 'socialAccounts']);
     });
 
     // MFA Management API
     Route::middleware(['auth:api', 'api.rate_limit:mfa'])->prefix('mfa')->group(function () {
         Route::get('/status', [ProfileController::class, 'mfaStatus']);
+        Route::post('/setup', [ProfileController::class, 'setupTotp']); // Alias for /setup/totp
         Route::post('/setup/totp', [ProfileController::class, 'setupTotp']);
+        Route::post('/enable', [ProfileController::class, 'enableMfa']); // New endpoint
+        Route::post('/disable', [ProfileController::class, 'disableMfa']); // New endpoint
         Route::post('/verify/totp', [ProfileController::class, 'verifyTotp']);
-        Route::post('/disable/totp', [ProfileController::class, 'disableTotp']);
+        Route::post('/disable/totp', [ProfileController::class, 'disableTotp']); // Deprecated
         Route::post('/recovery-codes', [ProfileController::class, 'getRecoveryCodes']);
         Route::post('/recovery-codes/regenerate', [ProfileController::class, 'regenerateRecoveryCodes']);
+        Route::post('/backup-codes/regenerate', [ProfileController::class, 'regenerateRecoveryCodes']); // Alias
     });
 
     // Organization Management API

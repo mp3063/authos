@@ -47,6 +47,12 @@ class UserController extends BaseApiController
 
         $query = User::query()->with(['roles', 'organization']);
 
+        // Enforce organization-based data isolation for non-super-admin users
+        $currentUser = auth()->user();
+        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+            $query->where('organization_id', $currentUser->organization_id);
+        }
+
         // Apply filters
         if ($params['search']) {
             $search = $params['search'];
@@ -57,7 +63,11 @@ class UserController extends BaseApiController
         }
 
         if ($request->has('organization_id')) {
-            $query->where('organization_id', $request->organization_id);
+            // Only allow filtering by organization_id if user is super admin or it's their own organization
+            if ($currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin') ||
+                $request->organization_id == $currentUser->organization_id) {
+                $query->where('organization_id', $request->organization_id);
+            }
         }
 
         if ($request->has('role')) {
@@ -132,9 +142,16 @@ class UserController extends BaseApiController
     {
         $this->authorize('users.read');
 
-        $user = User::with(['roles.permissions', 'organization', 'applications', 'ssoSessions'])
-            ->withCount(['applications', 'ssoSessions'])
-            ->findOrFail($id);
+        $query = User::with(['roles.permissions', 'organization', 'applications', 'ssoSessions'])
+            ->withCount(['applications', 'ssoSessions']);
+
+        // Enforce organization-based data isolation for non-super-admin users
+        $currentUser = auth()->user();
+        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+            $query->where('organization_id', $currentUser->organization_id);
+        }
+
+        $user = $query->findOrFail($id);
 
         return $this->successResponse($this->userManagementService->formatUserResponse($user, true));
     }

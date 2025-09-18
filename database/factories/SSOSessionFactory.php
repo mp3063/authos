@@ -106,4 +106,39 @@ class SSOSessionFactory extends Factory
             ];
         });
     }
+
+    /**
+     * Create session with SSO state metadata.
+     */
+    public function withSSOState(?string $state = null): static
+    {
+        return $this->state(function (array $attributes) use ($state) {
+            $metadata = $attributes['metadata'] ?? [];
+            $ssoState = $state ?? Str::random(32);
+
+            $metadata = array_merge($metadata, [
+                'state' => $ssoState,
+                'redirect_uri' => 'https://app-a.example.com/callback',
+                'scopes' => ['openid', 'profile', 'email'],
+                'auth_code' => Str::random(32),
+                'provider' => 'oidc',
+                'mfa_verified' => false,
+            ]);
+
+            return [
+                'external_session_id' => $ssoState,
+                'metadata' => $metadata,
+            ];
+        });
+    }
+
+    /**
+     * Create session with logged out state.
+     */
+    public function loggedOut(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'logged_out_at' => now()->subMinutes(fake()->numberBetween(1, 30)),
+        ]);
+    }
 }

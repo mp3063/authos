@@ -75,6 +75,7 @@ class SanitizeApiResponse
     protected function shouldAllowSecrets(Request $request): bool
     {
         $allowedPaths = [
+            'api/v1/mfa/setup',       // Added for MFA setup endpoint
             'api/v1/mfa/setup/totp',
             'api/v1/applications/*/client-credentials',
             'api/v1/applications/*/credentials/regenerate',

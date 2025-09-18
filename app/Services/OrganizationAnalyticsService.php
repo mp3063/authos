@@ -521,4 +521,47 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     {
         return []; // Simplified for now
     }
+
+    /**
+     * Get application metrics for a specific organization
+     */
+    public function getApplicationMetrics(int $organizationId, string $period = '30d', ?int $applicationId = null): array
+    {
+        $organization = Organization::findOrFail($organizationId);
+        $dateRange = $this->getDateRangeForPeriod($period);
+
+        if ($applicationId) {
+            // Get metrics for specific application
+            $application = $organization->applications()->findOrFail($applicationId);
+
+            return $this->getSpecificApplicationMetrics($application, $dateRange);
+        }
+
+        // Get metrics for all applications in the organization - return just the applications array
+        $usageMetrics = $this->getApplicationUsage($organization, $dateRange);
+
+        return $usageMetrics->toArray();
+    }
+
+    /**
+     * Get metrics for a specific application
+     */
+    private function getSpecificApplicationMetrics($application, array $dateRange): array
+    {
+        $usersCount = $application->users()->count();
+        $activeUsersCount = $application->users()
+            ->wherePivot('last_login_at', '>=', $dateRange['start'])
+            ->count();
+
+        return [
+            'id' => $application->id,
+            'name' => $application->name,
+            'client_id' => $application->client_id,
+            'total_users' => $usersCount,
+            'active_users' => $activeUsersCount,
+            'total_logins' => $application->users()->sum('pivot.login_count') ?? 0,
+            'created_at' => $application->created_at,
+            'updated_at' => $application->updated_at,
+        ];
+    }
 }

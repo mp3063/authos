@@ -164,8 +164,8 @@ class OrganizationAnalyticsController extends BaseApiController
         $metrics = $this->cacheAnalytics(
             "security_metrics_{$organization->id}",
             $cacheParams,
-            function () use ($organization, $period, $includeFailedAttempts) {
-                return $this->analyticsService->getSecurityMetrics($organization->id, $period, $includeFailedAttempts);
+            function () use ($organization, $period) {
+                return $this->analyticsService->getSecurityMetrics($organization, $period);
             }
         );
 

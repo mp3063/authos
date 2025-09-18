@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\AuthorizationViewResponse as CustomAuthorizationViewResponse;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
@@ -18,6 +19,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Contracts\AuthorizationViewResponse;
 use Laravel\Passport\Passport;
 
 class AppServiceProvider extends ServiceProvider
@@ -31,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(OrganizationRepositoryInterface::class, OrganizationRepository::class);
         $this->app->bind(ApplicationRepositoryInterface::class, ApplicationRepository::class);
+
+        // Bind Laravel Passport contracts
+        $this->app->bind(AuthorizationViewResponse::class, CustomAuthorizationViewResponse::class);
 
         // Performance optimization services
         $this->app->singleton(\App\Services\Database\OptimizedQueryService::class);

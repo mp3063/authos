@@ -215,15 +215,19 @@ abstract class EndToEndTestCase extends TestCase
             'is_active' => true,
         ]);
 
-        // Create corresponding OAuth client
+        // Create corresponding OAuth client using Passport's method
+        $plainSecret = 'e2e-test-secret';
         $this->oauthClient = Client::create([
             'name' => 'E2E Test OAuth Client',
-            'secret' => 'e2e-test-secret',
+            'secret' => $plainSecret,
             'redirect' => 'https://e2e-test-app.example.com/callback',
             'personal_access_client' => false,
             'password_client' => false,
             'revoked' => false,
         ]);
+
+        // Store the plain secret for testing
+        $this->oauthClient->plainSecret = $plainSecret;
 
         // Link application to OAuth client
         $this->oauthApplication->update([

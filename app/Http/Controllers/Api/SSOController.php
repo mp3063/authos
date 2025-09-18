@@ -37,17 +37,17 @@ class SSOController extends Controller
             $application = \App\Models\Application::findOrFail($request->application_id);
             $ssoConfig = \App\Models\SSOConfiguration::findOrFail($request->sso_configuration_id);
 
+            // Check if SSO config belongs to the same organization (primary security check)
+            if ($ssoConfig->application->organization_id !== $user->organization_id) {
+                return response()->json([
+                    'message' => 'Access denied: organization mismatch for SSO configuration',
+                ], 403);
+            }
+
             // Check if user has access to the application
             if (! $user->applications()->where('applications.id', $application->id)->exists()) {
                 return response()->json([
                     'message' => 'Access denied to this application',
-                ], 403);
-            }
-
-            // Check if SSO config belongs to the same organization
-            if ($ssoConfig->application->organization_id !== $user->organization_id) {
-                return response()->json([
-                    'message' => 'SSO configuration does not belong to the same organization',
                 ], 403);
             }
 
@@ -59,7 +59,8 @@ class SSOController extends Controller
             $result = $this->ssoService->initiateSSOFlow(
                 $user->id,
                 $request->application_id,
-                $request->sso_configuration_id
+                $request->sso_configuration_id,
+                $request->redirect_uri
             );
 
             return response()->json([
@@ -74,6 +75,12 @@ class SSOController extends Controller
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
+            ], 422);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => ['redirect_uri' => [$e->getMessage()]],
             ], 422);
         } catch (Exception $e) {
             // Return 403 for authorization/permission errors, 400 for other errors

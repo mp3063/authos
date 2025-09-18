@@ -137,12 +137,83 @@ class OpenIdController extends Controller
             ], 401);
         }
 
-        $token = $user->token();
-        $scopes = $token?->scopes ?? ['openid', 'profile', 'email']; // Default scopes for testing
+        // Get token scopes - handle both testing and production scenarios
+        $scopes = $this->getTokenScopes($request, $user);
 
         $userInfo = $this->oAuthService->getUserInfo($user, $scopes);
 
         return response()->json($userInfo);
+    }
+
+    /**
+     * Get the current token's scopes
+     */
+    protected function getTokenScopes(Request $request, $user): array
+    {
+        // Priority 1: If Bearer token present, decode JWT first (most accurate for OAuth flows)
+        if ($request->bearerToken()) {
+            $bearerToken = $request->bearerToken();
+
+            // Check if it's a JWT token (contains 3 parts separated by dots)
+            if (substr_count($bearerToken, '.') === 2) {
+                try {
+                    // Decode JWT payload (middle part)
+                    $parts = explode('.', $bearerToken);
+                    $payload = json_decode(base64_decode($parts[1]), true);
+
+                    if (isset($payload['scopes']) && ! empty($payload['scopes'])) {
+                        return $payload['scopes'];
+                    }
+                } catch (\Exception $e) {
+                    // JWT decoding failed, continue to other methods
+                }
+            } else {
+                // Try database lookup for non-JWT tokens
+                $dbToken = \Laravel\Passport\Token::find($bearerToken);
+                if ($dbToken && isset($dbToken->scopes) && ! empty($dbToken->scopes)) {
+                    return $dbToken->scopes;
+                }
+            }
+        }
+
+        // Priority 2: Get token from user object (works with Passport::actingAs)
+        $token = $user->token() ?: $user->currentAccessToken();
+
+        if ($token) {
+            // For Laravel\Passport\AccessToken objects, access oauth_scopes directly
+            if (isset($token->oauth_scopes) && ! empty($token->oauth_scopes) && $token->oauth_scopes !== ['*']) {
+                return $token->oauth_scopes;
+            }
+
+            // Check if it's an AccessToken object with oauth_scopes in attributes
+            if (isset($token->attributes['oauth_scopes'])) {
+                return $token->attributes['oauth_scopes'];
+            }
+
+            // Check for regular database tokens
+            if (isset($token->scopes) && ! empty($token->scopes)) {
+                return $token->scopes;
+            }
+        }
+
+        // Priority 3: Try accessing the accessToken property directly (Passport::actingAs sets this)
+        if (property_exists($user, 'accessToken') && $user->accessToken) {
+            $accessToken = $user->accessToken;
+            if (isset($accessToken->oauth_scopes)) {
+                return $accessToken->oauth_scopes;
+            }
+            if (isset($accessToken->attributes['oauth_scopes'])) {
+                return $accessToken->attributes['oauth_scopes'];
+            }
+        }
+
+        // Priority 4: Fallback to request attributes
+        if ($request->has('_passport_scopes')) {
+            return $request->get('_passport_scopes');
+        }
+
+        // Default to only openid scope for OIDC compliance
+        return ['openid'];
     }
 
     /**

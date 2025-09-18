@@ -143,6 +143,7 @@ class SSOServiceTest extends TestCase
         $session = SSOSession::factory()
             ->forUser($this->user)
             ->forApplication($this->application)
+            ->withSSOState()
             ->create();
 
         // Mock OIDC token exchange
@@ -182,6 +183,7 @@ class SSOServiceTest extends TestCase
         $session = SSOSession::factory()
             ->forUser($this->user)
             ->forApplication($this->application)
+            ->withSSOState()
             ->create();
 
         Http::fake([

@@ -146,7 +146,7 @@ class UserManagementApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/users', $userData);
 
-        $response->assertStatus(200)
+        $response->assertStatus(201)
             ->assertJsonStructure([
                 'success',
                 'data' => [

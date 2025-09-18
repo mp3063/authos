@@ -43,6 +43,9 @@ class User extends Authenticatable implements FilamentUser
         'provider_token',
         'provider_refresh_token',
         'provider_data',
+        // Virtual attributes for backward compatibility
+        'mfa_secret',
+        'mfa_backup_codes',
     ];
 
     protected $hidden = [
@@ -68,6 +71,8 @@ class User extends Authenticatable implements FilamentUser
             'two_factor_confirmed_at' => 'datetime',
             'mfa_methods' => 'array',
             'provider_data' => 'array',
+            'two_factor_recovery_codes' => 'array',
+            'mfa_backup_codes' => 'array',
         ];
     }
 
@@ -354,6 +359,47 @@ class User extends Authenticatable implements FilamentUser
 
         // Create new user
         return static::create($attributes);
+    }
+
+    /**
+     * MFA Secret Accessor - Provides backward compatibility for tests
+     */
+    public function getMfaSecretAttribute(): ?string
+    {
+        return $this->two_factor_secret;
+    }
+
+    /**
+     * MFA Secret Mutator - Provides backward compatibility for tests
+     */
+    public function setMfaSecretAttribute(?string $value): void
+    {
+        $this->attributes['two_factor_secret'] = $value;
+    }
+
+    /**
+     * MFA Backup Codes Accessor - Provides backward compatibility for tests
+     */
+    public function getMfaBackupCodesAttribute(): array
+    {
+        if (empty($this->two_factor_recovery_codes)) {
+            return [];
+        }
+
+        // Handle both string and array formats
+        if (is_string($this->two_factor_recovery_codes)) {
+            return json_decode($this->two_factor_recovery_codes, true) ?? [];
+        }
+
+        return $this->two_factor_recovery_codes ?? [];
+    }
+
+    /**
+     * MFA Backup Codes Mutator - Provides backward compatibility for tests
+     */
+    public function setMfaBackupCodesAttribute(array $value): void
+    {
+        $this->attributes['two_factor_recovery_codes'] = json_encode($value);
     }
 
     /**

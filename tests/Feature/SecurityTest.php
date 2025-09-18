@@ -256,7 +256,7 @@ class SecurityTest extends TestCase
             'organization_id' => $this->organization1->id,
         ]);
 
-        $response->assertStatus(200);
+        $response->assertStatus(201);
 
         // Get user data from response (now using standardized response format)
         $userData = $response->json('data');

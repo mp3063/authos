@@ -109,29 +109,45 @@ class CompleteUserJourneyTest extends EndToEndTestCase
     {
         $user = $this->actingAsTestUser('regular');
 
+        // Also authenticate for web routes (OAuth authorization uses web auth)
+        $this->actingAs($user, 'web');
+
         // Step 1: Client requests authorization
+        // Generate proper PKCE challenge for RFC 7636 compliance
+        $codeVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'; // Example from RFC
+        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+
         $authParams = [
             'response_type' => 'code',
             'client_id' => $this->oauthClient->id,
             'redirect_uri' => $this->oauthClient->redirect,
             'scope' => 'openid profile email',
             'state' => 'test_state_123',
-            'code_challenge' => 'test_challenge',
+            'code_challenge' => $codeChallenge,
             'code_challenge_method' => 'S256',
         ];
 
         $authResponse = $this->get('/oauth/authorize?'.http_build_query($authParams));
         $authResponse->assertStatus(200); // Authorization page displayed
 
+        // Extract auth token from the authorization page
+        $content = $authResponse->getContent();
+        preg_match('/name="auth_token" value="([^"]+)"/', $content, $matches);
+        $authToken = $matches[1] ?? null;
+
         // Step 2: User approves authorization (simulate form submission)
-        $approvalResponse = $this->post('/oauth/authorize', array_merge($authParams, [
-            'approve' => 'Approve',
-        ]));
+        $approvalData = [
+            'state' => $authParams['state'],
+            'client_id' => $authParams['client_id'],
+            'auth_token' => $authToken,
+        ];
+
+        $approvalResponse = $this->post('/oauth/authorize', $approvalData);
 
         // Should redirect with authorization code
         $approvalResponse->assertRedirect();
         $redirectUrl = $approvalResponse->headers->get('Location');
-        $this->assertStringContains('code=', $redirectUrl);
+        $this->assertStringContainsString('code=', $redirectUrl);
 
         // Extract authorization code from redirect
         parse_str(parse_url($redirectUrl, PHP_URL_QUERY), $queryParams);
@@ -141,10 +157,10 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $tokenResponse = $this->postJson('/oauth/token', [
             'grant_type' => 'authorization_code',
             'client_id' => $this->oauthClient->id,
-            'client_secret' => $this->oauthClient->secret,
+            'client_secret' => $this->oauthClient->plainSecret ?? $this->oauthClient->secret,
             'code' => $authCode,
             'redirect_uri' => $this->oauthClient->redirect,
-            'code_verifier' => 'test_verifier',
+            'code_verifier' => $codeVerifier,
         ]);
 
         $tokenResponse->assertStatus(200);
@@ -156,7 +172,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $this->assertEquals('Bearer', $tokenData['token_type']);
 
         // Step 4: Use access token to access user info
-        $userInfoResponse = $this->getJson('/oauth/userinfo', [
+        $userInfoResponse = $this->getJson('/api/v1/oauth/userinfo', [
             'Authorization' => 'Bearer '.$tokenData['access_token'],
         ]);
 
@@ -172,7 +188,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
             'grant_type' => 'refresh_token',
             'refresh_token' => $tokenData['refresh_token'],
             'client_id' => $this->oauthClient->id,
-            'client_secret' => $this->oauthClient->secret,
+            'client_secret' => $this->oauthClient->plainSecret ?? $this->oauthClient->secret,
         ]);
 
         $refreshResponse->assertStatus(200);
@@ -186,10 +202,10 @@ class CompleteUserJourneyTest extends EndToEndTestCase
             'grant_type' => 'refresh_token',
             'refresh_token' => $tokenData['refresh_token'],
             'client_id' => $this->oauthClient->id,
-            'client_secret' => $this->oauthClient->secret,
+            'client_secret' => $this->oauthClient->plainSecret ?? $this->oauthClient->secret,
         ]);
 
-        $oldRefreshResponse->assertStatus(401); // Should fail with old refresh token
+        $oldRefreshResponse->assertStatus(400); // Should fail with old refresh token (invalid_grant)
     }
 
     /**
@@ -351,7 +367,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $newTokens = $refreshResponse->json();
 
         // Verify new token works
-        $response = $this->getJson('/oauth/userinfo', [
+        $response = $this->getJson('/api/v1/oauth/userinfo', [
             'Authorization' => 'Bearer '.$newTokens['access_token'],
         ]);
         $response->assertStatus(200);

@@ -69,17 +69,8 @@ class OAuthService
     {
         $scopes = empty($scopes) ? ['openid'] : $scopes;
 
-        // In testing environment, use a mock token
-        if (app()->environment('testing')) {
-            return (object) [
-                'accessToken' => 'test_token_'.$user->id.'_'.time(),
-                'token' => (object) [
-                    'id' => 'test_token_id_'.time(),
-                    'expires_at' => now()->addHours(1),
-                ],
-            ];
-        }
-
+        // Always create real tokens with proper scopes
+        // Mock tokens were causing issues with scope detection
         return $user->createToken('AuthOS Personal Access Token', $scopes);
     }
 

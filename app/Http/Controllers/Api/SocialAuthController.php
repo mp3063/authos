@@ -7,6 +7,7 @@ use App\Services\SocialAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
@@ -119,36 +120,43 @@ class SocialAuthController extends Controller
             // Handle the callback
             $result = $this->socialAuthService->handleCallback($provider, $organizationSlug);
 
+            $responseData = [
+                'access_token' => $result['access_token'],
+                'refresh_token' => $result['refresh_token'],
+                'expires_in' => $result['expires_in'],
+                'token_type' => $result['token_type'],
+                'user' => [
+                    'id' => $result['user']->id,
+                    'name' => $result['user']->name,
+                    'email' => $result['user']->email,
+                    'avatar' => $result['user']->avatar,
+                    'provider' => $result['user']->provider,
+                    'provider_display_name' => $result['user']->getProviderDisplayName(),
+                    'organization' => $result['user']->organization ? [
+                        'id' => $result['user']->organization->id,
+                        'name' => $result['user']->organization->name,
+                        'slug' => $result['user']->organization->slug,
+                    ] : null,
+                    'roles' => $result['user']->getRoleNames(),
+                    'permissions' => $result['user']->getAllPermissions()->pluck('name'),
+                    'is_social_user' => $result['user']->isSocialUser(),
+                    'has_password' => $result['user']->hasPassword(),
+                    'mfa_enabled' => $result['user']->hasMfaEnabled(),
+                    'is_active' => $result['user']->is_active,
+                    'created_at' => $result['user']->created_at,
+                    'updated_at' => $result['user']->updated_at,
+                ],
+            ];
+
+            // Add MFA setup requirement if present in service response
+            if (isset($result['mfa_required']) && $result['mfa_required']) {
+                $responseData['mfa_setup_required'] = true;
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Authentication successful',
-                'data' => [
-                    'access_token' => $result['access_token'],
-                    'refresh_token' => $result['refresh_token'],
-                    'expires_in' => $result['expires_in'],
-                    'token_type' => $result['token_type'],
-                    'user' => [
-                        'id' => $result['user']->id,
-                        'name' => $result['user']->name,
-                        'email' => $result['user']->email,
-                        'avatar' => $result['user']->avatar,
-                        'provider' => $result['user']->provider,
-                        'provider_display_name' => $result['user']->getProviderDisplayName(),
-                        'organization' => $result['user']->organization ? [
-                            'id' => $result['user']->organization->id,
-                            'name' => $result['user']->organization->name,
-                            'slug' => $result['user']->organization->slug,
-                        ] : null,
-                        'roles' => $result['user']->getRoleNames(),
-                        'permissions' => $result['user']->getAllPermissions()->pluck('name'),
-                        'is_social_user' => $result['user']->isSocialUser(),
-                        'has_password' => $result['user']->hasPassword(),
-                        'mfa_enabled' => $result['user']->hasMfaEnabled(),
-                        'is_active' => $result['user']->is_active,
-                        'created_at' => $result['user']->created_at,
-                        'updated_at' => $result['user']->updated_at,
-                    ],
-                ],
+                'data' => $responseData,
             ]);
         } catch (\Exception $e) {
             Log::error('Social auth callback failed', [
@@ -229,6 +237,73 @@ class SocialAuthController extends Controller
             ]);
 
             return redirect('/admin/login?error=authentication_failed');
+        }
+    }
+
+    /**
+     * Link social account to existing user
+     */
+    public function link(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'provider' => 'required|string|in:google,github,facebook,twitter,linkedin',
+                'provider_code' => 'required|string',
+            ]);
+
+            $user = $request->user();
+            $provider = $request->provider;
+            $providerCode = $request->provider_code;
+
+            // Validate provider
+            if (! $this->socialAuthService->isProviderSupported($provider)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unsupported social provider',
+                ], 400);
+            }
+
+            if (! $this->socialAuthService->isProviderEnabled($provider)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Social provider is not configured',
+                ], 400);
+            }
+
+            // Get social user from provider code
+            try {
+                $socialUser = Socialite::driver($provider)->user();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to get user data from social provider',
+                ], 400);
+            }
+
+            // Link the social account
+            $result = $this->socialAuthService->linkSocialAccount($user, $provider, $socialUser);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'provider' => $provider,
+                    'provider_id' => $socialUser->getId(),
+                    'linked_at' => now(),
+                ],
+                'message' => 'Social account linked successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to link social account', [
+                'user_id' => $request->user()->id,
+                'provider' => $request->provider ?? 'unknown',
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to link social account',
+                'error' => $e->getMessage(),
+            ], 400);
         }
     }
 

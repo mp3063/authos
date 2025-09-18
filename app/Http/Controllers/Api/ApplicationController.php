@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\User;
 use App\Services\OAuthService;
@@ -13,7 +12,7 @@ use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
 
-class ApplicationController extends Controller
+class ApplicationController extends BaseApiController
 {
     protected OAuthService $oAuthService;
 
@@ -50,6 +49,12 @@ class ApplicationController extends Controller
 
         $query = Application::query()->with(['organization']);
 
+        // Enforce organization-based data isolation for non-super-admin users
+        $currentUser = auth()->user();
+        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+            $query->where('organization_id', $currentUser->organization_id);
+        }
+
         // Apply filters
         if ($request->has('search')) {
             $search = $request->search;
@@ -60,7 +65,11 @@ class ApplicationController extends Controller
         }
 
         if ($request->has('organization_id')) {
-            $query->where('organization_id', $request->organization_id);
+            // Only allow filtering by organization_id if user is super admin or it's their own organization
+            if ($currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin') ||
+                $request->organization_id == $currentUser->organization_id) {
+                $query->where('organization_id', $request->organization_id);
+            }
         }
 
         if ($request->has('is_active')) {
@@ -178,11 +187,17 @@ class ApplicationController extends Controller
     {
         $this->authorize('applications.read');
 
-        $application = Application::with(['organization', 'users'])->findOrFail($id);
+        $query = Application::with(['organization', 'users']);
 
-        return response()->json([
-            'data' => $this->formatApplicationResponse($application, true),
-        ]);
+        // Enforce organization-based data isolation for non-super-admin users
+        $currentUser = auth()->user();
+        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+            $query->where('organization_id', $currentUser->organization_id);
+        }
+
+        $application = $query->findOrFail($id);
+
+        return $this->successResponse($this->formatApplicationResponse($application, true));
     }
 
     /**
@@ -554,6 +569,7 @@ class ApplicationController extends Controller
             'scopes' => $application->scopes,
             'settings' => $application->settings,
             'is_active' => $application->is_active,
+            'organization_id' => $application->organization_id,
             'organization' => $application->organization ? [
                 'id' => $application->organization->id,
                 'name' => $application->organization->name,

@@ -170,7 +170,7 @@ class SocialAuthService
     /**
      * Link social account to existing user
      */
-    private function linkSocialAccount(User $user, string $provider, SocialiteUser $socialUser): User
+    public function linkSocialAccount(User $user, string $provider, SocialiteUser $socialUser): User
     {
         // Update user with social provider information
         $user->update([
