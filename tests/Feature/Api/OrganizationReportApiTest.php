@@ -430,7 +430,13 @@ class OrganizationReportApiTest extends TestCase
 
     public function test_generate_reports_requires_proper_permissions(): void
     {
-        Passport::actingAs($this->regularUser, ['profile']); // Wrong permission
+        // Create a user with no permissions to test authorization
+        $userWithNoPermissions = User::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+
+        // Don't assign any role - user should have no permissions
+        Passport::actingAs($userWithNoPermissions, ['profile']); // Wrong permission
 
         // Test user activity report
         $response = $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity");

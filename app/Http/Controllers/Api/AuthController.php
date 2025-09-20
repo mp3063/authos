@@ -5,21 +5,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Passport\Token;
 
 class AuthController extends Controller
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(AuthenticationLogService $authLogService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $authLogService;
     }
 
     /**
@@ -78,15 +79,16 @@ class AuthController extends Controller
         }
 
         // Log registration event
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'user_registered',
-            $request,
-            null
+            [],
+            $request
         );
 
-        // Generate access token
-        $token = $this->oAuthService->generateAccessToken($user, ['openid', 'profile', 'email']);
+        // Generate access token using Laravel Passport
+        $tokenResult = $user->createToken('API Access Token', ['openid', 'profile', 'email']);
+        $token = $tokenResult->token;
 
         return response()->json([
             'user' => [
@@ -101,9 +103,9 @@ class AuthController extends Controller
                 'created_at' => $user->created_at,
             ],
             'token' => [
-                'access_token' => $token->accessToken,
+                'access_token' => $tokenResult->accessToken,
                 'token_type' => 'Bearer',
-                'expires_at' => $token->token->expires_at,
+                'expires_at' => $token->expires_at,
             ],
             'scopes' => 'openid profile email',
         ], 201);
@@ -118,12 +120,11 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user ?? new User(['email' => $request->email]),
                 'login_failed',
-                $request,
-                $request->client_id,
-                false
+                ['client_id' => $request->client_id],
+                $request
             );
 
             return response()->json([
@@ -135,12 +136,11 @@ class AuthController extends Controller
 
         // Check if user account is active
         if (isset($user->is_active) && ! $user->is_active) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'login_blocked',
-                $request,
-                $request->client_id,
-                false
+                ['client_id' => $request->client_id],
+                $request
             );
 
             return response()->json([
@@ -152,12 +152,11 @@ class AuthController extends Controller
 
         // Check if MFA is required
         if ($this->shouldRequireMfa($user)) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'mfa_required',
-                $request,
-                $request->client_id,
-                false
+                ['client_id' => $request->client_id],
+                $request
             );
 
             return response()->json([
@@ -169,13 +168,14 @@ class AuthController extends Controller
         }
 
         $scopes = $request->getScopes();
-        $token = $this->oAuthService->generateAccessToken($user, $scopes);
+        $tokenResult = $user->createToken('API Access Token', $scopes);
+        $token = $tokenResult->token;
 
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'login_success',
-            $request,
-            $request->client_id
+            ['client_id' => $request->client_id],
+            $request
         );
 
         return response()->json([
@@ -185,9 +185,9 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'organization_id' => $user->organization_id,
             ],
-            'access_token' => $token->accessToken,
+            'access_token' => $tokenResult->accessToken,
             'token_type' => 'Bearer',
-            'expires_at' => $token->token->expires_at,
+            'expires_at' => $token->expires_at,
             'refresh_token' => app()->environment('testing') ? 'test_refresh_token_'.$user->id.'_'.time() : null,
             'scopes' => implode(' ', $scopes),
         ]);
@@ -204,12 +204,13 @@ class AuthController extends Controller
             $token = $user->token();
 
             if ($token && $token->id) {
-                $this->oAuthService->revokeToken($token->id);
+                $token->revoke();
             }
 
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'logout',
+                [],
                 $request
             );
         }
@@ -224,12 +225,40 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
+        // Check token expiration before proceeding
+        $authHeader = $request->header('Authorization');
+        if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+            $tokenValue = substr($authHeader, 7);
+
+            try {
+                // Decode JWT to get the JTI (JWT ID)
+                $tokenParts = explode('.', $tokenValue);
+                if (count($tokenParts) === 3) {
+                    $payload = json_decode(base64_decode($tokenParts[1]), true);
+                    $jti = $payload['jti'] ?? null;
+
+                    if ($jti) {
+                        $token = \Laravel\Passport\Token::where('id', $jti)->first();
+
+                        if ($token && $token->expires_at && $token->expires_at->isPast()) {
+                            return response()->json([
+                                'error' => 'token_expired',
+                                'error_description' => 'Token has expired',
+                            ], 401);
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // If we can't check the token, continue with normal flow
+            }
+        }
+
         $user = Auth::guard('api')->user();
 
         // Load relationships
         $user->load(['organization', 'roles.permissions']);
 
-        return response()->json([
+        $responseData = [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
@@ -246,7 +275,15 @@ class AuthController extends Controller
             'is_active' => $user->is_active,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
-        ]);
+        ];
+
+        // Add social provider fields if user is a social user
+        if ($user->isSocialUser()) {
+            $responseData['provider'] = $user->provider;
+            $responseData['is_social_user'] = true;
+        }
+
+        return response()->json($responseData);
     }
 
     /**
@@ -335,11 +372,15 @@ class AuthController extends Controller
             }
 
             if ($tokenId) {
-                $this->oAuthService->revokeToken($tokenId);
+                $passportToken = Token::find($tokenId);
+                if ($passportToken) {
+                    $passportToken->revoke();
+                }
 
-                $this->oAuthService->logAuthenticationEvent(
+                $this->authLogService->logAuthenticationEvent(
                     $user,
                     'token_revoked',
+                    ['token_id' => $tokenId],
                     $request
                 );
             }

@@ -7,7 +7,7 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,11 +18,11 @@ use Illuminate\Validation\Rule;
 
 class OrganizationController extends Controller
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(AuthenticationLogService $oAuthService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->middleware('auth:api');
     }
 
@@ -177,13 +177,11 @@ class OrganizationController extends Controller
         ]);
 
         // Log organization creation
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             auth()->user(),
             'organization_created',
-            $request,
-            null,
-            true,
-            ['organization_id' => $organization->id, 'organization_name' => $organization->name]
+            ['organization_id' => $organization->id, 'organization_name' => $organization->name],
+            $request
         );
 
         return response()->json(
@@ -266,13 +264,11 @@ class OrganizationController extends Controller
         $organization->update($updateData);
 
         // Log organization update
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             auth()->user(),
             'organization_updated',
-            $request,
-            null,
-            true,
-            ['organization_id' => $organization->id, 'organization_name' => $organization->name]
+            ['organization_id' => $organization->id, 'organization_name' => $organization->name],
+            $request
         );
 
         return response()->json(
@@ -310,13 +306,11 @@ class OrganizationController extends Controller
         }
 
         // Log organization deletion
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             auth()->user(),
             'organization_deleted',
-            request(),
-            null,
-            true,
-            ['organization_id' => $organization->id, 'organization_name' => $organization->name]
+            ['organization_id' => $organization->id, 'organization_name' => $organization->name],
+            request()
         );
 
         $organization->delete();
@@ -398,13 +392,11 @@ class OrganizationController extends Controller
         $organization->update(['settings' => $updatedSettings]);
 
         // Log settings update
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             auth()->user(),
             'organization_settings_updated',
-            $request,
-            null,
-            true,
-            ['organization_id' => $organization->id, 'organization_name' => $organization->name]
+            ['organization_id' => $organization->id, 'organization_name' => $organization->name],
+            $request
         );
 
         return response()->json([
@@ -640,19 +632,17 @@ class OrganizationController extends Controller
         ]);
 
         // Log access granted
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'organization_access_granted',
-            $request,
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'organization_name' => $organization->name,
                 'application_id' => $application->id,
                 'application_name' => $application->name,
                 'granted_by' => auth()->id(),
-            ]
+            ],
+            $request
         );
 
         return response()->json([
@@ -694,19 +684,17 @@ class OrganizationController extends Controller
         })->delete();
 
         // Log access revoked
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'organization_access_revoked',
-            request(),
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'organization_name' => $organization->name,
                 'application_id' => $application->id,
                 'application_name' => $application->name,
                 'revoked_by' => auth()->id(),
-            ]
+            ],
+            request()
         );
 
         return response()->json([
@@ -835,16 +823,20 @@ class OrganizationController extends Controller
         ];
 
         return response()->json([
-            'summary' => [
-                'total_users' => $uniqueUsers,
-                'active_users' => $uniqueUsers, // Using unique users as active users for this period
-                'total_applications' => $organization->applications()->count(),
-                'total_logins_today' => $totalLogins,
+            'success' => true,
+            'data' => [
+                'summary' => [
+                    'total_users' => $uniqueUsers,
+                    'active_users' => $uniqueUsers, // Using unique users as active users for this period
+                    'total_applications' => $organization->applications()->count(),
+                    'total_logins_today' => $totalLogins,
+                ],
+                'user_growth' => [],
+                'login_activity' => $dailyLogins,
+                'top_applications' => $applicationUsage,
+                'security_events' => $securityMetrics,
             ],
-            'user_growth' => [],
-            'login_activity' => $dailyLogins,
-            'top_applications' => $applicationUsage,
-            'security_events' => $securityMetrics,
+            'message' => 'Organization analytics retrieved successfully',
         ]);
     }
 

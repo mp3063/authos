@@ -341,7 +341,7 @@ class CustomRoleApiTest extends TestCase
         $updateData = [
             'display_name' => 'Updated Display Name',
             'description' => 'Updated description',
-            'permissions' => ['users.read', 'applications.read', 'organization.read'],
+            'permissions' => ['users.read', 'applications.read', 'organizations.read'],
             'is_active' => false,
         ];
 
@@ -356,7 +356,7 @@ class CustomRoleApiTest extends TestCase
                 'data' => [
                     'display_name' => 'Updated Display Name',
                     'description' => 'Updated description',
-                    'permissions' => ['users.read', 'applications.read', 'organization.read'],
+                    'permissions' => ['users.read', 'applications.read', 'organizations.read'],
                     'is_active' => false,
                 ],
                 'message' => 'Custom role updated successfully',

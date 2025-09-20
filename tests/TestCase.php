@@ -165,7 +165,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function createApiUser(array $attributes = []): User
     {
-        return $this->createUser($attributes, 'user', 'api');
+        return $this->createUser($attributes, 'User', 'api');
     }
 
     protected function actingAsUser(?User $user = null): User

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Profile\ChangePasswordRequest;
 use App\Http\Requests\Profile\UpdateProfileRequest;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,11 +16,11 @@ use PragmaRX\Google2FA\Google2FA;
 
 class ProfileController extends Controller
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(AuthenticationLogService $oAuthService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->middleware('auth:api');
     }
 
@@ -80,11 +80,11 @@ class ProfileController extends Controller
         $user->update($updateData);
 
         // Log profile update
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'profile_updated',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -281,11 +281,11 @@ class ProfileController extends Controller
         }
 
         // Log password change
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'password_changed',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -329,7 +329,7 @@ class ProfileController extends Controller
         $google2fa = new Google2FA;
 
         // Generate secret key with proper length (minimum 16 characters)
-        $secretKey = $google2fa->generateSecretKey(32); // 32 chars for better security
+        $secretKey = $google2fa->generateSecretKey(16); // Standard length for Google2FA
 
         // Store the secret temporarily (not confirmed yet)
         $user->update(['two_factor_secret' => encrypt($secretKey)]);
@@ -344,7 +344,7 @@ class ProfileController extends Controller
             'success' => true,
             'data' => [
                 'secret' => $secretKey,
-                'qr_code' => $qrCodeUrl,
+                'qr_code_url' => $qrCodeUrl,
                 'backup_codes' => [], // Will be generated after verification
             ],
             'message' => 'TOTP setup initiated. Please verify to complete setup.',
@@ -401,11 +401,11 @@ class ProfileController extends Controller
         ]);
 
         // Log MFA enabled event
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'mfa_enabled',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -466,11 +466,11 @@ class ProfileController extends Controller
         ]);
 
         // Log MFA disabled event
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'mfa_disabled',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -562,11 +562,11 @@ class ProfileController extends Controller
         $user->update(['two_factor_recovery_codes' => json_encode($backupCodes)]);
 
         // Log recovery codes regenerated
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'recovery_codes_regenerated',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -622,11 +622,11 @@ class ProfileController extends Controller
         ]);
 
         // Log MFA enabled event
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'mfa_enabled',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([
@@ -660,11 +660,11 @@ class ProfileController extends Controller
         ]);
 
         // Log MFA disabled event
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $user,
             'mfa_disabled',
-            $request,
-            null
+            [],
+            $request
         );
 
         return response()->json([

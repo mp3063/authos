@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Application;
 use App\Models\User;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -14,11 +14,11 @@ use Laravel\Passport\Token;
 
 class ApplicationController extends BaseApiController
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(AuthenticationLogService $authLogService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->middleware('auth:api');
     }
 
@@ -485,7 +485,21 @@ class ApplicationController extends BaseApiController
             ], 404);
         }
 
-        $this->oAuthService->revokeToken($token->id);
+        // Log the token revocation
+        if ($token->user) {
+            $this->authLogService->logAuthenticationEvent($token->user, 'token_revoked', [
+                'token_id' => $token->id,
+                'application_id' => $application->id,
+            ]);
+        }
+
+        // Revoke the token using Passport
+        $token->revoke();
+
+        // Also revoke refresh token if it exists
+        if ($token->refreshToken) {
+            $token->refreshToken->revoke();
+        }
 
         return response()->json([
             'message' => 'Token revoked successfully',

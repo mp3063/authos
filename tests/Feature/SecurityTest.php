@@ -152,7 +152,8 @@ class SecurityTest extends TestCase
         // Subsequent requests should get 429 (rate limited) responses
         for ($i = 10; $i < 12; $i++) {
             $this->assertEquals(429, $responses[$i]->getStatusCode());
-            $this->assertEquals('rate_limit_exceeded', $responses[$i]->json('error'));
+            // Laravel's native throttle middleware provides rate limiting
+            $this->assertFalse($responses[$i]->json('success'));
         }
     }
 

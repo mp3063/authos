@@ -37,6 +37,13 @@ class SecurityHeaders
 
         $response->headers->set('Content-Security-Policy', implode('; ', $csp));
 
+        // Add OAuth-specific security headers for OAuth endpoints
+        if ($request->is('oauth/*') || $request->is('api/oauth/*')) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Referrer-Policy', 'no-referrer'); // More strict for OAuth
+        }
+
         return $response;
     }
 }

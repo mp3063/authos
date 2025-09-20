@@ -79,6 +79,6 @@ class StoreUserRequest extends FormRequest
      */
     public function getRoles(): array
     {
-        return $this->input('roles', ['user']);
+        return $this->input('roles', ['User']);
     }
 }

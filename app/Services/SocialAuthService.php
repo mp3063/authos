@@ -14,7 +14,7 @@ use Spatie\Permission\Models\Role;
 class SocialAuthService
 {
     public function __construct(
-        private OAuthService $oauthService
+        private AuthenticationLogService $authLogService
     ) {}
 
     /**
@@ -40,9 +40,15 @@ class SocialAuthService
                 // Find or create the user
                 $user = $this->findOrCreateUser($provider, $socialUser, $organizationSlug);
 
-                // Generate tokens using OAuth service
-                $tokens = $this->oauthService->generateAccessToken($user, [
+                // Generate tokens using direct Passport call
+                $tokenResult = $user->createToken('Social Login Token', [
                     'openid', 'profile', 'email',
+                ]);
+
+                // Log the token creation
+                $this->authLogService->logAuthenticationEvent($user, 'token_created', [
+                    'scopes' => ['openid', 'profile', 'email'],
+                    'token_id' => $tokenResult->token->id,
                 ]);
 
                 // Log the authentication
@@ -50,9 +56,9 @@ class SocialAuthService
 
                 return [
                     'user' => $user,
-                    'access_token' => $tokens->access_token ?? $tokens->accessToken ?? null,
-                    'refresh_token' => $tokens->refresh_token ?? $tokens->refreshToken ?? null,
-                    'expires_in' => $tokens->expires_in ?? $tokens->expiresIn ?? 3600,
+                    'access_token' => $tokenResult->accessToken,
+                    'refresh_token' => null, // Passport handles refresh tokens separately
+                    'expires_in' => 3600,
                     'token_type' => 'Bearer',
                 ];
             });

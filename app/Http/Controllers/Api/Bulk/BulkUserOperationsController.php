@@ -6,8 +6,8 @@ use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\BulkInviteUsersRequest;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\AuthenticationLogService;
 use App\Services\BulkOperationService;
-use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -16,12 +16,12 @@ class BulkUserOperationsController extends BaseApiController
 {
     protected BulkOperationService $bulkOperationService;
 
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
-    public function __construct(BulkOperationService $bulkOperationService, OAuthService $oAuthService)
+    public function __construct(BulkOperationService $bulkOperationService, AuthenticationLogService $oAuthService)
     {
         $this->bulkOperationService = $bulkOperationService;
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->middleware('auth:api');
     }
 

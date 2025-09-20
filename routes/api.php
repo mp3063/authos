@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\Bulk\BulkDataController;
 use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\InvitationController;
-use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OpenIdController;
 use App\Http\Controllers\Api\OrganizationReportController;
 use App\Http\Controllers\Api\Organizations\OrganizationAnalyticsController;
@@ -60,13 +59,13 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // Authentication routes
     Route::prefix('auth')->group(function () {
-        Route::post('/register', [AuthController::class, 'register'])->middleware('api.rate_limit:registration');
-        Route::post('/login', [AuthController::class, 'login'])->middleware('api.rate_limit:authentication');
-        Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('api.rate_limit:authentication');
-        Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('api.rate_limit:authentication');
+        Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:auth');
+        Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+        Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth');
+        Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('throttle:auth');
 
         // Social Authentication routes
-        Route::prefix('social')->middleware('api.rate_limit:authentication')->group(function () {
+        Route::prefix('social')->middleware('throttle:auth')->group(function () {
             Route::get('/providers', [SocialAuthController::class, 'providers']);
             Route::get('/{provider}', [SocialAuthController::class, 'redirect']);
             Route::get('/{provider}/callback', [SocialAuthController::class, 'callback']);
@@ -86,20 +85,17 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         });
     });
 
-    // OAuth 2.0 routes (custom implementation alongside Passport)
-    Route::prefix('oauth')->middleware(['oauth.security', 'api.rate_limit:oauth'])->group(function () {
-        Route::get('/authorize', [OAuthController::class, 'oauthAuthorize']);
-        Route::post('/token', [OAuthController::class, 'token']);
-        Route::post('/introspect', [OAuthController::class, 'introspect']);
+    // OpenID Connect endpoints
+    Route::prefix('oauth')->middleware(['oauth.security', 'throttle:oauth'])->group(function () {
         Route::middleware('auth:api')->get('/userinfo', [OpenIdController::class, 'userinfo']);
         Route::get('/jwks', [OpenIdController::class, 'jwks']);
     });
 
     // User Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index'])->middleware(['api.rate_limit:api_bulk', 'api.cache:300']);
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('users')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->middleware(['throttle:api', 'api.cache:300']);
         Route::post('/', [UserController::class, 'store']);
-        Route::patch('/bulk', [UserController::class, 'bulk'])->middleware('api.rate_limit:api_bulk');
+        Route::patch('/bulk', [UserController::class, 'bulk'])->middleware('throttle:api');
         Route::get('/{id}', [UserController::class, 'show'])->middleware('api.cache:600');
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
@@ -121,7 +117,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Application Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('applications')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('applications')->group(function () {
         Route::get('/', [ApplicationController::class, 'index']);
         Route::post('/', [ApplicationController::class, 'store']);
         Route::get('/{id}', [ApplicationController::class, 'show']);
@@ -146,7 +142,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Profile Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_standard'])->prefix('profile')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('profile')->group(function () {
         Route::get('/', [ProfileController::class, 'index']);
         Route::put('/', [ProfileController::class, 'update']);
         Route::post('/avatar', [ProfileController::class, 'uploadAvatar']);
@@ -159,7 +155,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // MFA Management API
-    Route::middleware(['auth:api', 'api.rate_limit:mfa'])->prefix('mfa')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('mfa')->group(function () {
         Route::get('/status', [ProfileController::class, 'mfaStatus']);
         Route::post('/setup', [ProfileController::class, 'setupTotp']); // Alias for /setup/totp
         Route::post('/setup/totp', [ProfileController::class, 'setupTotp']);
@@ -173,7 +169,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Organization Management API
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin', 'org.boundary'])->prefix('organizations')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('organizations')->group(function () {
         // Basic CRUD operations
         Route::get('/', [OrganizationCrudController::class, 'index'])->middleware('api.cache:300');
         Route::post('/', [OrganizationCrudController::class, 'store']);
@@ -234,7 +230,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // SSO (Single Sign-On) API
-    Route::prefix('sso')->middleware(['api.rate_limit:oauth'])->group(function () {
+    Route::prefix('sso')->middleware(['throttle:oauth'])->group(function () {
         // Authenticated SSO endpoints
         Route::middleware('auth:api')->group(function () {
             Route::post('/initiate', [\App\Http\Controllers\Api\SSOController::class, 'initiate'])->middleware('scopes:sso');
@@ -268,7 +264,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // API Monitoring and Cache Management (Admin only)
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('monitoring')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('monitoring')->group(function () {
         Route::get('/metrics', function () {
             return response()->json([
                 'api_requests_total' => cache()->get('api_requests_total', 0),
@@ -289,7 +285,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Cache Management Endpoints (Admin only)
-    Route::middleware(['auth:api', 'api.rate_limit:api_admin'])->prefix('cache')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('cache')->group(function () {
         Route::get('/stats', function () {
             return response()->json([
                 'total_keys' => 0, // Would need Redis connection to get actual stats
@@ -312,7 +308,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Global Configuration Endpoints
-    Route::middleware(['auth:api', 'api.rate_limit:api_standard'])->prefix('config')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('config')->group(function () {
         Route::get('/permissions', [CustomRoleController::class, 'permissions']);
         Route::get('/report-types', [OrganizationReportController::class, 'reportTypes']);
     });

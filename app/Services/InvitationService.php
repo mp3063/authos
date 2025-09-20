@@ -234,8 +234,9 @@ class InvitationService
             throw new Exception('User does not have permission to resend this invitation');
         }
 
-        if (! $invitation->isPending()) {
-            throw new Exception('Cannot resend a non-pending invitation');
+        // Only allow resending if invitation is pending or expired (but not accepted)
+        if ($invitation->status === 'accepted') {
+            throw new Exception('Cannot resend an accepted invitation');
         }
 
         // Extend expiry and generate new token

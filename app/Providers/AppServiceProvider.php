@@ -72,7 +72,8 @@ class AppServiceProvider extends ServiceProvider
         Passport::refreshTokensExpireIn(now()->addDays(30));
         Passport::personalAccessTokensExpireIn(now()->addMonths(6));
 
-        // Configure OAuth routes - Passport routes are auto-registered in Laravel 12
+        // Configure OAuth routes - We'll use custom routes for PKCE integration
+        // Passport routes are available but we extend them with middleware
 
         // Configure OpenID Connect scopes
         Passport::tokensCan([

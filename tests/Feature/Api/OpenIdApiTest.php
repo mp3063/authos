@@ -120,8 +120,8 @@ class OpenIdApiTest extends TestCase
         $this->assertEquals($baseUrl, $responseData['issuer']);
         $this->assertEquals($baseUrl.'/oauth/authorize', $responseData['authorization_endpoint']);
         $this->assertEquals($baseUrl.'/oauth/token', $responseData['token_endpoint']);
-        $this->assertEquals($baseUrl.'/oauth/userinfo', $responseData['userinfo_endpoint']);
-        $this->assertEquals($baseUrl.'/oauth/jwks', $responseData['jwks_uri']);
+        $this->assertEquals($baseUrl.'/api/v1/oauth/userinfo', $responseData['userinfo_endpoint']);
+        $this->assertEquals($baseUrl.'/api/v1/oauth/jwks', $responseData['jwks_uri']);
 
         // Verify supported scopes include OIDC required scopes
         $this->assertContains('openid', $responseData['scopes_supported']);

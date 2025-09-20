@@ -12,6 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Configure trusted proxies for proper IP address detection
+        // In production, specify actual proxy IPs instead of '*'
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', '*'), // Environment configurable
+            headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR |
+                    \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST |
+                    \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT |
+                    \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
+        );
+
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
         ]);
@@ -35,12 +45,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'scopes' => \Laravel\Passport\Http\Middleware\CheckToken::class,
             'scope' => \Laravel\Passport\Http\Middleware\CheckTokenForAnyScope::class,
             'oauth.security' => \App\Http\Middleware\OAuthSecurity::class,
-            'api.rate_limit' => \App\Http\Middleware\ApiRateLimiter::class,
             'api.version' => \App\Http\Middleware\ApiVersioning::class,
             'api.cache' => \App\Http\Middleware\ApiResponseCache::class,
             'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
             'org.boundary' => \App\Http\Middleware\EnforceOrganizationBoundary::class,
             'permission.context' => \App\Http\Middleware\SetPermissionContext::class,
+            'pkce.validate' => \App\Http\Middleware\ValidatePKCE::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -107,10 +117,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e, $request) {
             if ($request->is('api/*')) {
+                $retryAfter = $e->getHeaders()['Retry-After'] ?? null;
+
                 return (new class
                 {
                     use \App\Http\Traits\ApiErrorResponse;
-                })->rateLimitErrorResponse($e->getRetryAfter());
+                })->rateLimitErrorResponse($retryAfter);
             }
         });
 

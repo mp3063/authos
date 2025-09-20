@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use App\Services\OrganizationReportingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,12 +15,12 @@ class OrganizationReportController extends Controller
 {
     protected OrganizationReportingService $reportingService;
 
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
-    public function __construct(OrganizationReportingService $reportingService, OAuthService $oAuthService)
+    public function __construct(OrganizationReportingService $reportingService, AuthenticationLogService $oAuthService)
     {
         $this->reportingService = $reportingService;
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->middleware('auth:api');
     }
 
@@ -81,17 +81,15 @@ class OrganizationReportController extends Controller
             }
 
             // Log report generation
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $currentUser,
                 'user_activity_report_generated',
-                $request,
-                null,
-                true,
                 [
                     'organization_id' => $organization->id,
                     'report_type' => 'user_activity',
                     'date_range' => $dateRange,
-                ]
+                ],
+                $request
             );
 
             return response()->json([
@@ -154,16 +152,14 @@ class OrganizationReportController extends Controller
             }
 
             // Log report generation
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $currentUser,
                 'application_usage_report_generated',
-                $request,
-                null,
-                true,
                 [
                     'organization_id' => $organization->id,
                     'report_type' => 'application_usage',
-                ]
+                ],
+                $request
             );
 
             return response()->json([
@@ -226,16 +222,14 @@ class OrganizationReportController extends Controller
             }
 
             // Log report generation
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $currentUser,
                 'security_audit_report_generated',
-                $request,
-                null,
-                true,
                 [
                     'organization_id' => $organization->id,
                     'report_type' => 'security_audit',
-                ]
+                ],
+                $request
             );
 
             return response()->json([

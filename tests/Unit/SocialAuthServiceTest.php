@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use App\Services\SocialAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -20,7 +20,7 @@ class SocialAuthServiceTest extends TestCase
 
     private SocialAuthService $socialAuthService;
 
-    private $mockOAuthService;
+    private $mockAuthLogService;
 
     private $mockSocialiteUser;
 
@@ -28,8 +28,8 @@ class SocialAuthServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->mockOAuthService = Mockery::mock(OAuthService::class);
-        $this->socialAuthService = new SocialAuthService($this->mockOAuthService);
+        $this->mockAuthLogService = Mockery::mock(AuthenticationLogService::class);
+        $this->socialAuthService = new SocialAuthService($this->mockAuthLogService);
 
         $this->mockSocialiteUser = Mockery::mock(SocialiteUser::class);
 
@@ -224,7 +224,8 @@ class SocialAuthServiceTest extends TestCase
             'expires_in' => 3600,
         ];
 
-        $this->mockOAuthService->shouldReceive('generateAccessToken')
-            ->andReturn($mockTokenObject);
+        $this->mockAuthLogService->shouldReceive('logAuthenticationEvent')
+            ->once() // Called once for token creation, authentication is logged directly
+            ->andReturn();
     }
 }

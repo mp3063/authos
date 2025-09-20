@@ -9,8 +9,8 @@ use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\AuthenticationLogService;
 use App\Services\InvitationService;
-use App\Services\OAuthService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -37,13 +37,13 @@ use Throwable;
  */
 class BulkOperationsController extends Controller
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
     protected InvitationService $invitationService;
 
-    public function __construct(OAuthService $oAuthService, InvitationService $invitationService)
+    public function __construct(AuthenticationLogService $oAuthService, InvitationService $invitationService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->invitationService = $invitationService;
         $this->middleware('auth:api');
     }
@@ -192,9 +192,10 @@ class BulkOperationsController extends Controller
                         ];
 
                         // Log invitation sent
-                        $this->oAuthService->logAuthenticationEvent(
+                        $this->authLogService->logAuthenticationEvent(
                             $user,
                             'bulk_invitation_sent',
+                            ['invitation_id' => $invitation->id],
                             $request
                         );
                     } catch (Exception $e) {
@@ -341,9 +342,10 @@ class BulkOperationsController extends Controller
         }
 
         // Log bulk role assignment
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'bulk_role_'.$action,
+            ['role_id' => $roleId, 'action' => $action, 'users_count' => count($validated['user_ids'])],
             $request
         );
 
@@ -435,9 +437,10 @@ class BulkOperationsController extends Controller
                         }
 
                         // Log access revocation
-                        $this->oAuthService->logAuthenticationEvent(
+                        $this->authLogService->logAuthenticationEvent(
                             $user,
                             'bulk_access_revoked',
+                            [],
                             $request
                         );
 
@@ -616,9 +619,10 @@ class BulkOperationsController extends Controller
             $downloadUrl = Storage::url($exportPath);
 
             // Log export activity
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $currentUser,
                 'users_exported',
+                ['format' => $format, 'users_count' => $users->count()],
                 $request
             );
 
@@ -689,9 +693,10 @@ class BulkOperationsController extends Controller
             $results = $import->getResults();
 
             // Log import activity
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $currentUser,
                 'users_imported',
+                ['imported_count' => $results['imported'] ?? 0, 'failed_count' => $results['failed'] ?? 0],
                 $request
             );
 

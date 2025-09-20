@@ -539,7 +539,7 @@ class ProfileApiTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'secret',
-                    'qr_code',
+                    'qr_code_url',
                     'backup_codes',
                 ],
                 'message',

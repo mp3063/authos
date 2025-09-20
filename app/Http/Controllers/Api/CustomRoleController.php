@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\CustomRole;
 use App\Models\Organization;
-use App\Services\OAuthService;
+use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -16,11 +16,11 @@ class CustomRoleController extends Controller
 {
     use ApiResponse;
 
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $oAuthService;
 
-    public function __construct(OAuthService $oAuthService)
+    public function __construct(AuthenticationLogService $oAuthService)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $oAuthService;
         $this->middleware('auth:api');
     }
 
@@ -160,18 +160,16 @@ class CustomRoleController extends Controller
         ]);
 
         // Log role creation
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'custom_role_created',
-            $request,
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'custom_role_id' => $customRole->id,
                 'role_name' => $customRole->name,
                 'permissions_count' => count($customRole->permissions),
-            ]
+            ],
+            $request
         );
 
         return $this->successResponse(
@@ -261,18 +259,16 @@ class CustomRoleController extends Controller
         $customRole->update($updateData);
 
         // Log role update
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'custom_role_updated',
-            $request,
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'custom_role_id' => $customRole->id,
                 'role_name' => $customRole->name,
                 'updated_fields' => array_keys($updateData),
-            ]
+            ],
+            $request
         );
 
         return response()->json([
@@ -310,17 +306,15 @@ class CustomRoleController extends Controller
         }
 
         // Log role deletion
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'custom_role_deleted',
-            request(),
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'custom_role_id' => $customRole->id,
                 'role_name' => $customRole->name,
-            ]
+            ],
+            request()
         );
 
         $customRole->delete();
@@ -383,18 +377,16 @@ class CustomRoleController extends Controller
         $customRole->users()->syncWithoutDetaching($syncData);
 
         // Log role assignment
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'custom_role_users_assigned',
-            $request,
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'custom_role_id' => $customRole->id,
                 'role_name' => $customRole->name,
                 'users_assigned' => count($userIds),
-            ]
+            ],
+            $request
         );
 
         return response()->json([
@@ -435,18 +427,16 @@ class CustomRoleController extends Controller
         $customRole->users()->detach($userIds);
 
         // Log role removal
-        $this->oAuthService->logAuthenticationEvent(
+        $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'custom_role_users_removed',
-            $request,
-            null,
-            true,
             [
                 'organization_id' => $organization->id,
                 'custom_role_id' => $customRole->id,
                 'role_name' => $customRole->name,
                 'users_removed' => count($userIds),
-            ]
+            ],
+            $request
         );
 
         return response()->json([

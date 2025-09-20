@@ -154,7 +154,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         dump('Setup response:', $setupResponse->json());
         dump('User MFA enabled:', $user->hasMfaEnabled());
         $this->assertArrayHasKey('secret', $setupData);
-        $this->assertArrayHasKey('qr_code', $setupData);
+        $this->assertArrayHasKey('qr_code_url', $setupData);
         $this->assertArrayHasKey('backup_codes', $setupData);
 
         $secret = $setupData['secret'];

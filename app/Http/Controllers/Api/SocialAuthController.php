@@ -334,6 +334,7 @@ class SocialAuthController extends Controller
 
             return response()->json([
                 'success' => true,
+                'data' => null,
                 'message' => 'Social account unlinked successfully',
             ]);
         } catch (\Exception $e) {

@@ -30,6 +30,11 @@ abstract class EndToEndTestCase extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * PKCE code verifier for tests (RFC 7636 requires 43-128 characters)
+     */
+    protected string $testCodeVerifier = 'test_verifier_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; // 43 characters
+
     protected Organization $defaultOrganization;
 
     protected Organization $enterpriseOrganization;
@@ -336,42 +341,148 @@ abstract class EndToEndTestCase extends TestCase
     {
         $code = 'test_auth_code_'.uniqid();
 
-        DB::table('oauth_authorization_codes')->insert([
+        // Store in Laravel Passport's oauth_auth_codes table with only supported columns
+        DB::table('oauth_auth_codes')->insert([
             'id' => $code,
             'user_id' => $user->id,
             'client_id' => $client->id,
-            'scopes' => json_encode($scopes),
-            'redirect_uri' => $client->redirect,
+            'scopes' => implode(' ', $scopes), // Passport expects space-separated string, not JSON
             'revoked' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
             'expires_at' => now()->addMinutes(10),
-            'code_challenge' => 'test_challenge',
-            'code_challenge_method' => 'S256',
         ]);
 
         return $code;
     }
 
     /**
-     * Simulate a complete OAuth authorization flow
+     * Get a real authorization code from full Passport flow for testing replay attacks
+     */
+    protected function getAuthorizationCode(User $user, Client $client, array $scopes = ['openid', 'profile']): string
+    {
+        // Generate PKCE parameters
+        $codeVerifier = $this->testCodeVerifier;
+        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+
+        // Step 1: Authenticate user for web guard and request authorization
+        $this->actingAs($user, 'web');
+
+        $authParams = [
+            'response_type' => 'code',
+            'client_id' => $client->id,
+            'redirect_uri' => $client->redirect,
+            'scope' => implode(' ', $scopes),
+            'state' => 'secure_state_'.uniqid(),
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => 'S256',
+        ];
+
+        $authResponse = $this->get('/oauth/authorize?'.http_build_query($authParams));
+        $authResponse->assertStatus(200);
+
+        // Extract the auth token from the authorization form
+        $authContent = $authResponse->getContent();
+        preg_match('/name="auth_token" value="([^"]+)"/', $authContent, $matches);
+        $authToken = $matches[1] ?? null;
+
+        if (! $authToken) {
+            throw new \Exception('Could not extract auth_token from authorization response');
+        }
+
+        // Step 2: User approves authorization (simulate approval)
+        $approvalResponse = $this->post('/oauth/authorize', [
+            'state' => $authParams['state'],
+            'client_id' => $authParams['client_id'],
+            'auth_token' => $authToken,
+            'approve' => '1',
+        ]);
+
+        $approvalResponse->assertRedirect();
+        $redirectUrl = $approvalResponse->headers->get('Location');
+
+        // Extract authorization code
+        parse_str(parse_url($redirectUrl, PHP_URL_QUERY), $queryParams);
+
+        return $queryParams['code'];
+    }
+
+    /**
+     * Simulate a complete OAuth authorization flow using standard Passport endpoints
      */
     protected function performOAuthFlow(User $user, Client $client, array $scopes = ['openid', 'profile']): array
     {
-        // Step 1: Authorization request
-        $authCode = $this->createAuthorizationCode($user, $client, $scopes);
+        // Generate PKCE parameters
+        $codeVerifier = $this->testCodeVerifier;
+        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
 
-        // Step 2: Token exchange
+        // Step 1: Authenticate user for web guard and request authorization using Passport's endpoint
+        $this->actingAs($user, 'web');
+        $state = 'secure_state_'.uniqid();
+
+        $authParams = [
+            'response_type' => 'code',
+            'client_id' => $client->id,
+            'redirect_uri' => $client->redirect,
+            'scope' => implode(' ', $scopes),
+            'state' => $state,
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => 'S256',
+        ];
+
+        $authResponse = $this->get('/oauth/authorize?'.http_build_query($authParams));
+        $authResponse->assertStatus(200);
+
+        // Extract the auth token from the authorization form
+        $authContent = $authResponse->getContent();
+        preg_match('/name="auth_token" value="([^"]+)"/', $authContent, $matches);
+        $authToken = $matches[1] ?? null;
+
+        if (! $authToken) {
+            throw new \Exception('Could not extract auth_token from authorization response');
+        }
+
+        // Step 2: User approves authorization (simulate approval)
+        $approvalResponse = $this->post('/oauth/authorize', [
+            'state' => $authParams['state'],
+            'client_id' => $authParams['client_id'],
+            'auth_token' => $authToken,
+            'approve' => '1',
+        ]);
+
+        $approvalResponse->assertRedirect();
+        $redirectUrl = $approvalResponse->headers->get('Location');
+
+        // Extract authorization code
+        parse_str(parse_url($redirectUrl, PHP_URL_QUERY), $queryParams);
+        $authCode = $queryParams['code'];
+
+        // Step 3: Token exchange using Passport's token endpoint
+        $clientSecret = $client->plainSecret ?? $client->secret;
         $tokenResponse = $this->postJson('/oauth/token', [
             'grant_type' => 'authorization_code',
             'client_id' => $client->id,
-            'client_secret' => $client->secret,
+            'client_secret' => $clientSecret,
             'code' => $authCode,
             'redirect_uri' => $client->redirect,
-            'code_verifier' => 'test_verifier',
+            'code_verifier' => $codeVerifier,
         ]);
 
-        return $tokenResponse->json();
+        if ($tokenResponse->getStatusCode() !== 200) {
+            $debugInfo = [
+                'status' => $tokenResponse->getStatusCode(),
+                'response' => $tokenResponse->getContent(),
+                'client_id' => $client->id,
+            ];
+            throw new \Exception('OAuth flow failed: '.json_encode($debugInfo, JSON_PRETTY_PRINT));
+        }
+
+        $tokenData = $tokenResponse->json();
+
+        // Ensure the response has the expected structure
+        if (! isset($tokenData['access_token'])) {
+            throw new \Exception('OAuth response missing access_token: '.json_encode($tokenData));
+        }
+
+        return $tokenData;
     }
 
     /**
@@ -528,6 +639,26 @@ abstract class EndToEndTestCase extends TestCase
                 'refresh_token' => 'test_refresh_token_'.uniqid(),
                 'expires_in' => 3600,
                 'token_type' => 'Bearer',
+            ]);
+
+        $this->mockSocialAuthService
+            ->shouldReceive('getAvailableProviders')
+            ->andReturn([
+                'google' => [
+                    'name' => 'Google',
+                    'enabled' => true,
+                    'icon' => 'google',
+                ],
+                'github' => [
+                    'name' => 'GitHub',
+                    'enabled' => true,
+                    'icon' => 'github',
+                ],
+                'facebook' => [
+                    'name' => 'Facebook',
+                    'enabled' => false,
+                    'icon' => 'facebook',
+                ],
             ]);
 
         return $user;

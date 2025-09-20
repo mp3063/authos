@@ -15,13 +15,13 @@ use Spatie\Permission\Models\Role as SpatieRole;
 
 class UserManagementService extends BaseService implements UserManagementServiceInterface
 {
-    protected OAuthService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
     protected UserRepositoryInterface $userRepository;
 
-    public function __construct(OAuthService $oAuthService, UserRepositoryInterface $userRepository)
+    public function __construct(AuthenticationLogService $authLogService, UserRepositoryInterface $userRepository)
     {
-        $this->oAuthService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->userRepository = $userRepository;
     }
 
@@ -41,6 +41,10 @@ class UserManagementService extends BaseService implements UserManagementService
 
         $user = User::create($data);
 
+        // Set permissions team context for the organization
+        $user->setPermissionsTeamId($organization->id);
+        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($organization->id);
+
         // Assign roles if provided
         if (! empty($userData['roles'])) {
             $user->syncRoles($userData['roles']);
@@ -50,11 +54,11 @@ class UserManagementService extends BaseService implements UserManagementService
 
         // Log user creation event
         if (request()) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'user_created_by_admin',
-                request(),
-                null
+                [],
+                request()
             );
         }
 
@@ -88,11 +92,11 @@ class UserManagementService extends BaseService implements UserManagementService
 
         // Log user update event
         if (request()) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'user_updated_by_admin',
-                request(),
-                null
+                [],
+                request()
             );
         }
 
@@ -118,11 +122,11 @@ class UserManagementService extends BaseService implements UserManagementService
 
             // Log user deletion event before cleanup
             if (request()) {
-                $this->oAuthService->logAuthenticationEvent(
+                $this->authLogService->logAuthenticationEvent(
                     $user,
                     'user_deleted_by_admin',
-                    request(),
-                    null
+                    [],
+                    request()
                 );
             }
 
@@ -228,11 +232,11 @@ class UserManagementService extends BaseService implements UserManagementService
 
         // Log session revocation
         if (request()) {
-            $this->oAuthService->logAuthenticationEvent(
+            $this->authLogService->logAuthenticationEvent(
                 $user,
                 'all_sessions_revoked_by_admin',
-                request(),
-                null
+                [],
+                request()
             );
         }
 
