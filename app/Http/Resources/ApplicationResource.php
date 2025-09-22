@@ -45,10 +45,9 @@ class ApplicationResource extends JsonResource
             'groups' => ApplicationGroupResource::collection($this->whenLoaded('groups')),
 
             // Computed attributes
-            'users_count' => $this->when(
-                isset($this->users_count),
-                $this->users_count
-            ),
+            'users_count' => $this->relationLoaded('users')
+                ? $this->users->count()
+                : $this->users()->count(),
 
             'active_sessions_count' => $this->when(
                 isset($this->active_sessions_count),

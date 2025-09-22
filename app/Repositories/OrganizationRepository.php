@@ -38,9 +38,6 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     {
         $query = $this->model->query();
 
-        // Add user count using Laravel's withCount method
-        $query->withCount('users');
-
         // Apply filters
         if (isset($filters['is_active'])) {
             $query->where('is_active', $filters['is_active'] === 'true' || $filters['is_active'] === true);
@@ -71,7 +68,7 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     public function getWithApplicationCounts(): Collection
     {
         return $this->model
-            ->withCount('applications')
+            ->with('applications')
             ->get();
     }
 

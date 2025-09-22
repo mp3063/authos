@@ -16,11 +16,11 @@ class CustomRoleController extends Controller
 {
     use ApiResponse;
 
-    protected AuthenticationLogService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(AuthenticationLogService $oAuthService)
+    public function __construct(AuthenticationLogService $authLogService)
     {
-        $this->authLogService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->middleware('auth:api');
     }
 
@@ -54,16 +54,15 @@ class CustomRoleController extends Controller
         }
 
         $query = CustomRole::forOrganization($organizationId)
-            ->withCount('users')
             ->with('creator:id,name,email');
 
         // Apply filters
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('display_name', 'LIKE', "%{$search}%")
-                    ->orWhere('description', 'LIKE', "%{$search}%");
+                $q->where('name', 'LIKE', "%$search%")
+                    ->orWhere('display_name', 'LIKE', "%$search%")
+                    ->orWhere('description', 'LIKE', "%$search%");
             });
         }
 
@@ -195,13 +194,13 @@ class CustomRoleController extends Controller
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)
-            ->withCount('users')
             ->with(['creator:id,name,email', 'users:id,name,email'])
             ->findOrFail($id);
 
-        return response()->json([
-            'data' => $this->formatCustomRoleResponse($customRole, true),
-        ]);
+        return $this->successResponse(
+            $this->formatCustomRoleResponse($customRole, true),
+            'Custom role retrieved successfully'
+        );
     }
 
     /**
@@ -239,20 +238,14 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to update roles in this organization.',
-            ], 403);
+            return $this->errorResponse('You do not have permission to update roles in this organization.', 403);
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
 
         // Check if it's a system role
         if ($customRole->isSystemRole()) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'System roles cannot be modified.',
-            ], 403);
+            return $this->errorResponse('System roles cannot be modified.', 403);
         }
 
         $updateData = $request->only(['name', 'display_name', 'description', 'permissions', 'is_active']);
@@ -271,10 +264,10 @@ class CustomRoleController extends Controller
             $request
         );
 
-        return response()->json([
-            'data' => $this->formatCustomRoleResponse($customRole->fresh(['creator', 'users'])),
-            'message' => 'Custom role updated successfully',
-        ]);
+        return $this->successResponse(
+            $this->formatCustomRoleResponse($customRole->fresh(['creator', 'users'])),
+            'Custom role updated successfully'
+        );
     }
 
     /**
@@ -293,7 +286,6 @@ class CustomRoleController extends Controller
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)
-            ->withCount('users')
             ->findOrFail($id);
 
         // Check if role can be deleted
@@ -356,10 +348,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to assign roles in this organization.',
-            ], 403);
+            return $this->errorResponse('You do not have permission to assign roles in this organization.', 403);
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
@@ -389,9 +378,10 @@ class CustomRoleController extends Controller
             $request
         );
 
-        return response()->json([
-            'message' => sprintf('Custom role assigned to %d users successfully', count($userIds)),
-        ]);
+        return $this->successResponse(
+            null,
+            sprintf('Custom role assigned to %d users successfully', count($userIds))
+        );
     }
 
     /**
@@ -415,10 +405,7 @@ class CustomRoleController extends Controller
 
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to manage roles in this organization.',
-            ], 403);
+            return $this->errorResponse('You do not have permission to manage roles in this organization.', 403);
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
@@ -439,9 +426,10 @@ class CustomRoleController extends Controller
             $request
         );
 
-        return response()->json([
-            'message' => sprintf('Custom role removed from %d users successfully', count($userIds)),
-        ]);
+        return $this->successResponse(
+            null,
+            sprintf('Custom role removed from %d users successfully', count($userIds))
+        );
     }
 
     /**
@@ -449,6 +437,11 @@ class CustomRoleController extends Controller
      */
     private function formatCustomRoleResponse(CustomRole $customRole, bool $detailed = false): array
     {
+        // Calculate users count manually instead of using withCount
+        $usersCount = $customRole->relationLoaded('users')
+            ? $customRole->users->count()
+            : $customRole->users()->count();
+
         $data = [
             'id' => $customRole->id,
             'organization_id' => $customRole->organization_id,
@@ -459,7 +452,7 @@ class CustomRoleController extends Controller
             'permissions_count' => count($customRole->permissions ?? []),
             'is_system' => $customRole->is_system,
             'is_active' => $customRole->is_active,
-            'users_count' => $customRole->users_count ?? 0,
+            'users_count' => $usersCount,
             'can_be_deleted' => $customRole->canBeDeleted(),
             'created_at' => $customRole->created_at,
             'updated_at' => $customRole->updated_at,

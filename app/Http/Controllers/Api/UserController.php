@@ -142,8 +142,7 @@ class UserController extends BaseApiController
     {
         $this->authorize('users.read');
 
-        $query = User::with(['roles.permissions', 'organization', 'applications', 'ssoSessions'])
-            ->withCount(['applications', 'ssoSessions']);
+        $query = User::with(['roles.permissions', 'organization', 'applications', 'ssoSessions']);
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();

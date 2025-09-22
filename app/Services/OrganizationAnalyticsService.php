@@ -280,7 +280,9 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
             'logo' => $organization->logo,
             'is_active' => $organization->is_active,
             'settings' => $organization->settings ?? [],
-            'applications_count' => $organization->applications_count ?? 0,
+            'applications_count' => $organization->relationLoaded('applications')
+                ? $organization->applications->count()
+                : $organization->applications()->count(),
             'users_count' => $usersCount,
             'created_at' => $organization->created_at,
             'updated_at' => $organization->updated_at,

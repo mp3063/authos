@@ -173,6 +173,7 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonStructure([
+                'success',
                 'data' => [
                     'id',
                     'name',
@@ -349,6 +350,7 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
+                'success',
                 'data',
                 'message',
             ])
@@ -393,8 +395,11 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(403)
             ->assertJson([
-                'error' => 'forbidden',
-                'error_description' => 'System roles cannot be modified.',
+                'success' => false,
+                'error' => [
+                    'message' => 'System roles cannot be modified.',
+                    'code' => 'forbidden',
+                ],
             ]);
     }
 
@@ -537,6 +542,7 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
+                'success' => true,
                 'message' => 'Custom role assigned to 2 users successfully',
             ]);
 
@@ -597,6 +603,7 @@ class CustomRoleApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
+                'success' => true,
                 'message' => 'Custom role removed from 2 users successfully',
             ]);
 

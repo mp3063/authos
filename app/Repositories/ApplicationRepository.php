@@ -72,8 +72,7 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
     {
         return $this->model
             ->where('organization_id', $organization->id)
-            ->withCount('users')
-            ->with(['organization'])
+            ->with(['organization', 'users'])
             ->get();
     }
 
@@ -172,7 +171,7 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
             'users' => [
                 'total' => $totalUsers,
                 'new' => $newUsers,
-                'avg_logins_per_user' => round($avgLogins ?? 0, 2),
+                'avg_logins_per_user' => round((float) ($avgLogins ?? 0), 2, PHP_ROUND_HALF_UP),
                 'total_logins' => $totalLogins ?? 0,
             ],
             'sso' => [
@@ -247,7 +246,7 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
             'total_users' => $totalUsers,
             'total_logins' => $totalLogins ?? 0,
             'last_login' => $lastLogin,
-            'avg_logins_per_user' => round($avgLogins ?? 0, 2),
+            'avg_logins_per_user' => round((float) ($avgLogins ?? 0), 2, PHP_ROUND_HALF_UP),
             'active_users_last_30_days' => $recentActivity,
             'has_sso' => $application->hasSSOEnabled(),
         ];

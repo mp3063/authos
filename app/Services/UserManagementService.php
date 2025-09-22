@@ -391,8 +391,12 @@ class UserManagementService extends BaseService implements UserManagementService
 
             $data['permissions'] = $permissions->pluck('name')->unique()->values();
             $data['last_login_at'] = $user->last_login_at ?? null;
-            $data['applications_count'] = $user->applications_count ?? $user->applications()->count();
-            $data['sessions_count'] = $user->sso_sessions_count ?? $user->ssoSessions()->active()->count();
+            $data['applications_count'] = $user->relationLoaded('applications')
+                ? $user->applications->count()
+                : $user->applications()->count();
+            $data['sessions_count'] = $user->relationLoaded('ssoSessions')
+                ? $user->ssoSessions->where('is_active', true)->count()
+                : $user->ssoSessions()->active()->count();
 
             if ($user->relationLoaded('applications')) {
                 $data['applications'] = $user->applications->map(function ($app) {

@@ -117,8 +117,7 @@ class OrganizationUsersController extends BaseApiController
         }
 
         $query = Application::where('organization_id', $organization->id)
-            ->with(['organization', 'users'])
-            ->withCount('users');
+            ->with(['organization', 'users']);
 
         if ($request->has('search')) {
             $search = $request->get('search');

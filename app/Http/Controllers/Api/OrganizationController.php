@@ -51,7 +51,7 @@ class OrganizationController extends Controller
             ], 422);
         }
 
-        $query = Organization::query()->withCount('applications');
+        $query = Organization::query();
 
         // Apply filters
         if ($request->has('search')) {
@@ -195,8 +195,7 @@ class OrganizationController extends Controller
     {
         $this->authorize('organizations.read');
 
-        $organization = Organization::withCount('applications')
-            ->with('applications:id,name,client_id,is_active,organization_id')
+        $organization = Organization::with('applications:id,name,client_id,is_active,organization_id')
             ->findOrFail($id);
 
         return response()->json(
@@ -283,10 +282,11 @@ class OrganizationController extends Controller
     {
         $this->authorize('organizations.delete');
 
-        $organization = Organization::withCount('applications')->findOrFail($id);
+        $organization = Organization::findOrFail($id);
 
         // Prevent deletion if organization has active applications or users
-        if ($organization->applications_count > 0) {
+        $applicationsCount = $organization->applications()->count();
+        if ($applicationsCount > 0) {
             return response()->json([
                 'error' => 'resource_conflict',
                 'error_description' => 'Cannot delete organization with active applications.',
@@ -845,10 +845,14 @@ class OrganizationController extends Controller
      */
     private function formatOrganizationResponse(Organization $organization, bool $detailed = false): array
     {
-        // Manually calculate users count since users() is not a proper relationship
+        // Manually calculate counts instead of using withCount
         $usersCount = User::whereHas('applications', function ($query) use ($organization) {
             $query->where('organization_id', $organization->id);
         })->count();
+
+        $applicationsCount = $organization->relationLoaded('applications')
+            ? $organization->applications->count()
+            : $organization->applications()->count();
 
         $data = [
             'id' => $organization->id,
@@ -859,7 +863,7 @@ class OrganizationController extends Controller
             'logo' => $organization->logo,
             'is_active' => $organization->is_active,
             'settings' => $organization->settings ?? [],
-            'applications_count' => $organization->applications_count ?? 0,
+            'applications_count' => $applicationsCount,
             'users_count' => $usersCount,
             'created_at' => $organization->created_at,
             'updated_at' => $organization->updated_at,

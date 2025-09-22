@@ -118,12 +118,11 @@ class OrganizationReportingService
 
         // Custom role distribution
         $customRoleDistribution = CustomRole::where('organization_id', $organizationId)
-            ->withCount('users')
             ->get()
             ->map(function ($role) {
                 return [
                     'role' => $role->display_name,
-                    'count' => $role->users_count,
+                    'count' => $role->users()->count(),
                     'permissions' => count($role->permissions ?? []),
                 ];
             });
@@ -169,24 +168,24 @@ class OrganizationReportingService
         $organization = Organization::findOrFail($organizationId);
 
         $applications = $organization->applications()
-            ->withCount(['users as total_users'])
             ->with(['users' => function ($q) {
                 $q->withPivot(['last_login_at', 'login_count', 'granted_at']);
             }])
             ->get()
             ->map(function ($app) {
+                $totalUsers = $app->users()->count();
                 $activeUsers = $app->users->filter(function ($user) {
                     return $user->pivot->last_login_at &&
                            Carbon::parse($user->pivot->last_login_at)->gt(Carbon::now()->subDays(30));
                 })->count();
 
                 $totalLogins = $app->users->sum('pivot.login_count');
-                $averageLoginsPerUser = $app->total_users > 0 ? round($totalLogins / $app->total_users, 2) : 0;
+                $averageLoginsPerUser = $totalUsers > 0 ? round($totalLogins / $totalUsers, 2) : 0;
 
                 // Calculate user engagement score (0-100)
                 $engagementScore = 0;
-                if ($app->total_users > 0) {
-                    $activeUserRate = ($activeUsers / $app->total_users) * 100;
+                if ($totalUsers > 0) {
+                    $activeUserRate = ($activeUsers / $totalUsers) * 100;
                     $loginFrequency = min($averageLoginsPerUser * 10, 100); // Cap at 100
                     $engagementScore = round(($activeUserRate + $loginFrequency) / 2, 1);
                 }
@@ -197,7 +196,7 @@ class OrganizationReportingService
                     'client_id' => $app->client_id,
                     'is_active' => $app->is_active,
                     'created_at' => $app->created_at,
-                    'total_users' => $app->total_users,
+                    'total_users' => $totalUsers,
                     'active_users' => $activeUsers,
                     'total_logins' => $totalLogins,
                     'average_logins_per_user' => $averageLoginsPerUser,
