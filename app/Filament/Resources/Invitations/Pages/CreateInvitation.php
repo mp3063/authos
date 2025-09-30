@@ -8,4 +8,11 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateInvitation extends CreateRecord
 {
     protected static string $resource = InvitationResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['inviter_id'] = auth()->id();
+
+        return $data;
+    }
 }
