@@ -17,22 +17,6 @@ class ViewApplication extends ViewRecord
         return [
             Actions\EditAction::make(),
 
-            Action::make('copy_credentials')
-                ->label('Copy Credentials')
-                ->icon('heroicon-o-clipboard-document')
-                ->color('gray')
-                ->action(function () {
-                    Notification::make()
-                        ->title('Credentials copied to clipboard')
-                        ->body('Client ID and Secret have been copied')
-                        ->success()
-                        ->send();
-                })
-                ->modalContent(fn ($record) => view('filament.modals.application-credentials', [
-                    'clientId' => $record->client_id,
-                    'clientSecret' => $record->client_secret,
-                ])),
-
             Action::make('regenerate_secret')
                 ->label('Regenerate Secret')
                 ->icon('heroicon-o-arrow-path')
@@ -47,6 +31,4 @@ class ViewApplication extends ViewRecord
                 ),
         ];
     }
-
-    /* Infolist method temporarily disabled */
 }

@@ -55,6 +55,7 @@ class ApplicationResource extends Resource
             Section::make('OAuth Configuration')->schema([
                 TextInput::make('client_id')
                     ->label('Client ID')
+                    ->copyable(copyMessage: 'Copied Client ID!', copyMessageDuration: 3000)
                     ->maxLength(255)
                     ->disabled()
                     ->dehydrated(false)
@@ -64,6 +65,7 @@ class ApplicationResource extends Resource
                     ->label('Client Secret')
                     ->password()
                     ->revealable()
+                    ->copyable(copyMessage: 'Copied Client Secret!', copyMessageDuration: 3000)
                     ->disabled()
                     ->dehydrated(false)
                     ->helperText('Auto-generated secure secret for OAuth flows'),
