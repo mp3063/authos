@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Models\Organization;
 use App\Models\User;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
@@ -36,11 +37,7 @@ class UserController extends BaseApiController
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $params = $request->getPaginationParams();
@@ -127,7 +124,7 @@ class UserController extends BaseApiController
             'roles' => $request->getRoles(),
         ];
 
-        $organization = \App\Models\Organization::findOrFail($request->organization_id);
+        $organization = Organization::findOrFail($request->organization_id);
         $user = $this->userManagementService->createUser($userData, $organization);
 
         $response = $this->userManagementService->formatUserResponse($user);
@@ -171,9 +168,8 @@ class UserController extends BaseApiController
         $updatedUser = $this->userManagementService->updateUser($user, $updateData);
 
         $response = $this->userManagementService->formatUserResponse($updatedUser);
-        $response['message'] = 'User updated successfully';
 
-        return $this->successResponse($response);
+        return $this->successResponse($response, 'User updated successfully');
     }
 
     /**
@@ -234,9 +230,7 @@ class UserController extends BaseApiController
             return $this->errorResponse('User already has access to this application.', 409);
         }
 
-        return $this->successResponse([
-            'message' => 'Application access granted successfully',
-        ], 201);
+        return $this->successResponse([], 'Application access granted successfully', 201);
     }
 
     /**
@@ -253,9 +247,7 @@ class UserController extends BaseApiController
             return $this->errorResponse('User does not have access to this application.', 404);
         }
 
-        return $this->successResponse([
-            'message' => 'Application access revoked successfully',
-        ]);
+        return $this->successResponse([], 'Application access revoked successfully');
     }
 
     /**
@@ -294,9 +286,7 @@ class UserController extends BaseApiController
             return $this->errorResponse('User already has this role.', 409);
         }
 
-        return $this->successResponse([
-            'message' => 'Role assigned successfully',
-        ], 201);
+        return $this->successResponse([], 'Role assigned successfully', 201);
     }
 
     /**
@@ -313,9 +303,7 @@ class UserController extends BaseApiController
             return $this->errorResponse('User does not have this role.', 404);
         }
 
-        return $this->successResponse([
-            'message' => 'Role removed successfully',
-        ]);
+        return $this->successResponse([], 'Role removed successfully');
     }
 
     /**
@@ -363,9 +351,7 @@ class UserController extends BaseApiController
             return $this->errorResponse('Session not found.', 404);
         }
 
-        return $this->successResponse([
-            'message' => 'Session revoked successfully',
-        ]);
+        return $this->successResponse([], 'Session revoked successfully');
     }
 
     /**

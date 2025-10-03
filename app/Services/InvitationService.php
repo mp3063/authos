@@ -321,7 +321,7 @@ class InvitationService
         int $organizationId,
         User $user,
         string $status = 'all'
-    ) {
+    ): mixed {
         $organization = Organization::findOrFail($organizationId);
 
         // Ensure permissions context is set
@@ -349,7 +349,7 @@ class InvitationService
         return $query->orderBy('created_at', 'desc')->get();
     }
 
-    public function getPendingInvitations(int $organizationId)
+    public function getPendingInvitations(int $organizationId): mixed
     {
         return Invitation::where('organization_id', $organizationId)
             ->pending()
@@ -453,6 +453,6 @@ class InvitationService
 
     public function cleanupExpiredInvitations(): int
     {
-        return Invitation::expired()->delete();
+        return Invitation::expired()->delete() ?: 0;
     }
 }

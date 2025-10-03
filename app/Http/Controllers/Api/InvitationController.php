@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Resources\InvitationResource;
 use App\Models\Invitation;
-use App\Models\Organization;
 use App\Services\InvitationService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -13,12 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class InvitationController extends BaseApiController
 {
-    protected InvitationService $invitationService;
-
-    public function __construct(InvitationService $invitationService)
-    {
-        $this->invitationService = $invitationService;
-    }
+    public function __construct(protected InvitationService $invitationService) {}
 
     /**
      * Send a new invitation to join an organization
@@ -95,7 +89,7 @@ class InvitationController extends BaseApiController
     public function show(string $token): JsonResponse
     {
         $invitation = Invitation::where('token', $token)
-            ->with(['organization'])
+            ->with(['organization', 'inviter'])
             ->first();
 
         if (! $invitation) {
@@ -134,7 +128,7 @@ class InvitationController extends BaseApiController
     public function accept(Request $request, string $token): JsonResponse
     {
         if (! $request->user()) {
-            return $this->errorResponse('Unauthenticated.', 401, 'authentication_required');
+            return $this->errorResponse('Unauthenticated.', 401);
         }
 
         try {
@@ -156,7 +150,6 @@ class InvitationController extends BaseApiController
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to accept invitation',
-                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -185,7 +178,6 @@ class InvitationController extends BaseApiController
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to cancel invitation',
-                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -203,13 +195,12 @@ class InvitationController extends BaseApiController
 
             return response()->json([
                 'message' => 'Invitation resent successfully',
-                'invitation' => $invitation->load(['organization', 'inviter']),
+                'invitation' => (new InvitationResource($invitation->load(['organization', 'inviter'])))->resolve(),
             ]);
 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to resend invitation',
-                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -230,12 +221,10 @@ class InvitationController extends BaseApiController
             $serviceResults = $this->invitationService->bulkInvite(
                 $organizationId,
                 $request->invitations,
-                $request->user() // Pass user instance like individual invitations
+                $request->user()
             );
 
-            // Merge successful and failed results into one array
             $allResults = array_merge($serviceResults['successful'], $serviceResults['failed']);
-
             $successCount = count($serviceResults['successful']);
             $errorCount = count($serviceResults['failed']);
 

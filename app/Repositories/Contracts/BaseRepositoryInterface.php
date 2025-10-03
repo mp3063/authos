@@ -49,12 +49,12 @@ interface BaseRepositoryInterface
     /**
      * Find models by criteria
      */
-    public function findBy(string $field, $value): Collection;
+    public function findBy(string $field, mixed $value): Collection;
 
     /**
      * Find first model by criteria
      */
-    public function findFirstBy(string $field, $value): ?Model;
+    public function findFirstBy(string $field, mixed $value): ?Model;
 
     /**
      * Count models

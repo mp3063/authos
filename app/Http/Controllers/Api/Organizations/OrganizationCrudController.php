@@ -8,7 +8,9 @@ use App\Http\Requests\Organization\StoreOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationSettingsRequest;
 use App\Http\Resources\OrganizationResource;
+use App\Models\Application;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,7 +103,7 @@ class OrganizationCrudController extends BaseApiController
 
         $data = $request->validated();
 
-        if (! isset($data['slug']) || empty($data['slug'])) {
+        if (empty($data['slug'])) {
             $data['slug'] = Str::slug($data['name']);
         }
 
@@ -109,23 +111,25 @@ class OrganizationCrudController extends BaseApiController
             return $this->validationErrorResponse(['slug' => ['The slug has already been taken.']]);
         }
 
+        $defaultSettings = [
+            'allow_registration' => true,
+            'require_email_verification' => true,
+            'session_lifetime' => 1440,
+            'password_policy' => [
+                'min_length' => 8,
+                'require_uppercase' => true,
+                'require_lowercase' => true,
+                'require_numbers' => true,
+                'require_symbols' => false,
+            ],
+        ];
+
         $organization = Organization::create([
             'name' => $data['name'],
             'slug' => $data['slug'],
             'description' => $data['description'] ?? null,
             'website' => $data['website'] ?? null,
-            'settings' => $data['settings'] ?? [
-                'allow_registration' => true,
-                'require_email_verification' => true,
-                'session_lifetime' => 1440,
-                'password_policy' => [
-                    'min_length' => 8,
-                    'require_uppercase' => true,
-                    'require_lowercase' => true,
-                    'require_numbers' => true,
-                    'require_symbols' => false,
-                ],
-            ],
+            'settings' => $data['settings'] ?? $defaultSettings,
             'is_active' => $data['is_active'] ?? true,
         ]);
 
@@ -149,8 +153,8 @@ class OrganizationCrudController extends BaseApiController
         $organization = Organization::findOrFail($id);
 
         // Set manual counts for resource compatibility (using separate queries)
-        $organization->users_count = \App\Models\User::where('organization_id', $organization->id)->count();
-        $organization->applications_count = \App\Models\Application::where('organization_id', $organization->id)->count();
+        $organization->setAttribute('users_count', User::where('organization_id', $organization->id)->count());
+        $organization->setAttribute('applications_count', Application::where('organization_id', $organization->id)->count());
 
         // Return flat response structure for test compatibility
         $resource = new OrganizationResource($organization);
@@ -159,7 +163,7 @@ class OrganizationCrudController extends BaseApiController
             ['message' => 'Organization retrieved successfully']
         );
 
-        return response()->json($responseData, 200);
+        return response()->json($responseData);
     }
 
     /**
@@ -200,7 +204,7 @@ class OrganizationCrudController extends BaseApiController
             ['message' => 'Organization updated successfully']
         );
 
-        return response()->json($responseData, 200);
+        return response()->json($responseData);
     }
 
     /**
@@ -213,13 +217,13 @@ class OrganizationCrudController extends BaseApiController
         $organization = Organization::findOrFail($id);
 
         if ($organization->users()->count() > 0) {
-            return $this->errorBadRequest(
+            return $this->errorResponse(
                 'Cannot delete organization with existing users. Transfer or remove users first.'
             );
         }
 
         if ($organization->applications()->count() > 0) {
-            return $this->errorBadRequest(
+            return $this->errorResponse(
                 'Cannot delete organization with existing applications. Remove applications first.'
             );
         }
@@ -273,7 +277,7 @@ class OrganizationCrudController extends BaseApiController
             ['message' => 'Organization settings retrieved successfully']
         );
 
-        return response()->json($responseData, 200);
+        return response()->json($responseData);
     }
 
     /**
@@ -309,6 +313,6 @@ class OrganizationCrudController extends BaseApiController
 
         return response()->json([
             'message' => 'Settings updated successfully',
-        ], 200);
+        ]);
     }
 }

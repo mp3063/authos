@@ -2,19 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Models\Application;
 use App\Services\CacheInvalidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class CacheController extends Controller
+class CacheController extends BaseApiController
 {
-    protected CacheInvalidationService $cacheService;
-
-    public function __construct(CacheInvalidationService $cacheService)
-    {
-        $this->cacheService = $cacheService;
+    public function __construct(
+        protected CacheInvalidationService $cacheService
+    ) {
         $this->middleware('auth:api');
     }
 
@@ -27,9 +25,7 @@ class CacheController extends Controller
 
         $stats = $this->cacheService->getCacheStats();
 
-        return response()->json([
-            'data' => $stats,
-        ]);
+        return $this->successResponse($stats);
     }
 
     /**
@@ -41,9 +37,7 @@ class CacheController extends Controller
 
         $this->cacheService->invalidateAllApiCaches();
 
-        return response()->json([
-            'message' => 'All API caches cleared successfully',
-        ]);
+        return $this->successResponse(null, 'All API caches cleared successfully');
     }
 
     /**
@@ -58,19 +52,15 @@ class CacheController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $this->cacheService->invalidateEndpointCaches($request->endpoint);
 
-        return response()->json([
-            'message' => 'Endpoint caches cleared successfully',
-            'endpoint' => $request->endpoint,
-        ]);
+        return $this->successResponse(
+            ['endpoint' => $request->endpoint],
+            'Endpoint caches cleared successfully'
+        );
     }
 
     /**
@@ -85,19 +75,15 @@ class CacheController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $this->cacheService->invalidateUserCaches($request->user_id);
 
-        return response()->json([
-            'message' => 'User caches cleared successfully',
-            'user_id' => $request->user_id,
-        ]);
+        return $this->successResponse(
+            ['user_id' => $request->user_id],
+            'User caches cleared successfully'
+        );
     }
 
     /**
@@ -112,19 +98,15 @@ class CacheController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
         $this->cacheService->invalidateOrganizationCaches($request->organization_id);
 
-        return response()->json([
-            'message' => 'Organization caches cleared successfully',
-            'organization_id' => $request->organization_id,
-        ]);
+        return $this->successResponse(
+            ['organization_id' => $request->organization_id],
+            'Organization caches cleared successfully'
+        );
     }
 
     /**
@@ -139,24 +121,20 @@ class CacheController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors());
         }
 
-        $application = \App\Models\Application::findOrFail($request->application_id);
+        $application = Application::findOrFail($request->application_id);
 
         $this->cacheService->invalidateApplicationCaches(
             $application->id,
             $application->organization_id
         );
 
-        return response()->json([
-            'message' => 'Application caches cleared successfully',
-            'application_id' => $request->application_id,
-        ]);
+        return $this->successResponse(
+            ['application_id' => $request->application_id],
+            'Application caches cleared successfully'
+        );
     }
 
     /**
@@ -168,9 +146,9 @@ class CacheController extends Controller
 
         $clearedCount = $this->cacheService->clearExpiredCaches();
 
-        return response()->json([
-            'message' => 'Expired caches cleared successfully',
-            'cleared_count' => $clearedCount,
-        ]);
+        return $this->successResponse(
+            ['cleared_count' => $clearedCount],
+            'Expired caches cleared successfully'
+        );
     }
 }

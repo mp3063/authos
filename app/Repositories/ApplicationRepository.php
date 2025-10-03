@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Application repository implementation
+ *
+ * @method \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
  */
 class ApplicationRepository extends BaseRepository implements ApplicationRepositoryInterface
 {
@@ -94,7 +96,7 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
      */
     public function findWithRelationships(int $id): ?Application
     {
-        return $this->model
+        $result = $this->model
             ->with([
                 'organization',
                 'users',
@@ -104,6 +106,8 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
                 },
             ])
             ->find($id);
+
+        return $result instanceof Application ? $result : null;
     }
 
     /**
@@ -145,12 +149,15 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
         // Get aggregated statistics using collections
         $userPivotData = $application->users()
             ->withPivot('login_count')
-            ->get()
-            ->pluck('pivot.login_count')
-            ->filter(); // Remove null values
+            ->get();
 
-        $totalLogins = $userPivotData->sum();
-        $avgLogins = $userPivotData->avg();
+        // Extract login counts from pivot data
+        $loginCounts = $userPivotData->map(function ($user) {
+            return $user->pivot->login_count;
+        })->filter(); // Remove null values
+
+        $totalLogins = $loginCounts->sum();
+        $avgLogins = $loginCounts->avg();
 
         // Get SSO session analytics using Eloquent relationships
         $totalSessions = $application->ssoSessions()
@@ -232,10 +239,18 @@ class ApplicationRepository extends BaseRepository implements ApplicationReposit
             ->withPivot('login_count', 'last_login_at')
             ->get();
 
-        $loginCounts = $userPivotData->pluck('pivot.login_count')->filter();
+        // Extract login counts from pivot data
+        $loginCounts = $userPivotData->map(function ($user) {
+            return $user->pivot->login_count;
+        })->filter();
+
         $totalLogins = $loginCounts->sum();
         $avgLogins = $loginCounts->avg();
-        $lastLogin = $userPivotData->pluck('pivot.last_login_at')->filter()->max();
+
+        // Extract last login dates from pivot data
+        $lastLogin = $userPivotData->map(function ($user) {
+            return $user->pivot->last_login_at;
+        })->filter()->max();
 
         // Get recent activity (last 30 days) using Eloquent
         $recentActivity = $application->users()

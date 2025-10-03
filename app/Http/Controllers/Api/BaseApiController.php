@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
@@ -18,19 +20,22 @@ abstract class BaseApiController extends Controller
     /**
      * Get the authenticated user
      */
-    protected function getAuthenticatedUser()
+    protected function getAuthenticatedUser(): ?User
     {
-        return auth()->user();
+        /** @var \App\Models\User|null $user */
+        $user = auth()->user();
+
+        return $user;
     }
 
     /**
      * Get the current organization
      */
-    protected function getCurrentOrganization()
+    protected function getCurrentOrganization(): ?Organization
     {
         $user = $this->getAuthenticatedUser();
 
-        return $user ? $user->organization : null;
+        return $user?->organization;
     }
 
     /**
@@ -40,13 +45,13 @@ abstract class BaseApiController extends Controller
     {
         $user = $this->getAuthenticatedUser();
 
-        return $user && $user->isSuperAdmin();
+        return $user?->isSuperAdmin() ?? false;
     }
 
     /**
      * Validate organization access
      */
-    protected function validateOrganizationAccess($organizationId): bool
+    protected function validateOrganizationAccess(int|string $organizationId): bool
     {
         if ($this->isSuperAdmin()) {
             return true;
@@ -54,7 +59,7 @@ abstract class BaseApiController extends Controller
 
         $currentUser = $this->getAuthenticatedUser();
 
-        return $currentUser && $currentUser->organization_id == $organizationId;
+        return $currentUser?->organization_id == $organizationId;
     }
 
     /**
@@ -78,10 +83,12 @@ abstract class BaseApiController extends Controller
         $filters = $request->get('filter', []);
 
         if (is_string($filters)) {
-            parse_str($filters, $filters);
+            $parsedFilters = [];
+            parse_str($filters, $parsedFilters);
+            $filters = $parsedFilters;
         }
 
-        return $filters;
+        return is_array($filters) ? $filters : [];
     }
 
     /**

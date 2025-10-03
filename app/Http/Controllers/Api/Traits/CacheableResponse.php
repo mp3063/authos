@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api\Traits;
 
+use App\Models\Organization;
+use App\Models\User;
+use Exception;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Request;
 
@@ -99,7 +102,7 @@ trait CacheableResponse
         // For now, we'll use cache tags if available
         try {
             Cache::flush(); // In production, this should be more targeted
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log error but don't fail the request
             logger()->warning('Failed to invalidate cache: '.$e->getMessage());
         }
@@ -123,7 +126,7 @@ trait CacheableResponse
             try {
                 // In a real implementation, you'd use cache tags or a more sophisticated pattern matching
                 Cache::forget($pattern);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 logger()->warning("Failed to invalidate cache pattern {$pattern}: ".$e->getMessage());
             }
         }
@@ -142,7 +145,7 @@ trait CacheableResponse
         foreach ($patterns as $pattern) {
             try {
                 Cache::forget($pattern);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 logger()->warning("Failed to invalidate user cache pattern {$pattern}: ".$e->getMessage());
             }
         }
@@ -168,11 +171,11 @@ trait CacheableResponse
     {
         // Warm up commonly accessed organization data
         $this->cacheOrganizationData($organizationId, 'settings', function () use ($organizationId) {
-            return \App\Models\Organization::find($organizationId)?->settings ?? [];
+            return Organization::find($organizationId)?->settings ?? [];
         });
 
         $this->cacheOrganizationData($organizationId, 'user_count', function () use ($organizationId) {
-            return \App\Models\User::where('organization_id', $organizationId)->count();
+            return User::where('organization_id', $organizationId)->count();
         });
     }
 }

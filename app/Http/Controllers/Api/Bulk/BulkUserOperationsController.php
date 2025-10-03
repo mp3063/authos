@@ -6,22 +6,17 @@ use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\BulkInviteUsersRequest;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\AuthenticationLogService;
 use App\Services\BulkOperationService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class BulkUserOperationsController extends BaseApiController
 {
-    protected BulkOperationService $bulkOperationService;
-
-    protected AuthenticationLogService $oAuthService;
-
-    public function __construct(BulkOperationService $bulkOperationService, AuthenticationLogService $oAuthService)
-    {
-        $this->bulkOperationService = $bulkOperationService;
-        $this->authLogService = $oAuthService;
+    public function __construct(
+        protected BulkOperationService $bulkOperationService
+    ) {
         $this->middleware('auth:api');
     }
 
@@ -70,7 +65,7 @@ class BulkUserOperationsController extends BaseApiController
                     'success_rate' => $totalProcessed > 0 ? round(($successfulCount / $totalProcessed) * 100, 2) : 0,
                 ],
             ], $message);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to process bulk invitations: '.$e->getMessage());
         }
     }
@@ -121,7 +116,7 @@ class BulkUserOperationsController extends BaseApiController
                 $customRoleIds, // custom role IDs
                 $action,
                 $organization,
-                auth()->user() ?? \App\Models\User::first()
+                auth()->user() ?? User::first()
             );
 
             // The service returns the result directly, not wrapped in success/data structure
@@ -150,7 +145,7 @@ class BulkUserOperationsController extends BaseApiController
                     'success_rate' => $totalAssignments > 0 ? round(($successfulCount / $totalAssignments) * 100, 2) : 0,
                 ],
             ], $message);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to process bulk role assignments: '.$e->getMessage());
         }
     }

@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Organization;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Passport\Token;
+use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
 {
@@ -38,10 +41,9 @@ class AuthController extends Controller
             'profile' => 'sometimes|array',
         ]);
 
-        $organization = null;
         $organizationId = null;
         if (isset($validated['organization_slug'])) {
-            $organization = \App\Models\Organization::where('slug', $validated['organization_slug'])->first();
+            $organization = Organization::where('slug', $validated['organization_slug'])->first();
             $organizationId = $organization?->id;
 
             // Check organization registration settings
@@ -55,11 +57,11 @@ class AuthController extends Controller
         }
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
             'organization_id' => $organizationId,
-            'profile' => $request->input('profile', []),
+            'profile' => $validated['profile'] ?? [],
             'email_verified_at' => null, // Will be verified later
         ]);
 
@@ -68,9 +70,9 @@ class AuthController extends Controller
             // Set the guard context for role assignment
             $user->guard_name = 'api';
             $user->assignRole('User');
-        } catch (\Exception $e) {
+        } catch (Exception) {
             // Fallback: try to find role by direct query
-            $userRole = \Spatie\Permission\Models\Role::where('name', 'User')
+            $userRole = Role::where('name', 'User')
                 ->where('guard_name', 'api')
                 ->first();
             if ($userRole) {
@@ -238,9 +240,9 @@ class AuthController extends Controller
                     $jti = $payload['jti'] ?? null;
 
                     if ($jti) {
-                        $token = \Laravel\Passport\Token::where('id', $jti)->first();
+                        $token = Token::where('id', $jti)->first();
 
-                        if ($token && $token->expires_at && $token->expires_at->isPast()) {
+                        if ($token?->expires_at?->isPast()) {
                             return response()->json([
                                 'error' => 'token_expired',
                                 'error_description' => 'Token has expired',
@@ -248,7 +250,7 @@ class AuthController extends Controller
                         }
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (Exception) {
                 // If we can't check the token, continue with normal flow
             }
         }
@@ -348,7 +350,7 @@ class AuthController extends Controller
                 'scopes' => explode(' ', $tokenData['scope'] ?? 'openid profile email'),
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception) {
             return response()->json([
                 'error' => 'invalid_grant',
                 'message' => 'Invalid refresh token',
@@ -373,9 +375,7 @@ class AuthController extends Controller
 
             if ($tokenId) {
                 $passportToken = Token::find($tokenId);
-                if ($passportToken) {
-                    $passportToken->revoke();
-                }
+                $passportToken?->revoke();
 
                 $this->authLogService->logAuthenticationEvent(
                     $user,
@@ -441,7 +441,7 @@ class AuthController extends Controller
                 'expires_in' => 3600,
                 'token_type' => 'Bearer',
             ],
-        ], 200);
+        ]);
     }
 
     protected function generateMfaChallengeToken(User $user): string

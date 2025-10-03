@@ -36,7 +36,7 @@ class SSOSession extends Model
         'metadata' => 'array',
     ];
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
 
@@ -239,7 +239,7 @@ class SSOSession extends Model
      */
     public function minutesSinceLastActivity(): int
     {
-        return (int) abs(now()->diffInMinutes($this->last_activity_at, false));
+        return (int) abs(now()->diffInMinutes($this->last_activity_at));
     }
 
     /**
@@ -251,7 +251,7 @@ class SSOSession extends Model
             return 0;
         }
 
-        return (int) round(now()->diffInHours($this->expires_at, false));
+        return (int) round(now()->diffInHours($this->expires_at));
     }
 
     /**
@@ -292,6 +292,9 @@ class SSOSession extends Model
      */
     public static function cleanupExpired(): int
     {
-        return static::expired()->delete();
+        /** @var int $deleted */
+        $deleted = static::expired()->delete();
+
+        return $deleted;
     }
 }

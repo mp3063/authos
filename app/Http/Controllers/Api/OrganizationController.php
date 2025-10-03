@@ -18,11 +18,11 @@ use Illuminate\Validation\Rule;
 
 class OrganizationController extends Controller
 {
-    protected AuthenticationLogService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(AuthenticationLogService $oAuthService)
+    public function __construct(AuthenticationLogService $authLogService)
     {
-        $this->authLogService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->middleware('auth:api');
     }
 
@@ -185,7 +185,9 @@ class OrganizationController extends Controller
         );
 
         return response()->json(
-            $this->formatOrganizationResponse($organization), 201);
+            $this->formatOrganizationResponse($organization),
+            201
+        );
     }
 
     /**

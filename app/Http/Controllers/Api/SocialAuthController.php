@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\SocialAuthService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 
 class SocialAuthController extends Controller
 {
@@ -24,7 +26,7 @@ class SocialAuthController extends Controller
             $providers = $this->socialAuthService->getAvailableProviders();
 
             // Filter only enabled providers
-            $enabledProviders = array_filter($providers, fn ($provider) => $provider['enabled']);
+            $enabledProviders = array_filter($providers, fn (array $provider): bool => $provider['enabled']);
 
             return response()->json([
                 'success' => true,
@@ -177,7 +179,7 @@ class SocialAuthController extends Controller
     /**
      * Handle social login from web (for admin panel)
      */
-    public function webLogin(Request $request, string $provider)
+    public function webLogin(Request $request, string $provider): RedirectResponse
     {
         try {
             // Validate provider
@@ -206,7 +208,7 @@ class SocialAuthController extends Controller
     /**
      * Handle OAuth callback for web login
      */
-    public function webCallback(Request $request, string $provider)
+    public function webCallback(Request $request, string $provider): RedirectResponse
     {
         try {
             // Validate provider
@@ -222,7 +224,7 @@ class SocialAuthController extends Controller
             $result = $this->socialAuthService->handleCallback($provider);
 
             // Check if user has admin access
-            if (! $result['user']->hasRole(['Super Admin', 'Organization Admin', 'Application Admin'])) {
+            if (! $result['user']->hasAnyRole(['Super Admin', 'Organization Admin', 'Application Admin'])) {
                 return redirect('/admin/login?error=insufficient_privileges');
             }
 
@@ -252,8 +254,7 @@ class SocialAuthController extends Controller
             ]);
 
             $user = $request->user();
-            $provider = $request->provider;
-            $providerCode = $request->provider_code;
+            $provider = $request->input('provider');
 
             // Validate provider
             if (! $this->socialAuthService->isProviderSupported($provider)) {
@@ -271,14 +272,7 @@ class SocialAuthController extends Controller
             }
 
             // Get social user from provider code
-            try {
-                $socialUser = Socialite::driver($provider)->user();
-            } catch (\Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to get user data from social provider',
-                ], 400);
-            }
+            $socialUser = Socialite::driver($provider)->user();
 
             // Link the social account
             $result = $this->socialAuthService->linkSocialAccount($user, $provider, $socialUser);
@@ -292,10 +286,21 @@ class SocialAuthController extends Controller
                 ],
                 'message' => 'Social account linked successfully',
             ]);
+        } catch (InvalidStateException $e) {
+            Log::error('Invalid OAuth state during social account linking', [
+                'user_id' => $request->user()?->id,
+                'provider' => $request->input('provider', 'unknown'),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get user data from social provider',
+            ], 400);
         } catch (\Exception $e) {
             Log::error('Failed to link social account', [
-                'user_id' => $request->user()->id,
-                'provider' => $request->provider ?? 'unknown',
+                'user_id' => $request->user()?->id,
+                'provider' => $request->input('provider', 'unknown'),
                 'error' => $e->getMessage(),
             ]);
 

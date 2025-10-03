@@ -14,7 +14,7 @@ abstract class BaseService implements BaseServiceInterface
     /**
      * Execute database transaction with error handling
      */
-    protected function executeInTransaction(callable $callback)
+    protected function executeInTransaction(callable $callback): mixed
     {
         return DB::transaction(function () use ($callback) {
             try {

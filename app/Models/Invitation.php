@@ -9,17 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/**
- * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
- * @method static static create(array $attributes = [])
- * @method static static findOrFail($id, $columns = ['*'])
- * @method static \Illuminate\Database\Eloquent\Builder pending()
- * @method static \Illuminate\Database\Eloquent\Builder isExpired()
- * @method static \Illuminate\Database\Eloquent\Builder forOrganization($organizationId)
- *
- * @property-read Organization $organization
- * @property-read User|null $inviter
- */
 class Invitation extends Model
 {
     use HasFactory;
@@ -211,7 +200,7 @@ class Invitation extends Model
 
         $userModel = User::find($user);
 
-        return $userModel ? $this->accept($userModel) : false;
+        return $userModel && $this->accept($userModel);
     }
 
     /**
@@ -292,7 +281,7 @@ class Invitation extends Model
      */
     public function getInvitationUrl(): string
     {
-        return url("/invitations/accept/{$this->token}");
+        return url("/invitations/accept/$this->token");
     }
 
     /**
@@ -300,7 +289,7 @@ class Invitation extends Model
      */
     public function daysUntilExpiry(): int
     {
-        return (int) ceil(now()->diffInDays($this->expires_at, false));
+        return (int) ceil(now()->diffInDays($this->expires_at));
     }
 
     /**

@@ -275,16 +275,16 @@ class UserQueryService
             ->values();
 
         return $trends->map(function ($row) {
-            $totalAttempts = $row->successful_logins + $row->failed_logins;
+            $totalAttempts = $row['successful_logins'] + $row['failed_logins'];
 
             return [
-                'date' => $row->date,
-                'successful_logins' => (int) $row->successful_logins,
-                'failed_logins' => (int) $row->failed_logins,
-                'unique_users' => (int) $row->unique_users,
-                'unique_ips' => (int) $row->unique_ips,
+                'date' => $row['date'],
+                'successful_logins' => (int) $row['successful_logins'],
+                'failed_logins' => (int) $row['failed_logins'],
+                'unique_users' => (int) $row['unique_users'],
+                'unique_ips' => (int) $row['unique_ips'],
                 'success_rate' => $totalAttempts > 0
-                    ? round(($row->successful_logins / $totalAttempts) * 100, 2)
+                    ? round(($row['successful_logins'] / $totalAttempts) * 100, 2)
                     : 0,
             ];
         })->toArray();

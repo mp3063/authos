@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Application;
+use App\Models\AuthenticationLog;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
@@ -59,8 +60,8 @@ class ApplicationController extends BaseApiController
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('client_id', 'LIKE', "%{$search}%");
+                $q->where('name', 'LIKE', "%$search%")
+                    ->orWhere('client_id', 'LIKE', "%$search%");
             });
         }
 
@@ -153,11 +154,22 @@ class ApplicationController extends BaseApiController
             'revoked' => false,
         ]);
 
-        // Create application record
+        // Create application record with description stored in settings
+        $settings = array_merge([
+            'token_lifetime' => 3600,
+            'refresh_token_lifetime' => 2592000,
+            'require_pkce' => true,
+            'auto_approve' => false,
+        ], $request->input('settings', []));
+
+        // Add description to settings if provided
+        if ($request->has('description')) {
+            $settings['description'] = $request->input('description');
+        }
+
         $application = Application::create([
             'organization_id' => $request->organization_id,
             'name' => $request->name,
-            'description' => $request->input('description'),
             'client_id' => $clientId,
             'client_secret' => $clientSecret,
             'passport_client_id' => $passportClient->id,
@@ -165,12 +177,7 @@ class ApplicationController extends BaseApiController
             'allowed_origins' => $request->input('allowed_origins', []),
             'allowed_grant_types' => $request->allowed_grant_types,
             'scopes' => $request->input('scopes', ['openid', 'profile', 'email']),
-            'settings' => array_merge([
-                'token_lifetime' => 3600,
-                'refresh_token_lifetime' => 2592000,
-                'require_pkce' => true,
-                'auto_approve' => false,
-            ], $request->input('settings', [])),
+            'settings' => $settings,
             'is_active' => true,
         ]);
 
@@ -195,6 +202,7 @@ class ApplicationController extends BaseApiController
             $query->where('organization_id', $currentUser->organization_id);
         }
 
+        /** @var Application $application */
         $application = $query->findOrFail($id);
 
         return $this->successResponse($this->formatApplicationResponse($application, true));
@@ -237,25 +245,29 @@ class ApplicationController extends BaseApiController
         }
 
         $updateData = $request->only([
-            'name', 'description', 'redirect_uris', 'allowed_origins',
+            'name', 'redirect_uris', 'allowed_origins',
             'allowed_grant_types', 'scopes', 'is_active',
         ]);
 
-        if ($request->has('settings')) {
-            $updateData['settings'] = array_merge($application->settings ?? [], $request->settings);
+        if ($request->has('settings') || $request->has('description')) {
+            $settings = array_merge($application->settings ?? [], $request->input('settings', []));
+
+            // Add description to settings if provided
+            if ($request->has('description')) {
+                $settings['description'] = $request->input('description');
+            }
+
+            $updateData['settings'] = $settings;
         }
 
         $application->update($updateData);
 
         // Update Passport client if needed
         if ($request->has('name') || $request->has('redirect_uris')) {
-            $passportClient = Client::find($application->passport_client_id);
-            if ($passportClient) {
-                $passportClient->update([
-                    'name' => $application->name,
-                    'redirect' => implode(',', $application->redirect_uris),
-                ]);
-            }
+            Client::find($application->passport_client_id)?->update([
+                'name' => $application->name,
+                'redirect' => implode(',', $application->redirect_uris),
+            ]);
         }
 
         return response()->json([
@@ -305,12 +317,9 @@ class ApplicationController extends BaseApiController
         ]);
 
         // Update Passport client
-        $passportClient = Client::find($application->passport_client_id);
-        if ($passportClient) {
-            $passportClient->update([
-                'secret' => hash('sha256', $newClientSecret),
-            ]);
-        }
+        Client::find($application->passport_client_id)?->update([
+            'secret' => hash('sha256', $newClientSecret),
+        ]);
 
         // Revoke all existing tokens
         Token::where('client_id', $application->passport_client_id)->delete();
@@ -462,7 +471,7 @@ class ApplicationController extends BaseApiController
         Token::where('client_id', $application->passport_client_id)->delete();
 
         return response()->json([
-            'message' => "Revoked {$revokedCount} active tokens",
+            'message' => "Revoked $revokedCount active tokens",
         ]);
     }
 
@@ -544,7 +553,7 @@ class ApplicationController extends BaseApiController
             ->where('expires_at', '>', now())
             ->count();
 
-        $authLogs = \App\Models\AuthenticationLog::where('application_id', $application->id)
+        $authLogs = AuthenticationLog::where('application_id', $application->id)
             ->where('created_at', '>=', $startDate)
             ->get();
 
@@ -575,7 +584,7 @@ class ApplicationController extends BaseApiController
         $data = [
             'id' => $application->id,
             'name' => $application->name,
-            'description' => $application->description,
+            'description' => $application->settings['description'] ?? null,
             'client_id' => $application->client_id,
             'redirect_uris' => $application->redirect_uris,
             'allowed_origins' => $application->allowed_origins,

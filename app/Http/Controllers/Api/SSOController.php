@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Application;
 use App\Models\Organization;
 use App\Models\SSOConfiguration;
 use App\Services\SSOService;
@@ -13,8 +14,14 @@ use Illuminate\Validation\ValidationException;
 
 class SSOController extends Controller
 {
+    /**
+     * SSO service instance
+     */
     protected SSOService $ssoService;
 
+    /**
+     * Create a new controller instance
+     */
     public function __construct(SSOService $ssoService)
     {
         $this->ssoService = $ssoService;
@@ -34,8 +41,8 @@ class SSOController extends Controller
         try {
             // Check authorization first (without redirect_uri validation)
             $user = $request->user();
-            $application = \App\Models\Application::findOrFail($request->application_id);
-            $ssoConfig = \App\Models\SSOConfiguration::findOrFail($request->sso_configuration_id);
+            $application = Application::findOrFail($request->application_id);
+            $ssoConfig = SSOConfiguration::findOrFail($request->sso_configuration_id);
 
             // Check if SSO config belongs to the same organization (primary security check)
             if ($ssoConfig->application->organization_id !== $user->organization_id) {
@@ -75,12 +82,6 @@ class SSOController extends Controller
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
-            ], 422);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => ['redirect_uri' => [$e->getMessage()]],
             ], 422);
         } catch (Exception $e) {
             // Return 403 for authorization/permission errors, 400 for other errors

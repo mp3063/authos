@@ -101,7 +101,7 @@ abstract class BaseRepository implements BaseRepositoryInterface
     /**
      * Find models by criteria
      */
-    public function findBy(string $field, $value): Collection
+    public function findBy(string $field, mixed $value): Collection
     {
         return $this->query()->where($field, $value)->get();
     }
@@ -109,7 +109,7 @@ abstract class BaseRepository implements BaseRepositoryInterface
     /**
      * Find first model by criteria
      */
-    public function findFirstBy(string $field, $value): ?Model
+    public function findFirstBy(string $field, mixed $value): ?Model
     {
         return $this->query()->where($field, $value)->first();
     }
@@ -149,7 +149,7 @@ abstract class BaseRepository implements BaseRepositoryInterface
     /**
      * Apply individual filter
      */
-    protected function applyFilter(Builder $query, string $field, $value): void
+    protected function applyFilter(Builder $query, string $field, mixed $value): void
     {
         // Default implementation - can be overridden in child classes
         if (is_array($value)) {

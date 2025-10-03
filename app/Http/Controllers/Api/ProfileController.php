@@ -16,11 +16,11 @@ use PragmaRX\Google2FA\Google2FA;
 
 class ProfileController extends Controller
 {
-    protected AuthenticationLogService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(AuthenticationLogService $oAuthService)
+    public function __construct(AuthenticationLogService $authLogService)
     {
-        $this->authLogService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->middleware('auth:api');
     }
 

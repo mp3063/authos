@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api\Traits;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Standardized API response formatting trait
@@ -23,8 +22,8 @@ trait ApiResponse
         ];
 
         if ($data !== null) {
-            // Handle API Resources
-            if ($data instanceof JsonResource || $data instanceof AnonymousResourceCollection) {
+            // Handle API Resources (check AnonymousResourceCollection first as it extends JsonResource)
+            if ($data instanceof JsonResource) {
                 $response['data'] = $data->resolve();
             } else {
                 $response['data'] = $data;

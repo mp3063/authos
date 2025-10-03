@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\PermissionRegistrar;
 
 class AuthorizationServiceProvider extends ServiceProvider
@@ -42,14 +43,14 @@ class AuthorizationServiceProvider extends ServiceProvider
                 if ($user->hasPermissionTo($ability)) {
                     return true;
                 }
-            } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            } catch (PermissionDoesNotExist $e) {
                 // Permission doesn't exist, return false instead of throwing
                 return false;
             }
 
             // Fallback: Manual check for organization-scoped permissions
             $permissions = $user->getAllPermissions();
-            $orgScopedPermission = "{$ability} (org:{$user->organization_id})";
+            $orgScopedPermission = "$ability (org:$user->organization_id)";
 
             foreach ($permissions as $permission) {
                 if ($permission->name === $ability || $permission->name === $orgScopedPermission) {

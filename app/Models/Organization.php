@@ -2,22 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-/**
- * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
- * @method static static create(array $attributes = [])
- * @method static static findOrFail($id, $columns = ['*'])
- * @method static \Illuminate\Database\Eloquent\Builder with($relations)
- *
- * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
- * @property-read \Illuminate\Database\Eloquent\Collection|Application[] $applications
- */
 class Organization extends Model
 {
     use HasFactory, SoftDeletes;
@@ -70,7 +63,7 @@ class Organization extends Model
     /**
      * Get all users who have access to any application in this organization
      */
-    public function users()
+    public function users(): Builder
     {
         return User::whereHas('applications', function ($query) {
             $query->where('organization_id', $this->id);
@@ -80,7 +73,7 @@ class Organization extends Model
     /**
      * Get users with their application access details for this organization
      */
-    public function usersWithApplications()
+    public function usersWithApplications(): Collection
     {
         return $this->applications()
             ->with(['users' => function ($query) {
@@ -227,7 +220,7 @@ class Organization extends Model
     /**
      * Get all permissions available to this organization (org-specific + global)
      */
-    public function getAvailablePermissions()
+    public function getAvailablePermissions(): Collection
     {
         return Permission::where(function ($query) {
             $query->where('organization_id', $this->id)
@@ -238,7 +231,7 @@ class Organization extends Model
     /**
      * Get all roles available to this organization (org-specific + global)
      */
-    public function getAvailableRoles()
+    public function getAvailableRoles(): Collection
     {
         return Role::where(function ($query) {
             $query->where('organization_id', $this->id)

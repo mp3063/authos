@@ -44,7 +44,7 @@ abstract class OrganizationScopedController extends BaseApiController
     /**
      * Get query builder scoped to organization
      */
-    protected function getOrganizationScopedQuery($model, Organization $organization)
+    protected function getOrganizationScopedQuery(string $model, Organization $organization): \Illuminate\Database\Eloquent\Builder
     {
         return $model::where('organization_id', $organization->id);
     }
@@ -52,7 +52,7 @@ abstract class OrganizationScopedController extends BaseApiController
     /**
      * Validate that a resource belongs to the current organization
      */
-    protected function validateResourceOrganization($resource, Organization $organization): void
+    protected function validateResourceOrganization(object $resource, Organization $organization): void
     {
         if ($resource->organization_id !== $organization->id && ! $this->isSuperAdmin()) {
             abort(403, 'Resource does not belong to your organization');
@@ -62,7 +62,7 @@ abstract class OrganizationScopedController extends BaseApiController
     /**
      * Apply organization filters to query
      */
-    protected function applyOrganizationFilters($query, Organization $organization)
+    protected function applyOrganizationFilters(\Illuminate\Database\Eloquent\Builder $query, Organization $organization): \Illuminate\Database\Eloquent\Builder
     {
         if (! $this->isSuperAdmin()) {
             $query->where('organization_id', $organization->id);

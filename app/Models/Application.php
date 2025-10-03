@@ -11,17 +11,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
-/**
- * @method static \Illuminate\Database\Eloquent\Builder where($column, $operator = null, $value = null, $boolean = 'and')
- * @method static \Illuminate\Database\Eloquent\Builder whereIn($column, $values, $boolean = 'and', $not = false)
- * @method static static create(array $attributes = [])
- * @method static static findOrFail($id, $columns = ['*'])
- * @method static \Illuminate\Database\Eloquent\Builder with($relations)
- * @method static \Illuminate\Database\Eloquent\Collection pluck($column, $key = null)
- *
- * @property-read \Illuminate\Database\Eloquent\Collection|User[] $users
- * @property-read Organization $organization
- */
 class Application extends Model
 {
     use BelongsToOrganization, HasFactory;
@@ -50,7 +39,7 @@ class Application extends Model
         'is_active' => 'boolean',
     ];
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
 
@@ -78,12 +67,12 @@ class Application extends Model
 
     public function ssoConfiguration(): HasOne
     {
-        return $this->hasOne(\App\Models\SSOConfiguration::class);
+        return $this->hasOne(SSOConfiguration::class);
     }
 
     public function ssoSessions(): HasMany
     {
-        return $this->hasMany(\App\Models\SSOSession::class);
+        return $this->hasMany(SSOSession::class);
     }
 
     public function regenerateSecret(): void

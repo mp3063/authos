@@ -37,13 +37,13 @@ use Throwable;
  */
 class BulkOperationsController extends Controller
 {
-    protected AuthenticationLogService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
     protected InvitationService $invitationService;
 
-    public function __construct(AuthenticationLogService $oAuthService, InvitationService $invitationService)
+    public function __construct(AuthenticationLogService $authLogService, InvitationService $invitationService)
     {
-        $this->authLogService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->invitationService = $invitationService;
         $this->middleware('auth:api');
     }
@@ -345,7 +345,12 @@ class BulkOperationsController extends Controller
         $this->authLogService->logAuthenticationEvent(
             $currentUser,
             'bulk_role_'.$action,
-            ['role_id' => $roleId, 'action' => $action, 'users_count' => count($validated['user_ids'])],
+            [
+                'action' => $action,
+                'users_count' => count($request->user_ids),
+                'roles' => $roles,
+                'custom_roles' => $customRoleIds,
+            ],
             $request
         );
 

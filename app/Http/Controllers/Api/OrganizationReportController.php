@@ -15,12 +15,12 @@ class OrganizationReportController extends Controller
 {
     protected OrganizationReportingService $reportingService;
 
-    protected AuthenticationLogService $oAuthService;
+    protected AuthenticationLogService $authLogService;
 
-    public function __construct(OrganizationReportingService $reportingService, AuthenticationLogService $oAuthService)
+    public function __construct(OrganizationReportingService $reportingService, AuthenticationLogService $authLogService)
     {
         $this->reportingService = $reportingService;
-        $this->authLogService = $oAuthService;
+        $this->authLogService = $authLogService;
         $this->middleware('auth:api');
     }
 

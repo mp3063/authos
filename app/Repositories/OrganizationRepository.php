@@ -204,7 +204,7 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     /**
      * Get filtered organizations with pagination
      */
-    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15)
+    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15): LengthAwarePaginator
     {
         $query = $this->model->newQuery();
 

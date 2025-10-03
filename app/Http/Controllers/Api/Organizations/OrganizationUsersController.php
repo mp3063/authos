@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Organizations;
 
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Organization\GrantUserAccessRequest;
+use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\UserResource;
 use App\Models\Application;
 use App\Models\Organization;
@@ -141,7 +142,7 @@ class OrganizationUsersController extends BaseApiController
         return $this->paginatedResponse(
             $applications,
             'Organization applications retrieved successfully',
-            \App\Http\Resources\ApplicationResource::class
+            ApplicationResource::class
         );
     }
 
@@ -163,7 +164,9 @@ class OrganizationUsersController extends BaseApiController
             return $this->validationErrorResponse($validator->errors());
         }
 
+        /** @var User $user */
         $user = User::findOrFail($request->input('user_id'));
+        /** @var Application $application */
         $application = Application::findOrFail($request->input('application_id'));
 
         if ($user->organization_id !== $organization->id) {
@@ -199,7 +202,9 @@ class OrganizationUsersController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
+        /** @var User $user */
         $user = User::findOrFail($userId);
+        /** @var Application $application */
         $application = Application::findOrFail($applicationId);
 
         if ($user->organization_id !== $organization->id) {

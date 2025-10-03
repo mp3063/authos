@@ -60,7 +60,8 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Attributes that should never be mass assigned or saved to database
      */
-    protected $guarded = ['permissionsTeamId'];
+    // Note: Using $fillable instead of $guarded for explicit mass assignment protection
+    // The permissionsTeamId is a transient property (public $permissionsTeamId) and won't be saved to DB
 
     protected function casts(): array
     {

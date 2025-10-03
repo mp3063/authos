@@ -7,7 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\Token;
+use Throwable;
 
 class HealthController extends Controller
 {
@@ -135,7 +137,7 @@ class HealthController extends Controller
                 'response_time_ms' => $responseTime,
                 'message' => 'Database connection successful',
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'healthy' => false,
                 'message' => 'Database connection failed: '.$e->getMessage(),
@@ -160,7 +162,7 @@ class HealthController extends Controller
                 'response_time_ms' => $responseTime,
                 'message' => 'Redis connection successful',
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'healthy' => false,
                 'message' => 'Redis connection failed: '.$e->getMessage(),
@@ -196,7 +198,7 @@ class HealthController extends Controller
                     'message' => 'Cache read/write verification failed',
                 ];
             }
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'healthy' => false,
                 'message' => 'Cache operation failed: '.$e->getMessage(),
@@ -224,7 +226,7 @@ class HealthController extends Controller
                 'message' => 'OAuth system operational',
                 'active_tokens' => $activeTokensCount,
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'healthy' => false,
                 'message' => 'OAuth system check failed: '.$e->getMessage(),
@@ -243,9 +245,9 @@ class HealthController extends Controller
             $testContent = 'Health check test content';
 
             $start = microtime(true);
-            \Storage::disk('local')->put($testFile, $testContent);
-            $readContent = \Storage::disk('local')->get($testFile);
-            \Storage::disk('local')->delete($testFile);
+            Storage::disk('local')->put($testFile, $testContent);
+            $readContent = Storage::disk('local')->get($testFile);
+            Storage::disk('local')->delete($testFile);
             $responseTime = round((microtime(true) - $start) * 1000, 2);
 
             if ($readContent === $testContent) {
@@ -260,7 +262,7 @@ class HealthController extends Controller
                     'message' => 'Storage read/write verification failed',
                 ];
             }
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'healthy' => false,
                 'message' => 'Storage operation failed: '.$e->getMessage(),
@@ -348,7 +350,7 @@ class HealthController extends Controller
                 'applications_total' => $applications,
                 'auth_logs_today' => $authLogs,
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'error' => 'Failed to retrieve database metrics: '.$e->getMessage(),
             ];
@@ -364,16 +366,20 @@ class HealthController extends Controller
             $redis = Redis::connection();
             $info = $redis->info();
 
+            $keyspaceHits = $info['keyspace_hits'] ?? 0;
+            $keyspaceMisses = $info['keyspace_misses'] ?? 0;
+            $totalKeyspaceRequests = $keyspaceHits + $keyspaceMisses;
+
             return [
                 'memory_usage' => $info['used_memory'] ?? null,
                 'connected_clients' => $info['connected_clients'] ?? null,
-                'keyspace_hits' => $info['keyspace_hits'] ?? null,
-                'keyspace_misses' => $info['keyspace_misses'] ?? null,
-                'hit_ratio' => isset($info['keyspace_hits'], $info['keyspace_misses'])
-                    ? round(($info['keyspace_hits'] / ($info['keyspace_hits'] + $info['keyspace_misses'])) * 100, 2)
+                'keyspace_hits' => $keyspaceHits,
+                'keyspace_misses' => $keyspaceMisses,
+                'hit_ratio' => $totalKeyspaceRequests > 0
+                    ? round(($keyspaceHits / $totalKeyspaceRequests) * 100, 2)
                     : null,
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'error' => 'Failed to retrieve cache metrics: '.$e->getMessage(),
             ];
@@ -395,7 +401,7 @@ class HealthController extends Controller
                 'total_tokens' => $totalTokens,
                 'expired_tokens' => $expiredTokens,
             ];
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return [
                 'error' => 'Failed to retrieve OAuth metrics: '.$e->getMessage(),
             ];
@@ -433,6 +439,7 @@ class HealthController extends Controller
         $totalErrors = $metrics['total_errors'] ?? 0;
         $totalExecutionTime = $metrics['total_execution_time'] ?? 0;
         $uniqueUsers = count($metrics['unique_users'] ?? []);
+        $minExecutionTime = $metrics['min_execution_time'] ?? PHP_FLOAT_MAX;
 
         return [
             'requests' => $totalRequests,
@@ -440,7 +447,7 @@ class HealthController extends Controller
             'error_rate' => $totalRequests > 0 ? round(($totalErrors / $totalRequests) * 100, 2) : 0,
             'avg_response_time' => $totalRequests > 0 ? round($totalExecutionTime / $totalRequests, 2) : 0,
             'max_response_time' => $metrics['max_execution_time'] ?? 0,
-            'min_response_time' => $metrics['min_execution_time'] !== PHP_FLOAT_MAX ? $metrics['min_execution_time'] : 0,
+            'min_response_time' => $minExecutionTime !== PHP_FLOAT_MAX ? $minExecutionTime : 0,
             'unique_users' => $uniqueUsers,
             'top_endpoints' => array_slice($metrics['endpoints'] ?? [], 0, 5, true),
             'status_codes' => $metrics['status_codes'] ?? [],

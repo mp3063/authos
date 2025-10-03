@@ -42,7 +42,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -136,7 +136,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -193,6 +193,7 @@ class CustomRoleController extends Controller
             return $this->errorResponse('Access denied to this organization', 403);
         }
 
+        /** @var CustomRole $customRole */
         $customRole = CustomRole::where('organization_id', $organizationId)
             ->with(['creator:id,name,email', 'users:id,name,email'])
             ->findOrFail($id);
@@ -230,7 +231,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -264,8 +265,11 @@ class CustomRoleController extends Controller
             $request
         );
 
+        /** @var CustomRole $refreshedRole */
+        $refreshedRole = $customRole->fresh(['creator', 'users']);
+
         return $this->successResponse(
-            $this->formatCustomRoleResponse($customRole->fresh(['creator', 'users'])),
+            $this->formatCustomRoleResponse($refreshedRole),
             'Custom role updated successfully'
         );
     }
@@ -340,7 +344,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         $organization = Organization::findOrFail($organizationId);
@@ -397,7 +401,7 @@ class CustomRoleController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray(), 'The given data was invalid.');
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         $organization = Organization::findOrFail($organizationId);

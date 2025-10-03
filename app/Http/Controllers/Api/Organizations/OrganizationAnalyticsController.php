@@ -6,9 +6,10 @@ use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use App\Models\Organization;
 use App\Services\OrganizationAnalyticsService;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class OrganizationAnalyticsController extends BaseApiController
@@ -50,7 +51,7 @@ class OrganizationAnalyticsController extends BaseApiController
         // Cache analytics using the improved caching trait
         $cacheParams = compact('period', 'metrics', 'timezone');
         $analyticsData = $this->cacheAnalytics(
-            "organization_{$organization->id}",
+            'organization_'.$organization->id,
             $cacheParams,
             function () use ($organization, $period) {
                 return $this->analyticsService->getAnalytics(
@@ -90,10 +91,10 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $cacheParams = compact('period', 'type');
         $metrics = $this->cacheAnalytics(
-            "user_metrics_{$organization->id}",
+            'user_metrics_'.$organization->id,
             $cacheParams,
-            function () use ($organization, $period, $type) {
-                return $this->analyticsService->getUserMetrics($organization->id, $period, $type);
+            function () use ($organization, $period) {
+                return $this->analyticsService->getUserGrowthMetrics($organization, $period);
             }
         );
 
@@ -126,7 +127,7 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $cacheParams = compact('period', 'applicationId');
         $metrics = $this->cacheAnalytics(
-            "app_metrics_{$organization->id}",
+            'app_metrics_'.$organization->id,
             $cacheParams,
             function () use ($organization, $period, $applicationId) {
                 return $this->analyticsService->getApplicationMetrics($organization->id, $period, $applicationId);
@@ -162,7 +163,7 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $cacheParams = compact('period', 'includeFailedAttempts');
         $metrics = $this->cacheAnalytics(
-            "security_metrics_{$organization->id}",
+            'security_metrics_'.$organization->id,
             $cacheParams,
             function () use ($organization, $period) {
                 return $this->analyticsService->getSecurityMetrics($organization, $period);
@@ -201,20 +202,97 @@ class OrganizationAnalyticsController extends BaseApiController
         $dateTo = $request->get('date_to');
 
         try {
-            $exportData = $this->analyticsService->exportOrganizationData(
-                $organization->id,
-                $dataType,
-                $format,
-                $dateFrom,
-                $dateTo
-            );
+            // Build export data based on data type
+            $exportData = match ($dataType) {
+                'users' => $this->exportUsers($organization, $dateFrom, $dateTo),
+                'applications' => $this->exportApplications($organization, $dateFrom, $dateTo),
+                'analytics' => $this->exportAnalytics($organization, $dateFrom, $dateTo),
+                'security_logs' => $this->exportSecurityLogs($organization, $dateFrom, $dateTo),
+                default => throw new Exception('Invalid data type'),
+            };
 
             return $this->successResponse(
-                $exportData,
+                [
+                    'format' => $format,
+                    'data_type' => $dataType,
+                    'data' => $exportData,
+                    'exported_at' => now()->toIso8601String(),
+                ],
                 'Organization data exported successfully'
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->errorResponse('Failed to export data: '.$e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Export users data
+     */
+    private function exportUsers(Organization $organization, ?string $dateFrom, ?string $dateTo): array
+    {
+        $users = $this->analyticsService->getOrganizationUsers(
+            $organization,
+            array_filter([
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ])
+        );
+
+        return $users->toArray();
+    }
+
+    /**
+     * Export applications data
+     */
+    private function exportApplications(Organization $organization, ?string $dateFrom, ?string $dateTo): array
+    {
+        $dateRange = [
+            'start' => $dateFrom ? Carbon::parse($dateFrom) : now()->subMonth(),
+            'end' => $dateTo ? Carbon::parse($dateTo) : now(),
+        ];
+
+        return $this->analyticsService->getApplicationUsage($organization, $dateRange)->toArray();
+    }
+
+    /**
+     * Export analytics data
+     */
+    private function exportAnalytics(Organization $organization, ?string $dateFrom, ?string $dateTo): array
+    {
+        $period = $this->determinePeriodFromDates($dateFrom, $dateTo);
+
+        return $this->analyticsService->getAnalytics($organization, $period);
+    }
+
+    /**
+     * Export security logs data
+     */
+    private function exportSecurityLogs(Organization $organization, ?string $dateFrom, ?string $dateTo): array
+    {
+        $period = $this->determinePeriodFromDates($dateFrom, $dateTo);
+
+        return $this->analyticsService->getSecurityMetrics($organization, $period);
+    }
+
+    /**
+     * Determine period from date range
+     */
+    private function determinePeriodFromDates(?string $dateFrom, ?string $dateTo): string
+    {
+        if (! $dateFrom || ! $dateTo) {
+            return '30d';
+        }
+
+        $start = Carbon::parse($dateFrom);
+        $end = Carbon::parse($dateTo);
+        $days = $start->diffInDays($end);
+
+        return match (true) {
+            $days <= 1 => '24h',
+            $days <= 7 => '7d',
+            $days <= 30 => '30d',
+            $days <= 90 => '90d',
+            default => '1y',
+        };
     }
 }

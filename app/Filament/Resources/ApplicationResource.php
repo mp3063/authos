@@ -8,6 +8,7 @@ use App\Filament\Resources\ApplicationResource\Pages\ListApplications;
 use App\Filament\Resources\ApplicationResource\Pages\ViewApplication;
 use App\Filament\Resources\ApplicationResource\RelationManagers\UsersRelationManager;
 use App\Models\Application;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -17,6 +18,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
@@ -90,7 +92,6 @@ class ApplicationResource extends Resource
                         'password' => 'Password Grant (Legacy)',
                     ])
                     ->default(['authorization_code', 'refresh_token'])
-                    ->required()
                     ->columns(2)
                     ->helperText('OAuth 2.0 grant types allowed for this application'),
             ])->columnSpanFull(), // Force full width
@@ -127,7 +128,7 @@ class ApplicationResource extends Resource
                     'allowed_scopes' => ['openid', 'profile', 'email'],
                 ])->helperText('Application-specific OAuth and security settings'),
             ])->columnSpan(1),
-        ])->columns(2);
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -169,7 +170,7 @@ class ApplicationResource extends Resource
             Filter::make('authorization_code_grant')
                 ->query(fn (Builder $query): Builder => $query->whereJsonContains('allowed_grant_types', 'authorization_code'))
                 ->label('Authorization Code Grant'),
-        ])->actions([
+        ])->recordActions([
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
@@ -184,13 +185,6 @@ class ApplicationResource extends Resource
                         $record->save();
                     })
                     ->successNotificationTitle('Client secret regenerated successfully'),
-                Action::make('copy_credentials')
-                    ->icon('heroicon-o-clipboard-document')
-                    ->color('info')
-                    ->modalHeading('Application Credentials')
-                    ->modalContent(fn (Application $record) => view('filament.modals.application-credentials', compact('record')))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
                 DeleteAction::make()
                     ->requiresConfirmation()
                     ->modalHeading('Delete Application')
@@ -232,7 +226,12 @@ class ApplicationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
+        // Ensure user is properly typed and authenticated
+        if (! $user instanceof User) {
+            return $query->whereRaw('1 = 0'); // Return empty results if not authenticated properly
+        }
 
         // Super admins can see all applications
         if ($user->isSuperAdmin()) {

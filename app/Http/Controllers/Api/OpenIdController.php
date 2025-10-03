@@ -91,7 +91,7 @@ class OpenIdController extends Controller
         if ($request->user()->tokenCan('profile')) {
             $userInfo['name'] = $user->name;
             $userInfo['preferred_username'] = $user->email;
-            $userInfo['picture'] = $user->profile['avatar'] ?? null;
+            $userInfo['picture'] = is_array($user->profile) ? ($user->profile['avatar'] ?? null) : null;
             $userInfo['updated_at'] = $user->updated_at?->timestamp;
         }
 
@@ -114,7 +114,7 @@ class OpenIdController extends Controller
      * JSON Web Key Set (JWKS) endpoint
      * GET /oauth/jwks
      */
-    public function jwks(Request $request): JsonResponse
+    public function jwks(): JsonResponse
     {
         // Read the public key
         $publicKeyPath = storage_path('oauth-public.key');
@@ -129,7 +129,16 @@ class OpenIdController extends Controller
         $publicKey = File::get($publicKeyPath);
 
         // Parse the public key to extract parameters
-        $keyDetails = openssl_pkey_get_details(openssl_pkey_get_public($publicKey));
+        $publicKeyResource = openssl_pkey_get_public($publicKey);
+
+        if ($publicKeyResource === false) {
+            return response()->json([
+                'error' => 'server_error',
+                'error_description' => 'Invalid public key format',
+            ], 500);
+        }
+
+        $keyDetails = openssl_pkey_get_details($publicKeyResource);
 
         if (! $keyDetails || $keyDetails['type'] !== OPENSSL_KEYTYPE_RSA) {
             return response()->json([
@@ -139,8 +148,8 @@ class OpenIdController extends Controller
         }
 
         // Convert RSA key parameters to JWK format
-        $n = $this->base64url_encode($keyDetails['rsa']['n']);
-        $e = $this->base64url_encode($keyDetails['rsa']['e']);
+        $n = $this->base64UrlEncode($keyDetails['rsa']['n']);
+        $e = $this->base64UrlEncode($keyDetails['rsa']['e']);
 
         return response()->json([
             'keys' => [
@@ -159,7 +168,7 @@ class OpenIdController extends Controller
     /**
      * Base64 URL encode helper
      */
-    private function base64url_encode(string $data): string
+    private function base64UrlEncode(string $data): string
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }

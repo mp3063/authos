@@ -340,12 +340,10 @@ class UserManagementApiTest extends TestCase
             'permissions' => ['read', 'write'],
         ]);
 
-        $response->assertStatus(200)
+        $response->assertStatus(201)
             ->assertJson([
                 'success' => true,
-                'data' => [
-                    'message' => 'Application access granted successfully',
-                ],
+                'message' => 'Application access granted successfully',
             ]);
 
         $this->assertDatabaseHas('user_applications', [
@@ -376,9 +374,7 @@ class UserManagementApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'data' => [
-                    'message' => 'Application access revoked successfully',
-                ],
+                'message' => 'Application access revoked successfully',
             ]);
 
         $this->assertDatabaseMissing('user_applications', [
@@ -449,12 +445,10 @@ class UserManagementApiTest extends TestCase
             'role_id' => $role->id,
         ]);
 
-        $response->assertStatus(200)
+        $response->assertStatus(201)
             ->assertJson([
                 'success' => true,
-                'data' => [
-                    'message' => 'Role assigned successfully',
-                ],
+                'message' => 'Role assigned successfully',
             ]);
 
         $this->assertTrue($user->hasRole($role));
@@ -485,9 +479,7 @@ class UserManagementApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'data' => [
-                    'message' => 'Role removed successfully',
-                ],
+                'message' => 'Role removed successfully',
             ]);
 
         $this->assertFalse($user->hasRole($role));
@@ -602,9 +594,7 @@ class UserManagementApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'data' => [
-                    'message' => 'Session revoked successfully',
-                ],
+                'message' => 'Session revoked successfully',
             ]);
 
         // Check if session was updated by fetching fresh from DB
