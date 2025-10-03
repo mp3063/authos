@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -16,8 +15,6 @@ use Tests\TestCase;
 
 class BulkOperationsApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $organizationOwner;

@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -16,8 +15,6 @@ use Tests\TestCase;
 
 class ProfileApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $user;

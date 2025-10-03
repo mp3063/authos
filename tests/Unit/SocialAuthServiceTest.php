@@ -6,7 +6,6 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
 use App\Services\SocialAuthService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -16,8 +15,6 @@ use Tests\TestCase;
 
 class SocialAuthServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private SocialAuthService $socialAuthService;
 
     private $mockAuthLogService;
@@ -76,7 +73,8 @@ class SocialAuthServiceTest extends TestCase
     public function test_get_redirect_url_returns_valid_url()
     {
         $mockDriver = Mockery::mock();
-        $mockDriver->shouldReceive('stateless')->andReturnSelf();
+        $mockDriver->shouldReceive('scopes')->with(['openid', 'profile', 'email'])->andReturnSelf();
+        $mockDriver->shouldReceive('with')->with(Mockery::type('array'))->andReturnSelf();
         $mockDriver->shouldReceive('redirect')->andReturnSelf();
         $mockDriver->shouldReceive('getTargetUrl')->andReturn('https://accounts.google.com/oauth/authorize?...');
 

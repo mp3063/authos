@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class SocialAccount extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'provider',
+        'provider_id',
+        'provider_token',
+        'provider_refresh_token',
+        'token_expires_at',
+        'avatar',
+        'email',
+        'name',
+        'provider_data',
+    ];
+
+    protected $hidden = [
+        'provider_token',
+        'provider_refresh_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'provider_data' => 'array',
+            'token_expires_at' => 'datetime',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the provider display name
+     */
+    public function getProviderDisplayName(): string
+    {
+        return match ($this->provider) {
+            'google' => 'Google',
+            'github' => 'GitHub',
+            'facebook' => 'Facebook',
+            'twitter' => 'Twitter',
+            'linkedin' => 'LinkedIn',
+            default => ucfirst($this->provider)
+        };
+    }
+
+    /**
+     * Check if the token is expired
+     */
+    public function isTokenExpired(): bool
+    {
+        if (! $this->token_expires_at) {
+            return false;
+        }
+
+        return $this->token_expires_at->isPast();
+    }
+
+    /**
+     * Find a social account by provider and provider ID
+     */
+    public static function findByProvider(string $provider, string $providerId): ?self
+    {
+        return static::where('provider', $provider)
+            ->where('provider_id', $providerId)
+            ->first();
+    }
+}

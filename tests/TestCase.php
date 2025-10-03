@@ -4,7 +4,7 @@ namespace Tests;
 
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 use Laravel\Passport\Passport;
@@ -12,8 +12,9 @@ use Spatie\Permission\Models\Role;
 
 abstract class TestCase extends BaseTestCase
 {
-    // Keep original RefreshDatabase but add memory optimizations
-    use RefreshDatabase;
+    // Use DatabaseMigrations to avoid transaction nesting issues
+    // This runs migrations for each test class, ensuring proper database state
+    use DatabaseMigrations;
 
     // Memory optimization: Cache expensive operations
     protected static bool $passportInitialized = false;

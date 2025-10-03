@@ -684,26 +684,59 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
-        $linkedProviders = [];
+        // Get all connected social accounts for the user
+        $socialAccounts = $user->socialAccounts()
+            ->get()
+            ->map(function ($account) {
+                return [
+                    'id' => $account->id,
+                    'provider' => $account->provider,
+                    'provider_display_name' => $account->getProviderDisplayName(),
+                    'provider_id' => $account->provider_id,
+                    'email' => $account->email,
+                    'name' => $account->name,
+                    'avatar' => $account->avatar,
+                    'connected_at' => $account->created_at,
+                    'token_expired' => $account->isTokenExpired(),
+                ];
+            });
+
+        // Include legacy social account if exists (for backward compatibility)
         if ($user->provider && $user->provider_id) {
-            $linkedProviders[] = [
-                'provider' => $user->provider,
-                'provider_id' => $user->provider_id,
-                'connected_at' => $user->created_at, // Approximation
-            ];
+            $legacyExists = $socialAccounts->firstWhere('provider', $user->provider);
+            if (! $legacyExists) {
+                $socialAccounts->push([
+                    'id' => null,
+                    'provider' => $user->provider,
+                    'provider_display_name' => $user->getProviderDisplayName(),
+                    'provider_id' => $user->provider_id,
+                    'email' => $user->email,
+                    'name' => $user->name,
+                    'avatar' => $user->avatar,
+                    'connected_at' => $user->created_at,
+                    'token_expired' => false,
+                    'legacy' => true,
+                ]);
+            }
         }
+
+        // Build available providers list
+        $availableProviders = collect(['google', 'github', 'facebook', 'twitter', 'linkedin'])
+            ->mapWithKeys(function ($provider) use ($socialAccounts) {
+                $connected = $socialAccounts->firstWhere('provider', $provider);
+
+                return [$provider => [
+                    'name' => ucfirst($provider),
+                    'connected' => (bool) $connected,
+                    'account' => $connected ?: null,
+                ]];
+            });
 
         return response()->json([
             'success' => true,
             'data' => [
-                'linked_providers' => $linkedProviders,
-                'available_providers' => [
-                    'google' => ['name' => 'Google', 'connected' => $user->provider === 'google'],
-                    'github' => ['name' => 'GitHub', 'connected' => $user->provider === 'github'],
-                    'facebook' => ['name' => 'Facebook', 'connected' => $user->provider === 'facebook'],
-                    'twitter' => ['name' => 'Twitter', 'connected' => $user->provider === 'twitter'],
-                    'linkedin' => ['name' => 'LinkedIn', 'connected' => $user->provider === 'linkedin'],
-                ],
+                'linked_providers' => $socialAccounts->values(),
+                'available_providers' => $availableProviders,
             ],
         ]);
     }

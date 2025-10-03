@@ -6,13 +6,10 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class InvitationTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $inviter;

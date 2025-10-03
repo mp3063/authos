@@ -7,7 +7,6 @@ use App\Models\Organization;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
@@ -15,8 +14,6 @@ use Tests\TestCase;
 
 class SSOApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $user;

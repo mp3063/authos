@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use App\Models\Organization;
 use App\Models\User;
 use App\Providers\AuthorizationServiceProvider;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class AuthorizationTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $superAdmin;

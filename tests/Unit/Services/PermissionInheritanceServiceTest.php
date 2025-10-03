@@ -7,13 +7,10 @@ use App\Models\ApplicationGroup;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\PermissionInheritanceService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PermissionInheritanceServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private PermissionInheritanceService $permissionService;
 
     private Organization $organization;

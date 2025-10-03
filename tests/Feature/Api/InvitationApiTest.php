@@ -6,7 +6,6 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
@@ -14,8 +13,6 @@ use Tests\TestCase;
 
 class InvitationApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $adminUser;

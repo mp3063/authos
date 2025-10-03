@@ -18,14 +18,83 @@ class SocialAuthService
     ) {}
 
     /**
-     * Get the redirect URL for the given provider
+     * Get the redirect URL for the given provider with state parameter
      */
-    public function getRedirectUrl(string $provider): string
+    public function getRedirectUrl(string $provider, ?string $organizationSlug = null): string
     {
-        return Socialite::driver($provider)
-            ->stateless()
+        $driver = Socialite::driver($provider);
+
+        // Add additional scopes based on provider
+        $driver = $this->addProviderScopes($driver, $provider);
+
+        // Store state with organization for validation during callback
+        $state = $this->generateState($provider, $organizationSlug);
+
+        return $driver
+            ->with(['state' => $state])
             ->redirect()
             ->getTargetUrl();
+    }
+
+    /**
+     * Generate and store OAuth state parameter for CSRF protection
+     */
+    private function generateState(string $provider, ?string $organizationSlug = null): string
+    {
+        $state = bin2hex(random_bytes(32));
+
+        // Store state in cache with expiration (5 minutes)
+        cache()->put("oauth_state:{$state}", [
+            'provider' => $provider,
+            'organization_slug' => $organizationSlug,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ], now()->addMinutes(5));
+
+        return $state;
+    }
+
+    /**
+     * Validate OAuth state parameter
+     */
+    private function validateState(string $state): array
+    {
+        $stateData = cache()->pull("oauth_state:{$state}");
+
+        if (! $stateData) {
+            throw new \Exception('Invalid or expired OAuth state parameter');
+        }
+
+        // Additional security: verify IP and user agent
+        if ($stateData['ip_address'] !== request()->ip()) {
+            Log::warning('OAuth state IP mismatch', [
+                'stored_ip' => $stateData['ip_address'],
+                'request_ip' => request()->ip(),
+            ]);
+        }
+
+        return $stateData;
+    }
+
+    /**
+     * Add provider-specific OAuth scopes
+     */
+    private function addProviderScopes($driver, string $provider)
+    {
+        $scopes = match ($provider) {
+            'google' => ['openid', 'profile', 'email'],
+            'github' => ['user:email'],
+            'facebook' => ['email', 'public_profile'],
+            'linkedin' => ['openid', 'profile', 'email'],
+            'twitter' => ['tweet.read', 'users.read', 'offline.access'],
+            default => [],
+        };
+
+        if (! empty($scopes)) {
+            $driver->scopes($scopes);
+        }
+
+        return $driver;
     }
 
     /**
@@ -34,6 +103,14 @@ class SocialAuthService
     public function handleCallback(string $provider, ?string $organizationSlug = null): array
     {
         try {
+            // Validate OAuth state parameter for CSRF protection
+            $state = request()->query('state');
+            if ($state) {
+                $stateData = $this->validateState($state);
+                // Use organization from state if not provided
+                $organizationSlug = $organizationSlug ?? $stateData['organization_slug'] ?? null;
+            }
+
             $socialUser = Socialite::driver($provider)->stateless()->user();
 
             return DB::transaction(function () use ($provider, $socialUser, $organizationSlug) {

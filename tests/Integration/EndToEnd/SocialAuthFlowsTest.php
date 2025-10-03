@@ -194,7 +194,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with($provider)
+            ->with($provider, null)
             ->andReturn("https://accounts.$provider.com/oauth/authorize?test=true");
 
         // Create and persist a real user for testing (not just a mock)

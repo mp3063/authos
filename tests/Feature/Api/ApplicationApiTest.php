@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 use Laravel\Passport\Token;
@@ -16,8 +15,6 @@ use Tests\TestCase;
 
 class ApplicationApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $adminUser;

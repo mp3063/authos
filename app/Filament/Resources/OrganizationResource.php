@@ -14,11 +14,16 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -44,41 +49,96 @@ class OrganizationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Organization Details')->schema([
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(function (string $context, $state, $set) {
-                        if ($context === 'create') {
-                            $set('slug', Str::slug($state));
-                        }
-                    }),
+            Tabs::make('Organization Settings')->tabs([
+                Tabs\Tab::make('Details')->schema([
+                    Section::make('Organization Details')->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (string $context, $state, $set) {
+                                if ($context === 'create') {
+                                    $set('slug', Str::slug($state));
+                                }
+                            }),
 
-                TextInput::make('slug')
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true)
-                    ->alphaDash()
-                    ->helperText('Used for API identification and URLs'),
+                        TextInput::make('slug')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true)
+                            ->alphaDash()
+                            ->helperText('Used for API identification and URLs'),
 
-                Toggle::make('is_active')->default(true)->helperText('Inactive organizations cannot authenticate users'),
-            ])->columns(2),
+                        Toggle::make('is_active')->default(true)->helperText('Inactive organizations cannot authenticate users'),
+                    ])->columns(2),
 
-            Section::make('Security Settings')->schema([
-                KeyValue::make('settings')->keyLabel('Setting')->valueLabel('Value')->default([
-                    'require_mfa' => false,
-                    'password_policy' => [
-                        'min_length' => 8,
-                        'require_uppercase' => true,
-                        'require_lowercase' => true,
-                        'require_numbers' => true,
-                        'require_special_chars' => false,
-                    ],
-                    'session_timeout' => 3600,
-                    'max_login_attempts' => 5,
-                    'lockout_duration' => 900,
-                ])->helperText('Organization-specific security policies and configurations'),
+                    Section::make('Security Settings')->schema([
+                        KeyValue::make('settings')->keyLabel('Setting')->valueLabel('Value')->default([
+                            'require_mfa' => false,
+                            'password_policy' => [
+                                'min_length' => 8,
+                                'require_uppercase' => true,
+                                'require_lowercase' => true,
+                                'require_numbers' => true,
+                                'require_special_chars' => false,
+                            ],
+                            'session_timeout' => 3600,
+                            'max_login_attempts' => 5,
+                            'lockout_duration' => 900,
+                        ])->helperText('Organization-specific security policies and configurations'),
+                    ]),
+                ]),
+
+                Tabs\Tab::make('Branding')
+                    ->schema([
+                        Section::make('Visual Branding')
+                            ->description('Customize the appearance of your organization\'s login and authentication pages')
+                            ->schema([
+                                Grid::make(2)->schema([
+                                    FileUpload::make('branding.logo_path')
+                                        ->label('Logo')
+                                        ->image()
+                                        ->directory('branding/logos')
+                                        ->visibility('public')
+                                        ->maxSize(2048)
+                                        ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/svg+xml'])
+                                        ->imagePreviewHeight('100')
+                                        ->helperText('Upload your organization logo (PNG, JPEG, or SVG, max 2MB)'),
+
+                                    FileUpload::make('branding.login_background_path')
+                                        ->label('Login Background')
+                                        ->image()
+                                        ->directory('branding/backgrounds')
+                                        ->visibility('public')
+                                        ->maxSize(5120)
+                                        ->acceptedFileTypes(['image/png', 'image/jpeg'])
+                                        ->imagePreviewHeight('100')
+                                        ->helperText('Background image for login page (PNG or JPEG, max 5MB)'),
+
+                                    ColorPicker::make('branding.primary_color')
+                                        ->label('Primary Color')
+                                        ->default('#3b82f6')
+                                        ->helperText('Main brand color used for buttons and accents'),
+
+                                    ColorPicker::make('branding.secondary_color')
+                                        ->label('Secondary Color')
+                                        ->default('#8b5cf6')
+                                        ->helperText('Secondary brand color for highlights'),
+                                ]),
+                            ]),
+
+                        Section::make('Custom Styling')
+                            ->description('Advanced CSS customization for complete control over appearance')
+                            ->schema([
+                                Textarea::make('branding.custom_css')
+                                    ->label('Custom CSS')
+                                    ->rows(10)
+                                    ->helperText('Add custom CSS to style your organization\'s login and authentication pages. CSS will be sanitized for security.')
+                                    ->placeholder('.login-form { border-radius: 8px; }'),
+                            ])
+                            ->collapsible()
+                            ->collapsed(),
+                    ]),
             ]),
         ]);
     }

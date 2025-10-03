@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\SocialAuthService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Passport\Passport;
 use Mockery;
@@ -14,8 +13,6 @@ use Tests\TestCase;
 
 class SocialAuthControllerTest extends TestCase
 {
-    use RefreshDatabase;
-
     private $mockSocialAuthService;
 
     protected function setUp(): void
@@ -81,7 +78,7 @@ class SocialAuthControllerTest extends TestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with('google')
+            ->with('google', null)
             ->andReturn('https://accounts.google.com/oauth/authorize?...');
 
         $response = $this->getJson('/api/v1/auth/social/google');
@@ -92,12 +89,14 @@ class SocialAuthControllerTest extends TestCase
                 'data' => [
                     'redirect_url',
                     'provider',
+                    'organization',
                 ],
             ])
             ->assertJson([
                 'success' => true,
                 'data' => [
                     'provider' => 'google',
+                    'organization' => null,
                 ],
             ]);
     }

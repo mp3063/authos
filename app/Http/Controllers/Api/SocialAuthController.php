@@ -70,14 +70,18 @@ class SocialAuthController extends Controller
                 ], 400);
             }
 
-            // Get redirect URL
-            $redirectUrl = $this->socialAuthService->getRedirectUrl($provider);
+            // Get organization slug from query parameter (optional)
+            $organizationSlug = $request->query('organization');
+
+            // Get redirect URL with state parameter
+            $redirectUrl = $this->socialAuthService->getRedirectUrl($provider, $organizationSlug);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'redirect_url' => $redirectUrl,
                     'provider' => $provider,
+                    'organization' => $organizationSlug,
                 ],
             ]);
         } catch (\Exception $e) {

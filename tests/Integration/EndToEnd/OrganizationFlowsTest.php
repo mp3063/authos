@@ -8,7 +8,6 @@ use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -28,8 +27,6 @@ use Spatie\Permission\Models\Role;
  */
 class OrganizationFlowsTest extends EndToEndTestCase
 {
-    use RefreshDatabase;
-
     protected Organization $testOrganization;
 
     protected Organization $isolatedOrganization;

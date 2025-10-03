@@ -15,14 +15,11 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Filament\Resources\Resource;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class FilamentResourceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $superAdmin;

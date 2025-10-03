@@ -71,4 +71,26 @@ return [
         'redirect' => env('LINKEDIN_REDIRECT_URI', env('APP_URL').'/api/v1/auth/social/linkedin/callback'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Enterprise Services Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'ldap' => [
+        'timeout' => env('LDAP_TIMEOUT', 5),
+        'version' => env('LDAP_VERSION', 3),
+    ],
+
+    'branding' => [
+        'logo_max_size' => 2048, // KB
+        'background_max_size' => 5120, // KB
+        'allowed_extensions' => ['png', 'jpg', 'jpeg', 'svg'],
+    ],
+
+    'domains' => [
+        'verification_ttl' => 3600, // 1 hour
+        'dns_cache_ttl' => 300, // 5 minutes
+    ],
+
 ];

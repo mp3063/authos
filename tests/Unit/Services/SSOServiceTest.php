@@ -9,15 +9,12 @@ use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\SSOService;
 use Exception;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class SSOServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private SSOService $ssoService;
 
     private Organization $organization;

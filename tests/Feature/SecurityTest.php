@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Passport\Passport;
@@ -15,8 +14,6 @@ use Tests\TestCase;
 
 class SecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization1;
 
     private Organization $organization2;

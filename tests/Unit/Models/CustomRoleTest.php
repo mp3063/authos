@@ -5,13 +5,10 @@ namespace Tests\Unit\Models;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CustomRoleTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     protected function setUp(): void

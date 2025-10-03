@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
@@ -58,6 +59,26 @@ class Organization extends Model
     public function customRoles(): HasMany
     {
         return $this->hasMany(CustomRole::class);
+    }
+
+    public function branding(): HasOne
+    {
+        return $this->hasOne(OrganizationBranding::class);
+    }
+
+    public function customDomains(): HasMany
+    {
+        return $this->hasMany(CustomDomain::class);
+    }
+
+    public function ldapConfigurations(): HasMany
+    {
+        return $this->hasMany(LdapConfiguration::class);
+    }
+
+    public function auditExports(): HasMany
+    {
+        return $this->hasMany(AuditExport::class);
     }
 
     /**

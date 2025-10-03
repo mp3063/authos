@@ -7,7 +7,6 @@ use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\SSOService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -25,8 +24,6 @@ use Laravel\Passport\Passport;
  */
 class SsoFlowsTest extends EndToEndTestCase
 {
-    use RefreshDatabase;
-
     protected SSOService $ssoService;
 
     protected Application $oidcApplication;

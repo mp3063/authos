@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
@@ -14,8 +13,6 @@ use Tests\TestCase;
 
 class OrganizationReportApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private Organization $otherOrganization;

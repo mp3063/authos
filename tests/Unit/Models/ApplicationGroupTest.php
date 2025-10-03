@@ -5,13 +5,10 @@ namespace Tests\Unit\Models;
 use App\Models\Application;
 use App\Models\ApplicationGroup;
 use App\Models\Organization;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ApplicationGroupTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private ApplicationGroup $parentGroup;

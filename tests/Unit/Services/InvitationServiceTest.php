@@ -9,7 +9,6 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
 use Exception;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -18,8 +17,6 @@ use Tests\TestCase;
 
 class InvitationServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private InvitationService $invitationService;
 
     private Organization $organization;

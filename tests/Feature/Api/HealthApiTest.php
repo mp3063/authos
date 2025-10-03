@@ -4,7 +4,6 @@ namespace Tests\Feature\Api;
 
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class HealthApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private ?Organization $organization = null;
 
     private ?User $superAdminUser = null;

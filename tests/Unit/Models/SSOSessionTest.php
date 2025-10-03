@@ -6,13 +6,10 @@ use App\Models\Application;
 use App\Models\SSOSession;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class SSOSessionTest extends TestCase
 {
-    use RefreshDatabase;
-
     private User $user;
 
     private Application $application;

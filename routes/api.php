@@ -312,6 +312,38 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/permissions', [CustomRoleController::class, 'permissions']);
         Route::get('/report-types', [OrganizationReportController::class, 'reportTypes']);
     });
+
+    // Enterprise Features (v1/enterprise/*)
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('enterprise')->group(function () {
+        // LDAP Configuration & User Sync
+        Route::post('ldap/test', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'testConnection']);
+        Route::post('ldap/sync', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'syncUsers']);
+        Route::get('ldap/users', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'listUsers']);
+        Route::post('ldap/configure', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'configure']);
+
+        // Custom Domains & DNS Verification
+        Route::get('domains', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'index'])->name('api.enterprise.domains.index');
+        Route::post('domains', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'store'])->name('api.enterprise.domains.store');
+        Route::post('domains/{id}/verify', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'verify'])->name('api.enterprise.domains.verify');
+        Route::delete('domains/{id}', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'destroy'])->name('api.enterprise.domains.destroy');
+
+        // Audit Export & Logging
+        Route::post('audit/export', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'export']);
+        Route::get('audit/exports', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'listExports']);
+        Route::get('audit/exports/{id}/download', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'download']);
+
+        // Compliance Reports
+        Route::get('compliance/soc2', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'soc2']);
+        Route::get('compliance/iso27001', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'iso27001']);
+        Route::get('compliance/gdpr', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'gdpr']);
+        Route::post('compliance/schedule', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'schedule']);
+
+        // Organization Branding
+        Route::get('organizations/{organization}/branding', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'show']);
+        Route::put('organizations/{organization}/branding', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'update']);
+        Route::post('organizations/{organization}/branding/logo', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadLogo']);
+        Route::post('organizations/{organization}/branding/background', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadBackground']);
+    });
 });
 
 // OpenID Connect Discovery (outside versioning for backward compatibility)

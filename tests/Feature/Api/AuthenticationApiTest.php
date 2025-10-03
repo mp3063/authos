@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class AuthenticationApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     protected function setUp(): void

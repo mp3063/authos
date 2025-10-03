@@ -12,7 +12,6 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -20,8 +19,6 @@ use Tests\TestCase;
 
 class AdminAuthorizationTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private Organization $otherOrganization;

@@ -7,7 +7,6 @@ use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\SocialAuthService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -28,8 +27,6 @@ use Tests\TestCase;
  */
 abstract class EndToEndTestCase extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * PKCE code verifier for tests (RFC 7636 requires 43-128 characters)
      */
@@ -627,7 +624,7 @@ abstract class EndToEndTestCase extends TestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with($provider)
+            ->with($provider, Mockery::any())
             ->andReturn("https://accounts.{$provider}.com/oauth/authorize?test=true");
 
         $this->mockSocialAuthService

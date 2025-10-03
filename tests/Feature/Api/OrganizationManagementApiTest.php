@@ -6,15 +6,12 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class OrganizationManagementApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $superAdmin;

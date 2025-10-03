@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Role;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class CacheApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private User $superAdminUser;

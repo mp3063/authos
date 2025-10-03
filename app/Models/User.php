@@ -107,6 +107,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(AuthenticationLog::class);
     }
 
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
     public function hasMfaEnabled(): bool
     {
         return ! empty($this->mfa_methods);

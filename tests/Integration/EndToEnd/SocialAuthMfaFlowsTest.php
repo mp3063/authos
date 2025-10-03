@@ -73,7 +73,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with('google')
+            ->with('google', null)
             ->andReturn('https://accounts.google.com/oauth/authorize?client_id=test&redirect_uri=test');
 
         $redirectResponse = $this->getJson('/api/v1/auth/social/google');
@@ -297,7 +297,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with('github')
+            ->with('github', null)
             ->andReturn('https://github.com/login/oauth/authorize?test=true');
 
         $this->mockSocialAuthService
@@ -611,7 +611,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
 
         $this->mockSocialAuthService
             ->shouldReceive('getRedirectUrl')
-            ->with('google')
+            ->with('google', $restrictedOrg->slug)
             ->andReturn('https://accounts.google.com/oauth/authorize?test=true');
 
         $googleResponse = $this->getJson('/api/v1/auth/social/google?organization='.$restrictedOrg->slug);

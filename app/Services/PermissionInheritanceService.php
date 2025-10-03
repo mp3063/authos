@@ -16,8 +16,6 @@ class PermissionInheritanceService
     public function cascadeApplicationAccess(int $userId, int $parentApplicationId): bool
     {
         try {
-            DB::beginTransaction();
-
             $user = User::find($userId);
             if (! $user) {
                 Log::error('User not found for cascading application access', ['user_id' => $userId]);
@@ -58,8 +56,6 @@ class PermissionInheritanceService
                 }
             }
 
-            DB::commit();
-
             Log::info('Completed cascade application access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,
@@ -69,7 +65,6 @@ class PermissionInheritanceService
             return true;
 
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to cascade application access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,
@@ -86,8 +81,6 @@ class PermissionInheritanceService
     public function revokeInheritedAccess(int $userId, int $parentApplicationId): bool
     {
         try {
-            DB::beginTransaction();
-
             $user = User::find($userId);
             if (! $user) {
                 Log::error('User not found for revoking inherited access', ['user_id' => $userId]);
@@ -126,8 +119,6 @@ class PermissionInheritanceService
                 }
             }
 
-            DB::commit();
-
             Log::info('Completed revoke inherited access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,
@@ -137,7 +128,6 @@ class PermissionInheritanceService
             return true;
 
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to revoke inherited access', [
                 'user_id' => $userId,
                 'parent_application_id' => $parentApplicationId,

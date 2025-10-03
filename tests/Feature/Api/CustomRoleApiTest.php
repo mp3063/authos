@@ -5,14 +5,11 @@ namespace Tests\Feature\Api;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class CustomRoleApiTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private Organization $otherOrganization;

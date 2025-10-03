@@ -8,14 +8,11 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\OrganizationReportingService;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class OrganizationReportingServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private OrganizationReportingService $reportingService;
 
     private Organization $organization;

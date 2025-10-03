@@ -7,15 +7,12 @@ use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\SSOSession;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class UserModelTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     protected function setUp(): void
