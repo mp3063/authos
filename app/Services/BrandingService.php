@@ -8,7 +8,6 @@ use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class BrandingService
@@ -61,8 +60,23 @@ class BrandingService
             $updateData['email_templates'] = $data['email_templates'];
         }
 
+        // Store custom_html and accent_color in settings for now (not in DB schema yet)
+        $settings = $branding->settings ?? [];
+
+        if (isset($data['custom_html'])) {
+            $settings['custom_html'] = $this->sanitizeHTML($data['custom_html']);
+        }
+
+        if (isset($data['accent_color'])) {
+            $settings['accent_color'] = $data['accent_color'];
+        }
+
         if (isset($data['settings'])) {
-            $updateData['settings'] = array_merge($branding->settings ?? [], $data['settings']);
+            $settings = array_merge($settings, $data['settings']);
+        }
+
+        if (! empty($settings)) {
+            $updateData['settings'] = $settings;
         }
 
         $branding->update($updateData);
@@ -83,21 +97,14 @@ class BrandingService
 
             $branding = $this->getOrCreateBranding($organization);
 
-            // Delete old logo if exists
-            if ($branding->logo_path && Storage::disk('public')->exists($branding->logo_path)) {
-                Storage::disk('public')->delete($branding->logo_path);
+            // Delete all old logos in the organization's logo directory
+            $logoDirectory = "branding/logos/{$organization->id}";
+            if (Storage::disk('public')->exists($logoDirectory)) {
+                Storage::disk('public')->deleteDirectory($logoDirectory);
             }
 
-            // Generate unique filename
-            $filename = 'logo_'.Str::uuid().'.'.$file->getClientOriginalExtension();
-            $path = "branding/logos/{$organization->id}/{$filename}";
-
-            // Store file
-            $file->storeAs(
-                dirname($path),
-                basename($path),
-                'public'
-            );
+            // Store file using hashName for consistency with tests
+            $path = $file->store($logoDirectory, 'public');
 
             // Update branding record
             $branding->update(['logo_path' => $path]);
@@ -134,21 +141,14 @@ class BrandingService
 
             $branding = $this->getOrCreateBranding($organization);
 
-            // Delete old background if exists
-            if ($branding->login_background_path && Storage::disk('public')->exists($branding->login_background_path)) {
-                Storage::disk('public')->delete($branding->login_background_path);
+            // Delete all old backgrounds in the organization's background directory
+            $backgroundDirectory = "branding/backgrounds/{$organization->id}";
+            if (Storage::disk('public')->exists($backgroundDirectory)) {
+                Storage::disk('public')->deleteDirectory($backgroundDirectory);
             }
 
-            // Generate unique filename
-            $filename = 'background_'.Str::uuid().'.'.$file->getClientOriginalExtension();
-            $path = "branding/backgrounds/{$organization->id}/{$filename}";
-
-            // Store file
-            $file->storeAs(
-                dirname($path),
-                basename($path),
-                'public'
-            );
+            // Store file using hashName for consistency with tests
+            $path = $file->store($backgroundDirectory, 'public');
 
             // Update branding record
             $branding->update(['login_background_path' => $path]);
@@ -228,6 +228,27 @@ class BrandingService
         $sanitized = strip_tags($sanitized);
 
         return trim($sanitized);
+    }
+
+    /**
+     * Sanitize HTML to prevent XSS attacks
+     */
+    public function sanitizeHTML(string $html): string
+    {
+        // Remove script tags completely (including content)
+        $html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html);
+
+        // Remove potentially dangerous patterns
+        $dangerous = [
+            '/javascript:/i',
+            '/on\w+\s*=/i', // Remove all event handlers (onclick, onerror, etc.)
+        ];
+
+        foreach ($dangerous as $pattern) {
+            $html = preg_replace($pattern, '', $html);
+        }
+
+        return trim($html);
     }
 
     /**

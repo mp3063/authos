@@ -68,19 +68,23 @@ class AuditControllerTest extends TestCase
 
     public function test_can_create_audit_export(): void
     {
+        $export = AuditExport::factory()->make([
+            'id' => 1,
+            'type' => 'csv',
+            'status' => 'pending',
+            'file_path' => null,
+        ]);
+
         $this->auditService
-            ->shouldReceive('createExport')
+            ->shouldReceive('createExportAsync')
             ->once()
             ->with(
                 $this->organization->id,
-                Mockery::type('array')
+                $this->adminUser->id,
+                Mockery::type('array'),
+                'csv'
             )
-            ->andReturn([
-                'id' => 1,
-                'format' => 'csv',
-                'status' => 'pending',
-                'file_path' => null,
-            ]);
+            ->andReturn($export);
 
         Passport::actingAs($this->adminUser, ['enterprise.audit.manage']);
 
@@ -115,9 +119,22 @@ class AuditControllerTest extends TestCase
 
     public function test_can_list_exports(): void
     {
-        AuditExport::factory()->count(3)->create([
+        $exports = AuditExport::factory()->count(3)->create([
             'organization_id' => $this->organization->id,
         ]);
+
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $exports,
+            $exports->count(),
+            15,
+            1
+        );
+
+        $this->auditService
+            ->shouldReceive('getExports')
+            ->once()
+            ->with($this->organization->id, 15)
+            ->andReturn($paginator);
 
         Passport::actingAs($this->adminUser, ['enterprise.audit.read']);
 
@@ -156,9 +173,15 @@ class AuditControllerTest extends TestCase
 
         $response = $this->getJson("/api/v1/enterprise/audit/exports/{$export->id}/download");
 
-        $response->assertStatus(200)
-            ->assertHeader('Content-Type', 'text/csv')
-            ->assertHeader('Content-Disposition', 'attachment; filename="audit-export-123.csv"');
+        $response->assertStatus(200);
+
+        // Check Content-Disposition header (filename may or may not be quoted)
+        $contentDisposition = $response->headers->get('Content-Disposition');
+        $this->assertStringContainsString('attachment', $contentDisposition);
+        $this->assertStringContainsString('audit-export-123.csv', $contentDisposition);
+
+        // Content-Type may include charset, so we just check it contains text/csv
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
     }
 
     public function test_validates_export_parameters(): void
@@ -177,23 +200,27 @@ class AuditControllerTest extends TestCase
 
     public function test_filters_export_by_date_range(): void
     {
+        $export = AuditExport::factory()->make([
+            'id' => 1,
+            'type' => 'json',
+            'status' => 'pending',
+        ]);
+
         $this->auditService
-            ->shouldReceive('createExport')
+            ->shouldReceive('createExportAsync')
             ->once()
             ->with(
                 $this->organization->id,
+                $this->adminUser->id,
                 Mockery::on(function ($filters) {
-                    return isset($filters['start_date']) &&
-                        isset($filters['end_date']) &&
-                        $filters['start_date'] === '2024-01-01' &&
-                        $filters['end_date'] === '2024-01-31';
-                })
+                    return isset($filters['date_from']) &&
+                        isset($filters['date_to']) &&
+                        $filters['date_from'] === '2024-01-01' &&
+                        $filters['date_to'] === '2024-01-31';
+                }),
+                'json'
             )
-            ->andReturn([
-                'id' => 1,
-                'format' => 'json',
-                'status' => 'pending',
-            ]);
+            ->andReturn($export);
 
         Passport::actingAs($this->adminUser, ['enterprise.audit.manage']);
 
@@ -211,14 +238,16 @@ class AuditControllerTest extends TestCase
         Passport::actingAs($this->adminUser, ['enterprise.audit.manage']);
 
         foreach (['csv', 'json', 'xlsx'] as $format) {
+            $export = AuditExport::factory()->make([
+                'id' => 1,
+                'type' => $format,
+                'status' => 'pending',
+            ]);
+
             $this->auditService
-                ->shouldReceive('createExport')
+                ->shouldReceive('createExportAsync')
                 ->once()
-                ->andReturn([
-                    'id' => 1,
-                    'format' => $format,
-                    'status' => 'pending',
-                ]);
+                ->andReturn($export);
 
             $response = $this->postJson('/api/v1/enterprise/audit/export', [
                 'format' => $format,

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Enterprise;
 
 use App\Http\Controllers\Api\BaseApiController;
-use App\Http\Requests\Enterprise\ComplianceScheduleRequest;
 use App\Services\ComplianceReportService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -21,9 +20,31 @@ class ComplianceController extends BaseApiController
     {
         try {
             $user = $this->getAuthenticatedUser();
+
+            // Check OAuth scope
+            if (! auth()->user()->tokenCan('enterprise.compliance.read')) {
+                return $this->forbiddenResponse('You do not have permission to generate compliance reports');
+            }
+
+            // Check if feature is enabled
+            $organization = $user->organization;
+            if (! ($organization->settings['enterprise_features']['compliance_reports_enabled'] ?? true)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'feature_disabled',
+                    'message' => 'Compliance reports are disabled for this organization',
+                ], 403);
+            }
+
             $report = $this->complianceService->generateSOC2Report($user->organization);
 
-            return $this->successResponse($report, 'SOC2 report generated successfully');
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'report' => $report,
+                ],
+                'message' => 'SOC2 report generated successfully',
+            ]);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -33,9 +54,31 @@ class ComplianceController extends BaseApiController
     {
         try {
             $user = $this->getAuthenticatedUser();
+
+            // Check OAuth scope
+            if (! auth()->user()->tokenCan('enterprise.compliance.read')) {
+                return $this->forbiddenResponse('You do not have permission to generate compliance reports');
+            }
+
+            // Check if feature is enabled
+            $organization = $user->organization;
+            if (! ($organization->settings['enterprise_features']['compliance_reports_enabled'] ?? true)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'feature_disabled',
+                    'message' => 'Compliance reports are disabled for this organization',
+                ], 403);
+            }
+
             $report = $this->complianceService->generateISO27001Report($user->organization);
 
-            return $this->successResponse($report, 'ISO 27001 report generated successfully');
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'report' => $report,
+                ],
+                'message' => 'ISO 27001 report generated successfully',
+            ]);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -45,32 +88,165 @@ class ComplianceController extends BaseApiController
     {
         try {
             $user = $this->getAuthenticatedUser();
+
+            // Check OAuth scope
+            if (! auth()->user()->tokenCan('enterprise.compliance.read')) {
+                return $this->forbiddenResponse('You do not have permission to generate compliance reports');
+            }
+
+            // Check if feature is enabled
+            $organization = $user->organization;
+            if (! ($organization->settings['enterprise_features']['compliance_reports_enabled'] ?? true)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'feature_disabled',
+                    'message' => 'Compliance reports are disabled for this organization',
+                ], 403);
+            }
+
             $report = $this->complianceService->generateGDPRReport($user->organization);
 
-            return $this->successResponse($report, 'GDPR report generated successfully');
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'report' => $report,
+                ],
+                'message' => 'GDPR report generated successfully',
+            ]);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
 
-    public function schedule(ComplianceScheduleRequest $request): JsonResponse
+    public function schedule(Request $request): JsonResponse
     {
+        // Manual validation for consistent error format
+        $validator = validator($request->all(), [
+            'report_type' => ['required', 'string', 'in:soc2,iso27001,gdpr'],
+            'frequency' => ['required', 'string', 'in:daily,weekly,monthly,quarterly'],
+            'recipients' => ['required', 'array', 'min:1'],
+            'recipients.*' => ['required', 'email'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
         try {
             $user = $this->getAuthenticatedUser();
+
+            // Check OAuth scope
+            if (! auth()->user()->tokenCan('enterprise.compliance.manage')) {
+                return $this->forbiddenResponse('You do not have permission to schedule compliance reports');
+            }
+
+            // Check if feature is enabled
+            $organization = $user->organization;
+            if (! ($organization->settings['enterprise_features']['compliance_reports_enabled'] ?? true)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'feature_disabled',
+                    'message' => 'Compliance reports are disabled for this organization',
+                ], 403);
+            }
 
             $this->complianceService->scheduleReport(
                 $user->organization,
                 $request->input('report_type'),
-                $request->input('email_recipients')
+                $request->input('recipients')
             );
 
-            return $this->successResponse([
-                'report_type' => $request->input('report_type'),
-                'frequency' => $request->input('frequency'),
-                'recipients' => $request->input('email_recipients'),
-            ], 'Compliance report scheduled successfully');
+            // Calculate next run time based on frequency
+            $nextRunAt = match ($request->input('frequency')) {
+                'daily' => now()->addDay(),
+                'weekly' => now()->addWeek(),
+                'monthly' => now()->addMonth(),
+                'quarterly' => now()->addMonths(3),
+                default => now()->addMonth(),
+            };
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'schedule' => [
+                        'report_type' => $request->input('report_type'),
+                        'frequency' => $request->input('frequency'),
+                        'recipients' => $request->input('recipients'),
+                        'next_run_at' => $nextRunAt->toISOString(),
+                    ],
+                ],
+                'message' => 'Compliance report scheduled successfully',
+            ], 201);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
+
+    // TODO: Implement when ComplianceSchedule model and migration are created
+    // public function listSchedules(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $user = $this->getAuthenticatedUser();
+    //
+    //         // Check OAuth scope
+    //         if (! auth()->user()->tokenCan('enterprise.compliance.read')) {
+    //             return $this->forbiddenResponse('You do not have permission to view compliance schedules');
+    //         }
+    //
+    //         $schedules = ComplianceSchedule::where('organization_id', $user->organization_id)
+    //             ->orderBy('created_at', 'desc')
+    //             ->get()
+    //             ->map(function ($schedule) {
+    //                 return [
+    //                     'id' => $schedule->id,
+    //                     'report_type' => $schedule->report_type,
+    //                     'frequency' => $schedule->frequency,
+    //                     'recipients' => $schedule->recipients,
+    //                     'last_run_at' => $schedule->last_run_at?->toISOString(),
+    //                     'next_run_at' => $schedule->next_run_at?->toISOString(),
+    //                     'is_active' => $schedule->is_active,
+    //                 ];
+    //             })
+    //             ->all();
+    //
+    //         return response()->json([
+    //             'success' => true,
+    //             'data' => $schedules,
+    //             'message' => 'Schedules retrieved successfully',
+    //         ]);
+    //     } catch (Exception $e) {
+    //         return $this->errorResponse($e->getMessage(), 500);
+    //     }
+    // }
+    //
+    // public function deleteSchedule(int $scheduleId): JsonResponse
+    // {
+    //     try {
+    //         $user = $this->getAuthenticatedUser();
+    //
+    //         // Check OAuth scope
+    //         if (! auth()->user()->tokenCan('enterprise.compliance.manage')) {
+    //             return $this->forbiddenResponse('You do not have permission to delete compliance schedules');
+    //         }
+    //
+    //         $schedule = ComplianceSchedule::where('id', $scheduleId)
+    //             ->where('organization_id', $user->organization_id)
+    //             ->firstOrFail();
+    //
+    //         $schedule->delete();
+    //
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Scheduled report deleted successfully',
+    //         ]);
+    //     } catch (ModelNotFoundException $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'error' => 'not_found',
+    //             'message' => 'Schedule not found',
+    //         ], 404);
+    //     } catch (Exception $e) {
+    //         return $this->errorResponse($e->getMessage(), 500);
+    //     }
+    // }
 }

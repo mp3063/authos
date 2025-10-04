@@ -7,6 +7,7 @@ use App\Http\Requests\Enterprise\CustomDomainRequest;
 use App\Models\CustomDomain;
 use App\Services\DomainVerificationService;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,11 +40,23 @@ class DomainController extends BaseApiController
             $user = $this->getAuthenticatedUser();
             $organization = $user->organization;
 
-            $domain = $this->domainService->createDomain($organization, $request->input('domain'));
-            $instructions = $this->domainService->getVerificationInstructions($domain);
+            // Check if custom domains feature is enabled
+            if (! ($organization->settings['enterprise_features']['custom_domains_enabled'] ?? true)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'feature_disabled',
+                    'message' => 'Custom domains are disabled for this organization',
+                ], 403);
+            }
 
-            return $this->createdResponse($instructions, 'Domain added successfully');
+            $domainData = $this->domainService->addDomain($organization->id, $request->input('domain'));
+
+            return $this->createdResponse($domainData, 'Domain added successfully');
         } catch (Exception $e) {
+            if (str_contains($e->getMessage(), 'already exists')) {
+                return $this->validationErrorResponse($e->getMessage(), ['domain' => [$e->getMessage()]]);
+            }
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -53,20 +66,16 @@ class DomainController extends BaseApiController
         try {
             $user = $this->getAuthenticatedUser();
 
+            // Verify domain belongs to user's organization
             $domain = CustomDomain::where('id', $domainId)
                 ->where('organization_id', $user->organization_id)
                 ->firstOrFail();
 
-            $verified = $this->domainService->verifyDomain($domain);
+            $result = $this->domainService->verifyDomain($domainId);
 
-            if ($verified) {
-                return $this->successResponse([
-                    'verified' => true,
-                    'domain' => $domain->fresh(),
-                ], 'Domain verified successfully');
-            }
-
-            return $this->errorResponse('Verification failed. Please ensure DNS records are correctly configured.', 400);
+            return $this->successResponse($result, $result['message'] ?? 'Domain verification completed');
+        } catch (ModelNotFoundException $e) {
+            return $this->notFoundResponse('Domain not found');
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -84,6 +93,8 @@ class DomainController extends BaseApiController
             $this->domainService->removeDomain($domain);
 
             return $this->deletedResponse('Domain deleted successfully');
+        } catch (ModelNotFoundException $e) {
+            return $this->notFoundResponse('Domain not found');
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }

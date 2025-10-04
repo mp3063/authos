@@ -10,11 +10,35 @@ use Illuminate\Support\Facades\Log;
 class DomainVerificationService
 {
     /**
-     * Add domain and generate verification code (alias for createDomain)
+     * Add domain and generate verification code
+     * Returns array format for API compatibility
      */
-    public function addDomain(Organization $organization, string $domain): CustomDomain
+    public function addDomain(int $organizationId, string $domain): array
     {
-        return $this->createDomain($organization, $domain);
+        // Check for duplicates
+        $existing = CustomDomain::where('organization_id', $organizationId)
+            ->where('domain', strtolower($domain))
+            ->first();
+
+        if ($existing) {
+            throw new Exception('Domain already exists');
+        }
+
+        $customDomain = CustomDomain::create([
+            'organization_id' => $organizationId,
+            'domain' => strtolower($domain),
+            'status' => 'pending',
+            'verification_code' => CustomDomain::generateVerificationCode(),
+            'verification_method' => 'dns',
+            'is_active' => false,
+        ]);
+
+        return [
+            'domain' => $customDomain->domain,
+            'verification_code' => $customDomain->verification_code,
+            'verification_method' => $customDomain->verification_method,
+            'status' => $customDomain->status,
+        ];
     }
 
     /**
@@ -25,7 +49,9 @@ class DomainVerificationService
         return CustomDomain::create([
             'organization_id' => $organization->id,
             'domain' => strtolower($domain),
+            'status' => 'pending',
             'verification_code' => CustomDomain::generateVerificationCode(),
+            'verification_method' => 'dns',
             'is_active' => false,
         ]);
     }
@@ -73,14 +99,17 @@ class DomainVerificationService
 
     /**
      * Verify domain ownership via DNS TXT record
+     * Accepts domain ID for API compatibility
      */
-    public function verifyDomain(CustomDomain $domain): bool
+    public function verifyDomain(int $domainId): array
     {
         try {
+            $domain = CustomDomain::findOrFail($domainId);
             $verified = $this->checkDnsTxtRecord($domain->domain, $domain->verification_code);
 
             if ($verified) {
                 $domain->update([
+                    'status' => 'verified',
                     'verified_at' => now(),
                     'is_active' => true,
                     'dns_records' => [
@@ -94,7 +123,11 @@ class DomainVerificationService
                     'organization_id' => $domain->organization_id,
                 ]);
 
-                return true;
+                return [
+                    'success' => true,
+                    'verified' => true,
+                    'message' => 'Domain verified successfully',
+                ];
             }
 
             Log::warning('Domain verification failed - code not found', [
@@ -102,14 +135,22 @@ class DomainVerificationService
                 'expected_code' => $domain->verification_code,
             ]);
 
-            return false;
+            return [
+                'success' => false,
+                'verified' => false,
+                'message' => 'DNS TXT record not found',
+            ];
         } catch (Exception $e) {
             Log::error('Domain verification failed', [
-                'domain' => $domain->domain,
+                'domain_id' => $domainId,
                 'error' => $e->getMessage(),
             ]);
 
-            return false;
+            return [
+                'success' => false,
+                'verified' => false,
+                'message' => 'Verification failed: '.$e->getMessage(),
+            ];
         }
     }
 
@@ -268,6 +309,7 @@ class DomainVerificationService
     {
         $domain->update([
             'verification_code' => CustomDomain::generateVerificationCode(),
+            'status' => 'pending',
             'verified_at' => null,
             'is_active' => false,
         ]);

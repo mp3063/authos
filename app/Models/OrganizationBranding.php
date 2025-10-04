@@ -23,6 +23,13 @@ class OrganizationBranding extends Model
         'settings',
     ];
 
+    protected $appends = [
+        'logo_url',
+        'background_url',
+        'accent_color',
+        'custom_html',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -50,6 +57,22 @@ class OrganizationBranding extends Model
     public function getBackgroundUrlAttribute(): ?string
     {
         return $this->login_background_path ? asset('storage/'.$this->login_background_path) : null;
+    }
+
+    /**
+     * Get accent color from settings
+     */
+    public function getAccentColorAttribute(): ?string
+    {
+        return $this->settings['accent_color'] ?? null;
+    }
+
+    /**
+     * Get custom HTML from settings
+     */
+    public function getCustomHtmlAttribute(): ?string
+    {
+        return $this->settings['custom_html'] ?? null;
     }
 
     /**

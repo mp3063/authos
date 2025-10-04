@@ -36,15 +36,10 @@ abstract class TestCase extends BaseTestCase
 
     protected function tearDown(): void
     {
-        // Memory optimization: Clear large objects and force garbage collection
-        $this->beforeApplicationDestroyed(function () {
-            if (isset($this->app)) {
-                // Clear any large collections or cached data
-                if (method_exists($this->app, 'flush')) {
-                    $this->app->flush();
-                }
-            }
-        });
+        // Explicitly close Mockery to prevent hanging
+        if (class_exists(\Mockery::class)) {
+            \Mockery::close();
+        }
 
         parent::tearDown();
 

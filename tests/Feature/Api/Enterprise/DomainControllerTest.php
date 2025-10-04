@@ -169,6 +169,16 @@ class DomainControllerTest extends TestCase
             'organization_id' => $this->organization->id,
         ]);
 
+        $this->domainService
+            ->shouldReceive('removeDomain')
+            ->once()
+            ->with(Mockery::on(function ($arg) use ($domain) {
+                return $arg instanceof CustomDomain && $arg->id === $domain->id;
+            }))
+            ->andReturnUsing(function ($domain) {
+                return $domain->delete();
+            });
+
         Passport::actingAs($this->adminUser, ['enterprise.domains.manage']);
 
         $response = $this->deleteJson("/api/v1/enterprise/domains/{$domain->id}");
@@ -203,11 +213,7 @@ class DomainControllerTest extends TestCase
             'domain' => 'auth.example.com',
         ]);
 
-        $this->domainService
-            ->shouldReceive('addDomain')
-            ->once()
-            ->with($this->organization->id, 'auth.example.com')
-            ->andThrow(new \Exception('Domain already exists'));
+        // No mock needed - validation catches duplicates before service is called
 
         Passport::actingAs($this->adminUser, ['enterprise.domains.manage']);
 
@@ -215,7 +221,8 @@ class DomainControllerTest extends TestCase
             'domain' => 'auth.example.com',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['domain']);
     }
 
     public function test_cannot_verify_unowned_domain(): void

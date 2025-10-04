@@ -1017,11 +1017,8 @@ class SecurityComplianceTest extends EndToEndTestCase
 
     protected function tearDown(): void
     {
-        // Generate final compliance report
-        $report = $this->generateComplianceReport();
-
-        // Log compliance test completion
-        Log::info('Security compliance test completed', $report);
+        // Note: Removed logging from tearDown as it can cause test runner to hang
+        // when the logging system tries to write after database/services are torn down
 
         parent::tearDown();
     }

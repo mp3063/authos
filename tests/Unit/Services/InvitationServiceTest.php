@@ -332,8 +332,8 @@ class InvitationServiceTest extends TestCase
         $originalToken = $invitation->token;
         $originalExpiresAt = $invitation->expires_at;
 
-        // Wait a moment to ensure time difference
-        sleep(1);
+        // Use Laravel's time travel instead of sleep() to ensure time difference
+        $this->travel(1)->seconds();
 
         $newInvitation = $this->invitationService->resendInvitation($invitation->id, $this->inviter);
 
@@ -344,5 +344,8 @@ class InvitationServiceTest extends TestCase
         Mail::assertQueued(OrganizationInvitation::class, function ($mail) use ($invitation) {
             return $mail->hasTo($invitation->email);
         });
+
+        // Travel back to present
+        $this->travelBack();
     }
 }

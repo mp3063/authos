@@ -21,7 +21,9 @@ class CustomDomainFactory extends Factory
         return [
             'organization_id' => Organization::factory(),
             'domain' => fake()->unique()->domainName(),
+            'status' => 'pending',
             'verification_code' => CustomDomain::generateVerificationCode(),
+            'verification_method' => 'dns',
             'verified_at' => null,
             'is_active' => false,
             'dns_records' => null,
@@ -39,6 +41,7 @@ class CustomDomainFactory extends Factory
     public function verified(): static
     {
         return $this->state(fn (array $attributes) => [
+            'status' => 'verified',
             'verified_at' => now(),
             'is_active' => true,
             'dns_records' => [

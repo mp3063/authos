@@ -1,0 +1,2806 @@
+{
+  "application": {
+    "name": "Laravel 12 Authentication Service",
+    "description": "Production-ready enterprise authentication service built as Auth0 alternative with Laravel 12, Filament 4, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication",
+    "version": "1.0.0",
+    "base_url": "http://authos.test",
+    "admin_url": "http://authos.test/admin",
+    "status": "Production Ready - Phase 5: 100% Complete",
+    "test_coverage": "830+ tests, 100% pass rate",
+    "technology_stack": {
+      "framework": "Laravel 12",
+      "admin_panel": "Filament 4",
+      "oauth": "Laravel Passport v13",
+      "database": "PostgreSQL",
+      "cache": "Redis",
+      "auth": "Spatie Roles/Permissions",
+      "social_auth": "Laravel Socialite v5"
+    }
+  },
+  "environment_variables": {
+    "required": {
+      "APP_NAME": "Application name",
+      "APP_URL": "Application URL (e.g., http://authos.test)",
+      "DB_CONNECTION": "pgsql",
+      "DB_DATABASE": "authos",
+      "DB_HOST": "127.0.0.1",
+      "DB_PORT": "5432",
+      "REDIS_HOST": "127.0.0.1",
+      "REDIS_PORT": "6379"
+    },
+    "oauth": {
+      "PASSPORT_PERSONAL_ACCESS_CLIENT_ID": "Auto-generated OAuth client ID",
+      "PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET": "Auto-generated OAuth client secret",
+      "PASSPORT_PASSWORD_GRANT_CLIENT_ID": "Auto-generated password grant client ID",
+      "PASSPORT_PASSWORD_GRANT_CLIENT_SECRET": "Auto-generated password grant client secret"
+    },
+    "social_providers": {
+      "google": {
+        "GOOGLE_CLIENT_ID": "Google OAuth 2.0 client ID",
+        "GOOGLE_CLIENT_SECRET": "Google OAuth 2.0 client secret",
+        "GOOGLE_REDIRECT_URI": "${APP_URL}/api/v1/auth/social/google/callback"
+      },
+      "github": {
+        "GITHUB_CLIENT_ID": "GitHub OAuth 2.0 client ID",
+        "GITHUB_CLIENT_SECRET": "GitHub OAuth 2.0 client secret",
+        "GITHUB_REDIRECT_URI": "${APP_URL}/api/v1/auth/social/github/callback"
+      },
+      "facebook": {
+        "FACEBOOK_CLIENT_ID": "Facebook OAuth 2.0 client ID",
+        "FACEBOOK_CLIENT_SECRET": "Facebook OAuth 2.0 client secret",
+        "FACEBOOK_REDIRECT_URI": "${APP_URL}/api/v1/auth/social/facebook/callback"
+      },
+      "twitter": {
+        "TWITTER_CLIENT_ID": "Twitter/X OAuth 2.0 client ID",
+        "TWITTER_CLIENT_SECRET": "Twitter/X OAuth 2.0 client secret",
+        "TWITTER_REDIRECT_URI": "${APP_URL}/api/v1/auth/social/twitter/callback"
+      },
+      "linkedin": {
+        "LINKEDIN_CLIENT_ID": "LinkedIn OAuth 2.0 client ID",
+        "LINKEDIN_CLIENT_SECRET": "LinkedIn OAuth 2.0 client secret",
+        "LINKEDIN_REDIRECT_URI": "${APP_URL}/api/v1/auth/social/linkedin/callback"
+      }
+    },
+    "security": {
+      "MFA_ISSUER": "${APP_NAME}",
+      "RATE_LIMIT_API": "100",
+      "RATE_LIMIT_AUTH": "10"
+    }
+  },
+  "database_schema": {
+    "tables": [
+      {
+        "name": "users",
+        "description": "User accounts with MFA support and social login fields",
+        "key_fields": [
+          "id", "name", "email", "password", "organization_id", "avatar", "profile",
+          "provider", "provider_id", "provider_token", "provider_refresh_token",
+          "two_factor_secret", "two_factor_recovery_codes", "two_factor_confirmed_at",
+          "mfa_methods", "is_active", "email_verified_at"
+        ]
+      },
+      {
+        "name": "organizations",
+        "description": "Multi-tenant organizations with security policies",
+        "key_fields": [
+          "id", "name", "slug", "description", "website", "settings",
+          "logo", "is_active"
+        ]
+      },
+      {
+        "name": "applications",
+        "description": "OAuth clients with auto-generated credentials",
+        "key_fields": [
+          "id", "organization_id", "name", "client_id", "client_secret",
+          "redirect_uris", "allowed_origins", "allowed_grant_types",
+          "webhook_url", "settings", "is_active"
+        ]
+      },
+      {
+        "name": "authentication_logs",
+        "description": "Comprehensive audit trail of authentication events",
+        "key_fields": [
+          "id", "user_id", "application_id", "event", "success",
+          "ip_address", "user_agent", "details", "metadata"
+        ]
+      },
+      {
+        "name": "oauth_clients",
+        "description": "Laravel Passport OAuth clients",
+        "key_fields": [
+          "id (UUID)", "owner_type", "owner_id", "name", "secret",
+          "redirect", "personal_access_client", "password_client", "revoked"
+        ]
+      },
+      {
+        "name": "oauth_access_tokens",
+        "description": "OAuth access tokens",
+        "key_fields": [
+          "id", "user_id", "client_id", "name", "scopes",
+          "revoked", "expires_at"
+        ]
+      },
+      {
+        "name": "oauth_refresh_tokens",
+        "description": "OAuth refresh tokens with rotation support",
+        "key_fields": [
+          "id", "access_token_id", "user_id", "client_id",
+          "revoked", "expires_at"
+        ]
+      },
+      {
+        "name": "social_accounts",
+        "description": "Multiple social provider accounts per user",
+        "key_fields": [
+          "id", "user_id", "provider", "provider_id", "provider_token",
+          "provider_refresh_token", "token_expires_at", "avatar",
+          "email", "name", "provider_data"
+        ]
+      },
+      {
+        "name": "sso_sessions",
+        "description": "Single Sign-On sessions",
+        "key_fields": [
+          "id", "user_id", "application_id", "session_token",
+          "refresh_token", "external_session_id", "ip_address",
+          "user_agent", "expires_at", "last_activity_at", "logged_out_at"
+        ]
+      },
+      {
+        "name": "sso_configurations",
+        "description": "SSO configurations for applications",
+        "key_fields": [
+          "id", "application_id", "name", "provider", "logout_url",
+          "callback_url", "allowed_domains", "session_lifetime",
+          "settings", "configuration", "is_active"
+        ]
+      },
+      {
+        "name": "invitations",
+        "description": "Organization invitations",
+        "key_fields": [
+          "id", "organization_id", "inviter_id", "email", "token",
+          "role", "expires_at", "status", "metadata", "accepted_by",
+          "accepted_at", "declined_at", "cancelled_by"
+        ]
+      },
+      {
+        "name": "organization_branding",
+        "description": "Custom branding for organizations",
+        "key_fields": [
+          "id", "organization_id", "logo_path", "login_background_path",
+          "primary_color", "secondary_color", "custom_css",
+          "email_templates", "settings"
+        ]
+      },
+      {
+        "name": "custom_domains",
+        "description": "Custom domains with DNS verification",
+        "key_fields": [
+          "id", "organization_id", "domain", "verification_code",
+          "verified_at", "ssl_certificate", "dns_records",
+          "is_active", "settings", "status"
+        ]
+      },
+      {
+        "name": "ldap_configurations",
+        "description": "LDAP/Active Directory integration settings",
+        "key_fields": [
+          "id", "organization_id", "name", "host", "port", "base_dn",
+          "username", "password (encrypted)", "use_ssl", "use_tls",
+          "user_filter", "user_attribute", "is_active", "last_sync_at",
+          "sync_settings"
+        ]
+      },
+      {
+        "name": "audit_exports",
+        "description": "Audit log export tracking",
+        "key_fields": [
+          "id", "organization_id", "user_id", "format", "status",
+          "file_path", "filters", "started_at", "completed_at"
+        ]
+      },
+      {
+        "name": "roles",
+        "description": "Spatie permission roles (organization-scoped)",
+        "key_fields": [
+          "id", "organization_id (team_id)", "name", "guard_name"
+        ]
+      },
+      {
+        "name": "permissions",
+        "description": "Spatie permissions (organization-scoped)",
+        "key_fields": [
+          "id", "organization_id (team_id)", "name", "guard_name"
+        ]
+      }
+    ],
+    "total_tables": 17,
+    "relationships": {
+      "users_organizations": "belongsTo (organization_id)",
+      "applications_organizations": "belongsTo (organization_id)",
+      "social_accounts_users": "belongsTo (user_id)",
+      "sso_sessions_users": "belongsTo (user_id)",
+      "sso_sessions_applications": "belongsTo (application_id)",
+      "invitations_organizations": "belongsTo (organization_id)",
+      "authentication_logs_users": "belongsTo (user_id)",
+      "authentication_logs_applications": "belongsTo (application_id)"
+    }
+  },
+  "api_endpoints": {
+    "base_path": "/api",
+    "version": "v1",
+    "full_base_path": "/api/v1",
+    "authentication": {
+      "method": "Bearer Token (OAuth 2.0)",
+      "header": "Authorization: Bearer {access_token}",
+      "scopes": ["openid", "profile", "email", "sso", "applications.manage", "users.manage", "organizations.manage"]
+    },
+    "response_format": {
+      "success": {
+        "structure": {
+          "success": true,
+          "data": "{...}",
+          "message": "Optional success message"
+        }
+      },
+      "error": {
+        "structure": {
+          "success": false,
+          "error": "error_code",
+          "error_description": "Human-readable error message",
+          "details": "{...} (optional)"
+        }
+      },
+      "validation_error": {
+        "structure": {
+          "success": false,
+          "error": "validation_failed",
+          "error_description": "The given data was invalid",
+          "errors": "{field: [errors]}"
+        }
+      },
+      "paginated": {
+        "structure": {
+          "success": true,
+          "data": "[...]",
+          "meta": {
+            "current_page": 1,
+            "per_page": 15,
+            "total": 100,
+            "last_page": 7
+          },
+          "message": "Optional message"
+        }
+      }
+    },
+    "groups": {
+      "1_authentication": {
+        "name": "Authentication & Authorization",
+        "base_path": "/api/v1/auth",
+        "description": "User registration, login, logout, token management, and MFA verification",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/register",
+            "name": "Register User",
+            "description": "Register a new user account",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "name": "string (required, max:255)",
+              "email": "string (required, email, unique)",
+              "password": "string (required, min:8, confirmed)",
+              "password_confirmation": "string (required)",
+              "terms_accepted": "boolean (required, true)",
+              "organization_slug": "string (optional, exists in organizations)",
+              "profile": "object (optional)"
+            },
+            "response_success": {
+              "status": 201,
+              "body": {
+                "user": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "organization_id": 1,
+                  "profile": {},
+                  "is_active": true,
+                  "email_verified_at": null,
+                  "mfa_enabled": false,
+                  "created_at": "2025-10-04T12:00:00.000000Z"
+                },
+                "token": {
+                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                  "token_type": "Bearer",
+                  "expires_at": "2025-10-05T12:00:00.000000Z"
+                },
+                "scopes": "openid profile email"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/login",
+            "name": "Login User",
+            "description": "Authenticate user and receive access token",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "email": "string (required, email)",
+              "password": "string (required)",
+              "client_id": "string (optional)",
+              "scopes": "array (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "user": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "organization_id": 1
+                },
+                "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                "token_type": "Bearer",
+                "expires_at": "2025-10-05T12:00:00.000000Z",
+                "refresh_token": "def50200...",
+                "scopes": "openid profile email"
+              }
+            },
+            "response_mfa_required": {
+              "status": 202,
+              "body": {
+                "message": "Multi-factor authentication is required",
+                "mfa_required": true,
+                "challenge_token": "abc123...",
+                "available_methods": ["totp"]
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/logout",
+            "name": "Logout User",
+            "description": "Revoke current access token and logout",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "message": "Successfully logged out"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/auth/user",
+            "name": "Get Authenticated User",
+            "description": "Get current authenticated user information",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "id": 1,
+                "name": "John Doe",
+                "email": "john@example.com",
+                "organization": {
+                  "id": 1,
+                  "name": "TechCorp Solutions",
+                  "slug": "techcorp"
+                },
+                "roles": ["User", "Organization Admin"],
+                "permissions": ["users.view", "applications.manage"],
+                "profile": {},
+                "email_verified_at": "2025-10-04T12:00:00.000000Z",
+                "mfa_enabled": true,
+                "is_active": true,
+                "created_at": "2025-10-04T12:00:00.000000Z",
+                "updated_at": "2025-10-04T12:00:00.000000Z"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/refresh",
+            "name": "Refresh Access Token",
+            "description": "Exchange refresh token for new access token",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "refresh_token": "string (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                "token_type": "Bearer",
+                "expires_at": "2025-10-05T12:00:00.000000Z",
+                "scopes": ["openid", "profile", "email"]
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/revoke",
+            "name": "Revoke Access Token",
+            "description": "Revoke current or specific access token",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "token_id": "string (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "message": "Token revoked successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/mfa/verify",
+            "name": "Verify MFA Challenge",
+            "description": "Complete MFA verification with TOTP or backup code",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "challenge_token": "string (required)",
+              "totp_code": "string (optional, size:6)",
+              "backup_code": "string (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "MFA verification successful",
+                "data": {
+                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                  "refresh_token": "def50200...",
+                  "expires_in": 3600,
+                  "token_type": "Bearer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "2_social_authentication": {
+        "name": "Social Authentication",
+        "base_path": "/api/v1/auth/social",
+        "description": "OAuth integration with Google, GitHub, Facebook, Twitter, LinkedIn",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/auth/social/providers",
+            "name": "List Available Providers",
+            "description": "Get list of configured social authentication providers",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "providers": ["google", "github", "facebook", "twitter", "linkedin"]
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/auth/social/{provider}",
+            "name": "Redirect to Provider",
+            "description": "Redirect to OAuth provider authorization page",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "path_parameters": {
+              "provider": "string (google|github|facebook|twitter|linkedin)"
+            },
+            "response_success": {
+              "status": 302,
+              "body": "Redirect to OAuth provider"
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/auth/social/{provider}/callback",
+            "name": "OAuth Provider Callback",
+            "description": "Handle OAuth provider callback and authenticate user",
+            "authentication": false,
+            "rate_limit": "auth (10 requests/min)",
+            "path_parameters": {
+              "provider": "string (google|github|facebook|twitter|linkedin)"
+            },
+            "query_parameters": {
+              "code": "string (OAuth authorization code)",
+              "state": "string (OAuth state parameter)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "user": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "provider": "google"
+                },
+                "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                "token_type": "Bearer",
+                "expires_at": "2025-10-05T12:00:00.000000Z"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/auth/social/link",
+            "name": "Link Social Account",
+            "description": "Link a social provider account to current user",
+            "authentication": true,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "provider": "string (required, google|github|facebook|twitter|linkedin)",
+              "code": "string (required, OAuth authorization code)",
+              "state": "string (required, OAuth state parameter)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Social account linked successfully",
+                "provider": "google"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/auth/social/unlink",
+            "name": "Unlink Social Account",
+            "description": "Unlink a social provider account from current user",
+            "authentication": true,
+            "rate_limit": "auth (10 requests/min)",
+            "request_body": {
+              "provider": "string (required, google|github|facebook|twitter|linkedin)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Social account unlinked successfully"
+              }
+            }
+          }
+        ]
+      },
+      "3_profile_management": {
+        "name": "Profile Management",
+        "base_path": "/api/v1/profile",
+        "description": "User profile, preferences, security settings, and avatar management",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/profile",
+            "name": "Get User Profile",
+            "description": "Get current user's profile information",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "avatar": "avatars/avatar.jpg",
+                  "email_verified_at": "2025-10-04T12:00:00.000000Z",
+                  "profile": {},
+                  "mfa_enabled": true,
+                  "mfa_methods": ["totp"],
+                  "organization": {
+                    "id": 1,
+                    "name": "TechCorp Solutions",
+                    "slug": "techcorp"
+                  },
+                  "roles": [
+                    {
+                      "id": 1,
+                      "name": "User",
+                      "display_name": "User"
+                    }
+                  ],
+                  "created_at": "2025-10-04T12:00:00.000000Z",
+                  "updated_at": "2025-10-04T12:00:00.000000Z"
+                }
+              }
+            }
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/profile",
+            "name": "Update Profile",
+            "description": "Update current user's profile",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "name": "string (optional, max:255)",
+              "email": "string (optional, email)",
+              "profile": "object (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "avatar": null,
+                  "email_verified_at": null,
+                  "profile": {},
+                  "mfa_enabled": true,
+                  "updated_at": "2025-10-04T12:00:00.000000Z"
+                },
+                "message": "Profile updated successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/profile/avatar",
+            "name": "Upload Avatar",
+            "description": "Upload user avatar image",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "avatar": "file (required, image, mimes:jpeg,png,jpg,gif, max:2048KB)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "avatar": "avatars/avatar.jpg",
+                  "avatar_url": "http://authos.test/storage/avatars/avatar.jpg"
+                },
+                "message": "Avatar uploaded successfully"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/profile/avatar",
+            "name": "Remove Avatar",
+            "description": "Remove user avatar image",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "message": "Avatar removed successfully"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/profile/preferences",
+            "name": "Get User Preferences",
+            "description": "Get user preferences and settings",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "timezone": "UTC",
+                  "language": "en",
+                  "theme": "light",
+                  "date_format": "Y-m-d",
+                  "time_format": "H:i",
+                  "email_notifications": true,
+                  "security_alerts": true,
+                  "marketing_emails": false
+                }
+              }
+            }
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/profile/preferences",
+            "name": "Update Preferences",
+            "description": "Update user preferences",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "timezone": "string (optional, valid timezone)",
+              "language": "string (optional, en|es|fr|de|it|pt|nl|ru|ja|zh)",
+              "theme": "string (optional, light|dark|auto)",
+              "date_format": "string (optional, Y-m-d|m/d/Y|d/m/Y|d-m-Y)",
+              "time_format": "string (optional, H:i|h:i A)",
+              "email_notifications": "boolean (optional)",
+              "security_alerts": "boolean (optional)",
+              "marketing_emails": "boolean (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "timezone": "America/New_York",
+                  "language": "en",
+                  "theme": "dark"
+                },
+                "message": "Preferences updated successfully"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/profile/security",
+            "name": "Get Security Settings",
+            "description": "Get security settings and activity",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "mfa_enabled": true,
+                  "mfa_methods": ["totp"],
+                  "recovery_codes_count": 8,
+                  "password_changed_at": "2025-10-04T12:00:00.000000Z",
+                  "active_sessions": 2,
+                  "recent_logins": [
+                    {
+                      "ip_address": "192.168.1.1",
+                      "user_agent": "Mozilla/5.0...",
+                      "created_at": "2025-10-04T12:00:00.000000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/profile/change-password",
+            "name": "Change Password",
+            "description": "Change user password (revokes all other sessions)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "current_password": "string (required)",
+              "password": "string (required, min:8, confirmed)",
+              "password_confirmation": "string (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "message": "Password changed successfully"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/profile/social-accounts",
+            "name": "Get Social Accounts",
+            "description": "Get linked social accounts",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "linked_providers": [
+                    {
+                      "id": 1,
+                      "provider": "google",
+                      "provider_display_name": "Google",
+                      "provider_id": "123456",
+                      "email": "john@gmail.com",
+                      "name": "John Doe",
+                      "avatar": "https://...",
+                      "connected_at": "2025-10-04T12:00:00.000000Z",
+                      "token_expired": false
+                    }
+                  ],
+                  "available_providers": {
+                    "google": {
+                      "name": "Google",
+                      "connected": true,
+                      "account": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "4_mfa_management": {
+        "name": "MFA Management",
+        "base_path": "/api/v1/mfa",
+        "description": "Multi-factor authentication setup and management (TOTP, backup codes)",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/mfa/status",
+            "name": "Get MFA Status",
+            "description": "Get MFA configuration status",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "mfa_enabled": true,
+                  "mfa_methods": ["totp"],
+                  "backup_codes": [],
+                  "backup_codes_count": 8,
+                  "totp_configured": true
+                }
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/setup/totp",
+            "name": "Setup TOTP",
+            "description": "Initiate TOTP setup and get QR code",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "secret": "BASE32ENCODEDSECRET",
+                  "qr_code_url": "otpauth://totp/AuthOS:john@example.com?secret=...",
+                  "backup_codes": []
+                },
+                "message": "TOTP setup initiated. Please verify to complete setup."
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/verify/totp",
+            "name": "Verify TOTP Code",
+            "description": "Verify TOTP code and enable MFA",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "code": "string (required, size:6)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "backup_codes": [
+                    "ABC12345",
+                    "DEF67890"
+                  ]
+                },
+                "message": "TOTP enabled successfully. Please store your backup codes safely."
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/enable",
+            "name": "Enable MFA",
+            "description": "Enable MFA after TOTP verification",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "code": "string (required, size:6)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "backup_codes": ["ABC12345"],
+                  "mfa_enabled": true,
+                  "methods": ["totp"]
+                },
+                "message": "MFA enabled successfully. Please store your backup codes safely."
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/disable",
+            "name": "Disable MFA",
+            "description": "Disable MFA for the account",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "password": "string (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "mfa_enabled": false,
+                  "methods": []
+                },
+                "message": "MFA disabled successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/recovery-codes",
+            "name": "Get Recovery Codes",
+            "description": "View current recovery codes (requires password)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "password": "string (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "recovery_codes": ["ABC12345", "DEF67890"]
+                }
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/mfa/recovery-codes/regenerate",
+            "name": "Regenerate Recovery Codes",
+            "description": "Generate new recovery codes (invalidates old ones)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "password": "string (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "data": {
+                  "recovery_codes": ["NEW12345", "NEW67890"]
+                },
+                "message": "Recovery codes regenerated successfully."
+              }
+            }
+          }
+        ]
+      },
+      "5_user_management": {
+        "name": "User Management",
+        "base_path": "/api/v1/users",
+        "description": "CRUD operations for users, role assignments, session management",
+        "middleware": ["auth:api", "throttle:api", "org.boundary"],
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/users",
+            "name": "List Users",
+            "description": "Get paginated list of users (organization-scoped)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "cache": "300 seconds",
+            "query_parameters": {
+              "page": "integer (optional, default: 1)",
+              "per_page": "integer (optional, default: 15)",
+              "search": "string (optional)",
+              "sort_by": "string (optional)",
+              "sort_order": "string (optional, asc|desc)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": 1,
+                    "name": "John Doe",
+                    "email": "john@example.com",
+                    "organization_id": 1,
+                    "is_active": true,
+                    "roles": ["User"]
+                  }
+                ],
+                "meta": {
+                  "current_page": 1,
+                  "per_page": 15,
+                  "total": 100,
+                  "last_page": 7
+                }
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/users",
+            "name": "Create User",
+            "description": "Create a new user in the organization",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "name": "string (required, max:255)",
+              "email": "string (required, email, unique)",
+              "password": "string (required, min:8)",
+              "role": "string (optional)",
+              "is_active": "boolean (optional, default: true)"
+            },
+            "response_success": {
+              "status": 201,
+              "body": {
+                "success": true,
+                "data": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "organization_id": 1
+                },
+                "message": "User created successfully"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/users/{id}",
+            "name": "Get User Details",
+            "description": "Get detailed information about a specific user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "cache": "600 seconds",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com",
+                  "organization_id": 1,
+                  "roles": ["User", "Organization Admin"],
+                  "permissions": ["users.view", "applications.manage"],
+                  "is_active": true,
+                  "created_at": "2025-10-04T12:00:00.000000Z"
+                }
+              }
+            }
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/users/{id}",
+            "name": "Update User",
+            "description": "Update user information",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "request_body": {
+              "name": "string (optional, max:255)",
+              "email": "string (optional, email)",
+              "is_active": "boolean (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "id": 1,
+                  "name": "John Doe",
+                  "email": "john@example.com"
+                },
+                "message": "User updated successfully"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/users/{id}",
+            "name": "Delete User",
+            "description": "Delete a user from the organization",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "User deleted successfully"
+              }
+            }
+          },
+          {
+            "method": "PATCH",
+            "path": "/api/v1/users/bulk",
+            "name": "Bulk User Operations",
+            "description": "Perform bulk operations on multiple users",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "user_ids": "array (required)",
+              "action": "string (required, activate|deactivate|delete)",
+              "role": "string (optional, for assign_role action)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Bulk operation completed",
+                "affected_count": 5
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/users/{id}/applications",
+            "name": "Get User Applications",
+            "description": "Get applications accessible by the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": 1,
+                    "name": "My App",
+                    "client_id": "abc123"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/users/{id}/applications",
+            "name": "Grant Application Access",
+            "description": "Grant user access to an application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "request_body": {
+              "application_id": "integer (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Application access granted"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/users/{id}/applications/{applicationId}",
+            "name": "Revoke Application Access",
+            "description": "Revoke user access to an application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)",
+              "applicationId": "integer (application ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Application access revoked"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/users/{id}/roles",
+            "name": "Get User Roles",
+            "description": "Get roles assigned to the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": 1,
+                    "name": "User",
+                    "permissions": ["users.view"]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/users/{id}/roles",
+            "name": "Assign Role",
+            "description": "Assign a role to the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "request_body": {
+              "role_id": "integer (required)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Role assigned successfully"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/users/{id}/roles/{roleId}",
+            "name": "Remove Role",
+            "description": "Remove a role from the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)",
+              "roleId": "integer (role ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Role removed successfully"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/users/{id}/sessions",
+            "name": "Get User Sessions",
+            "description": "Get active sessions for the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": "token123",
+                    "ip_address": "192.168.1.1",
+                    "user_agent": "Mozilla/5.0...",
+                    "created_at": "2025-10-04T12:00:00.000000Z",
+                    "expires_at": "2025-10-05T12:00:00.000000Z"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/users/{id}/sessions",
+            "name": "Revoke All Sessions",
+            "description": "Revoke all active sessions for the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "All sessions revoked successfully"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/users/{id}/sessions/{sessionId}",
+            "name": "Revoke Specific Session",
+            "description": "Revoke a specific session for the user",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "path_parameters": {
+              "id": "integer (user ID)",
+              "sessionId": "string (session ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Session revoked successfully"
+              }
+            }
+          }
+        ]
+      },
+      "6_application_management": {
+        "name": "Application Management",
+        "base_path": "/api/v1/applications",
+        "description": "OAuth client management, credentials, users, tokens, and analytics",
+        "middleware": ["auth:api", "throttle:api", "org.boundary"],
+        "note": "All operations are organization-scoped. Users can only manage applications in their organization.",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/applications",
+            "name": "List Applications",
+            "description": "Get list of OAuth applications (organization-scoped)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/applications",
+            "name": "Create Application",
+            "description": "Create new OAuth application (auto-generates client_id and client_secret)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "request_body": {
+              "name": "string (required, max:255)",
+              "redirect_uris": "array (required, URLs)",
+              "allowed_origins": "array (optional, URLs)",
+              "allowed_grant_types": "array (required, authorization_code|refresh_token|client_credentials)",
+              "webhook_url": "string (optional, URL)",
+              "settings": "object (optional)"
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/applications/{id}",
+            "name": "Get Application Details",
+            "description": "Get detailed application information including credentials",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/applications/{id}",
+            "name": "Update Application",
+            "description": "Update application settings",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/applications/{id}",
+            "name": "Delete Application",
+            "description": "Delete application and revoke all associated tokens",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/applications/{id}/credentials/regenerate",
+            "name": "Regenerate Credentials",
+            "description": "Regenerate client_secret (revokes old secret)",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/applications/{id}/users",
+            "name": "Get Application Users",
+            "description": "Get users with access to this application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/applications/{id}/users",
+            "name": "Grant User Access",
+            "description": "Grant user access to application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/applications/{id}/users/{userId}",
+            "name": "Revoke User Access",
+            "description": "Revoke user access to application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/applications/{id}/tokens",
+            "name": "Get Application Tokens",
+            "description": "Get all active tokens for this application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/applications/{id}/tokens",
+            "name": "Revoke All Tokens",
+            "description": "Revoke all tokens for this application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/applications/{id}/tokens/{tokenId}",
+            "name": "Revoke Specific Token",
+            "description": "Revoke a specific token",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/applications/{id}/analytics",
+            "name": "Get Application Analytics",
+            "description": "Get usage analytics and statistics for application",
+            "authentication": true,
+            "rate_limit": "api (100 requests/min)",
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "summary": {
+                    "total_users": 100,
+                    "active_tokens": 50,
+                    "total_requests": 1000
+                  },
+                  "user_growth": [],
+                  "login_activity": [],
+                  "top_applications": [],
+                  "security_events": []
+                }
+              }
+            }
+          }
+        ]
+      },
+      "7_organization_management": {
+        "name": "Organization Management",
+        "base_path": "/api/v1/organizations",
+        "description": "Multi-tenant organization CRUD, settings, users, applications, analytics, invitations, bulk operations, custom roles, and reports",
+        "middleware": ["auth:api", "throttle:api", "org.boundary"],
+        "note": "Organization-scoped endpoints. Super Admins can access all organizations.",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations",
+            "name": "List Organizations",
+            "description": "Get list of accessible organizations",
+            "authentication": true,
+            "cache": "300 seconds"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations",
+            "name": "Create Organization",
+            "description": "Create new organization"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}",
+            "name": "Get Organization Details",
+            "cache": "600 seconds"
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/organizations/{id}",
+            "name": "Update Organization"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/organizations/{id}",
+            "name": "Delete Organization"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/settings",
+            "name": "Get Organization Settings"
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/organizations/{id}/settings",
+            "name": "Update Organization Settings"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/users",
+            "name": "Get Organization Users"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/users",
+            "name": "Add User to Organization"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/organizations/{id}/users/{userId}/applications/{applicationId}",
+            "name": "Revoke User Application Access"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/applications",
+            "name": "Get Organization Applications"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/analytics",
+            "name": "Get Organization Analytics",
+            "cache": "300 seconds"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/metrics/users",
+            "name": "Get User Metrics",
+            "cache": "300 seconds"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/metrics/applications",
+            "name": "Get Application Metrics",
+            "cache": "300 seconds"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/metrics/security",
+            "name": "Get Security Metrics",
+            "cache": "300 seconds"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/export",
+            "name": "Export Organization Data"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/invitations",
+            "name": "List Organization Invitations"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/invitations",
+            "name": "Create Invitation"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/organizations/{id}/invitations/{invitationId}",
+            "name": "Cancel Invitation"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/invitations/{invitationId}/resend",
+            "name": "Resend Invitation"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/invitations/bulk",
+            "name": "Bulk Invite Users"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/bulk/invite-users",
+            "name": "Bulk Invite Users (Alt)"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/bulk/assign-roles",
+            "name": "Bulk Assign Roles"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/bulk/revoke-access",
+            "name": "Bulk Revoke Access"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/bulk/export-users",
+            "name": "Bulk Export Users"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/bulk/import-users",
+            "name": "Bulk Import Users"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/custom-roles",
+            "name": "List Custom Roles"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/custom-roles",
+            "name": "Create Custom Role"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/custom-roles/{roleId}",
+            "name": "Get Custom Role Details"
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/organizations/{id}/custom-roles/{roleId}",
+            "name": "Update Custom Role"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/organizations/{id}/custom-roles/{roleId}",
+            "name": "Delete Custom Role"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/custom-roles/{roleId}/assign-users",
+            "name": "Assign Users to Custom Role"
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/organizations/{id}/custom-roles/{roleId}/remove-users",
+            "name": "Remove Users from Custom Role"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/reports/user-activity",
+            "name": "Get User Activity Report"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/reports/application-usage",
+            "name": "Get Application Usage Report"
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/organizations/{id}/reports/security-audit",
+            "name": "Get Security Audit Report"
+          }
+        ]
+      },
+      "8_invitations": {
+        "name": "Public Invitations",
+        "base_path": "/api/v1/invitations",
+        "description": "Public invitation viewing and acceptance endpoints",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/invitations/{token}",
+            "name": "View Invitation",
+            "description": "View invitation details (public, no auth required)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/invitations/{token}/accept",
+            "name": "Accept Invitation",
+            "description": "Accept invitation and join organization",
+            "authentication": true
+          }
+        ]
+      },
+      "9_sso": {
+        "name": "Single Sign-On (SSO)",
+        "base_path": "/api/v1/sso",
+        "description": "OIDC and SAML 2.0 SSO implementation with session management",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/initiate",
+            "name": "Initiate SSO",
+            "description": "Initiate SSO session",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/sso/sessions",
+            "name": "List SSO Sessions",
+            "description": "Get user's active SSO sessions",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/sessions/revoke",
+            "name": "Revoke SSO Sessions",
+            "description": "Revoke all SSO sessions",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/sso/sessions/{session_token}/validate",
+            "name": "Validate SSO Session",
+            "description": "Validate specific SSO session",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/sessions/{session_token}/refresh",
+            "name": "Refresh SSO Session",
+            "description": "Refresh SSO session token",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/sessions/{session_token}/logout",
+            "name": "Logout SSO Session",
+            "description": "Logout from specific SSO session",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/logout/synchronized",
+            "name": "Synchronized Logout",
+            "description": "Logout from all SSO sessions",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/sso/configurations/{organizationId}",
+            "name": "Get SSO Configuration",
+            "description": "Get SSO configuration for organization",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/configurations",
+            "name": "Create SSO Configuration",
+            "description": "Create new SSO configuration",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/sso/configurations/{id}",
+            "name": "Update SSO Configuration",
+            "description": "Update SSO configuration",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/sso/configurations/{id}",
+            "name": "Delete SSO Configuration",
+            "description": "Delete SSO configuration",
+            "authentication": true,
+            "scopes": ["sso"]
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/callback",
+            "name": "SSO Callback (OIDC)",
+            "description": "Handle OIDC SSO callback (public)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/saml/callback",
+            "name": "SAML Callback",
+            "description": "Handle SAML 2.0 callback (public)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/validate",
+            "name": "Validate SSO Session (Public)",
+            "description": "Validate SSO session (public)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/refresh",
+            "name": "Refresh SSO Token (Public)",
+            "description": "Refresh SSO token (public)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/logout",
+            "name": "SSO Logout (Public)",
+            "description": "SSO logout (public)",
+            "authentication": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/sso/configuration/{applicationId}",
+            "name": "Get Application SSO Config (Public)",
+            "description": "Get SSO configuration for application (public)",
+            "authentication": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/sso/metadata/{organizationSlug}",
+            "name": "Get SAML Metadata",
+            "description": "Get SAML metadata for organization (public)",
+            "authentication": false
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/sso/cleanup",
+            "name": "Cleanup Expired Sessions",
+            "description": "Cleanup expired SSO sessions (public)",
+            "authentication": false
+          }
+        ]
+      },
+      "10_oauth_oidc": {
+        "name": "OAuth 2.0 & OpenID Connect",
+        "base_path": "/api/v1/oauth",
+        "description": "OAuth 2.0 server with PKCE, token introspection, UserInfo, and JWKS endpoints",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/oauth/userinfo",
+            "name": "UserInfo Endpoint",
+            "description": "Get user information (OpenID Connect UserInfo endpoint)",
+            "authentication": true,
+            "scopes": ["openid", "profile", "email"],
+            "response_success": {
+              "status": 200,
+              "body": {
+                "sub": "1",
+                "name": "John Doe",
+                "email": "john@example.com",
+                "email_verified": true,
+                "preferred_username": "johndoe"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/oauth/jwks",
+            "name": "JWKS Endpoint",
+            "description": "JSON Web Key Set for token verification",
+            "authentication": false,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "keys": [
+                  {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "kid": "key-id",
+                    "n": "modulus",
+                    "e": "exponent"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/.well-known/openid-configuration",
+            "name": "OpenID Connect Discovery",
+            "description": "OpenID Connect discovery endpoint (outside /api/v1)",
+            "authentication": false,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "issuer": "http://authos.test",
+                "authorization_endpoint": "http://authos.test/oauth/authorize",
+                "token_endpoint": "http://authos.test/oauth/token",
+                "userinfo_endpoint": "http://authos.test/api/v1/oauth/userinfo",
+                "jwks_uri": "http://authos.test/api/v1/oauth/jwks",
+                "scopes_supported": ["openid", "profile", "email"],
+                "response_types_supported": ["code", "token"],
+                "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"]
+              }
+            }
+          }
+        ],
+        "note": "Standard OAuth endpoints (/oauth/authorize, /oauth/token) are provided by Laravel Passport"
+      },
+      "11_enterprise_ldap": {
+        "name": "Enterprise - LDAP Integration",
+        "base_path": "/api/v1/enterprise/ldap",
+        "description": "LDAP/Active Directory integration with user sync",
+        "test_results": "9/9 tests passing (100%)",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/ldap/test",
+            "name": "Test LDAP Connection",
+            "description": "Test LDAP connection with provided configuration",
+            "authentication": true,
+            "request_body": {
+              "host": "string (required)",
+              "port": "integer (optional, default: 389)",
+              "base_dn": "string (required)",
+              "username": "string (required)",
+              "password": "string (required)",
+              "use_ssl": "boolean (optional)",
+              "use_tls": "boolean (optional)",
+              "user_filter": "string (optional)",
+              "user_attribute": "string (optional, default: uid)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "connection_status": "success",
+                  "message": "LDAP connection successful",
+                  "user_count": 150
+                },
+                "message": "LDAP connection test completed"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/ldap/sync",
+            "name": "Sync LDAP Users",
+            "description": "Sync users from LDAP to the organization",
+            "authentication": true,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "sync_results": {
+                    "created": 10,
+                    "updated": 5,
+                    "failed": 0
+                  }
+                },
+                "message": "LDAP user sync completed"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/ldap/users",
+            "name": "List LDAP Users",
+            "description": "Get users from LDAP directory",
+            "authentication": true,
+            "query_parameters": {
+              "limit": "integer (optional, default: 100)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "dn": "uid=jdoe,ou=users,dc=example,dc=com",
+                    "uid": "jdoe",
+                    "mail": "jdoe@example.com",
+                    "cn": "John Doe"
+                  }
+                ],
+                "message": "LDAP users retrieved successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/ldap/configure",
+            "name": "Configure LDAP",
+            "description": "Save LDAP configuration for the organization",
+            "authentication": true,
+            "request_body": {
+              "name": "string (optional)",
+              "host": "string (required)",
+              "port": "integer (optional, default: 389)",
+              "base_dn": "string (required)",
+              "username": "string (required)",
+              "password": "string (required)",
+              "use_ssl": "boolean (optional)",
+              "use_tls": "boolean (optional)",
+              "user_filter": "string (optional)",
+              "user_attribute": "string (optional, default: uid)",
+              "sync_settings": "object (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "ldap_config": {
+                    "id": 1,
+                    "organization_id": 1,
+                    "name": "Main LDAP",
+                    "host": "ldap.example.com",
+                    "port": 389,
+                    "base_dn": "dc=example,dc=com",
+                    "is_active": true
+                  }
+                },
+                "message": "LDAP configuration saved successfully"
+              }
+            }
+          }
+        ]
+      },
+      "12_enterprise_domains": {
+        "name": "Enterprise - Custom Domains",
+        "base_path": "/api/v1/enterprise/domains",
+        "description": "Custom domain management with DNS verification",
+        "test_results": "11/11 tests passing (100%)",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/domains",
+            "name": "List Custom Domains",
+            "description": "Get all custom domains for the organization",
+            "authentication": true,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": 1,
+                    "domain": "auth.example.com",
+                    "verification_code": "abc123",
+                    "verified_at": "2025-10-04T12:00:00.000000Z",
+                    "is_active": true,
+                    "status": "verified"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/domains",
+            "name": "Create Custom Domain",
+            "description": "Add new custom domain (requires DNS verification)",
+            "authentication": true,
+            "request_body": {
+              "domain": "string (required, valid domain)",
+              "settings": "object (optional)"
+            },
+            "response_success": {
+              "status": 201,
+              "body": {
+                "success": true,
+                "data": {
+                  "id": 1,
+                  "domain": "auth.example.com",
+                  "verification_code": "abc123",
+                  "verified_at": null,
+                  "is_active": false,
+                  "verification_instructions": "Add TXT record..."
+                },
+                "message": "Custom domain created. Please verify DNS records."
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/domains/{id}/verify",
+            "name": "Verify Custom Domain",
+            "description": "Verify domain DNS records",
+            "authentication": true,
+            "path_parameters": {
+              "id": "integer (domain ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "verified": true,
+                  "verified_at": "2025-10-04T12:00:00.000000Z"
+                },
+                "message": "Domain verified successfully"
+              }
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/enterprise/domains/{id}",
+            "name": "Delete Custom Domain",
+            "description": "Remove custom domain",
+            "authentication": true,
+            "path_parameters": {
+              "id": "integer (domain ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "message": "Custom domain deleted successfully"
+              }
+            }
+          }
+        ]
+      },
+      "13_enterprise_audit": {
+        "name": "Enterprise - Audit Trail",
+        "base_path": "/api/v1/enterprise/audit",
+        "description": "Audit log export in CSV, JSON, Excel formats",
+        "test_results": "10/10 tests passing (100%)",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/audit/export",
+            "name": "Export Audit Logs",
+            "description": "Create audit log export (background job)",
+            "authentication": true,
+            "request_body": {
+              "format": "string (required, csv|json|excel)",
+              "start_date": "date (optional)",
+              "end_date": "date (optional)",
+              "event_types": "array (optional)",
+              "user_ids": "array (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "export_id": 1,
+                  "status": "processing",
+                  "estimated_completion": "2025-10-04T12:05:00.000000Z"
+                },
+                "message": "Audit export initiated"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/audit/exports",
+            "name": "List Audit Exports",
+            "description": "Get list of audit exports",
+            "authentication": true,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": [
+                  {
+                    "id": 1,
+                    "format": "csv",
+                    "status": "completed",
+                    "created_at": "2025-10-04T12:00:00.000000Z",
+                    "completed_at": "2025-10-04T12:05:00.000000Z"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/audit/exports/{id}/download",
+            "name": "Download Audit Export",
+            "description": "Download completed audit export file",
+            "authentication": true,
+            "path_parameters": {
+              "id": "integer (export ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "content_type": "application/octet-stream",
+              "body": "File stream"
+            }
+          }
+        ]
+      },
+      "14_enterprise_compliance": {
+        "name": "Enterprise - Compliance Reports",
+        "base_path": "/api/v1/enterprise/compliance",
+        "description": "SOC2, ISO 27001, GDPR compliance reporting",
+        "test_results": "8/8 tests passing (100%), 2 deferred",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/compliance/soc2",
+            "name": "SOC2 Compliance Report",
+            "description": "Generate SOC2 compliance report",
+            "authentication": true,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "report_type": "soc2",
+                  "generated_at": "2025-10-04T12:00:00.000000Z",
+                  "metrics": {},
+                  "recommendations": []
+                }
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/compliance/iso27001",
+            "name": "ISO 27001 Compliance Report",
+            "description": "Generate ISO 27001 compliance report",
+            "authentication": true
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/compliance/gdpr",
+            "name": "GDPR Compliance Report",
+            "description": "Generate GDPR compliance report",
+            "authentication": true
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/compliance/schedule",
+            "name": "Schedule Compliance Report",
+            "description": "Schedule recurring compliance reports",
+            "authentication": true,
+            "request_body": {
+              "report_type": "string (required, soc2|iso27001|gdpr)",
+              "frequency": "string (required, daily|weekly|monthly)",
+              "recipients": "array (required, email addresses)",
+              "format": "string (optional, pdf|json, default: pdf)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "schedule_id": 1,
+                  "report_type": "soc2",
+                  "frequency": "monthly",
+                  "next_run": "2025-11-04T12:00:00.000000Z"
+                },
+                "message": "Compliance report scheduled successfully"
+              }
+            }
+          }
+        ]
+      },
+      "15_enterprise_branding": {
+        "name": "Enterprise - Organization Branding",
+        "base_path": "/api/v1/enterprise/organizations/{organization}/branding",
+        "description": "Custom branding with logo, background, colors, CSS",
+        "test_results": "13/13 tests passing (100%)",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/enterprise/organizations/{organization}/branding",
+            "name": "Get Organization Branding",
+            "description": "Get current branding configuration",
+            "authentication": true,
+            "path_parameters": {
+              "organization": "integer (organization ID)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "logo_path": "branding/logo.png",
+                  "login_background_path": "branding/bg.jpg",
+                  "primary_color": "#3b82f6",
+                  "secondary_color": "#10b981",
+                  "custom_css": "body { ... }",
+                  "email_templates": {},
+                  "settings": {}
+                }
+              }
+            }
+          },
+          {
+            "method": "PUT",
+            "path": "/api/v1/enterprise/organizations/{organization}/branding",
+            "name": "Update Organization Branding",
+            "description": "Update branding colors and CSS",
+            "authentication": true,
+            "path_parameters": {
+              "organization": "integer (organization ID)"
+            },
+            "request_body": {
+              "primary_color": "string (optional, hex color)",
+              "secondary_color": "string (optional, hex color)",
+              "custom_css": "string (optional, sanitized CSS)",
+              "email_templates": "object (optional)",
+              "settings": "object (optional)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "primary_color": "#3b82f6",
+                  "secondary_color": "#10b981"
+                },
+                "message": "Branding updated successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/organizations/{organization}/branding/logo",
+            "name": "Upload Logo",
+            "description": "Upload organization logo",
+            "authentication": true,
+            "path_parameters": {
+              "organization": "integer (organization ID)"
+            },
+            "request_body": {
+              "logo": "file (required, image, max:2MB)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "logo_path": "branding/logo.png",
+                  "logo_url": "http://authos.test/storage/branding/logo.png"
+                },
+                "message": "Logo uploaded successfully"
+              }
+            }
+          },
+          {
+            "method": "POST",
+            "path": "/api/v1/enterprise/organizations/{organization}/branding/background",
+            "name": "Upload Background",
+            "description": "Upload login background image",
+            "authentication": true,
+            "path_parameters": {
+              "organization": "integer (organization ID)"
+            },
+            "request_body": {
+              "background": "file (required, image, max:5MB)"
+            },
+            "response_success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "background_path": "branding/bg.jpg",
+                  "background_url": "http://authos.test/storage/branding/bg.jpg"
+                },
+                "message": "Background uploaded successfully"
+              }
+            }
+          }
+        ]
+      },
+      "16_monitoring_cache": {
+        "name": "Monitoring & Cache Management",
+        "base_path": "/api/v1",
+        "description": "System health, metrics, and cache management (Admin only)",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/monitoring/metrics",
+            "name": "Get System Metrics",
+            "authentication": true
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/monitoring/health",
+            "name": "Get System Health",
+            "authentication": true
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/cache/stats",
+            "name": "Get Cache Statistics",
+            "authentication": true
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/cache/clear-all",
+            "name": "Clear All Caches",
+            "authentication": true
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/v1/cache/clear-user",
+            "name": "Clear User Caches",
+            "authentication": true
+          }
+        ]
+      },
+      "17_config": {
+        "name": "Global Configuration",
+        "base_path": "/api/v1/config",
+        "description": "Global configuration endpoints",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/v1/config/permissions",
+            "name": "Get Available Permissions",
+            "authentication": true
+          },
+          {
+            "method": "GET",
+            "path": "/api/v1/config/report-types",
+            "name": "Get Report Types",
+            "authentication": true
+          }
+        ]
+      },
+      "18_health": {
+        "name": "Public Health Checks",
+        "base_path": "/api",
+        "description": "Public health check endpoints (no authentication)",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/api/version",
+            "name": "API Version Info",
+            "authentication": false,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "supported_versions": ["v1"],
+                "default_version": "v1",
+                "latest_version": "v1"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/health",
+            "name": "Basic Health Check",
+            "authentication": false,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "status": "ok",
+                "timestamp": "2025-10-04T12:00:00.000000Z"
+              }
+            }
+          },
+          {
+            "method": "GET",
+            "path": "/api/health/detailed",
+            "name": "Detailed Health Check",
+            "authentication": false,
+            "response_success": {
+              "status": 200,
+              "body": {
+                "status": "ok",
+                "timestamp": "2025-10-04T12:00:00.000000Z",
+                "services": {
+                  "database": "ok",
+                  "redis": "ok",
+                  "oauth": "ok"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "features": {
+    "authentication": {
+      "oauth_2.0": {
+        "status": "Production Ready",
+        "description": "Complete OAuth 2.0 server implementation with Laravel Passport",
+        "features": [
+          "Authorization Code Flow with PKCE (RFC 7636)",
+          "Refresh Token Rotation",
+          "Token Introspection (RFC 7662)",
+          "Client Credentials Grant",
+          "Password Grant",
+          "Scope-based access control"
+        ],
+        "supported_grant_types": [
+          "authorization_code",
+          "refresh_token",
+          "client_credentials",
+          "password"
+        ],
+        "pkce_methods": ["S256", "plain"]
+      },
+      "openid_connect": {
+        "status": "Production Ready",
+        "description": "OpenID Connect 1.0 implementation",
+        "features": [
+          "Discovery endpoint (/.well-known/openid-configuration)",
+          "UserInfo endpoint",
+          "JWKS endpoint for token verification",
+          "ID token generation",
+          "Standard claims (sub, name, email, email_verified)"
+        ]
+      },
+      "mfa": {
+        "status": "Production Ready",
+        "description": "Multi-factor authentication with TOTP",
+        "features": [
+          "TOTP (Time-based One-Time Password) using Google Authenticator",
+          "QR code generation for easy setup",
+          "Backup recovery codes (8 codes)",
+          "Recovery code regeneration",
+          "Organization-level MFA enforcement"
+        ]
+      },
+      "social_authentication": {
+        "status": "Production Ready",
+        "description": "OAuth integration with 5 major providers",
+        "providers": [
+          {
+            "name": "Google",
+            "oauth_version": "2.0",
+            "scopes": ["openid", "profile", "email"]
+          },
+          {
+            "name": "GitHub",
+            "oauth_version": "2.0",
+            "scopes": ["user:email"]
+          },
+          {
+            "name": "Facebook",
+            "oauth_version": "2.0",
+            "scopes": ["email", "public_profile"]
+          },
+          {
+            "name": "Twitter/X",
+            "oauth_version": "2.0",
+            "scopes": ["tweet.read", "users.read", "offline.access"]
+          },
+          {
+            "name": "LinkedIn",
+            "oauth_version": "2.0",
+            "scopes": ["openid", "profile", "email"]
+          }
+        ],
+        "features": [
+          "Multiple social accounts per user",
+          "Link/unlink social accounts",
+          "Social account registration",
+          "Automatic user creation",
+          "Token refresh for providers that support it"
+        ]
+      }
+    },
+    "sso": {
+      "oidc": {
+        "status": "Production Ready",
+        "description": "OpenID Connect SSO with discovery",
+        "features": [
+          "Authorization code flow",
+          "PKCE support",
+          "ID token generation",
+          "UserInfo endpoint",
+          "JWKS endpoint",
+          "Session management"
+        ]
+      },
+      "saml_2.0": {
+        "status": "Production Ready",
+        "description": "SAML 2.0 implementation",
+        "features": [
+          "SAML assertion validation",
+          "SAML metadata endpoint",
+          "SAML authentication flow",
+          "SAML logout support",
+          "Attribute mapping"
+        ]
+      },
+      "session_management": {
+        "status": "Production Ready",
+        "features": [
+          "Cross-application SSO",
+          "Token sharing between applications",
+          "Application isolation",
+          "Session timeout handling",
+          "Concurrent session support",
+          "Synchronized logout"
+        ]
+      }
+    },
+    "enterprise": {
+      "ldap_integration": {
+        "status": "Production Ready",
+        "test_results": "9/9 tests passing (100%)",
+        "features": [
+          "LDAP/Active Directory connection testing",
+          "User synchronization with background jobs",
+          "LDAP authentication flow",
+          "Encrypted configuration management",
+          "Custom user attribute mapping",
+          "SSL/TLS support",
+          "User filter support"
+        ]
+      },
+      "custom_domains": {
+        "status": "Production Ready",
+        "test_results": "11/11 tests passing (100%)",
+        "features": [
+          "Custom domain registration",
+          "DNS verification (TXT records)",
+          "Domain status tracking",
+          "SSL certificate management",
+          "Multiple domains per organization"
+        ]
+      },
+      "organization_branding": {
+        "status": "Production Ready",
+        "test_results": "13/13 tests passing (100%)",
+        "features": [
+          "Logo upload with XSS protection",
+          "Login background image upload",
+          "Primary and secondary color customization",
+          "Custom CSS support (sanitized)",
+          "Email template customization",
+          "Admin panel integration"
+        ]
+      },
+      "audit_trail": {
+        "status": "Production Ready",
+        "test_results": "10/10 tests passing (100%)",
+        "features": [
+          "Comprehensive authentication event logging",
+          "Export in CSV, JSON, Excel formats",
+          "Background job processing",
+          "Date range filtering",
+          "Event type filtering",
+          "User filtering",
+          "Download streaming for large exports"
+        ]
+      },
+      "compliance_reporting": {
+        "status": "Production Ready",
+        "test_results": "8/8 tests passing (100%)",
+        "features": [
+          "SOC2 compliance reports",
+          "ISO 27001 compliance reports",
+          "GDPR compliance reports",
+          "Scheduled recurring reports",
+          "Email delivery",
+          "PDF and JSON export formats"
+        ]
+      }
+    },
+    "multi_tenancy": {
+      "status": "Production Ready",
+      "description": "Organization-based multi-tenancy with proper isolation",
+      "features": [
+        "Organization-scoped data access",
+        "Super Admin cross-organization access",
+        "Automatic organization filtering",
+        "Role-based access control (RBAC) with organization context",
+        "Organization settings and security policies",
+        "Custom roles per organization"
+      ]
+    },
+    "security": {
+      "status": "Production Ready",
+      "features": [
+        "API response sanitization (sensitive data protection)",
+        "Security headers (HSTS, CSP, XSS protection)",
+        "Rate limiting (role-based limits)",
+        "CSRF protection",
+        "OAuth signature validation",
+        "Replay attack prevention",
+        "Redirect URI validation",
+        "XSS prevention in user uploads",
+        "Encrypted LDAP credentials"
+      ]
+    },
+    "performance": {
+      "status": "Optimized",
+      "features": [
+        "API response caching (300-600s for read endpoints)",
+        "Redis caching",
+        "Query optimization with eager loading",
+        "Database indexes on all foreign keys",
+        "Pagination for large datasets",
+        "Background job processing for heavy operations",
+        "Optimized middleware stack (4 middleware for API requests)"
+      ]
+    }
+  },
+  "default_roles": [
+    {
+      "name": "Super Admin",
+      "description": "Full system access across all organizations",
+      "scope": "global"
+    },
+    {
+      "name": "Organization Owner",
+      "description": "Full organization management",
+      "scope": "organization"
+    },
+    {
+      "name": "Organization Admin",
+      "description": "User and application management",
+      "scope": "organization"
+    },
+    {
+      "name": "User",
+      "description": "Basic read access (organization-scoped)",
+      "scope": "organization"
+    }
+  ],
+  "test_credentials": {
+    "admin": {
+      "email": "admin@authservice.com",
+      "password": "password123",
+      "role": "Super Admin",
+      "organization": "TechCorp Solutions"
+    },
+    "organizations": [
+      {
+        "name": "TechCorp Solutions",
+        "slug": "techcorp",
+        "security": "Standard security"
+      },
+      {
+        "name": "SecureBank Holdings",
+        "slug": "securebank",
+        "security": "High security, MFA required"
+      }
+    ]
+  },
+  "postman_collection_metadata": {
+    "collection_name": "Laravel Auth Service - Complete API Collection",
+    "version": "1.0.0",
+    "description": "Complete API collection for Laravel 12 Authentication Service - Production-ready OAuth 2.0, OpenID Connect, SSO, MFA, Social Auth, and Enterprise features",
+    "base_url_variable": "{{base_url}}",
+    "base_url_default": "http://authos.test",
+    "auth_type": "bearer",
+    "auth_token_variable": "{{access_token}}",
+    "variables": [
+      {
+        "key": "base_url",
+        "value": "http://authos.test",
+        "type": "default"
+      },
+      {
+        "key": "access_token",
+        "value": "",
+        "type": "secret"
+      },
+      {
+        "key": "refresh_token",
+        "value": "",
+        "type": "secret"
+      },
+      {
+        "key": "client_id",
+        "value": "",
+        "type": "default"
+      },
+      {
+        "key": "client_secret",
+        "value": "",
+        "type": "secret"
+      },
+      {
+        "key": "organization_id",
+        "value": "1",
+        "type": "default"
+      },
+      {
+        "key": "user_id",
+        "value": "1",
+        "type": "default"
+      },
+      {
+        "key": "application_id",
+        "value": "1",
+        "type": "default"
+      }
+    ],
+    "total_endpoints": "150+",
+    "endpoint_groups": 18
+  },
+  "documentation_notes": {
+    "architecture": "Clean service layer architecture with repository pattern",
+    "api_format": "100% unified response format across all endpoints",
+    "error_handling": "Standardized error responses with error codes and descriptions",
+    "validation": "Form Request classes for all input validation",
+    "authentication": "Bearer token authentication using Laravel Passport OAuth 2.0",
+    "rate_limiting": "Two tiers - auth (10/min) and api (100/min)",
+    "caching": "Redis-based caching for read endpoints (300-600s)",
+    "background_jobs": "Heavy operations (LDAP sync, audit export, compliance reports) run as background jobs",
+    "testing": "830+ tests with 100% pass rate, production-ready",
+    "deployment_status": "Ready for immediate production deployment"
+  }
+}

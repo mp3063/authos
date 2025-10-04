@@ -13,7 +13,9 @@ class CustomDomain extends Model
     protected $fillable = [
         'organization_id',
         'domain',
+        'status',
         'verification_code',
+        'verification_method',
         'verified_at',
         'ssl_certificate',
         'dns_records',

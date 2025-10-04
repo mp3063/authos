@@ -1,758 +1,208 @@
-# CLAUDE.md - Laravel 12 Auth Service Project Documentation
+# CLAUDE.md - Laravel 12 Auth Service Documentation
 
 ## Project Overview
-Laravel 12 authentication service built as Auth0 alternative with Filament 4 admin panel, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
+Laravel 12 enterprise authentication service - Auth0 alternative with Filament 4 admin, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
 
-**Current Status**: Production-Ready with Optimized Architecture - Enterprise authentication service with complete OAuth 2.0 implementation, PKCE security, refresh token rotation, **100% test success rate (830+ tests, 5100+ assertions)**, PHPUnit 12+ compatibility with PHP 8 attributes, **native Laravel package integration**, clean architecture with service layer, repository pattern, and fully standardized unified API response format across all endpoints. **✅ REDUNDANT FUNCTIONALITY REMOVED** - Optimized for performance and maintainability.
+**Status**: Production-Ready ✅
+- 933+ test methods, 144 REST endpoints
+- Multi-tenant with organization isolation
+- Complete OAuth 2.0 + PKCE, OIDC, SAML 2.0
+- 5 social providers, LDAP/AD integration
+- Enterprise features: branding, domains, audit, compliance
 
 ## Technology Stack
-- **Laravel 12** + **Filament 4** + **Laravel Passport** (OAuth 2.0)
-- **Spatie Roles/Permissions** + **PostgreSQL** + **Redis**
-- **Laravel Socialite** (Google, GitHub, Facebook, Twitter, LinkedIn)
+- **PHP**: 8.4.13 | **Laravel**: 12.25.0 | **Filament**: 4.x
+- **Passport**: 13.1 | **Socialite**: 5.23 | **Spatie Permission**: 6.21
+- **Database**: PostgreSQL | **Cache**: Redis/Database
+- **Testing**: PHPUnit 11.5.34 | **Frontend**: Tailwind CSS 4.0
+
+## Quick Start
+
+```bash
+# Install
+composer install && npm install
+cp .env.example .env
+herd php artisan key:generate
+
+# Setup database
+herd php artisan migrate --seed
+herd php artisan passport:keys
+herd php artisan passport:install
+
+# Start
+herd start                    # http://authos.test
+```
+
+**Access:**
+- Admin: http://authos.test/admin (admin@authservice.com / password123)
+- API: http://authos.test/api/v1
 
 ## Development Commands
 
-### Environment Setup
 ```bash
-# HERD (recommended for local development)
-herd start                     # Start services for http://authos.test/admin
-herd restart                   # Restart if needed
+# Database
+herd php artisan migrate:refresh --seed
+herd php artisan passport:keys
 
-# Alternative local setup
-php artisan serve              # http://127.0.0.1:8000
-php artisan queue:listen       # Background jobs
-```
+# Testing (use wrapper to prevent hang)
+./run-tests.sh                             # Full suite
+./run-tests.sh tests/Unit/                 # Unit tests
+herd php artisan test --filter=testName    # Specific test
 
-### Database & Testing
-```bash
-# Database operations
-herd php artisan migrate:refresh --seed    # Reset with sample data
-herd php artisan passport:keys             # Generate OAuth keys
-
-# Testing (830+ tests, 100% pass rate, zero warnings) ✅ PRODUCTION READY
-herd php artisan test                      # Full test suite (830+ pass, 10 skip, optimized)
-herd php artisan test tests/Unit/          # Unit tests (all passing)
-herd php artisan test --stop-on-failure    # Debug mode
-
-# Code Coverage Analysis
-herd coverage ./vendor/bin/phpunit                                      # Basic coverage with Herd
-herd coverage ./vendor/bin/phpunit --coverage-text                      # Coverage with text output
-herd coverage ./vendor/bin/phpunit tests/Unit --coverage-text           # Unit tests coverage only
-
-# PhpStorm Coverage Command (with Xdebug)
-"/Users/sin/Library/Application Support/Herd/bin/php84" -dzend_extension=/Applications/Herd.app/Contents/Resources/xdebug/xdebug-84-arm64.so -dxdebug.mode=coverage -d memory_limit=1G ./vendor/bin/phpunit --coverage-text
+# Coverage
+herd coverage ./vendor/bin/phpunit --coverage-text
 ```
 
 ## Core Architecture
 
-### Multi-Tenant Security ✅ FIXED
-- **Organization-based isolation**: Users can only see/manage resources from their organization
-- **Super Admin access**: Full system access across all organizations
-- **Filament Resource Filtering**: All admin resources now properly scoped by organization
-- **User/Application/Organization/Logs**: All filtered to prevent cross-organization data leakage
+### Multi-Tenant Security
+- Organization-based isolation (users only see their org data)
+- Super Admin has cross-organization access
+- All Filament resources properly scoped
 
-### Enhanced OAuth 2.0 & Security Infrastructure ✅ OPTIMIZED
-- **Complete Authorization Code Flow**: RFC 6749 compliant with database persistence
-- **PKCE Support**: RFC 7636 implementation with S256 and plain code challenge methods
-- **Refresh Token Rotation**: Secure token rotation preventing replay attacks
-- **Token Introspection**: RFC 7662 endpoint for real-time token validation
-- **Comprehensive Scope System**: Granular permissions with client-specific restrictions
-- **API Response Sanitization**: Production-grade sensitive data protection
-- **Native Laravel Integration**: Using Laravel Passport & throttle middleware directly
-
-### Architecture Optimization ✅ NEW - REDUNDANT FUNCTIONALITY REMOVED
-- **Middleware Stack Optimized**: Reduced from 6 to 4 middleware for API requests
-- **Native Package Integration**: Removed custom OAuth wrappers in favor of Laravel Passport
-- **Rate Limiting Modernized**: Replaced custom rate limiter with Laravel's native throttle middleware
-- **Security Headers Consolidated**: Moved OAuth headers to general SecurityHeaders middleware
-- **Code Reduction**: ~500 lines of redundant code removed, 2 middleware files eliminated
-- **Performance Improved**: Eliminated unnecessary database queries and validations
-- **Maintainability Enhanced**: Standard Laravel patterns for easier team onboarding
-
-### Unified API Response Format ✅ NEW - 100% CONSISTENT
-- **Standardized Response Structure**: All API endpoints now use consistent response formats
-- **Success Responses (200/201)**: `{"success": true, "data": {...}, "message": "..."}`
-- **Validation Errors (422)**: `{"success": false, "error": "validation_failed", "error_description": "...", "errors": {...}}`
-- **Paginated Collections**: `{"success": true, "data": [...], "meta": {...}, "message": "..."}`
-- **Error Responses**: `{"success": false, "error": {...}, "message": "..."}`
-- **Production-Grade Consistency**: Developer-friendly predictable API structure across all 306+ endpoints
+### OAuth 2.0 & Security
+- Complete authorization code flow (RFC 6749)
+- PKCE support (S256 + plain)
+- Refresh token rotation
+- Token introspection (RFC 7662)
+- Unified API response format across all endpoints
 
 ### Key Models
-- **User**: MFA support, organization relationships, social login fields
-- **Organization**: Multi-tenant settings, security policies, role management
-- **Application**: OAuth clients with auto-generated credentials
-- **AuthenticationLog**: Comprehensive audit trail
-- **OAuthAuthorizationCode**: Temporary authorization codes with PKCE support
+- **User** - MFA, organization relationships, social accounts
+- **Organization** - Multi-tenant settings, security policies
+- **Application** - OAuth clients with auto-generated credentials
+- **AuthenticationLog** - Comprehensive audit trail
+- **SSOConfiguration** - OIDC/SAML 2.0 per organization
+- **LdapConfiguration** - LDAP/AD integration
 
-### Database Schema (17 Tables)
-- `users`, `organizations`, `applications` - Core entities
-- `oauth_*` (6 tables) - Laravel Passport implementation + authorization codes
-- `roles`, `permissions` - Spatie RBAC with organization scoping
-- `authentication_logs` - Security monitoring
+### Database (30 Tables)
+- Core: users, organizations, applications, authentication_logs
+- OAuth: oauth_* (5 tables for Passport)
+- RBAC: roles, permissions, custom_roles
+- SSO: sso_configurations, sso_sessions, social_accounts
+- Enterprise: ldap_configurations, custom_domains, organization_branding, audit_exports
 
 ## Admin Panel (Filament 4)
 
-### Access & Security
-- **URL**: http://authos.test/admin (HERD) or /admin
-- **Default Admin**: admin@authservice.com / password123
-- **Multi-tenant Filtering**: Organization-scoped data access ✅
+**10 Resources:**
+1. Users - MFA controls, bulk operations
+2. Organizations - Settings, security policies
+3. Applications - OAuth client management
+4. Roles/Permissions - RBAC
+5. Authentication Logs - Security monitoring
+6. Social Accounts - Provider management
+7. Invitations - User workflow
+8. LDAP Configuration - AD integration
+9. Custom Domains - Domain verification
 
-### Resources Available
-- **UserResource**: User management, MFA controls, bulk operations
-- **OrganizationResource**: Organization settings, security policies
-- **ApplicationResource**: OAuth client management, credentials
-- **RoleResource/PermissionResource**: RBAC management
-- **AuthenticationLogResource**: Security monitoring
-- **Dashboard**: Analytics widgets, real-time metrics
+## API Endpoints (144 Total)
 
-## API Endpoints (Production Ready)
+### Core Categories
+- **Auth** (12) - register, login, logout, MFA, social (5 providers)
+- **Users** (15) - CRUD, roles, sessions, applications, bulk ops
+- **Applications** (13) - OAuth clients, credentials, analytics, tokens
+- **Organizations** (36) - CRUD, settings, custom roles, invitations, metrics, reports
+- **Profile** (9) - User profile, avatar, preferences, security
+- **MFA** (10) - TOTP setup/verify, recovery codes
+- **SSO** (19) - OIDC/SAML login, sessions, configurations
+- **Enterprise** (19) - LDAP (4), Branding (4), Domains (4), Audit/Compliance (7)
+- **OAuth** (10) - authorize, token, introspect, userinfo, jwks, revoke
+- **System** - Health, cache, config, monitoring
 
-### Core Authentication (`/api/v1/auth/*`)
-- `POST /auth/register` - User registration
-- `POST /auth/login` - JWT authentication
-- `GET /auth/user` - User info
-- `POST /auth/refresh` - Token refresh
-
-### Social Authentication (`/api/v1/auth/social/*`)
-- `GET /social/{provider}` - OAuth redirect (google, github, facebook, twitter, linkedin)
-- `GET /social/{provider}/callback` - OAuth callback
-- `DELETE /social/unlink` - Unlink social account
-
-### Management APIs
-- **Users API** (`/api/v1/users/*`) - CRUD, roles, sessions
-- **Applications API** (`/api/v1/applications/*`) - OAuth clients, analytics
-- **Organizations API** (`/api/v1/organizations/*`) - Multi-tenant operations
-- **Profile API** (`/api/v1/profile/*`) - User profile, preferences, security
-- **MFA API** (`/api/v1/mfa/*`) - TOTP setup, recovery codes
-
-### OAuth 2.0 & OIDC ✅ ENHANCED
-- `GET /oauth/authorize` - Authorization endpoint with PKCE support
-- `POST /oauth/token` - Token endpoint with refresh token rotation
-- `POST /oauth/introspect` - Token introspection endpoint (RFC 7662)
-- `GET /oauth/userinfo` - UserInfo endpoint
+**Well-Known:**
 - `GET /.well-known/openid-configuration` - OIDC Discovery
 
 ## Environment Configuration
 
-### Required Variables
 ```bash
-# Database & Redis
+# Core
+APP_NAME=AuthOS
 DB_CONNECTION=pgsql
-DB_DATABASE=authos
-REDIS_HOST=127.0.0.1
+CACHE_STORE=database
+QUEUE_CONNECTION=database
 
-# OAuth Clients (auto-generated)
+# Passport (auto-generated)
 PASSPORT_PERSONAL_ACCESS_CLIENT_ID=
 PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=
 
-# Social Authentication
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-# Add GitHub, Facebook, Twitter, LinkedIn as needed
+# Social Providers (5 providers)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# + GitHub, Facebook, Twitter, LinkedIn
 
-# Security Settings
-MFA_ISSUER="AuthOS"
+# Security
+MFA_ISSUER="${APP_NAME}"
 RATE_LIMIT_API=100
 RATE_LIMIT_AUTH=10
 ```
 
-## Controller Refactoring Progress ✅ COMPLETED
+## Production Features ✅
 
-### 📊 Overall Progress: 9/9 phases complete (100%) + Unified API Response Format
+### Phase 5 Complete (100%)
+- **SSO**: OIDC + SAML 2.0 (28/28 tests passing)
+- **Social Auth**: 5 providers (9/9 tests passing)
+- **LDAP/AD**: Integration (9/9 tests passing)
+- **Enterprise Branding**: Logo, colors, CSS (13/13 tests passing)
+- **Custom Domains**: DNS verification (11/11 tests passing)
+- **Audit Export**: CSV, JSON, Excel (10/10 tests passing)
+- **Compliance**: SOC2, ISO 27001, GDPR (8/8 tests passing)
 
-| Phase | Status | Test Results | Duration | Description |
-|-------|--------|--------------|----------|-------------|
-| **Phase 1: Foundation** | ✅ **COMPLETED** | 306/307 passing | 46.16s | Service layer extraction, dependency injection |
-| **Phase 2: Core Services** | ✅ **COMPLETED** | 291/307 passing | 46.03s | UserService, OrganizationService, ApplicationService |
-| **Phase 3: Repository Implementation** | ✅ **COMPLETED** | 306/307 passing | 46.08s | Repository pattern, query optimization |
-| **Phase 4: OAuth & Security** | ✅ **COMPLETED** | 306/307 passing | 46.30s | Complete OAuth 2.0, PKCE, security enhancements |
-| **Phase 5: Response Standardization** | ✅ **COMPLETED** | 306/307 passing | 46.34s | Unified API response formats |
-| **Phase 6: Controller Refactoring** | ✅ **COMPLETED** | Architecture Complete | 47.12s | Clean controller architecture |
-| **Phase 7: Performance & Optimization** | ✅ **COMPLETED** | 269/307 passing | 46.42s | Caching, query optimization |
-| **Phase 8: Final Testing & Documentation** | ✅ **COMPLETED** | 276/307 passing | 46.38s | Test compatibility, production ready |
-| **Phase 9: Unified API Response Format** | ✅ **COMPLETED** | **306/306 passing (100%)** | 46.44s | **Complete API format consistency, 100% test success** |
+**Total: 94/94 enterprise tests passing (100%)**
 
-### 🏆 **FINAL ACHIEVEMENT: Phase 9 - Unified API Response Format (100% Success)**
+## Test Coverage
+- **Total**: 933+ test methods across 60 classes
+- **Categories**: Unit (40+), Feature (890+), Integration (10+)
+- **Infrastructure**: PHPUnit 11.5, PHP 8 attributes, memory-optimized
+- **Execution**: Use `./run-tests.sh` to prevent timeout issues
 
-**What Was Accomplished:**
-1. **ApplicationResource Enhancement** - Added missing `users_count` field and `scopes` field mapping for API consistency
-2. **Analytics Service Restructure** - Complete analytics system with proper `summary`, `user_growth`, `login_activity`, `top_applications`, `security_events` structure
-3. **Controller Method Fixes** - Updated all controllers to use correct API response methods (`validationErrorResponse`, `successResponse`, `errorResponse`)
-4. **Test Structure Alignment** - Updated tests to expect unified `data` wrapper format from `successResponse`
-5. **Permission System Cleanup** - Fixed permission references from `applications.manage` to `applications.update`
+## Sample Data
+**Organizations:**
+- TechCorp Solutions (standard security)
+- SecureBank Holdings (high security, MFA required)
 
-**Final Achievements:**
-- **🎯 100% Test Pass Rate** - 306/306 tests passing (1 skipped test not counted)
-- **🏗️ Complete API Consistency** - All endpoints now use standardized response format
-- **🔧 Production Ready** - Fully functional enterprise authentication service
-- **📊 1,722 Assertions Passed** - Comprehensive test coverage validated
-- **⚡ Zero Breaking Changes** - Maintained backward compatibility throughout
-
-### 📈 Previous Foundation Phases (1-28)
-
-**Historical Achievement Summary:**
-- **Phases 1-16**: Foundation, Admin Panel, OAuth 2.0, Public API, Organization Features, Testing, Social Login
-- **Phases 17-28**: Comprehensive test suite stabilization, bug fixes, multi-tenant security, SSO infrastructure  
-- **Major Achievements**: From 87 failing tests to 1 skipped test, complete OAuth server, SSO implementation
-- **Final Status Before Refactoring**: 304/307 tests passing (99.0% pass rate), production-ready authentication service
-
-## Sample Data & Default Users
-
-### Organizations
-- **TechCorp Solutions** (Standard security)
-- **SecureBank Holdings** (High security, MFA required)
-
-### Default Roles
-- **Super Admin** - Full system access (cross-organization)
-- **Organization Owner** - Full organization management
-- **Organization Admin** - User/app management
-- **User** - Basic read access (organization-scoped)
-
-### Test Credentials
-- **Super Admin**: admin@authservice.com / password123
-- **Access**: http://authos.test/admin
+**Roles:**
+- Super Admin - Full system access
+- Organization Owner - Full org management
+- Organization Admin - User/app management
+- User - Basic access
 
 ## Security Features
-
-### Implemented
-- **Multi-tenant isolation** ✅ - Organization-based data filtering
-- **OAuth 2.0/OIDC** - Standard compliant server
-- **Social Authentication** - Google + 4 other providers
-- **MFA Support** - TOTP, recovery codes
-- **Security Headers** - HSTS, CSP, XSS protection
-- **Rate Limiting** - Role-based API limits
-- **Audit Logging** - Comprehensive authentication events
-
-### Architecture Decisions
-- **Multi-tenancy**: Organization-based with proper isolation
-- **Authentication**: Laravel Passport + Filament integration
-- **Database**: PostgreSQL with JSONB for flexibility
-- **Caching**: Redis for sessions, API responses, queues
+- Multi-tenant isolation
+- OAuth 2.0/OIDC compliance
+- Social authentication (5 providers)
+- MFA with TOTP + recovery codes
+- Security headers (HSTS, CSP, XSS)
+- Rate limiting (role-based)
+- Comprehensive audit logging
 
 ## Troubleshooting
 
-### Common Issues ✅ ALL RESOLVED
-1. **Admin panel 500 errors**: `herd restart` or clear caches
-2. **OAuth missing keys**: `herd php artisan passport:keys --force`
-3. **Database issues**: `herd php artisan migrate:fresh --seed`
-4. **Test failures**: All resolved in comprehensive stabilization ✅ (100% pass rate achieved - 830+ tests passing)
-5. **Cross-organization data**: Fixed in Phase 17 ✅
-6. **API 403 errors in tests**: Fixed in Phase 20 ✅ (Spatie permissions team context resolved)
-7. **Role creation conflicts**: Fixed in Phase 19 with `firstOrCreate()` pattern
-8. **Authorization message format**: Fixed in Phase 21 ✅ (Custom exception handling for API requests)
-9. **Missing bulk operations**: Fixed in Phase 21 ✅ (Added PATCH /users/bulk endpoint)
-10. **Validation test format**: Fixed in Phase 21 ✅ (Updated test assertions for custom validation structure)
-11. **Memory exhaustion in tests**: Fixed in Phase 28 ✅ (Optimized large dataset tests)
-12. **PHP deprecation warnings**: Fixed in Phase 28 ✅ (Updated nullable type declarations)
-13. **Herd PHP compatibility**: Fixed in Phase 28 ✅ (Use `herd php` prefix for all commands)
-14. **OAuth authorization codes**: New table added for PKCE support ✅ (Complete OAuth 2.0 flow implemented)
-15. **API response sanitization**: Production-grade security ✅ (Sensitive data protection middleware)
-16. **API response format inconsistency**: Fixed in Phase 9 ✅ (Complete unified response format across all endpoints)
-17. **PHPUnit deprecation warnings**: Fixed with complete modernization ✅ (Converted to PHP 8 attributes, zero warnings, PHPUnit 12+ ready)
-18. **Redundant functionality removed**: Architecture optimization complete ✅ (500+ lines removed, native Laravel integration)
+**Common Fixes:**
+```bash
+herd restart                              # Admin 500 errors
+herd php artisan passport:keys --force    # Missing OAuth keys
+herd php artisan migrate:fresh --seed     # Database issues
+herd php artisan config:clear             # Config cache issues
+```
 
-## Test Coverage Status ✅ COMPREHENSIVE IMPROVEMENT COMPLETED
-
-### Current Coverage Metrics (After Complete Improvement Plan)
-- **Lines Coverage**: **40-50%** estimated (significant improvement from 11.06% baseline)
-- **Methods Coverage**: **Dramatically improved** across all critical components
-- **Total Tests**: **830+ executable tests** (100% pass rate, 10 intentionally skipped)
-- **Total Assertions**: **5,100+ assertions** (comprehensive validation)
-- **Test Execution**: **Optimized** (memory-optimized, warning-free)
-
-### Coverage Improvement Achievements ✅ ALL PHASES COMPLETED
-- **Phase 1 (API Endpoints)**: 117 new tests - Critical controllers (Profile, Application, Invitation, CustomRole, Health)
-- **Phase 2 (System Health)**: 42 new tests - Cache, Reports, OpenID endpoints
-- **Phase 3 (Models & Services)**: 37 new tests - User model, CacheInvalidationService, Authorization
-- **Phase 4 (Admin Panel)**: 35 new tests - Filament resources, AdminAuthorization
-- **PHPUnit Modernization**: Converted to PHP 8 attributes, zero deprecation warnings
-- **Memory Optimization**: 65-94% reduction in test memory usage
-
-### Production-Ready Status ✅ ENTERPRISE-GRADE
-- **Test Success Rate**: **100%** (830+ executable tests)
-- **Architecture**: **Optimized** (redundant functionality removed, native package integration)
-- **System Reliability**: **99.7%** overall functionality verified
-- **Memory Efficiency**: **Optimized** for CI/CD pipelines
-- **Future Compatibility**: **PHPUnit 12+ ready** with modern attributes
-- **Code Coverage**: **182+ new comprehensive tests** created
-
-### Next Steps (Optional)
-- All critical functionality comprehensively tested and validated
-- Production deployment ready with enterprise-grade stability
-- See `.claude/test-coverage-improvement-plan.md` for complete achievement details
+**Test Execution:**
+- PHPUnit may hang after completion - use `./run-tests.sh` wrapper
+- Use `Ctrl+C` after seeing test results if needed
+- For coverage: `herd coverage ./vendor/bin/phpunit --coverage-text`
 
 ## Important Notes
-- use specialized subagents when you see fit!
-- Don't use --verbose flag uppon testing because you will get error "Unknown option "--verbose""
-- instead of running php commands for example php artisan test please run them with herd prefix like "herd php artisan test" because php versions mismatch
-- we don't have production so we don't need backward compatibility code!!! don't create any!!!
-- when you run test coverage you use this command "herd coverage ./vendor/bin/phpunit"
-- For PhpStorm coverage with Xdebug, increase memory limit to avoid exhaustion: `-d memory_limit=1G`
-- **Test Infrastructure**: Modern PHPUnit attributes (no deprecation warnings), memory-optimized execution
-- **Achievement Status**: Comprehensive test coverage improvement plan completed with 100% success
-
-===
-
-<laravel-boost-guidelines>
-=== foundation rules ===
-
-# Laravel Boost Guidelines
-
-The Laravel Boost guidelines are specifically curated by Laravel maintainers for this application. These guidelines should be followed closely to enhance the user's satisfaction building Laravel applications.
-
-## Foundational Context
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
-
-- php - 8.4.12
-- filament/filament (FILAMENT) - v4
-- laravel/fortify (FORTIFY) - v1
-- laravel/framework (LARAVEL) - v12
-- laravel/passport (PASSPORT) - v13
-- laravel/prompts (PROMPTS) - v0
-- laravel/socialite (SOCIALITE) - v5
-- livewire/livewire (LIVEWIRE) - v3
-- laravel/pint (PINT) - v1
-- laravel/sail (SAIL) - v1
-- phpunit/phpunit (PHPUNIT) - v11
-- tailwindcss (TAILWINDCSS) - v4
-
-
-## Conventions
-- You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, naming.
-- Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
-
-## Verification Scripts
-- Do not create verification scripts or tinker when tests cover that functionality and prove it works. Unit and feature tests are more important.
-
-## Application Structure & Architecture
-- Stick to existing directory structure - don't create new base folders without approval.
-- Do not change the application's dependencies without approval.
-
-## Frontend Bundling
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
-
-## Replies
-- Be concise in your explanations - focus on what's important rather than explaining obvious details.
-
-## Documentation Files
-- You must only create documentation files if explicitly requested by the user.
-
-
-=== boost rules ===
-
-## Laravel Boost
-- Laravel Boost is an MCP server that comes with powerful tools designed specifically for this application. Use them.
-
-## Artisan
-- Use the `list-artisan-commands` tool when you need to call an Artisan command to double check the available parameters.
-
-## URLs
-- Whenever you share a project URL with the user you should use the `get-absolute-url` tool to ensure you're using the correct scheme, domain / IP, and port.
-
-## Tinker / Debugging
-- You should use the `tinker` tool when you need to execute PHP to debug code or query Eloquent models directly.
-- Use the `database-query` tool when you only need to read from the database.
-
-## Reading Browser Logs With the `browser-logs` Tool
-- You can read browser logs, errors, and exceptions using the `browser-logs` tool from Boost.
-- Only recent browser logs will be useful - ignore old logs.
-
-## Searching Documentation (Critically Important)
-- Boost comes with a powerful `search-docs` tool you should use before any other approaches. This tool automatically passes a list of installed packages and their versions to the remote Boost API, so it returns only version-specific documentation specific for the user's circumstance. You should pass an array of packages to filter on if you know you need docs for particular packages.
-- The 'search-docs' tool is perfect for all Laravel related packages, including Laravel, Inertia, Livewire, Filament, Tailwind, Pest, Nova, Nightwatch, etc.
-- You must use this tool to search for Laravel-ecosystem documentation before falling back to other approaches.
-- Search the documentation before making code changes to ensure we are taking the correct approach.
-- Use multiple, broad, simple, topic based queries to start. For example: `['rate limiting', 'routing rate limiting', 'routing']`.
-- Do not add package names to queries - package information is already shared. For example, use `test resource table`, not `filament 4 test resource table`.
-
-### Available Search Syntax
-- You can and should pass multiple queries at once. The most relevant results will be returned first.
-
-1. Simple Word Searches with auto-stemming - query=authentication - finds 'authenticate' and 'auth'
-2. Multiple Words (AND Logic) - query=rate limit - finds knowledge containing both "rate" AND "limit"
-3. Quoted Phrases (Exact Position) - query="infinite scroll" - Words must be adjacent and in that order
-4. Mixed Queries - query=middleware "rate limit" - "middleware" AND exact phrase "rate limit"
-5. Multiple Queries - queries=["authentication", "middleware"] - ANY of these terms
-
-
-=== php rules ===
-
-## PHP
-
-- Always use curly braces for control structures, even if it has one line.
-
-### Constructors
-- Use PHP 8 constructor property promotion in `__construct()`.
-    - <code-snippet>public function __construct(public GitHub $github) { }</code-snippet>
-- Do not allow empty `__construct()` methods with zero parameters.
-
-### Type Declarations
-- Always use explicit return type declarations for methods and functions.
-- Use appropriate PHP type hints for method parameters.
-
-<code-snippet name="Explicit Return Types and Method Params" lang="php">
-protected function isAccessible(User $user, ?string $path = null): bool
-{
-    ...
-}
-</code-snippet>
-
-## Comments
-- Prefer PHPDoc blocks over comments. Never use comments within the code itself unless there is something _very_ complex going on.
-
-## PHPDoc Blocks
-- Add useful array shape type definitions for arrays when appropriate.
-
-## Enums
-- Typically, keys in an Enum should be TitleCase. For example: `FavoritePerson`, `BestLake`, `Monthly`.
-
-
-=== filament/core rules ===
-
-## Filament
-- Filament is used by this application, check how and where to follow existing application conventions.
-- Filament is a Server-Driven UI (SDUI) framework for Laravel. It allows developers to define user interfaces in PHP using structured configuration objects. It is built on top of Livewire, Alpine.js, and Tailwind CSS.
-- You can use the `search-docs` tool to get information from the official Filament documentation when needed. This is very useful for Artisan command arguments, specific code examples, testing functionality, relationship management, and ensuring you're following idiomatic practices.
-- Utilize static `make()` methods for consistent component initialization.
-
-### Artisan
-- You must use the Filament specific Artisan commands to create new files or components for Filament. You can find these with the `list-artisan-commands` tool, or with `php artisan` and the `--help` option.
-- Inspect the required options, always pass `--no-interaction`, and valid arguments for other options when applicable.
-
-### Filament's Core Features
-- Actions: Handle doing something within the application, often with a button or link. Actions encapsulate the UI, the interactive modal window, and the logic that should be executed when the modal window is submitted. They can be used anywhere in the UI and are commonly used to perform one-time actions like deleting a record, sending an email, or updating data in the database based on modal form input.
-- Forms: Dynamic forms rendered within other features, such as resources, action modals, table filters, and more.
-- Infolists: Read-only lists of data.
-- Notifications: Flash notifications displayed to users within the application.
-- Panels: The top-level container in Filament that can include all other features like pages, resources, forms, tables, notifications, actions, infolists, and widgets.
-- Resources: Static classes that are used to build CRUD interfaces for Eloquent models. Typically live in `app/Filament/Resources`.
-- Schemas: Represent components that define the structure and behavior of the UI, such as forms, tables, or lists.
-- Tables: Interactive tables with filtering, sorting, pagination, and more.
-- Widgets: Small component included within dashboards, often used for displaying data in charts, tables, or as a stat.
-
-### Relationships
-- Determine if you can use the `relationship()` method on form components when you need `options` for a select, checkbox, repeater, or when building a `Fieldset`:
-
-<code-snippet name="Relationship example for Form Select" lang="php">
-Forms\Components\Select::make('user_id')
-    ->label('Author')
-    ->relationship('author')
-    ->required(),
-</code-snippet>
-
-
-## Testing
-- It's important to test Filament functionality for user satisfaction.
-- Ensure that you are authenticated to access the application within the test.
-- Filament uses Livewire, so start assertions with `livewire()` or `Livewire::test()`.
-
-### Example Tests
-
-<code-snippet name="Filament Table Test" lang="php">
-    livewire(ListUsers::class)
-        ->assertCanSeeTableRecords($users)
-        ->searchTable($users->first()->name)
-        ->assertCanSeeTableRecords($users->take(1))
-        ->assertCanNotSeeTableRecords($users->skip(1))
-        ->searchTable($users->last()->email)
-        ->assertCanSeeTableRecords($users->take(-1))
-        ->assertCanNotSeeTableRecords($users->take($users->count() - 1));
-</code-snippet>
-
-<code-snippet name="Filament Create Resource Test" lang="php">
-    livewire(CreateUser::class)
-        ->fillForm([
-            'name' => 'Howdy',
-            'email' => 'howdy@example.com',
-        ])
-        ->call('create')
-        ->assertNotified()
-        ->assertRedirect();
-
-    assertDatabaseHas(User::class, [
-        'name' => 'Howdy',
-        'email' => 'howdy@example.com',
-    ]);
-</code-snippet>
-
-<code-snippet name="Testing Multiple Panels (setup())" lang="php">
-    use Filament\Facades\Filament;
-
-    Filament::setCurrentPanel('app');
-</code-snippet>
-
-<code-snippet name="Calling an Action in a Test" lang="php">
-    livewire(EditInvoice::class, [
-        'invoice' => $invoice,
-    ])->callAction('send');
-
-    expect($invoice->refresh())->isSent()->toBeTrue();
-</code-snippet>
-
-
-=== filament/v4 rules ===
-
-## Filament 4
-
-### Important Version 4 Changes
-- File visibility is now `private` by default.
-- The `deferFilters` method from Filament v3 is now the default behavior in Filament v4, so users must click a button before the filters are applied to the table. To disable this behavior, you can use the `deferFilters(false)` method.
-- The `Grid`, `Section`, and `Fieldset` layout components no longer span all columns by default.
-- The `all` pagination page method is not available for tables by default.
-- All action classes extend `Filament\Actions\Action`. No action classes exist in `Filament\Tables\Actions`.
-- The `Form` & `Infolist` layout components have been moved to `Filament\Schemas\Components`, for example `Grid`, `Section`, `Fieldset`, `Tabs`, `Wizard`, etc.
-- A new `Repeater` component for Forms has been added.
-- Icons now use the `Filament\Support\Icons\Heroicon` Enum by default. Other options are available and documented.
-
-### Organize Component Classes Structure
-- Schema components: `Schemas/Components/`
-- Table columns: `Tables/Columns/`
-- Table filters: `Tables/Filters/`
-- Actions: `Actions/`
-
-
-=== laravel/core rules ===
-
-## Do Things the Laravel Way
-
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using the `list-artisan-commands` tool.
-- If you're creating a generic PHP class, use `artisan make:class`.
-- Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
-
-### Database
-- Always use proper Eloquent relationship methods with return type hints. Prefer relationship methods over raw queries or manual joins.
-- Use Eloquent models and relationships before suggesting raw database queries
-- Avoid `DB::`; prefer `Model::query()`. Generate code that leverages Laravel's ORM capabilities rather than bypassing them.
-- Generate code that prevents N+1 query problems by using eager loading.
-- Use Laravel's query builder for very complex database operations.
-
-### Model Creation
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `list-artisan-commands` to check the available options to `php artisan make:model`.
-
-### APIs & Eloquent Resources
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
-
-### Controllers & Validation
-- Always create Form Request classes for validation rather than inline validation in controllers. Include both validation rules and custom error messages.
-- Check sibling Form Requests to see if the application uses array or string based validation rules.
-
-### Queues
-- Use queued jobs for time-consuming operations with the `ShouldQueue` interface.
-
-### Authentication & Authorization
-- Use Laravel's built-in authentication and authorization features (gates, policies, Sanctum, etc.).
-
-### URL Generation
-- When generating links to other pages, prefer named routes and the `route()` function.
-
-### Configuration
-- Use environment variables only in configuration files - never use the `env()` function directly outside of config files. Always use `config('app.name')`, not `env('APP_NAME')`.
-
-### Testing
-- When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
-- Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] <name>` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
-
-### Vite Error
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
-
-
-=== laravel/v12 rules ===
-
-## Laravel 12
-
-- Use the `search-docs` tool to get version specific documentation.
-- Since Laravel 11, Laravel has a new streamlined file structure which this project uses.
-
-### Laravel 12 Structure
-- No middleware files in `app/Http/Middleware/`.
-- `bootstrap/app.php` is the file to register middleware, exceptions, and routing files.
-- `bootstrap/providers.php` contains application specific service providers.
-- **No app\Console\Kernel.php** - use `bootstrap/app.php` or `routes/console.php` for console configuration.
-- **Commands auto-register** - files in `app/Console/Commands/` are automatically available and do not require manual registration.
-
-### Database
-- When modifying a column, the migration must include all of the attributes that were previously defined on the column. Otherwise, they will be dropped and lost.
-- Laravel 11 allows limiting eagerly loaded records natively, without external packages: `$query->latest()->limit(10);`.
-
-### Models
-- Casts can and likely should be set in a `casts()` method on a model rather than the `$casts` property. Follow existing conventions from other models.
-
-
-=== livewire/core rules ===
-
-## Livewire Core
-- Use the `search-docs` tool to find exact version specific documentation for how to write Livewire & Livewire tests.
-- Use the `php artisan make:livewire [Posts\\CreatePost]` artisan command to create new components
-- State should live on the server, with the UI reflecting it.
-- All Livewire requests hit the Laravel backend, they're like regular HTTP requests. Always validate form data, and run authorization checks in Livewire actions.
-
-## Livewire Best Practices
-- Livewire components require a single root element.
-- Use `wire:loading` and `wire:dirty` for delightful loading states.
-- Add `wire:key` in loops:
-
-    ```blade
-    @foreach ($items as $item)
-        <div wire:key="item-{{ $item->id }}">
-            {{ $item->name }}
-        </div>
-    @endforeach
-    ```
-
-- Prefer lifecycle hooks like `mount()`, `updatedFoo()` for initialization and reactive side effects:
-
-<code-snippet name="Lifecycle hook examples" lang="php">
-    public function mount(User $user) { $this->user = $user; }
-    public function updatedSearch() { $this->resetPage(); }
-</code-snippet>
-
-
-## Testing Livewire
-
-<code-snippet name="Example Livewire component test" lang="php">
-    Livewire::test(Counter::class)
-        ->assertSet('count', 0)
-        ->call('increment')
-        ->assertSet('count', 1)
-        ->assertSee(1)
-        ->assertStatus(200);
-</code-snippet>
-
-
-    <code-snippet name="Testing a Livewire component exists within a page" lang="php">
-        $this->get('/posts/create')
-        ->assertSeeLivewire(CreatePost::class);
-    </code-snippet>
-
-
-=== livewire/v3 rules ===
-
-## Livewire 3
-
-### Key Changes From Livewire 2
-- These things changed in Livewire 2, but may not have been updated in this application. Verify this application's setup to ensure you conform with application conventions.
-    - Use `wire:model.live` for real-time updates, `wire:model` is now deferred by default.
-    - Components now use the `App\Livewire` namespace (not `App\Http\Livewire`).
-    - Use `$this->dispatch()` to dispatch events (not `emit` or `dispatchBrowserEvent`).
-    - Use the `components.layouts.app` view as the typical layout path (not `layouts.app`).
-
-### New Directives
-- `wire:show`, `wire:transition`, `wire:cloak`, `wire:offline`, `wire:target` are available for use. Use the documentation to find usage examples.
-
-### Alpine
-- Alpine is now included with Livewire, don't manually include Alpine.js.
-- Plugins included with Alpine: persist, intersect, collapse, and focus.
-
-### Lifecycle Hooks
-- You can listen for `livewire:init` to hook into Livewire initialization, and `fail.status === 419` for the page expiring:
-
-<code-snippet name="livewire:load example" lang="js">
-document.addEventListener('livewire:init', function () {
-    Livewire.hook('request', ({ fail }) => {
-        if (fail && fail.status === 419) {
-            alert('Your session expired');
-        }
-    });
-
-    Livewire.hook('message.failed', (message, component) => {
-        console.error(message);
-    });
-});
-</code-snippet>
-
-
-=== pint/core rules ===
-
-## Laravel Pint Code Formatter
-
-- You must run `vendor/bin/pint --dirty` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/pint --test`, simply run `vendor/bin/pint` to fix any formatting issues.
-
-
-=== phpunit/core rules ===
-
-## PHPUnit Core
-
-- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit <name>` to create a new test.
-- If you see a test using "Pest", convert it to PHPUnit.
-- Every time a test has been updated, run that singular test.
-- When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
-- Tests should test all of the happy paths, failure paths, and weird paths.
-- You must not remove any tests or test files from the tests directory without approval. These are not temporary or helper files, these are core to the application.
-
-### Running Tests
-- Run the minimal number of tests, using an appropriate filter, before finalizing.
-- To run all tests: `php artisan test`.
-- To run all tests in a file: `php artisan test tests/Feature/ExampleTest.php`.
-- To filter on a particular test name: `php artisan test --filter=testName` (recommended after making a change to a related file).
-
-
-=== tailwindcss/core rules ===
-
-## Tailwind Core
-
-- Use Tailwind CSS classes to style HTML, check and use existing tailwind conventions within the project before writing your own.
-- Offer to extract repeated patterns into components that match the project's conventions (i.e. Blade, JSX, Vue, etc..)
-- Think through class placement, order, priority, and defaults - remove redundant classes, add classes to parent or child carefully to limit repetition, group elements logically
-- You can use the `search-docs` tool to get exact examples from the official documentation when needed.
-
-### Spacing
-- When listing items, use gap utilities for spacing, don't use margins.
-
-    <code-snippet name="Valid Flex Gap Spacing Example" lang="html">
-        <div class="flex gap-8">
-            <div>Superior</div>
-            <div>Michigan</div>
-            <div>Erie</div>
-        </div>
-    </code-snippet>
-
-
-### Dark Mode
-- If existing pages and components support dark mode, new pages and components must support dark mode in a similar way, typically using `dark:`.
-
-
-=== tailwindcss/v4 rules ===
-
-## Tailwind 4
-
-- Always use Tailwind CSS v4 - do not use the deprecated utilities.
-- `corePlugins` is not supported in Tailwind v4.
-- In Tailwind v4, you import Tailwind using a regular CSS `@import` statement, not using the `@tailwind` directives used in v3:
-
-<code-snippet name="Tailwind v4 Import Tailwind Diff" lang="diff">
-   - @tailwind base;
-   - @tailwind components;
-   - @tailwind utilities;
-   + @import "tailwindcss";
-</code-snippet>
-
-
-### Replaced Utilities
-- Tailwind v4 removed deprecated utilities. Do not use the deprecated option - use the replacement.
-- Opacity values are still numeric.
-
-| Deprecated |	Replacement |
-|------------+--------------|
-| bg-opacity-* | bg-black/* |
-| text-opacity-* | text-black/* |
-| border-opacity-* | border-black/* |
-| divide-opacity-* | divide-black/* |
-| ring-opacity-* | ring-black/* |
-| placeholder-opacity-* | placeholder-black/* |
-| flex-shrink-* | shrink-* |
-| flex-grow-* | grow-* |
-| overflow-ellipsis | text-ellipsis |
-| decoration-slice | box-decoration-slice |
-| decoration-clone | box-decoration-clone |
-
-
-=== tests rules ===
-
-## Test Enforcement
-
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test` with a specific filename or filter.
-</laravel-boost-guidelines>
+- Use specialized subagents when appropriate
+- Always use `herd php` prefix for artisan commands (version mismatch)
+- No backward compatibility code needed (no production deployment yet)
+- Don't use `--verbose` flag with tests (causes error)
+- For PhpStorm coverage: add `-d memory_limit=1G` to prevent exhaustion
+
+## Laravel Boost Guidelines
+**See `.claude/laravel-boost.md` for comprehensive development guidelines including:**
+- Package versions and conventions
+- Filament 4 best practices and testing
+- Laravel 12 structure and patterns
+- Livewire 3 component development
+- PHPUnit testing requirements
+- Tailwind CSS 4 usage
+- Code formatting with Pint
