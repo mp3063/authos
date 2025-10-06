@@ -16,34 +16,98 @@ class SecurityHeaders
             return $response;
         }
 
+        // Standard Security Headers
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
-        $response->headers->set('X-XSS-Protection', '1; mode=block');
+
+        // Remove deprecated X-XSS-Protection header (browsers have built-in XSS protection now)
+        // CSP is the modern replacement
+
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+        // HSTS Header for HTTPS connections
         if ($request->isSecure()) {
-            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+            $response->headers->set(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains; preload'
+            );
         }
 
-        $csp = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https:",
-            "font-src 'self'",
-            "connect-src 'self'",
-            "frame-ancestors 'none'",
+        // Permissions-Policy (Feature-Policy replacement)
+        $permissionsPolicy = [
+            'camera=()',
+            'microphone=()',
+            'geolocation=()',
+            'payment=()',
+            'usb=()',
+            'magnetometer=()',
+            'gyroscope=()',
+            'accelerometer=()',
         ];
+        $response->headers->set('Permissions-Policy', implode(', ', $permissionsPolicy));
 
+        // Content Security Policy - Strict configuration
+        $csp = $this->getContentSecurityPolicy($request);
         $response->headers->set('Content-Security-Policy', implode('; ', $csp));
 
-        // Add OAuth-specific security headers for OAuth endpoints
-        if ($request->is('oauth/*') || $request->is('api/oauth/*')) {
+        // OAuth-specific security headers
+        if ($this->isOAuthEndpoint($request)) {
             $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
             $response->headers->set('Pragma', 'no-cache');
-            $response->headers->set('Referrer-Policy', 'no-referrer'); // More strict for OAuth
+            $response->headers->set('Referrer-Policy', 'no-referrer');
+        }
+
+        // API endpoint security headers
+        if ($request->is('api/*')) {
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+            $response->headers->set('Cache-Control', 'no-store, max-age=0');
         }
 
         return $response;
+    }
+
+    protected function getContentSecurityPolicy(Request $request): array
+    {
+        // Base CSP for all requests
+        $csp = [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self'",
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            'upgrade-insecure-requests',
+        ];
+
+        // For admin panel (Filament), allow specific inline styles and scripts
+        // In production, use nonces instead of unsafe-inline
+        if ($request->is('admin/*')) {
+            $nonce = base64_encode(random_bytes(16));
+            $request->attributes->set('csp_nonce', $nonce);
+
+            $csp = [
+                "default-src 'self'",
+                "script-src 'self' 'nonce-{$nonce}'",
+                "style-src 'self' 'nonce-{$nonce}'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+            ];
+        }
+
+        return $csp;
+    }
+
+    protected function isOAuthEndpoint(Request $request): bool
+    {
+        return $request->is('oauth/*') ||
+               $request->is('api/oauth/*') ||
+               $request->is('.well-known/*');
     }
 }

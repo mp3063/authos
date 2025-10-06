@@ -12,7 +12,7 @@ class ApplicationAccessMatrix extends Widget
 {
     protected string $view = 'filament.widgets.application-access-matrix';
 
-    protected static ?string $heading = 'Application Access Matrix';
+    protected ?string $heading = 'Application Access Matrix';
 
     protected static ?int $sort = 3;
 

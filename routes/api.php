@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
 use App\Http\Controllers\Api\BulkUserController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\InvitationController;
+use App\Http\Controllers\Api\Monitoring\HealthCheckController;
+use App\Http\Controllers\Api\Monitoring\MetricsController;
 use App\Http\Controllers\Api\OpenIdController;
 use App\Http\Controllers\Api\OrganizationReportController;
 use App\Http\Controllers\Api\Organizations\OrganizationAnalyticsController;
@@ -42,21 +44,11 @@ Route::get('/version', function () {
 });
 
 // Health Check Endpoints (public access)
-Route::get('/health', function () {
-    return response()->json(['status' => 'ok', 'timestamp' => now()]);
-});
-
-Route::get('/health/detailed', function () {
-    return response()->json([
-        'status' => 'ok',
-        'timestamp' => now(),
-        'services' => [
-            'database' => 'ok',
-            'redis' => 'ok',
-            'oauth' => 'ok',
-        ],
-    ]);
-});
+Route::get('/health', [HealthCheckController::class, 'index']);
+Route::get('/health/detailed', [HealthCheckController::class, 'detailed']);
+Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
+Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
+Route::get('/health/{component}', [HealthCheckController::class, 'component']);
 
 // API v1 Routes
 Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(function () {
@@ -285,25 +277,27 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/cleanup', [\App\Http\Controllers\Api\SSOController::class, 'cleanup']);
     });
 
-    // API Monitoring and Cache Management (Admin only)
+    // API Monitoring and Metrics (Admin only)
     Route::middleware(['auth:api', 'throttle:api'])->prefix('monitoring')->group(function () {
-        Route::get('/metrics', function () {
-            return response()->json([
-                'api_requests_total' => cache()->get('api_requests_total', 0),
-                'cache_hits' => cache()->get('cache_hits', 0),
-                'cache_misses' => cache()->get('cache_misses', 0),
-                'timestamp' => now(),
-            ]);
-        });
+        // Comprehensive metrics
+        Route::get('/metrics', [MetricsController::class, 'index'])->middleware('api.cache:60');
+        Route::get('/metrics/authentication', [MetricsController::class, 'authentication'])->middleware('api.cache:60');
+        Route::get('/metrics/oauth', [MetricsController::class, 'oauth'])->middleware('api.cache:60');
+        Route::get('/metrics/api', [MetricsController::class, 'api'])->middleware('api.cache:60');
+        Route::get('/metrics/webhooks', [MetricsController::class, 'webhooks'])->middleware('api.cache:60');
+        Route::get('/metrics/users', [MetricsController::class, 'users'])->middleware('api.cache:60');
+        Route::get('/metrics/organizations', [MetricsController::class, 'organizations'])->middleware('api.cache:60');
+        Route::get('/metrics/mfa', [MetricsController::class, 'mfa'])->middleware('api.cache:60');
+        Route::get('/metrics/performance', [MetricsController::class, 'performance'])->middleware('api.cache:60');
 
-        Route::get('/health', function () {
-            return response()->json([
-                'database' => 'connected',
-                'redis' => 'connected',
-                'oauth_keys' => 'present',
-                'timestamp' => now(),
-            ]);
-        });
+        // Error tracking
+        Route::get('/errors', [MetricsController::class, 'errors']);
+        Route::get('/errors/trends', [MetricsController::class, 'errorTrends']);
+        Route::get('/errors/recent', [MetricsController::class, 'recentErrors']);
+
+        // Custom metrics
+        Route::post('/metrics/record', [MetricsController::class, 'recordMetric']);
+        Route::get('/metrics/{name}', [MetricsController::class, 'getMetric']);
     });
 
     // Cache Management Endpoints (Admin only)

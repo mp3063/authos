@@ -343,5 +343,5 @@ class PendingInvitationsWidget extends BaseWidget
         return $orgName ? "Manage pending invitations for {$orgName}" : 'Manage pending invitations';
     }
 
-    protected static ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = '30s';
 }

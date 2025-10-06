@@ -163,6 +163,25 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Webhook Activity Logging
+        'webhooks' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/webhooks.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_WEBHOOKS_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        // Audit Trail (structured JSON)
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => env('LOG_AUDIT_DAYS', 90),
+            'replace_placeholders' => true,
+            'tap' => [App\Logging\JsonFormatter::class],
+        ],
+
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,

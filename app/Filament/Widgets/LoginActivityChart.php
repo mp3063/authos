@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 
 class LoginActivityChart extends ChartWidget
 {
-    // protected static ?string $heading = 'Login Activity (Last 7 Days)';
+    // protected ?string $heading = 'Login Activity (Last 7 Days)';
 
     protected static ?int $sort = 2;
 
