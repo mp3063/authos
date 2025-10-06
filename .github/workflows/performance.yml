@@ -1,0 +1,522 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      benchmark_duration:
+        description: 'Benchmark duration in seconds'
+        required: false
+        default: '60'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: authos
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: authos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --optimize-autoloader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Prepare Laravel Application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: Create storage directories
+        run: |
+          mkdir -p storage/framework/{cache,sessions,testing,views}
+          mkdir -p storage/logs
+          chmod -R 775 storage bootstrap/cache
+
+      - name: Run database migrations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+        run: php artisan migrate --force --seed
+
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
+      - name: Install Passport clients
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+        run: php artisan passport:install --force
+
+      - name: Warm caches
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: php artisan cache:warm
+
+      - name: Download previous benchmark results
+        if: github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ./benchmark-baseline.json
+          key: benchmark-baseline-${{ github.base_ref }}
+          restore-keys: benchmark-baseline-
+
+      - name: Run performance benchmarks
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          php artisan performance:benchmark --format=json > benchmark-results.json
+          cat benchmark-results.json
+
+      - name: Compare with baseline (PR only)
+        if: github.event_name == 'pull_request' && hashFiles('./benchmark-baseline.json') != ''
+        run: |
+          echo "# Performance Comparison" > performance-comment.md
+          echo "" >> performance-comment.md
+
+          # Parse and compare results
+          php -r '
+            $baseline = json_decode(file_get_contents("benchmark-baseline.json"), true);
+            $current = json_decode(file_get_contents("benchmark-results.json"), true);
+
+            echo "| Benchmark | Baseline | Current | Change |\n";
+            echo "|-----------|----------|---------|--------|\n";
+
+            foreach ($current["benchmarks"] as $name => $result) {
+              $baselineTime = $baseline["benchmarks"][$name]["avg_time"] ?? 0;
+              $currentTime = $result["avg_time"];
+              $change = $baselineTime > 0 ? (($currentTime - $baselineTime) / $baselineTime) * 100 : 0;
+              $changeStr = sprintf("%+.2f%%", $change);
+              $emoji = $change > 5 ? "🔴" : ($change < -5 ? "🟢" : "🟡");
+
+              printf("| %s %s | %.2fms | %.2fms | %s |\n",
+                $emoji,
+                $name,
+                $baselineTime,
+                $currentTime,
+                $changeStr
+              );
+            }
+          ' >> performance-comment.md
+
+      - name: Comment PR with performance results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('performance-comment.md')) {
+              const comment = fs.readFileSync('performance-comment.md', 'utf8');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Save benchmark results as baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: ./benchmark-results.json
+          key: benchmark-baseline-${{ github.ref_name }}
+
+      - name: Check for performance regressions
+        run: |
+          php -r '
+            $results = json_decode(file_get_contents("benchmark-results.json"), true);
+
+            // Define thresholds (in milliseconds)
+            $thresholds = [
+              "oauth_token_generation" => 100,
+              "user_authentication" => 50,
+              "api_endpoint_response" => 200,
+              "database_query" => 10,
+              "cache_operations" => 5
+            ];
+
+            $failed = false;
+            foreach ($results["benchmarks"] as $name => $result) {
+              if (isset($thresholds[$name]) && $result["avg_time"] > $thresholds[$name]) {
+                echo "❌ Performance regression in $name: {$result[\"avg_time\"]}ms > {$thresholds[$name]}ms\n";
+                $failed = true;
+              }
+            }
+
+            if ($failed) {
+              exit(1);
+            }
+          '
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmark-results.json
+            performance-comment.md
+          retention-days: 90
+
+  load-testing:
+    name: Load Testing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: authos
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: authos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --optimize-autoloader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Prepare Laravel Application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:cache
+          php artisan route:cache
+
+      - name: Setup database
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+        run: |
+          php artisan migrate --force --seed
+          php artisan passport:keys --force
+          php artisan passport:install --force
+
+      - name: Start Laravel server
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          php artisan serve --host=0.0.0.0 --port=8000 &
+          sleep 5
+
+      - name: Install k6 (Load testing tool)
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Create k6 test script
+        run: |
+          cat > load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export const options = {
+            stages: [
+              { duration: '2m', target: 50 },  // Ramp up to 50 users
+              { duration: '5m', target: 50 },  // Stay at 50 users
+              { duration: '2m', target: 100 }, // Ramp up to 100 users
+              { duration: '5m', target: 100 }, // Stay at 100 users
+              { duration: '2m', target: 0 },   // Ramp down
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<500'], // 95% of requests should be below 500ms
+              http_req_failed: ['rate<0.05'],   // Error rate should be below 5%
+            },
+          };
+
+          export default function () {
+            // Health check endpoint
+            const healthRes = http.get('http://localhost:8000/api/v1/health');
+            check(healthRes, {
+              'health check status is 200': (r) => r.status === 200,
+            });
+
+            sleep(1);
+
+            // Metrics endpoint
+            const metricsRes = http.get('http://localhost:8000/api/v1/monitoring/metrics/summary');
+            check(metricsRes, {
+              'metrics status is 200 or 401': (r) => r.status === 200 || r.status === 401,
+            });
+
+            sleep(1);
+          }
+          EOF
+
+      - name: Run load tests
+        run: |
+          k6 run load-test.js --out json=load-test-results.json
+
+      - name: Analyze load test results
+        if: always()
+        run: |
+          if [ -f load-test-results.json ]; then
+            echo "Load test completed. Results summary:"
+            jq -r '
+              select(.type == "Point" and .metric == "http_req_duration") |
+              "Response time p95: \(.data.tags.expected_response // "N/A")"
+            ' load-test-results.json | head -1
+          fi
+
+      - name: Upload load test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: load-test-results.json
+          retention-days: 90
+
+  memory-profiling:
+    name: Memory Profiling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: authos
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: authos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis, xdebug
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Prepare Laravel Application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Setup database
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+        run: |
+          php artisan migrate --force --seed
+          php artisan passport:keys --force
+          php artisan passport:install --force
+
+      - name: Run memory profiling tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          php artisan test --testsuite=Performance --log-junit memory-profile.xml
+
+      - name: Upload memory profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profile
+          path: memory-profile.xml
+          retention-days: 30
+
+  performance-summary:
+    name: Performance Summary
+    needs: [ performance-benchmarks, memory-profiling ]
+    runs-on: ubuntu-24.04
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate Performance Report
+        run: |
+          echo "# Performance Test Summary" > performance-summary.md
+          echo "" >> performance-summary.md
+          echo "## Results" >> performance-summary.md
+          echo "" >> performance-summary.md
+          echo "- Benchmarks: ${{ needs.performance-benchmarks.result }}" >> performance-summary.md
+          echo "- Memory Profiling: ${{ needs.memory-profiling.result }}" >> performance-summary.md
+          echo "" >> performance-summary.md
+          echo "Test completed at: $(date -u)" >> performance-summary.md
+
+      - name: Upload performance summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-summary
+          path: performance-summary.md
+          retention-days: 90

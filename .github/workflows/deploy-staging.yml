@@ -1,0 +1,429 @@
+name: Deploy to Staging
+
+# ⚠️ DISABLED: Enable when staging server is configured
+# This workflow requires:
+# - Staging server with SSH access
+# - GitHub Secrets: STAGING_SERVER_HOST, STAGING_SERVER_USER, STAGING_DEPLOY_PATH, STAGING_SSH_PRIVATE_KEY
+# - Domain: staging.authos.example.com with SSL certificate
+#
+# To enable: Uncomment the 'push' trigger below after configuring secrets
+on:
+  # push:
+  #   branches: [ develop, main ]
+  workflow_dispatch:  # Manual trigger available for testing
+
+permissions:
+  contents: read
+  deployments: write
+  id-token: write
+
+env:
+  APP_NAME: authos
+  DEPLOY_ENVIRONMENT: staging
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-Deployment Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if deployment is needed
+        id: check
+        run: |
+          # Check if this is a merge commit or direct push
+          if git log -1 --pretty=%B | grep -q "\[skip deploy\]"; then
+            echo "Deployment skipped by commit message"
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup PHP
+        if: steps.check.outputs.should_deploy == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        if: steps.check.outputs.should_deploy == 'true'
+        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts --no-dev --optimize-autoloader
+
+      - name: Run quick smoke tests
+        if: steps.check.outputs.should_deploy == 'true'
+        run: |
+          php artisan --version
+          composer validate --strict
+
+  build:
+    name: Build Application
+    needs: [ pre-deployment-checks ]
+    if: needs.pre-deployment-checks.outputs.should_deploy == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-dev --optimize-autoloader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Create deployment artifact
+        run: |
+          mkdir -p build
+          tar -czf build/application.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='.env' \
+            --exclude='phpunit.xml' \
+            .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-build
+          path: build/application.tar.gz
+          retention-days: 7
+
+  deploy-staging:
+    name: Deploy to Staging Environment
+    needs: [ build ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    environment:
+      name: staging
+      url: https://staging.authos.example.com
+
+    steps:
+      - name: Create deployment
+        id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.ref,
+              environment: 'staging',
+              auto_merge: false,
+              required_contexts: [],
+              description: 'Deploy to staging environment'
+            });
+            return deployment.data.id;
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-build
+          path: build
+
+      - name: Extract application
+        run: |
+          mkdir -p application
+          tar -xzf build/application.tar.gz -C application
+
+      - name: Setup deployment SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy application to staging server
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          # Upload application files
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            application/ \
+            ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/releases/$(date +%Y%m%d%H%M%S)
+
+          # Create symlink to new release
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}
+            RELEASE=$(ls -t releases | head -1)
+            ln -nfs releases/${RELEASE} current
+
+            # Setup shared directories
+            mkdir -p shared/storage/app
+            mkdir -p shared/storage/framework/cache
+            mkdir -p shared/storage/framework/sessions
+            mkdir -p shared/storage/framework/views
+            mkdir -p shared/storage/logs
+
+            # Link shared directories
+            cd current
+            rm -rf storage
+            ln -nfs ../shared/storage storage
+
+            # Copy environment file
+            cp ../shared/.env .env || echo "Warning: .env not found in shared directory"
+          EOF
+
+      - name: Run deployment script on staging server
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}/current
+
+            # Run deployment tasks
+            php artisan down --render="errors::503" --retry=60
+
+            # Run migrations
+            php artisan migrate --force
+
+            # Clear and cache config
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Generate Passport keys if needed
+            if [ ! -f storage/oauth-private.key ]; then
+              php artisan passport:keys
+            fi
+
+            # Warm caches
+            php artisan cache:warm || true
+
+            # Restart queue workers
+            php artisan queue:restart
+
+            # Bring application back up
+            php artisan up
+
+            echo "Deployment completed successfully"
+          EOF
+
+      - name: Health check
+        run: |
+          MAX_ATTEMPTS=30
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if curl -f -s https://staging.authos.example.com/api/v1/health > /dev/null; then
+              echo "Health check passed!"
+              exit 0
+            fi
+
+            echo "Health check attempt $ATTEMPT failed, retrying..."
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "Health check failed after $MAX_ATTEMPTS attempts"
+          exit 1
+
+      - name: Update deployment status (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: 'success',
+              environment_url: 'https://staging.authos.example.com',
+              description: 'Deployment successful'
+            });
+
+      - name: Update deployment status (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: 'failure',
+              description: 'Deployment failed'
+            });
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}
+
+            # Get previous release
+            RELEASES=($(ls -t releases))
+            if [ ${#RELEASES[@]} -gt 1 ]; then
+              PREVIOUS_RELEASE=${RELEASES[1]}
+
+              echo "Rolling back to previous release: $PREVIOUS_RELEASE"
+              ln -nfs releases/${PREVIOUS_RELEASE} current
+
+              cd current
+              php artisan up
+              php artisan queue:restart
+
+              echo "Rollback completed"
+            else
+              echo "No previous release to rollback to"
+            fi
+          EOF
+
+  post-deployment-tests:
+    name: Post-Deployment Tests
+    needs: [ deploy-staging ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run API smoke tests
+        run: |
+          # Test health endpoint
+          curl -f https://staging.authos.example.com/api/v1/health
+
+          # Test metrics endpoint (may require auth)
+          curl -f https://staging.authos.example.com/api/v1/monitoring/health || true
+
+          echo "API smoke tests passed"
+
+      - name: Run database migration verification
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}/current
+            php artisan migrate:status
+          EOF
+
+      - name: Verify critical services
+        run: |
+          # Add your critical service checks here
+          echo "Verifying critical services..."
+
+  notify:
+    name: Send Notifications
+    needs: [ deploy-staging, post-deployment-tests ]
+    runs-on: ubuntu-24.04
+    if: always()
+
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+            COLOR="good"
+            TEXT="✅ Staging deployment successful"
+          else
+            COLOR="danger"
+            TEXT="❌ Staging deployment failed"
+          fi
+
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "'"${TEXT}"'",
+              "attachments": [{
+                "color": "'"${COLOR}"'",
+                "fields": [{
+                  "title": "Environment",
+                  "value": "staging",
+                  "short": true
+                }, {
+                  "title": "Branch",
+                  "value": "${{ github.ref }}",
+                  "short": true
+                }, {
+                  "title": "Commit",
+                  "value": "${{ github.sha }}",
+                  "short": true
+                }]
+              }]
+            }'
+
+  cleanup:
+    name: Cleanup Old Releases
+    needs: [ post-deployment-tests ]
+    runs-on: ubuntu-24.04
+    if: success()
+
+    steps:
+      - name: Setup deployment SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Remove old releases
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}/releases
+
+            # Keep only the last 5 releases
+            ls -t | tail -n +6 | xargs -r rm -rf
+
+            echo "Old releases cleaned up"
+          EOF

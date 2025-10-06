@@ -1,0 +1,74 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - tests
+
+    # Level 5 to start (0-10, higher = stricter)
+    level: 5
+
+    # Exclude patterns
+    excludePaths:
+        - bootstrap
+        - storage
+        - vendor
+        - node_modules
+
+    # Laravel-specific configuration
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    checkModelProperties: true
+    checkOctaneCompatibility: true
+   
+    # Ignore common Laravel patterns
+    ignoreErrors:
+        # Ignore dynamic properties on Eloquent models
+        -
+            message: '#Access to an undefined property#'
+            path: app/Models/*.php
+        # Ignore facade accessor issues
+        -
+            message: '#Call to an undefined static method Illuminate\\Support\\Facades#'
+            paths:
+                - app/*
+        # Ignore dynamic method calls on Request
+        -
+            message: '#Call to an undefined method Illuminate\\Http\\Request#'
+            paths:
+                - app/Http/*
+        # Ignore factory return types
+        -
+            message: '#Unsafe usage of new static#'
+            paths:
+                - database/factories/*
+        # Ignore test-specific issues
+        -
+            message: '#should return .* but returns#'
+            paths:
+                - tests/*
+        # Ignore Livewire/Filament dynamic properties
+        -
+            message: '#Access to an undefined property Livewire\\Component#'
+            paths:
+                - app/Filament/*
+                - app/Livewire/*
+
+    # Memory limit for analysis
+    memoryLimit: 1G
+
+    # Parallel processing
+    parallel:
+        jobSize: 20
+        maximumNumberOfProcesses: 32
+        minimumNumberOfJobsPerProcess: 2
+
+    # Report unmatched ignored errors
+    reportUnmatchedIgnoredErrors: false
+
+    # Bleeding edge features (disabled for stability)
+    treatPhpDocTypesAsCertain: false

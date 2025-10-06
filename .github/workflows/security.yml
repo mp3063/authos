@@ -1,0 +1,359 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  dependency-check:
+    name: Dependency Security Audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
+
+      - name: Run Composer security audit
+        run: composer audit --format=json --locked > composer-audit.json || true
+
+      - name: Check for high/critical vulnerabilities
+        run: |
+          if [ -f composer-audit.json ]; then
+            HIGH_VULNS=$(jq '[.advisories[] | select(.severity == "high" or .severity == "critical")] | length' composer-audit.json)
+            if [ "$HIGH_VULNS" -gt 0 ]; then
+              echo "Found $HIGH_VULNS high/critical vulnerabilities!"
+              jq '.advisories[] | select(.severity == "high" or .severity == "critical")' composer-audit.json
+              exit 1
+            fi
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Run NPM audit
+        run: npm audit --audit-level=high || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-reports
+          path: |
+            composer-audit.json
+          retention-days: 30
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run Psalm Security Analysis
+        run: ./vendor/bin/psalm --taint-analysis --report=psalm-security.json --output-format=json || true
+
+      - name: Check for security issues
+        run: |
+          if [ -f psalm-security.json ]; then
+            SECURITY_ISSUES=$(jq '[.[] | select(.type == "TaintedInput" or .type == "TaintedSql" or .type == "TaintedHtml")] | length' psalm-security.json)
+            if [ "$SECURITY_ISSUES" -gt 0 ]; then
+              echo "Found $SECURITY_ISSUES security-related issues!"
+              jq '[.[] | select(.type == "TaintedInput" or .type == "TaintedSql" or .type == "TaintedHtml")]' psalm-security.json
+              exit 1
+            fi
+          fi
+
+      - name: Upload SAST results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-results
+          path: psalm-security.json
+          retention-days: 30
+
+  owasp-scan:
+    name: OWASP Dependency Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'AuthOS'
+          path: '.'
+          format: 'HTML,JSON'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 7
+
+      - name: Upload OWASP results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check
+          path: reports/
+          retention-days: 30
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
+
+      - name: Check licenses
+        run: |
+          composer licenses --format=json > licenses.json
+
+          # Define prohibited licenses (GPL, AGPL, etc.)
+          PROHIBITED_LICENSES='["GPL-2.0", "GPL-3.0", "AGPL-3.0"]'
+
+          # Check for prohibited licenses
+          if [ -f licenses.json ]; then
+            VIOLATIONS=$(jq --argjson prohibited "$PROHIBITED_LICENSES" '
+              .dependencies |
+              to_entries |
+              map(select(.value.license as $lic | $prohibited | index($lic))) |
+              length
+            ' licenses.json)
+
+            if [ "$VIOLATIONS" -gt 0 ]; then
+              echo "Found $VIOLATIONS license violations!"
+              jq --argjson prohibited "$PROHIBITED_LICENSES" '
+                .dependencies |
+                to_entries |
+                map(select(.value.license as $lic | $prohibited | index($lic)))
+              ' licenses.json
+              exit 1
+            fi
+          fi
+
+      - name: Upload license report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses.json
+          retention-days: 30
+
+  code-quality-security:
+    name: Code Quality Security Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
+          coverage: none
+          tools: composer:v2, phpmd, phpcs
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run PHPMD (Security ruleset)
+        run: |
+          ./vendor/bin/phpmd app,config,database text \
+            cleancode,codesize,controversial,design,naming,unusedcode \
+            --exclude vendor,storage,bootstrap/cache \
+            > phpmd-report.txt || true
+
+      - name: Check PHPMD results
+        run: |
+          if [ -s phpmd-report.txt ]; then
+            echo "PHPMD found issues:"
+            cat phpmd-report.txt
+            # Don't fail on PHPMD issues, just report
+          fi
+
+      - name: Run PHP Insights
+        run: |
+          ./vendor/bin/phpinsights analyse \
+            --no-interaction \
+            --format=json \
+            --min-quality=80 \
+            --min-complexity=80 \
+            --min-architecture=80 \
+            --min-style=80 \
+            > phpinsights-report.json || true
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-security-reports
+          path: |
+            phpmd-report.txt
+            phpinsights-report.json
+          retention-days: 30
+
+  security-summary:
+    name: Security Summary
+    needs: [ dependency-check, secret-scan, sast-scan, owasp-scan, license-check, code-quality-security ]
+    runs-on: ubuntu-24.04
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate Security Report
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "" >> security-summary.md
+          echo "## Results" >> security-summary.md
+          echo "" >> security-summary.md
+          echo "- Dependency Check: ${{ needs.dependency-check.result }}" >> security-summary.md
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-summary.md
+          echo "- SAST Scan: ${{ needs.sast-scan.result }}" >> security-summary.md
+          echo "- OWASP Check: ${{ needs.owasp-scan.result }}" >> security-summary.md
+          echo "- License Check: ${{ needs.license-check.result }}" >> security-summary.md
+          echo "- Code Quality: ${{ needs.code-quality-security.result }}" >> security-summary.md
+          echo "" >> security-summary.md
+          echo "Scan completed at: $(date -u)" >> security-summary.md
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+          retention-days: 90
+
+      - name: Check critical failures
+        run: |
+          if [ "${{ needs.dependency-check.result }}" == "failure" ] || \
+             [ "${{ needs.secret-scan.result }}" == "failure" ] || \
+             [ "${{ needs.owasp-scan.result }}" == "failure" ]; then
+            echo "Critical security checks failed!"
+            exit 1
+          fi
+
+  notify:
+    name: Send Notifications
+    needs: [ security-summary ]
+    runs-on: ubuntu-24.04
+    if: failure() && github.event_name == 'schedule'
+
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "Security scan failed for AuthOS",
+              "attachments": [{
+                "color": "danger",
+                "fields": [{
+                  "title": "Repository",
+                  "value": "${{ github.repository }}",
+                  "short": true
+                }, {
+                  "title": "Branch",
+                  "value": "${{ github.ref }}",
+                  "short": true
+                }]
+              }]
+            }'

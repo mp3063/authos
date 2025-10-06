@@ -23,3 +23,12 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Code Quality Tools
+/.php-cs-fixer.cache
+/phpstan-baseline.neon
+/psalm-baseline.xml
+/coverage/
+/.phpinsights/
+/phpmd-report.html
+/.php-insights.php

@@ -1,0 +1,105 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  dusk-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: authos_dusk
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, pgsql, pdo_pgsql, bcmath, soap, intl, gd, exif, iconv
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Copy environment file
+        run: cp .env.dusk.local .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Run migrations
+        run: php artisan migrate --force --seed
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_dusk
+          DB_USERNAME: postgres
+          DB_PASSWORD: secret
+
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
+      - name: Install Passport client
+        run: php artisan passport:client --personal --name="Test Personal Access Client"
+
+      - name: Upgrade ChromeDriver
+        run: php artisan dusk:chrome-driver --detect
+
+      - name: Start ChromeDriver
+        run: ./vendor/laravel/dusk/bin/chromedriver-linux &
+
+      - name: Start Laravel server
+        run: php artisan serve --no-reload &
+        env:
+          APP_URL: http://localhost:8000
+
+      - name: Wait for server
+        run: |
+          timeout 30 bash -c 'until curl -s http://localhost:8000 > /dev/null; do sleep 1; done'
+
+      - name: Run Dusk tests
+        run: php artisan dusk --configuration=phpunit.dusk.xml
+        env:
+          APP_URL: http://localhost:8000
+          DUSK_DRIVER_URL: http://localhost:9515
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dusk-screenshots
+          path: tests/Browser/screenshots
+
+      - name: Upload console logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dusk-console-logs
+          path: tests/Browser/console
+
+      - name: Upload Laravel logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel-logs
+          path: storage/logs

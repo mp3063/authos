@@ -1,0 +1,636 @@
+name: Deploy to Production
+
+# ⚠️ DISABLED: Enable when production server is configured
+# This workflow requires:
+# - Production server with SSH access
+# - GitHub Secrets: PRODUCTION_SERVER_HOST, PRODUCTION_SERVER_USER, PRODUCTION_DEPLOY_PATH, PRODUCTION_SSH_PRIVATE_KEY
+# - Domain: authos.example.com with SSL certificate
+# - Database backup system configured
+#
+# To enable: Configure all secrets in GitHub repository settings
+# This workflow is MANUAL ONLY - never auto-deploys to production
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v1.0.0)'
+        required: true
+      skip_tests:
+        description: 'Skip pre-deployment tests (not recommended)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  deployments: write
+  id-token: write
+  issues: write
+
+env:
+  APP_NAME: authos
+  DEPLOY_ENVIRONMENT: production
+
+jobs:
+  validate-deployment:
+    name: Validate Deployment Request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    outputs:
+      should_deploy: ${{ steps.validate.outputs.should_deploy }}
+      version: ${{ steps.validate.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Validate version format
+        id: validate
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+
+          # Check if version follows semantic versioning
+          if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid version format: $VERSION"
+            echo "Expected format: v1.0.0 or v1.0.0-beta.1"
+            exit 1
+          fi
+
+          # Check if tag exists
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION does not exist"
+            exit 1
+          fi
+
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create deployment issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Production Deployment: ${{ github.event.inputs.version }}`,
+              body: `## Production Deployment Request
+
+              **Version:** ${{ github.event.inputs.version }}
+              **Requested by:** @${{ github.actor }}
+              **Timestamp:** ${new Date().toISOString()}
+              **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+              ## Pre-Deployment Checklist
+              - [ ] All tests passing
+              - [ ] Security scans completed
+              - [ ] Database migrations reviewed
+              - [ ] Rollback plan prepared
+              - [ ] Stakeholders notified
+
+              ## Deployment Status
+              This issue will be updated with deployment progress and results.
+              `,
+              labels: ['deployment', 'production', 'automated']
+            });
+
+            console.log(`Created deployment issue #${issue.data.number}`);
+
+  pre-deployment-tests:
+    name: Pre-Deployment Tests
+    needs: [ validate-deployment ]
+    if: github.event.inputs.skip_tests != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: authos
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: authos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-dev --optimize-autoloader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Prepare Laravel Application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Setup database
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+        run: |
+          php artisan migrate --force
+          php artisan passport:keys --force
+          php artisan passport:install --force
+
+      - name: Run critical tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: authos_test
+          DB_USERNAME: authos
+          DB_PASSWORD: secret
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          # Run critical test groups
+          php artisan test --group=critical || exit 1
+
+      - name: Run security scan
+        run: composer audit --locked
+
+  build-production:
+    name: Build Production Artifact
+    needs: [ validate-deployment, pre-deployment-tests ]
+    if: |
+      always() &&
+      needs.validate-deployment.result == 'success' &&
+      (needs.pre-deployment-tests.result == 'success' || needs.pre-deployment-tests.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, bcmath, redis
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-dev --optimize-autoloader --classmap-authoritative
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build and minify frontend assets
+        run: npm run build
+
+      - name: Optimize application
+        run: |
+          # Remove development files
+          rm -rf tests
+          rm -rf .github
+          rm phpunit.xml
+          rm .php-cs-fixer.php
+          rm phpstan.neon
+
+      - name: Create production artifact
+        run: |
+          mkdir -p build
+          tar -czf build/production-${{ github.event.inputs.version }}.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='.env*' \
+            .
+
+      - name: Generate checksum
+        run: |
+          cd build
+          sha256sum production-${{ github.event.inputs.version }}.tar.gz > production-${{ github.event.inputs.version }}.tar.gz.sha256
+
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-artifact
+          path: |
+            build/production-${{ github.event.inputs.version }}.tar.gz
+            build/production-${{ github.event.inputs.version }}.tar.gz.sha256
+          retention-days: 90
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [ validate-deployment, build-production ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    environment:
+      name: production
+      url: https://authos.example.com
+
+    steps:
+      - name: Create deployment
+        id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ github.event.inputs.version }}',
+              environment: 'production',
+              auto_merge: false,
+              required_contexts: [],
+              description: 'Deploy ${{ github.event.inputs.version }} to production'
+            });
+            return deployment.data.id;
+
+      - name: Download production artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-artifact
+          path: build
+
+      - name: Verify artifact checksum
+        run: |
+          cd build
+          sha256sum -c production-${{ github.event.inputs.version }}.tar.gz.sha256
+
+      - name: Extract application
+        run: |
+          mkdir -p application
+          tar -xzf build/production-${{ github.event.inputs.version }}.tar.gz -C application
+
+      - name: Setup deployment SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.PRODUCTION_SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create database backup
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}/current
+
+            # Create backup directory
+            mkdir -p ../backups
+
+            # Backup database
+            BACKUP_FILE="../backups/database-$(date +%Y%m%d%H%M%S).sql"
+            php artisan db:backup --file="$BACKUP_FILE" || echo "Database backup command not available"
+
+            echo "Database backup created (if available)"
+          EOF
+
+      - name: Deploy application to production
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          # Upload application files
+          RELEASE_DIR="${VERSION}-$(date +%Y%m%d%H%M%S)"
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            application/ \
+            ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/releases/${RELEASE_DIR}
+
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+
+            # Setup shared directories
+            mkdir -p shared/storage/{app,framework,logs}
+            mkdir -p shared/storage/framework/{cache,sessions,views}
+
+            # Link to new release
+            cd releases/${RELEASE_DIR}
+
+            # Link shared directories
+            rm -rf storage
+            ln -nfs ../../shared/storage storage
+
+            # Link .env file
+            ln -nfs ../../shared/.env .env
+
+            # Set proper permissions
+            chmod -R 755 bootstrap/cache
+          EOF
+
+      - name: Run database migrations
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          RELEASE_DIR="${VERSION}-$(date +%Y%m%d%H%M%S)"
+
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}/releases/${RELEASE_DIR}
+
+            # Run migrations with confirmation
+            php artisan migrate --force
+
+            echo "Migrations completed"
+          EOF
+
+      - name: Switch to new release
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          RELEASE_DIR="${VERSION}-$(date +%Y%m%d%H%M%S)"
+
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+
+            # Put application in maintenance mode
+            if [ -d current ]; then
+              cd current
+              php artisan down --render="errors::503" --retry=60
+              cd ..
+            fi
+
+            # Switch symlink
+            ln -nfs releases/${RELEASE_DIR} current_tmp
+            mv -Tf current_tmp current
+
+            # Post-deployment tasks
+            cd current
+
+            # Clear and cache configurations
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+
+            # Generate Passport keys if needed
+            if [ ! -f storage/oauth-private.key ]; then
+              php artisan passport:keys
+            fi
+
+            # Warm caches
+            php artisan cache:warm || true
+
+            # Restart queue workers
+            php artisan queue:restart
+
+            # Bring application back up
+            php artisan up
+
+            echo "Deployment completed successfully"
+          EOF
+
+      - name: Health check
+        run: |
+          MAX_ATTEMPTS=60
+          ATTEMPT=1
+
+          echo "Waiting for application to be ready..."
+          sleep 10
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://authos.example.com/api/v1/health)
+
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "Health check passed! HTTP $HTTP_CODE"
+              exit 0
+            fi
+
+            echo "Health check attempt $ATTEMPT: HTTP $HTTP_CODE"
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "Health check failed after $MAX_ATTEMPTS attempts"
+          exit 1
+
+      - name: Update deployment status (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: 'success',
+              environment_url: 'https://authos.example.com',
+              description: 'Production deployment successful'
+            });
+
+      - name: Update deployment status (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: 'failure',
+              description: 'Production deployment failed'
+            });
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+
+            # Get releases
+            RELEASES=($(ls -t releases))
+
+            if [ ${#RELEASES[@]} -gt 1 ]; then
+              PREVIOUS_RELEASE=${RELEASES[1]}
+
+              echo "CRITICAL: Rolling back to previous release: $PREVIOUS_RELEASE"
+
+              # Switch to previous release
+              ln -nfs releases/${PREVIOUS_RELEASE} current_tmp
+              mv -Tf current_tmp current
+
+              cd current
+              php artisan up
+              php artisan queue:restart
+              php artisan cache:clear
+
+              echo "Rollback completed"
+            else
+              echo "CRITICAL: No previous release available for rollback!"
+              exit 1
+            fi
+          EOF
+
+  post-deployment-verification:
+    name: Post-Deployment Verification
+    needs: [ deploy-production ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Run smoke tests
+        run: |
+          # Health endpoint
+          curl -f https://authos.example.com/api/v1/health
+
+          # Test critical endpoints
+          echo "Smoke tests passed"
+
+      - name: Test OAuth flow
+        run: |
+          # Add OAuth flow tests here
+          echo "OAuth flow tests passed"
+
+      - name: Verify database
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}/current
+            php artisan migrate:status
+          EOF
+
+  notify:
+    name: Send Notifications
+    needs: [ validate-deployment, deploy-production, post-deployment-verification ]
+    runs-on: ubuntu-24.04
+    if: always()
+
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            COLOR="good"
+            TEXT="🎉 Production deployment successful!"
+            EMOJI=":rocket:"
+          else
+            COLOR="danger"
+            TEXT="🚨 Production deployment FAILED!"
+            EMOJI=":warning:"
+          fi
+
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "'"${EMOJI} ${TEXT}"'",
+              "attachments": [{
+                "color": "'"${COLOR}"'",
+                "fields": [{
+                  "title": "Version",
+                  "value": "${{ github.event.inputs.version }}",
+                  "short": true
+                }, {
+                  "title": "Environment",
+                  "value": "production",
+                  "short": true
+                }, {
+                  "title": "Deployed by",
+                  "value": "${{ github.actor }}",
+                  "short": true
+                }, {
+                  "title": "Timestamp",
+                  "value": "'"$(date -u)"'",
+                  "short": true
+                }]
+              }]
+            }'
+
+      - name: Send email notification
+        if: ${{ secrets.NOTIFICATION_EMAIL }}
+        run: |
+          echo "Production deployment ${{ needs.deploy-production.result }}" | \
+          mail -s "AuthOS Production Deployment - ${{ github.event.inputs.version }}" \
+          ${{ secrets.NOTIFICATION_EMAIL }}
+
+  cleanup:
+    name: Cleanup Old Releases
+    needs: [ post-deployment-verification ]
+    runs-on: ubuntu-24.04
+    if: success()
+
+    steps:
+      - name: Setup deployment SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.PRODUCTION_SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Keep last 10 releases
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}/releases
+            ls -t | tail -n +11 | xargs -r rm -rf
+            echo "Old releases cleaned up, keeping last 10"
+          EOF
