@@ -64,6 +64,11 @@ class WebhookController extends BaseApiController
             $query->where('is_active', $request->boolean('is_active'));
         }
 
+        // Support filter[is_active] parameter
+        if ($request->has('filter.is_active')) {
+            $query->where('is_active', $request->boolean('filter.is_active'));
+        }
+
         if ($request->has('event')) {
             $query->whereJsonContains('events', $request->event);
         }
@@ -91,6 +96,8 @@ class WebhookController extends BaseApiController
      */
     public function store(StoreWebhookRequest $request): JsonResponse
     {
+        $this->authorize('webhooks.create');
+
         try {
             $organization = $this->getCurrentOrganization();
 
@@ -158,6 +165,8 @@ class WebhookController extends BaseApiController
      */
     public function update(UpdateWebhookRequest $request, string $id): JsonResponse
     {
+        $this->authorize('webhooks.update');
+
         $query = Webhook::query();
 
         // Enforce organization-based data isolation

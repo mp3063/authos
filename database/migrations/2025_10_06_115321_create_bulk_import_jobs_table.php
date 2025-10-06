@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('bulk_import_jobs', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ['import', 'export'])->default('import');
+            $table->enum('type', ['import', 'export', 'users'])->default('import');
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
 
@@ -23,14 +23,21 @@ return new class extends Migration
             $table->unsignedInteger('invalid_records')->default(0);
             $table->unsignedInteger('processed_records')->default(0);
             $table->unsignedInteger('failed_records')->default(0);
+            $table->unsignedInteger('successful_records')->default(0);
 
             // Status tracking
-            $table->enum('status', ['pending', 'processing', 'completed', 'failed', 'cancelled'])->default('pending');
+            $table->enum('status', ['pending', 'processing', 'completed', 'completed_with_errors', 'failed', 'cancelled'])->default('pending');
 
             // Configuration and results
             $table->json('options')->nullable(); // Import/export options
             $table->json('validation_report')->nullable(); // Summary of validation
             $table->json('errors')->nullable(); // Detailed error records
+            $table->json('records')->nullable(); // Import records data
+            $table->json('filters')->nullable(); // Export filters
+
+            // Import/Export specific fields
+            $table->string('export_type')->nullable(); // Type of export (users, applications, etc.)
+            $table->string('format')->nullable(); // Export format (csv, json, xlsx)
 
             // File information
             $table->string('file_path')->nullable(); // Path to uploaded/generated file

@@ -28,7 +28,7 @@ class ExportUsersJob implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public BulkImportJob $job
+        public BulkImportJob $exportJob
     ) {}
 
     /**
@@ -36,21 +36,21 @@ class ExportUsersJob implements ShouldQueue
      */
     public function handle(BulkImportService $service): void
     {
-        Log::info("Starting export job {$this->job->id}");
+        Log::info("Starting export job {$this->exportJob->id}");
 
         try {
             // Mark as processing
-            $this->job->markAsProcessing();
+            $this->exportJob->markAsProcessing();
 
             // Get options
-            $options = ExportOptions::fromArray($this->job->options);
+            $options = ExportOptions::fromArray($this->exportJob->options);
 
             // Build query
             $query = $this->buildQuery($options);
 
             // Count total records
             $total = $query->count();
-            $this->job->update(['total_records' => $total]);
+            $this->exportJob->update(['total_records' => $total]);
 
             if ($total === 0) {
                 throw new \RuntimeException('No users found matching the export criteria');
@@ -69,7 +69,7 @@ class ExportUsersJob implements ShouldQueue
 
                     // Update progress every 100 records
                     if ($processedCount % 100 === 0) {
-                        $this->job->updateProgress([
+                        $this->exportJob->updateProgress([
                             'processed_records' => $processedCount,
                         ]);
                         Log::info("Exported {$processedCount} users");
@@ -78,12 +78,12 @@ class ExportUsersJob implements ShouldQueue
             });
 
             // Generate file
-            $parser = $service->getParser($this->job->file_format);
-            $filename = "users_export_{$this->job->id}_".now()->format('YmdHis').".{$this->job->file_format}";
+            $parser = $service->getParser($this->exportJob->file_format);
+            $filename = "users_export_{$this->exportJob->id}_".now()->format('YmdHis').".{$this->exportJob->file_format}";
             $filePath = $parser->generate($records, $filename);
 
             // Update job with file information
-            $this->job->update([
+            $this->exportJob->update([
                 'file_path' => $filePath,
                 'file_size' => filesize(storage_path('app/'.$filePath)),
                 'processed_records' => $processedCount,
@@ -91,16 +91,16 @@ class ExportUsersJob implements ShouldQueue
             ]);
 
             // Mark as completed
-            $this->job->markAsCompleted();
+            $this->exportJob->markAsCompleted();
 
-            Log::info("Completed export job {$this->job->id}");
+            Log::info("Completed export job {$this->exportJob->id}");
 
         } catch (\Exception $e) {
-            Log::error("Failed export job {$this->job->id}: ".$e->getMessage(), [
+            Log::error("Failed export job {$this->exportJob->id}: ".$e->getMessage(), [
                 'exception' => $e,
             ]);
 
-            $this->job->markAsFailed($e->getMessage());
+            $this->exportJob->markAsFailed($e->getMessage());
 
             // Re-throw to mark job as failed in queue
             throw $e;
@@ -187,10 +187,10 @@ class ExportUsersJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("Export job {$this->job->id} failed permanently", [
+        Log::error("Export job {$this->exportJob->id} failed permanently", [
             'exception' => $exception,
         ]);
 
-        $this->job->markAsFailed($exception->getMessage());
+        $this->exportJob->markAsFailed($exception->getMessage());
     }
 }

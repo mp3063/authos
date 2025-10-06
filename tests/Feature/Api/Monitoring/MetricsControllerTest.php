@@ -24,9 +24,13 @@ class MetricsControllerTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_requires_authentication_for_metrics(): void
     {
-        Passport::actingAs(null);
+        // Create a new test instance without authentication
+        // We need to bypass the setUp() which calls Passport::actingAs()
+        $this->app['auth']->forgetGuards();
 
-        $response = $this->getJson('/api/v1/monitoring/metrics');
+        $response = $this->withHeaders([
+            'Accept' => 'application/json',
+        ])->getJson('/api/v1/monitoring/metrics');
 
         $response->assertStatus(401);
     }

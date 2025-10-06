@@ -39,7 +39,26 @@ class HealthCheckController extends Controller
             default => 200,
         };
 
-        return response()->json($health, $statusCode);
+        // Map service checks to simple status format for backward compatibility
+        $services = [];
+        foreach ($health['checks'] ?? [] as $key => $check) {
+            $status = is_array($check) ? ($check['status'] ?? 'unknown') : $check;
+            $services[$key] = $status === 'healthy' ? 'ok' : $status;
+        }
+
+        // Add redis alias for cache
+        if (isset($services['cache'])) {
+            $services['redis'] = $services['cache'];
+        }
+
+        return response()->json([
+            'status' => $health['status'] === 'healthy' ? 'ok' : ($health['status'] ?? 'ok'),
+            'timestamp' => $health['timestamp'] ?? now()->toIso8601String(),
+            'services' => $services,
+            'checks' => $health['checks'] ?? [],
+            'version' => $health['version'] ?? config('app.version', '1.0.0'),
+            'environment' => $health['environment'] ?? app()->environment(),
+        ], $statusCode);
     }
 
     /**

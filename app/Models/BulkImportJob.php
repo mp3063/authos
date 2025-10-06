@@ -20,6 +20,8 @@ class BulkImportJob extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
+    public const STATUS_COMPLETED_WITH_ERRORS = 'completed_with_errors';
+
     public const STATUS_FAILED = 'failed';
 
     public const STATUS_CANCELLED = 'cancelled';
@@ -28,6 +30,8 @@ class BulkImportJob extends Model
     public const TYPE_IMPORT = 'import';
 
     public const TYPE_EXPORT = 'export';
+
+    public const TYPE_USERS = 'users';
 
     protected $fillable = [
         'type',
@@ -38,10 +42,15 @@ class BulkImportJob extends Model
         'invalid_records',
         'processed_records',
         'failed_records',
+        'successful_records',
         'status',
         'options',
         'validation_report',
         'errors',
+        'records',
+        'filters',
+        'export_type',
+        'format',
         'file_path',
         'file_format',
         'file_size',
@@ -55,6 +64,8 @@ class BulkImportJob extends Model
         'options' => 'array',
         'validation_report' => 'array',
         'errors' => 'array',
+        'records' => 'array',
+        'filters' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
@@ -270,6 +281,7 @@ class BulkImportJob extends Model
             self::STATUS_PENDING => 'Pending',
             self::STATUS_PROCESSING => 'Processing',
             self::STATUS_COMPLETED => 'Completed',
+            self::STATUS_COMPLETED_WITH_ERRORS => 'Completed with Errors',
             self::STATUS_FAILED => 'Failed',
             self::STATUS_CANCELLED => 'Cancelled',
             default => 'Unknown',

@@ -156,6 +156,7 @@ class Organization extends Model
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete',
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
                 'auth_logs.read', 'auth_logs.export',
+                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
             ],
             'Organization Admin' => [
                 'users.create', 'users.read', 'users.update',
@@ -164,6 +165,7 @@ class Organization extends Model
                 'roles.read', 'roles.assign',
                 'permissions.read',
                 'auth_logs.read',
+                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
             ],
             'Organization Member' => [
                 'users.read',

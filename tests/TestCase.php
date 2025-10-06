@@ -4,7 +4,6 @@ namespace Tests;
 
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 use Laravel\Passport\Passport;
@@ -12,9 +11,9 @@ use Spatie\Permission\Models\Role;
 
 abstract class TestCase extends BaseTestCase
 {
-    // Use DatabaseMigrations to avoid transaction nesting issues
-    // This runs migrations for each test class, ensuring proper database state
-    use DatabaseMigrations;
+    // Use RefreshDatabase for proper test isolation
+    // This creates a fresh database for each test
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
 
     // Memory optimization: Cache expensive operations
     protected static bool $passportInitialized = false;
@@ -261,6 +260,7 @@ abstract class TestCase extends BaseTestCase
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
                 'auth_logs.read', 'auth_logs.export',
+                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
                 'system.settings.read', 'system.settings.update', 'system.analytics.read',
                 'oauth.manage', 'admin.access',
             ],
@@ -272,6 +272,7 @@ abstract class TestCase extends BaseTestCase
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
                 'auth_logs.read', 'auth_logs.export',
+                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
             ],
             'Organization Admin' => [
                 'users.create', 'users.read', 'users.update',
@@ -280,6 +281,7 @@ abstract class TestCase extends BaseTestCase
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.read',
                 'auth_logs.read',
+                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
             ],
             'User' => [
                 'users.read',

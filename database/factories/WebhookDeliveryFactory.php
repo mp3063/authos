@@ -17,23 +17,26 @@ class WebhookDeliveryFactory extends Factory
     {
         return [
             'webhook_id' => Webhook::factory(),
-            'event' => 'user.created',
-            'payload' => json_encode([
+            'event_type' => 'user.created',
+            'payload' => [
                 'event' => 'user.created',
                 'data' => [
                     'id' => $this->faker->randomNumber(),
                     'email' => $this->faker->email(),
                 ],
                 'timestamp' => now()->toIso8601String(),
-            ]),
+            ],
             'status' => 'success',
-            'response_status' => 200,
+            'http_status_code' => 200,
             'response_body' => json_encode(['status' => 'received']),
-            'response_time_ms' => $this->faker->numberBetween(50, 500),
+            'request_duration_ms' => $this->faker->numberBetween(50, 500),
             'error_message' => null,
-            'attempt' => 0,
-            'will_retry' => false,
-            'moved_to_dead_letter_at' => null,
+            'attempt_number' => 1,
+            'max_attempts' => 6,
+            'signature' => hash_hmac('sha256', 'test_payload', 'test_secret'),
+            'next_retry_at' => null,
+            'sent_at' => now(),
+            'completed_at' => now(),
         ];
     }
 
@@ -41,27 +44,27 @@ class WebhookDeliveryFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'failed',
-            'response_status' => 500,
+            'http_status_code' => 500,
             'response_body' => json_encode(['error' => 'Internal Server Error']),
             'error_message' => 'Server returned 500 error',
-            'will_retry' => true,
+            'next_retry_at' => now()->addMinutes(5),
+            'completed_at' => now(),
         ]);
     }
 
-    public function deadLetter(): static
+    public function retrying(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'dead_letter',
-            'attempt' => 5,
-            'will_retry' => false,
-            'moved_to_dead_letter_at' => now(),
+            'status' => 'retrying',
+            'attempt_number' => 2,
+            'next_retry_at' => now()->addMinutes(5),
         ]);
     }
 
     public function withAttempts(int $attempts): static
     {
         return $this->state(fn (array $attributes) => [
-            'attempt' => $attempts,
+            'attempt_number' => $attempts,
         ]);
     }
 }

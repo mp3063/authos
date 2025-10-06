@@ -46,13 +46,13 @@ class MetricsCollectionService
             // Successful logins
             $successfulLogins = DB::table('authentication_logs')
                 ->where('created_at', '>=', $today)
-                ->where('status', 'success')
+                ->where('success', true)
                 ->count();
 
             // Failed logins
             $failedLogins = DB::table('authentication_logs')
                 ->where('created_at', '>=', $today)
-                ->where('status', 'failed')
+                ->where('success', false)
                 ->count();
 
             // Success rate
@@ -79,7 +79,7 @@ class MetricsCollectionService
             $suspiciousIPs = DB::table('authentication_logs')
                 ->select('ip_address', DB::raw('COUNT(*) as attempts'))
                 ->where('created_at', '>=', $last24Hours)
-                ->where('status', 'failed')
+                ->where('success', false)
                 ->groupBy('ip_address')
                 ->having('attempts', '>', 5)
                 ->orderByDesc('attempts')
@@ -92,8 +92,8 @@ class MetricsCollectionService
                 ->select(
                     DB::raw('DATE(created_at) as date'),
                     DB::raw('COUNT(*) as total'),
-                    DB::raw('SUM(CASE WHEN status = \'success\' THEN 1 ELSE 0 END) as successful'),
-                    DB::raw('SUM(CASE WHEN status = \'failed\' THEN 1 ELSE 0 END) as failed')
+                    DB::raw('SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful'),
+                    DB::raw('SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed')
                 )
                 ->where('created_at', '>=', $last7Days)
                 ->groupBy('date')
@@ -426,16 +426,16 @@ class MetricsCollectionService
                 ->count();
 
             // Average users per organization
-            $avgUsersPerOrg = DB::table('organization_user')
+            $avgUsersPerOrg = DB::table('users')
                 ->select('organization_id', DB::raw('COUNT(*) as user_count'))
                 ->groupBy('organization_id')
                 ->avg('user_count');
 
             // Top organizations by user count
-            $topOrgs = DB::table('organization_user')
-                ->join('organizations', 'organization_user.organization_id', '=', 'organizations.id')
+            $topOrgs = DB::table('users')
+                ->join('organizations', 'users.organization_id', '=', 'organizations.id')
                 ->select('organizations.name', DB::raw('COUNT(*) as user_count'))
-                ->groupBy('organization_user.organization_id', 'organizations.name')
+                ->groupBy('users.organization_id', 'organizations.name')
                 ->orderByDesc('user_count')
                 ->limit(10)
                 ->get()

@@ -46,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(UserQueryService::class);
         $this->app->singleton(AnalyticsQueryService::class);
         $this->app->singleton(PerformanceMonitoringService::class);
+
+        // Prevent Passport from auto-running migrations (we manage them manually)
+        Passport::ignoreRoutes();
     }
 
     /**

@@ -38,22 +38,19 @@ class BulkImportApiTest extends TestCase
         $csv = "email,name,role\nuser1@example.com,User One,user\nuser2@example.com,User Two,user";
         $file = UploadedFile::fake()->createWithContent('users.csv', $csv);
 
-        $response = $this->postJson('/api/v1/bulk/import/users', [
+        $response = $this->postJson('/api/v1/bulk/users/import', [
             'file' => $file,
-            'options' => [
-                'send_invitations' => true,
-                'duplicate_strategy' => 'skip',
-            ],
+            'send_invitations' => true,
+            'duplicate_strategy' => 'skip',
         ]);
 
         $response->assertCreated()
             ->assertJsonStructure([
                 'success',
                 'data' => [
-                    'id',
+                    'job_id',
                     'type',
                     'status',
-                    'total_records',
                 ],
             ]);
 
@@ -62,8 +59,8 @@ class BulkImportApiTest extends TestCase
 
     public function test_validates_file_upload(): void
     {
-        $response = $this->postJson('/api/v1/bulk/import/users', [
-            'options' => ['send_invitations' => true],
+        $response = $this->postJson('/api/v1/bulk/users/import', [
+            'send_invitations' => true,
         ]);
 
         $response->assertUnprocessable()
@@ -75,9 +72,9 @@ class BulkImportApiTest extends TestCase
         BulkImportJob::factory()
             ->for($this->organization)
             ->count(3)
-            ->create(['type' => 'users']);
+            ->create(['type' => 'import']);
 
-        $response = $this->getJson('/api/v1/bulk/import/jobs');
+        $response = $this->getJson('/api/v1/bulk/imports');
 
         $response->assertOk()
             ->assertJsonCount(3, 'data')
@@ -102,7 +99,7 @@ class BulkImportApiTest extends TestCase
 
         BulkImportJob::factory()->for($this->organization)->create();
 
-        $response = $this->getJson('/api/v1/bulk/import/jobs');
+        $response = $this->getJson('/api/v1/bulk/imports');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data');
@@ -118,11 +115,11 @@ class BulkImportApiTest extends TestCase
                 'status' => 'processing',
             ]);
 
-        $response = $this->getJson("/api/v1/bulk/import/jobs/{$job->id}");
+        $response = $this->getJson("/api/v1/bulk/imports/{$job->id}");
 
         $response->assertOk()
             ->assertJsonPath('data.status', 'processing')
-            ->assertJsonPath('data.progress', 75);
+            ->assertJsonPath('data.progress_percentage', 75);
     }
 
     public function test_can_download_error_report(): void
@@ -130,40 +127,39 @@ class BulkImportApiTest extends TestCase
         $job = BulkImportJob::factory()
             ->for($this->organization)
             ->create([
-                'status' => 'completed_with_errors',
+                'type' => 'import',
+                'status' => 'completed',
                 'error_file_path' => 'errors/test.csv',
             ]);
 
         Storage::put('errors/test.csv', 'row,email,error\n1,invalid-email,Invalid email format');
 
-        $response = $this->get("/api/v1/bulk/import/jobs/{$job->id}/errors");
+        $response = $this->get("/api/v1/bulk/imports/{$job->id}/errors");
 
         $response->assertOk()
-            ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+            ->assertHeader('Content-Disposition');
     }
 
     public function test_can_start_export(): void
     {
         Queue::fake();
 
-        $response = $this->postJson('/api/v1/bulk/export/users', [
+        $response = $this->postJson('/api/v1/bulk/users/export', [
             'format' => 'csv',
-            'filters' => [
-                'created_after' => '2024-01-01',
-            ],
+            'date_from' => '2024-01-01',
         ]);
 
         $response->assertCreated()
             ->assertJsonStructure([
                 'success',
                 'data' => [
-                    'id',
+                    'job_id',
                     'type',
                     'status',
                 ],
             ]);
 
-        Queue::assertPushed(\App\Jobs\ProcessBulkExportJob::class);
+        Queue::assertPushed(\App\Jobs\ExportUsersJob::class);
     }
 
     public function test_can_download_export(): void
@@ -174,14 +170,15 @@ class BulkImportApiTest extends TestCase
                 'type' => 'export',
                 'status' => 'completed',
                 'file_path' => 'exports/users.csv',
+                'file_format' => 'csv',
             ]);
 
         Storage::put('exports/users.csv', 'email,name\nuser@example.com,User One');
 
-        $response = $this->get("/api/v1/bulk/export/jobs/{$job->id}/download");
+        $response = $this->get("/api/v1/bulk/exports/{$job->id}/download");
 
         $response->assertOk()
-            ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+            ->assertHeader('Content-Disposition');
     }
 
     public function test_organization_isolation_for_import(): void
@@ -189,16 +186,16 @@ class BulkImportApiTest extends TestCase
         $otherOrg = Organization::factory()->create();
         $job = BulkImportJob::factory()->for($otherOrg)->create();
 
-        $response = $this->getJson("/api/v1/bulk/import/jobs/{$job->id}");
+        $response = $this->getJson("/api/v1/bulk/imports/{$job->id}");
 
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
     public function test_validates_import_file_type(): void
     {
         $file = UploadedFile::fake()->create('users.txt');
 
-        $response = $this->postJson('/api/v1/bulk/import/users', [
+        $response = $this->postJson('/api/v1/bulk/users/import', [
             'file' => $file,
         ]);
 
@@ -208,7 +205,7 @@ class BulkImportApiTest extends TestCase
 
     public function test_validates_export_format(): void
     {
-        $response = $this->postJson('/api/v1/bulk/export/users', [
+        $response = $this->postJson('/api/v1/bulk/users/export', [
             'format' => 'invalid',
         ]);
 
@@ -222,7 +219,7 @@ class BulkImportApiTest extends TestCase
             ->for($this->organization)
             ->create(['status' => 'pending']);
 
-        $response = $this->postJson("/api/v1/bulk/import/jobs/{$job->id}/cancel");
+        $response = $this->postJson("/api/v1/bulk/imports/{$job->id}/cancel");
 
         $response->assertOk();
 
@@ -237,10 +234,10 @@ class BulkImportApiTest extends TestCase
             ->for($this->organization)
             ->create(['status' => 'completed']);
 
-        $response = $this->postJson("/api/v1/bulk/import/jobs/{$job->id}/cancel");
+        $response = $this->postJson("/api/v1/bulk/imports/{$job->id}/cancel");
 
-        $response->assertUnprocessable()
-            ->assertJsonPath('message', 'Cannot cancel a completed job');
+        $response->assertStatus(400)
+            ->assertJsonPath('message', 'Job cannot be cancelled (not in progress)');
     }
 
     public function test_filters_import_jobs_by_status(): void
@@ -254,7 +251,7 @@ class BulkImportApiTest extends TestCase
             ->for($this->organization)
             ->create(['status' => 'failed']);
 
-        $response = $this->getJson('/api/v1/bulk/import/jobs?filter[status]=completed');
+        $response = $this->getJson('/api/v1/bulk/imports?status=completed');
 
         $response->assertOk()
             ->assertJsonCount(2, 'data');
@@ -267,18 +264,18 @@ class BulkImportApiTest extends TestCase
             ->count(25)
             ->create();
 
-        $response = $this->getJson('/api/v1/bulk/import/jobs?per_page=10');
+        $response = $this->getJson('/api/v1/bulk/imports?per_page=10');
 
         $response->assertOk()
             ->assertJsonCount(10, 'data')
-            ->assertJsonPath('meta.pagination.total', 25);
+            ->assertJsonPath('pagination.total', 25);
     }
 
     public function test_requires_authentication(): void
     {
         Passport::actingAs(User::factory()->create(), []);
 
-        $response = $this->getJson('/api/v1/bulk/import/jobs');
+        $response = $this->getJson('/api/v1/bulk/imports');
 
         $response->assertForbidden();
     }

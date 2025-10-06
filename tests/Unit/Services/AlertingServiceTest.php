@@ -3,15 +3,15 @@
 namespace Tests\Unit\Services;
 
 use App\Services\AlertingService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use Tests\TestCase;
 
-class AlertingServiceTest extends TestCase
+class AlertingServiceTest extends BaseTestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
 
     private AlertingService $service;
 
@@ -21,6 +21,24 @@ class AlertingServiceTest extends TestCase
 
         $this->service = new AlertingService;
         Cache::flush();
+    }
+
+    protected function tearDown(): void
+    {
+        \Mockery::close();
+        parent::tearDown();
+    }
+
+    /**
+     * Creates the application.
+     */
+    public function createApplication(): \Illuminate\Foundation\Application
+    {
+        $app = require __DIR__.'/../../../bootstrap/app.php';
+
+        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        return $app;
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -42,17 +60,40 @@ class AlertingServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_triggers_high_error_rate_alert(): void
     {
-        Cache::put('api_metrics:'.now()->format('Y-m-d').':hourly:'.now()->format('H'), [
+        $date = now()->format('Y-m-d');
+        $hour = now()->format('H');
+        $cacheKey = "api_metrics:{$date}:hourly:{$hour}";
+        $alertKey = 'alert_sent:high_error_rate:'.now()->format('Y-m-d-H');
+
+        $metrics = [
             'total_requests' => 100,
             'total_errors' => 15, // 15% error rate (above 10% threshold)
-        ], 3600);
+        ];
 
-        Log::shouldReceive('critical')->once();
-        Log::shouldReceive('info')->once();
-        Cache::shouldReceive('has')->andReturn(false);
-        Cache::shouldReceive('put')->once();
+        // Mock Cache::get for all health checks
+        Cache::shouldReceive('get')
+            ->with($cacheKey, [])
+            ->andReturn($metrics);
+
+        Cache::shouldReceive('has')
+            ->with($alertKey)
+            ->andReturn(false);
+
+        Cache::shouldReceive('put')
+            ->with($alertKey, true, 3600)
+            ->once();
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->with('System Alert Triggered', \Mockery::type('array'));
+
+        // No email config set, so Log::info should not be called
+        Log::shouldReceive('info')->never();
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test completed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -66,23 +107,48 @@ class AlertingServiceTest extends TestCase
         Log::shouldReceive('critical')->never();
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test passed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_triggers_slow_response_time_alert(): void
     {
-        Cache::put('api_metrics:'.now()->format('Y-m-d').':hourly:'.now()->format('H'), [
+        $date = now()->format('Y-m-d');
+        $hour = now()->format('H');
+        $cacheKey = "api_metrics:{$date}:hourly:{$hour}";
+        $alertKey = 'alert_sent:slow_response_time:'.now()->format('Y-m-d-H');
+
+        $metrics = [
             'total_requests' => 100,
             'total_execution_time' => 250000, // 2500ms avg (above 2000ms threshold)
             'max_execution_time' => 5000,
-        ], 3600);
+        ];
 
-        Log::shouldReceive('critical')->once();
-        Log::shouldReceive('info')->once();
-        Cache::shouldReceive('has')->andReturn(false);
-        Cache::shouldReceive('put')->once();
+        Cache::shouldReceive('get')
+            ->with($cacheKey, [])
+            ->andReturn($metrics);
+
+        Cache::shouldReceive('has')
+            ->with($alertKey)
+            ->andReturn(false);
+
+        Cache::shouldReceive('put')
+            ->with($alertKey, true, 3600)
+            ->once();
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->with('System Alert Triggered', \Mockery::type('array'));
+
+        // No email config set, so Log::info should not be called
+        Log::shouldReceive('info')->never();
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test completed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -96,6 +162,9 @@ class AlertingServiceTest extends TestCase
         Log::shouldReceive('critical')->never();
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test passed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -126,17 +195,32 @@ class AlertingServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_prevents_alert_spam_within_hour(): void
     {
-        Cache::put('api_metrics:'.now()->format('Y-m-d').':hourly:'.now()->format('H'), [
+        $date = now()->format('Y-m-d');
+        $hour = now()->format('H');
+        $cacheKey = "api_metrics:{$date}:hourly:{$hour}";
+        $alertKey = 'alert_sent:high_error_rate:'.now()->format('Y-m-d-H');
+
+        $metrics = [
             'total_requests' => 100,
             'total_errors' => 15, // Trigger alert
-        ], 3600);
+        ];
+
+        Cache::shouldReceive('get')
+            ->with($cacheKey, [])
+            ->andReturn($metrics);
 
         // Mark alert as already sent
-        Cache::put('alert_sent:high_error_rate:'.now()->format('Y-m-d-H'), true, 3600);
+        Cache::shouldReceive('has')
+            ->with($alertKey)
+            ->andReturn(true); // Alert already sent
 
         Log::shouldReceive('critical')->never();
+        Log::shouldReceive('info')->never();
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to prevent risky test warning
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -212,17 +296,40 @@ class AlertingServiceTest extends TestCase
     {
         Config::set('monitoring.alert_emails', ['admin@example.com']);
 
-        Cache::put('api_metrics:'.now()->format('Y-m-d').':hourly:'.now()->format('H'), [
+        $date = now()->format('Y-m-d');
+        $hour = now()->format('H');
+        $cacheKey = "api_metrics:{$date}:hourly:{$hour}";
+        $alertKey = 'alert_sent:high_error_rate:'.now()->format('Y-m-d-H');
+
+        $metrics = [
             'total_requests' => 100,
             'total_errors' => 15,
-        ], 3600);
+        ];
 
-        Log::shouldReceive('critical')->once();
-        Log::shouldReceive('info')->twice(); // Once for email, once for alert
-        Cache::shouldReceive('has')->andReturn(false);
-        Cache::shouldReceive('put')->once();
+        Cache::shouldReceive('get')
+            ->with($cacheKey, [])
+            ->andReturn($metrics);
+
+        Cache::shouldReceive('has')
+            ->with($alertKey)
+            ->andReturn(false);
+
+        Cache::shouldReceive('put')
+            ->with($alertKey, true, 3600)
+            ->once();
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->with('System Alert Triggered', \Mockery::type('array'));
+
+        Log::shouldReceive('info')
+            ->once()
+            ->with('Alert email would be sent', \Mockery::type('array'));
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test completed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -230,17 +337,38 @@ class AlertingServiceTest extends TestCase
     {
         Config::set('monitoring.alert_emails', []);
 
-        Cache::put('api_metrics:'.now()->format('Y-m-d').':hourly:'.now()->format('H'), [
+        $date = now()->format('Y-m-d');
+        $hour = now()->format('H');
+        $cacheKey = "api_metrics:{$date}:hourly:{$hour}";
+        $alertKey = 'alert_sent:high_error_rate:'.now()->format('Y-m-d-H');
+
+        $metrics = [
             'total_requests' => 100,
             'total_errors' => 15,
-        ], 3600);
+        ];
 
-        Log::shouldReceive('critical')->once();
-        Log::shouldReceive('info')->never();
-        Cache::shouldReceive('has')->andReturn(false);
-        Cache::shouldReceive('put')->once();
+        Cache::shouldReceive('get')
+            ->with($cacheKey, [])
+            ->andReturn($metrics);
+
+        Cache::shouldReceive('has')
+            ->with($alertKey)
+            ->andReturn(false);
+
+        Cache::shouldReceive('put')
+            ->with($alertKey, true, 3600)
+            ->once();
+
+        Log::shouldReceive('critical')
+            ->once()
+            ->with('System Alert Triggered', \Mockery::type('array'));
+
+        Log::shouldReceive('info')->never(); // No email should be sent
 
         $this->service->checkHealthAlerts();
+
+        // Add assertion to verify test completed
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

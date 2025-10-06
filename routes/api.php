@@ -113,7 +113,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // Bulk Import/Export API
-    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('bulk')->group(function () {
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary', 'scopes:users.manage'])->prefix('bulk')->group(function () {
         // Import endpoints
         Route::post('/users/import', [BulkUserController::class, 'import']);
 
@@ -279,6 +279,9 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // API Monitoring and Metrics (Admin only)
     Route::middleware(['auth:api', 'throttle:api'])->prefix('monitoring')->group(function () {
+        // Health check endpoint (requires authentication)
+        Route::get('/health', [HealthCheckController::class, 'detailed']);
+
         // Comprehensive metrics
         Route::get('/metrics', [MetricsController::class, 'index'])->middleware('api.cache:60');
         Route::get('/metrics/authentication', [MetricsController::class, 'authentication'])->middleware('api.cache:60');
@@ -363,6 +366,9 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // Webhook Management API (v1/webhooks/*)
     Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('webhooks')->group(function () {
+        // List available webhook event types
+        Route::get('/events', [WebhookEventController::class, 'index'])->middleware('api.cache:3600');
+
         // Webhook CRUD Operations
         Route::get('/', [WebhookController::class, 'index'])->middleware('api.cache:300');
         Route::post('/', [WebhookController::class, 'store']);
@@ -380,6 +386,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/{id}/deliveries', [WebhookController::class, 'deliveries']);
         Route::get('/{id}/stats', [WebhookController::class, 'stats'])->middleware('api.cache:300');
         Route::get('/{id}/deliveries/{deliveryId}', [WebhookDeliveryController::class, 'show']);
+        Route::post('/deliveries/{id}/retry', [WebhookDeliveryController::class, 'retry'])->middleware('throttle:10,1');
     });
 
     // Webhook Delivery Management (v1/webhook-deliveries/*)

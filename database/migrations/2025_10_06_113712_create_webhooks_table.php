@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('webhooks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
-            $table->string('name', 255);
+            $table->string('name', 255)->nullable();
             $table->string('url', 500);
             $table->text('secret'); // Encrypted secrets can be longer than 255 chars
             $table->json('events'); // Array of subscribed event types
@@ -26,6 +26,9 @@ return new class extends Migration
             $table->timestamp('last_delivered_at')->nullable();
             $table->timestamp('last_failed_at')->nullable();
             $table->integer('failure_count')->default(0);
+            $table->json('delivery_stats')->nullable(); // Delivery statistics
+            $table->integer('consecutive_failures')->default(0);
+            $table->timestamp('disabled_at')->nullable(); // When webhook was disabled
             $table->json('metadata')->nullable(); // Custom organization data
             $table->timestamps();
             $table->softDeletes();

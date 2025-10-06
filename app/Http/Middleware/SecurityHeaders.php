@@ -19,10 +19,7 @@ class SecurityHeaders
         // Standard Security Headers
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
-
-        // Remove deprecated X-XSS-Protection header (browsers have built-in XSS protection now)
-        // CSP is the modern replacement
-
+        $response->headers->set('X-XSS-Protection', '1; mode=block');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
         // HSTS Header for HTTPS connections
