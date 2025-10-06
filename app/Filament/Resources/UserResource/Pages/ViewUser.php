@@ -29,10 +29,11 @@ class ViewUser extends ViewRecord
                         'two_factor_confirmed_at' => null,
                     ]);
                 })
-                ->after(fn () => \Filament\Notifications\Notification::make()
-                    ->title('MFA has been reset successfully')
-                    ->warning()
-                    ->send()
+                ->after(
+                    fn () => \Filament\Notifications\Notification::make()
+                        ->title('MFA has been reset successfully')
+                        ->warning()
+                        ->send()
                 )
                 ->visible(fn ($record) => $record->hasMfaEnabled()),
         ];

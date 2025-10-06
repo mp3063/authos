@@ -100,7 +100,8 @@ class ApplicationsRelationManager extends RelationManager
                     ->native(false),
 
                 Filter::make('has_logged_in')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
+                    ->query(
+                        fn (Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
                     )
                     ->label('Has Logged In'),
             ])

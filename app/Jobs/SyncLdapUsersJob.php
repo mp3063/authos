@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Log;
 
 class SyncLdapUsersJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public int $timeout = 300; // 5 minutes
 

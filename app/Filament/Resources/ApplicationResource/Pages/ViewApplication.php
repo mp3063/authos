@@ -24,10 +24,11 @@ class ViewApplication extends ViewRecord
                 ->requiresConfirmation()
                 ->modalDescription('This will generate a new client secret. The old secret will stop working immediately.')
                 ->action(fn ($record) => $record->regenerateSecret())
-                ->after(fn () => Notification::make()
-                    ->title('Client secret regenerated successfully')
-                    ->warning()
-                    ->send()
+                ->after(
+                    fn () => Notification::make()
+                        ->title('Client secret regenerated successfully')
+                        ->warning()
+                        ->send()
                 ),
         ];
     }

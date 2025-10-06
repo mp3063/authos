@@ -58,7 +58,7 @@ class UsersRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->filters([
-                //
+
             ])
             ->headerActions([
                 AttachAction::make()

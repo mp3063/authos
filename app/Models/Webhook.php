@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Crypt;
 
 class Webhook extends Model
 {
-    use BelongsToOrganization, HasFactory, SoftDeletes;
+    use BelongsToOrganization;
+    use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'organization_id',

@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\Storage;
 
 class ProcessBulkImportJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public int $timeout = 600; // 10 minutes
 

@@ -11,7 +11,8 @@ use Tests\DuskTestCase;
 
 class ApplicationManagementTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     protected function setUp(): void
     {

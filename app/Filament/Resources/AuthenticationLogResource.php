@@ -117,7 +117,8 @@ class AuthenticationLogResource extends Resource
                 TextInput::make('ip')->label('IP Address'),
             ])->query(function (Builder $query, array $data): Builder {
                 return $query->when(
-                    $data['ip'], fn (Builder $query, $ip): Builder => $query->where('ip_address', 'like', "%{$ip}%"),
+                    $data['ip'],
+                    fn (Builder $query, $ip): Builder => $query->where('ip_address', 'like', "%{$ip}%"),
                 );
             }),
 
@@ -126,9 +127,11 @@ class AuthenticationLogResource extends Resource
                 DatePicker::make('until')->label('Until Date'),
             ])->query(function (Builder $query, array $data): Builder {
                 return $query->when(
-                    $data['from'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                    $data['from'],
+                    fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
                 )->when(
-                    $data['until'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                    $data['until'],
+                    fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                 );
             }),
 

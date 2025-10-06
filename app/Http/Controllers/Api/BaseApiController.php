@@ -15,7 +15,9 @@ use Illuminate\Http\Request;
  */
 abstract class BaseApiController extends Controller
 {
-    use ApiResponse, AuthorizesRequests, ValidatesRequests;
+    use ApiResponse;
+    use AuthorizesRequests;
+    use ValidatesRequests;
 
     /**
      * Get the authenticated user

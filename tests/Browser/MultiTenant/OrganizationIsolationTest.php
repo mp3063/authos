@@ -10,7 +10,8 @@ use Tests\DuskTestCase;
 
 class OrganizationIsolationTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test users can only see their organization's data.

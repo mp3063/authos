@@ -878,8 +878,11 @@ class ApplicationFlowsTest extends EndToEndTestCase
         ]);
 
         // Should fail due to PKCE validation (400 or 401 acceptable)
-        $this->assertContains($pkceFailResponse->getStatusCode(), [400, 401],
-            'PKCE validation should fail with 400 or 401');
+        $this->assertContains(
+            $pkceFailResponse->getStatusCode(),
+            [400, 401],
+            'PKCE validation should fail with 400 or 401'
+        );
 
     }
 

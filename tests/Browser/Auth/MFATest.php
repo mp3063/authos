@@ -12,7 +12,8 @@ use Tests\DuskTestCase;
 
 class MFATest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test user can enable MFA.

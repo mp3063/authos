@@ -17,7 +17,11 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use BelongsToOrganization, HasApiTokens, HasFactory, HasRoles, Notifiable;
+    use BelongsToOrganization;
+    use HasApiTokens;
+    use HasFactory;
+    use HasRoles;
+    use Notifiable;
 
     /**
      * Transient properties that should not be saved to database

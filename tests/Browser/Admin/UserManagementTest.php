@@ -10,7 +10,8 @@ use Tests\DuskTestCase;
 
 class UserManagementTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test admin can view users list.

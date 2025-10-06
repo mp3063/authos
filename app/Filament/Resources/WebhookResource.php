@@ -228,7 +228,8 @@ class WebhookResource extends Resource
                 ->sortable()
                 ->toggleable()
                 ->placeholder('Never')
-                ->description(fn (Webhook $record): ?string => $record->last_failed_at ? 'Last failed: '.$record->last_failed_at->diffForHumans() : null
+                ->description(
+                    fn (Webhook $record): ?string => $record->last_failed_at ? 'Last failed: '.$record->last_failed_at->diffForHumans() : null
                 ),
 
             TextColumn::make('failure_count')
@@ -406,7 +407,7 @@ class WebhookResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+
         ];
     }
 

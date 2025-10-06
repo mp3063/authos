@@ -61,7 +61,8 @@ class ViewWebhookDelivery extends ViewRecord
                                     TextEntry::make('webhook.name')
                                         ->label('Webhook')
                                         ->weight(FontWeight::Bold)
-                                        ->url(fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
+                                        ->url(
+                                            fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
                                         ),
                                     TextEntry::make('webhook.url')
                                         ->label('Webhook URL')
@@ -109,10 +110,12 @@ class ViewWebhookDelivery extends ViewRecord
                                     ->placeholder('N/A'),
                                 TextEntry::make('attempt_number')
                                     ->label('Attempt')
-                                    ->formatStateUsing(fn (WebhookDelivery $record): string => $record->attempt_number.' / '.$record->max_attempts
+                                    ->formatStateUsing(
+                                        fn (WebhookDelivery $record): string => $record->attempt_number.' / '.$record->max_attempts
                                     )
                                     ->badge()
-                                    ->color(fn (WebhookDelivery $record): string => $record->attempt_number >= $record->max_attempts ? 'danger' : 'info'
+                                    ->color(
+                                        fn (WebhookDelivery $record): string => $record->attempt_number >= $record->max_attempts ? 'danger' : 'info'
                                     ),
                             ]),
                         TextEntry::make('error_message')

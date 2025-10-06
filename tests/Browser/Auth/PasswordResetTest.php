@@ -12,7 +12,8 @@ use Tests\DuskTestCase;
 
 class PasswordResetTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test user can view password reset request form.

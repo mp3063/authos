@@ -10,7 +10,8 @@ use Tests\DuskTestCase;
 
 class BruteForceProtectionTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test account lockout after multiple failed login attempts.

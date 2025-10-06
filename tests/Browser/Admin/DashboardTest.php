@@ -10,7 +10,8 @@ use Tests\DuskTestCase;
 
 class DashboardTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test admin can view dashboard.

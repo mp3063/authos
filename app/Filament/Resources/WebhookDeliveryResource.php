@@ -72,7 +72,8 @@ class WebhookDeliveryResource extends Resource
                 ->searchable()
                 ->sortable()
                 ->description(fn (WebhookDelivery $record): string => \Illuminate\Support\Str::limit($record->webhook->url ?? 'N/A', 40))
-                ->url(fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
+                ->url(
+                    fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
                 ),
 
             TextColumn::make('event_type')
@@ -131,10 +132,12 @@ class WebhookDeliveryResource extends Resource
 
             TextColumn::make('attempt_number')
                 ->label('Attempt')
-                ->formatStateUsing(fn (WebhookDelivery $record): string => $record->attempt_number.' / '.$record->max_attempts
+                ->formatStateUsing(
+                    fn (WebhookDelivery $record): string => $record->attempt_number.' / '.$record->max_attempts
                 )
                 ->alignCenter()
-                ->color(fn (WebhookDelivery $record): string => $record->attempt_number >= $record->max_attempts ? 'danger' : 'info'
+                ->color(
+                    fn (WebhookDelivery $record): string => $record->attempt_number >= $record->max_attempts ? 'danger' : 'info'
                 ),
 
             TextColumn::make('next_retry_at')
@@ -267,7 +270,7 @@ class WebhookDeliveryResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+
         ];
     }
 

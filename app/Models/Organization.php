@@ -14,7 +14,8 @@ use Spatie\Permission\Models\Role;
 
 class Organization extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',

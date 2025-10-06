@@ -34,7 +34,7 @@ class SocialAccountResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+
         ];
     }
 

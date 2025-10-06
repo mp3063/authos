@@ -13,7 +13,8 @@ use Tests\DuskTestCase;
 
 class AuthorizationFlowTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     private Client $client;
 

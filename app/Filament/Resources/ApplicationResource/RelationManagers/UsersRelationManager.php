@@ -75,12 +75,14 @@ class UsersRelationManager extends RelationManager
             ])
             ->filters([
                 Tables\Filters\Filter::make('has_logged_in')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
+                    ->query(
+                        fn (Builder $query): Builder => $query->whereNotNull('user_applications.last_login_at')
                     )
                     ->label('Has Logged In'),
 
                 Tables\Filters\Filter::make('has_mfa')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('mfa_methods')
+                    ->query(
+                        fn (Builder $query): Builder => $query->whereNotNull('mfa_methods')
                     )
                     ->label('MFA Enabled'),
             ])

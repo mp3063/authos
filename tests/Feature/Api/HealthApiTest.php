@@ -286,7 +286,9 @@ class HealthApiTest extends TestCase
         // Test public endpoints work without authentication
         foreach ($publicEndpoints as [$method, $endpoint]) {
             $response = $this->json($method, $endpoint);
-            $this->assertContains($response->getStatusCode(), [200, 503],
+            $this->assertContains(
+                $response->getStatusCode(),
+                [200, 503],
                 "Public endpoint {$method} {$endpoint} should return 200 or 503"
             );
         }

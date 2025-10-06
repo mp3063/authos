@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ApplicationGroup extends Model
 {
-    use BelongsToOrganization, HasFactory;
+    use BelongsToOrganization;
+    use HasFactory;
 
     protected $fillable = [
         'name',

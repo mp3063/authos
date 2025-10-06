@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class BulkImportJob extends Model
 {
-    use BelongsToOrganization, HasFactory;
+    use BelongsToOrganization;
+    use HasFactory;
 
     // Status constants
     public const STATUS_PENDING = 'pending';

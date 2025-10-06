@@ -11,7 +11,8 @@ use Tests\DuskTestCase;
 
 class AuditLogTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test admin can view authentication logs.

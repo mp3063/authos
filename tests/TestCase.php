@@ -76,7 +76,8 @@ abstract class TestCase extends BaseTestCase
             // Create client directly using Passport's client repository
             $clientRepository = app(\Laravel\Passport\ClientRepository::class);
             $clientRepository->createPersonalAccessGrantClient(
-                'Test Personal Access Client', 'users'
+                'Test Personal Access Client',
+                'users'
             );
         }
     }

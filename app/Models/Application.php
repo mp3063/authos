@@ -13,7 +13,8 @@ use Illuminate\Support\Str;
 
 class Application extends Model
 {
-    use BelongsToOrganization, HasFactory;
+    use BelongsToOrganization;
+    use HasFactory;
 
     protected $fillable = [
         'organization_id',

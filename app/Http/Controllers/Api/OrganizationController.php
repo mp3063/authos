@@ -754,7 +754,8 @@ class OrganizationController extends Controller
         $dailyLogins = $authLogs->clone()
             ->where('event', 'login_success')
             ->select(
-                DB::raw(config('database.default') === 'sqlite' ?
+                DB::raw(
+                    config('database.default') === 'sqlite' ?
                     'DATE(created_at) as date' :
                     "DATE_TRUNC('day', created_at AT TIME ZONE '{$timezone}') as date"
                 ),

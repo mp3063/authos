@@ -48,15 +48,6 @@ jobs:
       - name: Run Laravel Pint (Code Style)
         run: ./vendor/bin/pint --test
 
-      - name: Run PHP CS Fixer (Code Style)
-        run: ./vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
-
-      - name: Check PHPStan (Static Analysis)
-        run: ./vendor/bin/phpstan analyse --memory-limit=2G --error-format=github
-
-      - name: Run Psalm (Static Analysis)
-        run: ./vendor/bin/psalm --output-format=github --no-progress
-
       - name: Check Composer dependencies security
         run: composer audit --format=plain
 

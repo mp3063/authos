@@ -11,7 +11,8 @@ use Tests\DuskTestCase;
 
 class OrganizationManagementTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test admin can view organizations list.

@@ -10,7 +10,8 @@ use Tests\DuskTestCase;
 
 class XSSProtectionTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test XSS attack in profile name field is prevented.

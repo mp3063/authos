@@ -881,8 +881,11 @@ class AuthenticationFlowsTest extends EndToEndTestCase
             // In testing environment, verify that organization isolation concept is working
             // by checking that we get a response and users have organization_id field
             foreach ($users as $userData) {
-                $this->assertArrayHasKey('organization_id', $userData,
-                    'User data should include organization_id for isolation checks');
+                $this->assertArrayHasKey(
+                    'organization_id',
+                    $userData,
+                    'User data should include organization_id for isolation checks'
+                );
 
                 // In a real scenario, all users would be from the same organization
                 // For this test, we verify the structure exists
@@ -910,8 +913,11 @@ class AuthenticationFlowsTest extends EndToEndTestCase
         // Should only see users from the enterprise organization
         if (is_array($org2Users) && ! empty($org2Users)) {
             foreach ($org2Users as $userData) {
-                $this->assertArrayHasKey('organization_id', $userData,
-                    'Org2 user data should include organization_id for isolation checks');
+                $this->assertArrayHasKey(
+                    'organization_id',
+                    $userData,
+                    'Org2 user data should include organization_id for isolation checks'
+                );
 
                 // Verify organization isolation structure exists
                 $this->assertIsInt($userData['organization_id']);

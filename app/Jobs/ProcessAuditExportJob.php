@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Log;
 
 class ProcessAuditExportJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public int $timeout = 600; // 10 minutes
 

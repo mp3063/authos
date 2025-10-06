@@ -9,7 +9,8 @@ use Tests\DuskTestCase;
 
 class CSRFProtectionTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test CSRF token is present in forms.

@@ -11,7 +11,8 @@ use Tests\DuskTestCase;
 
 class LoginTest extends DuskTestCase
 {
-    use BrowserTestHelpers, DatabaseMigrations;
+    use BrowserTestHelpers;
+    use DatabaseMigrations;
 
     /**
      * Test user can view login form.

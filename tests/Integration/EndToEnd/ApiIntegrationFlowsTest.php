@@ -314,8 +314,11 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
                                str_contains($userData['name'], 'E2E Super Admin');
 
                 if (! $isSuperAdmin) {
-                    $this->assertEquals($firstOrgUser->organization_id, $userData['organization_id'],
-                        "Cross-organization data leakage detected: User {$userData['name']} from org {$userData['organization_id']} visible to user from org {$firstOrgUser->organization_id}");
+                    $this->assertEquals(
+                        $firstOrgUser->organization_id,
+                        $userData['organization_id'],
+                        "Cross-organization data leakage detected: User {$userData['name']} from org {$userData['organization_id']} visible to user from org {$firstOrgUser->organization_id}"
+                    );
                 }
             }
         }
@@ -329,8 +332,11 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
             foreach ($applications as $appData) {
                 // Check if organization_id is present in the response
                 if (isset($appData['organization_id'])) {
-                    $this->assertEquals($firstOrgUser->organization_id, $appData['organization_id'],
-                        "Cross-organization data leakage detected: Application {$appData['name']} from org {$appData['organization_id']} visible to user from org {$firstOrgUser->organization_id}");
+                    $this->assertEquals(
+                        $firstOrgUser->organization_id,
+                        $appData['organization_id'],
+                        "Cross-organization data leakage detected: Application {$appData['name']} from org {$appData['organization_id']} visible to user from org {$firstOrgUser->organization_id}"
+                    );
                 }
                 // If organization_id is not in response, the API is filtering correctly by not exposing it
                 // This means the isolation is working at the API level
@@ -623,8 +629,11 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         ], ['Authorization' => 'Bearer invalid_token']);
 
         // Invalid token may return 401 (Unauthorized) or 403 (Forbidden) depending on implementation
-        $this->assertContains($unauthorizedResponse->getStatusCode(), [401, 403],
-            'Invalid token should return either 401 or 403');
+        $this->assertContains(
+            $unauthorizedResponse->getStatusCode(),
+            [401, 403],
+            'Invalid token should return either 401 or 403'
+        );
     }
 
     /**
@@ -686,8 +695,11 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         ])->getJson('/api/v1/auth/user');
 
         // Invalid tokens should return 401 or be treated as unauthenticated
-        $this->assertContains($invalidTokenResponse->getStatusCode(), [401, 403],
-            'Invalid token should return 401 or 403');
+        $this->assertContains(
+            $invalidTokenResponse->getStatusCode(),
+            [401, 403],
+            'Invalid token should return 401 or 403'
+        );
 
         // Test expired token (simulated)
         $user = $this->actingAsTestUser('regular');
@@ -702,8 +714,11 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         ])->getJson('/api/v1/auth/user');
 
         // Expired tokens should return 401/403 or be treated as unauthenticated (200)
-        $this->assertContains($expiredTokenResponse->getStatusCode(), [200, 401, 403],
-            'Expired token should return 200 (unauthenticated), 401, or 403');
+        $this->assertContains(
+            $expiredTokenResponse->getStatusCode(),
+            [200, 401, 403],
+            'Expired token should return 200 (unauthenticated), 401, or 403'
+        );
     }
 
     /**

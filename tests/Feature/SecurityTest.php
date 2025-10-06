@@ -489,8 +489,15 @@ class SecurityTest extends TestCase
 
     public function test_api_handles_malformed_json_gracefully(): void
     {
-        $response = $this->call('POST', '/api/v1/auth/login', [], [], [], [],
-            '{"email":"test@example.com","password":malformed}');
+        $response = $this->call(
+            'POST',
+            '/api/v1/auth/login',
+            [],
+            [],
+            [],
+            [],
+            '{"email":"test@example.com","password":malformed}'
+        );
 
         $response->assertStatus(400); // Bad Request
         $response->assertJson([
