@@ -81,6 +81,11 @@ class Organization extends Model
         return $this->hasMany(AuditExport::class);
     }
 
+    public function webhooks(): HasMany
+    {
+        return $this->hasMany(Webhook::class);
+    }
+
     /**
      * Get all users who have access to any application in this organization
      */

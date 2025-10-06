@@ -1,0 +1,263 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\BulkImportJobResource\Pages;
+use App\Models\BulkImportJob;
+use App\Services\BulkImport\BulkImportService;
+use BackedEnum;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Tables;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
+use UnitEnum;
+
+class BulkImportJobResource extends Resource
+{
+    protected static ?string $model = BulkImportJob::class;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
+
+    protected static ?string $navigationLabel = 'Bulk Operations';
+
+    protected static string|UnitEnum|null $navigationGroup = 'User Management';
+
+    protected static ?int $navigationSort = 3;
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Section::make('Import Options')
+                    ->schema([
+                        FileUpload::make('file')
+                            ->label('Upload File')
+                            ->acceptedFileTypes(['text/csv', 'application/json', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+                            ->maxSize(10240) // 10MB
+                            ->required()
+                            ->helperText('Upload CSV, JSON, or Excel file (max 10MB)'),
+
+                        Select::make('format')
+                            ->label('File Format')
+                            ->options([
+                                'csv' => 'CSV',
+                                'json' => 'JSON',
+                                'xlsx' => 'Excel',
+                            ])
+                            ->required()
+                            ->default('csv'),
+
+                        Toggle::make('update_existing')
+                            ->label('Update Existing Users')
+                            ->helperText('Update users if they already exist (matched by email)')
+                            ->default(false),
+
+                        Toggle::make('skip_invalid')
+                            ->label('Skip Invalid Records')
+                            ->helperText('Continue importing even if some records are invalid')
+                            ->default(true),
+
+                        Toggle::make('send_invitations')
+                            ->label('Send Email Invitations')
+                            ->helperText('Send invitation emails to imported users')
+                            ->default(false),
+
+                        Toggle::make('auto_generate_passwords')
+                            ->label('Auto-Generate Passwords')
+                            ->helperText('Automatically generate passwords for users without one')
+                            ->default(false),
+
+                        Select::make('default_role')
+                            ->label('Default Role')
+                            ->relationship('createdBy', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->helperText('Default role to assign to imported users'),
+                    ])
+                    ->columns(2),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('id')
+                    ->label('Job ID')
+                    ->sortable(),
+
+                Tables\Columns\BadgeColumn::make('type')
+                    ->label('Type')
+                    ->colors([
+                        'primary' => 'import',
+                        'success' => 'export',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+
+                Tables\Columns\BadgeColumn::make('status')
+                    ->colors([
+                        'warning' => 'pending',
+                        'info' => 'processing',
+                        'success' => 'completed',
+                        'danger' => 'failed',
+                        'secondary' => 'cancelled',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+
+                Tables\Columns\TextColumn::make('total_records')
+                    ->label('Total')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('valid_records')
+                    ->label('Valid')
+                    ->sortable()
+                    ->color('success'),
+
+                Tables\Columns\TextColumn::make('invalid_records')
+                    ->label('Invalid')
+                    ->sortable()
+                    ->color('danger'),
+
+                Tables\Columns\TextColumn::make('processed_records')
+                    ->label('Processed')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('file_format')
+                    ->label('Format')
+                    ->badge()
+                    ->color('info')
+                    ->formatStateUsing(fn (string $state): string => strtoupper($state)),
+
+                Tables\Columns\TextColumn::make('createdBy.name')
+                    ->label('Created By')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('processing_time')
+                    ->label('Duration')
+                    ->formatStateUsing(fn (?int $state): string => $state ? "{$state}s" : 'N/A')
+                    ->sortable(),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->filters([
+                Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'import' => 'Import',
+                        'export' => 'Export',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'processing' => 'Processing',
+                        'completed' => 'Completed',
+                        'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
+                    ]),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+
+                Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->visible(fn (BulkImportJob $record) => $record->type === BulkImportJob::TYPE_EXPORT &&
+                        $record->status === BulkImportJob::STATUS_COMPLETED &&
+                        $record->file_path
+                    )
+                    ->action(function (BulkImportJob $record) {
+                        return Storage::download($record->file_path);
+                    }),
+
+                Action::make('downloadErrors')
+                    ->label('Errors')
+                    ->icon('heroicon-o-exclamation-circle')
+                    ->color('danger')
+                    ->visible(fn (BulkImportJob $record) => ! empty($record->errors))
+                    ->action(function (BulkImportJob $record) {
+                        $service = app(BulkImportService::class);
+                        $path = $record->error_file_path;
+
+                        if (! $path) {
+                            $path = $service->generateErrorReport($record);
+                        }
+
+                        return Storage::download($path);
+                    }),
+
+                Action::make('cancel')
+                    ->label('Cancel')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn (BulkImportJob $record) => $record->isInProgress())
+                    ->action(function (BulkImportJob $record) {
+                        $service = app(BulkImportService::class);
+                        $service->cancel($record);
+                    }),
+
+                Action::make('retry')
+                    ->label('Retry')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->visible(fn (BulkImportJob $record) => $record->hasFailed())
+                    ->action(function (BulkImportJob $record) {
+                        $service = app(BulkImportService::class);
+                        $service->retry($record);
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function ($records) {
+                            foreach ($records as $record) {
+                                if (! $record->isInProgress()) {
+                                    $record->delete();
+                                }
+                            }
+                        }),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListBulkImportJobs::route('/'),
+            'create' => Pages\CreateBulkImportJob::route('/create'),
+            'view' => Pages\ViewBulkImportJob::route('/{record}'),
+        ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        // Scope to user's organization unless super admin
+        if (! auth()->user()?->isSuperAdmin()) {
+            $query->where('organization_id', auth()->user()->organization_id);
+        }
+
+        return $query;
+    }
+}

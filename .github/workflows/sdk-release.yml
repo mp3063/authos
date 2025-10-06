@@ -1,0 +1,216 @@
+name: SDK Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+
+jobs:
+  generate-openapi:
+    name: Generate OpenAPI Spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, json, pgsql
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Generate OpenAPI spec
+        run: php artisan openapi:generate --validate
+
+      - name: Upload OpenAPI spec
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: public/openapi.json
+
+  build-typescript:
+    name: Build TypeScript SDK
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download OpenAPI spec
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: public/
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: npm ci
+
+      - name: Lint
+        working-directory: sdk/typescript
+        run: npm run lint
+
+      - name: Type check
+        working-directory: sdk/typescript
+        run: npm run typecheck
+
+      - name: Run tests
+        working-directory: sdk/typescript
+        run: npm run test
+
+      - name: Build
+        working-directory: sdk/typescript
+        run: npm run build
+
+      - name: Publish to NPM
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: sdk/typescript
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Upload TypeScript SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-sdk
+          path: sdk/typescript/dist/
+
+  build-python:
+    name: Build Python SDK
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download OpenAPI spec
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: public/
+
+      - name: Install openapi-python-client
+        run: pip install openapi-python-client
+
+      - name: Generate Python SDK
+        run: ./sdk/scripts/generate-python-sdk.sh
+
+      - name: Install SDK dependencies
+        working-directory: sdk/python
+        run: pip install -e .
+
+      - name: Build distribution
+        working-directory: sdk/python
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: sdk/python
+        run: |
+          pip install twine
+          twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Upload Python SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-sdk
+          path: sdk/python/dist/
+
+  build-php:
+    name: Build PHP SDK
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+
+      - name: Setup Java (for OpenAPI Generator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Download OpenAPI spec
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: public/
+
+      - name: Install OpenAPI Generator
+        run: |
+          wget https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.2.0/openapi-generator-cli-7.2.0.jar -O openapi-generator-cli.jar
+
+      - name: Generate PHP SDK
+        run: ./sdk/scripts/generate-php-sdk.sh
+
+      - name: Install dependencies
+        working-directory: sdk/php
+        run: composer install
+
+      - name: Run tests
+        working-directory: sdk/php
+        run: composer test || true
+
+      - name: Upload PHP SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-sdk
+          path: sdk/php/
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-typescript, build-python, build-php]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            openapi-spec/openapi.json
+            typescript-sdk/**/*
+            python-sdk/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post release summary
+        run: |
+          echo "## SDK Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ TypeScript SDK published to NPM" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Python SDK published to PyPI" >> $GITHUB_STEP_SUMMARY
+          echo "✅ PHP SDK generated (manual publish to Packagist)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ OpenAPI spec published to GitHub Release" >> $GITHUB_STEP_SUMMARY

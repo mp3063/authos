@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Bulk\BulkAccessController;
 use App\Http\Controllers\Api\Bulk\BulkDataController;
 use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
+use App\Http\Controllers\Api\BulkUserController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\OpenIdController;
@@ -15,6 +16,9 @@ use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\WebhookDeliveryController;
+use App\Http\Controllers\Api\WebhookEventController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -114,6 +118,24 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/{id}/sessions', [UserController::class, 'sessions']);
         Route::delete('/{id}/sessions', [UserController::class, 'revokeSessions']);
         Route::delete('/{id}/sessions/{sessionId}', [UserController::class, 'revokeSession']);
+    });
+
+    // Bulk Import/Export API
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('bulk')->group(function () {
+        // Import endpoints
+        Route::post('/users/import', [BulkUserController::class, 'import']);
+
+        // Export endpoints
+        Route::post('/users/export', [BulkUserController::class, 'export']);
+
+        // Job management
+        Route::get('/imports', [BulkUserController::class, 'index']);
+        Route::get('/imports/{job}', [BulkUserController::class, 'show']);
+        Route::get('/imports/{job}/errors', [BulkUserController::class, 'downloadErrors']);
+        Route::get('/exports/{job}/download', [BulkUserController::class, 'download']);
+        Route::post('/imports/{job}/cancel', [BulkUserController::class, 'cancel']);
+        Route::post('/imports/{job}/retry', [BulkUserController::class, 'retry']);
+        Route::delete('/imports/{job}', [BulkUserController::class, 'destroy']);
     });
 
     // Application Management API
@@ -343,6 +365,39 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::put('organizations/{organization}/branding', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'update']);
         Route::post('organizations/{organization}/branding/logo', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadLogo']);
         Route::post('organizations/{organization}/branding/background', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadBackground']);
+    });
+
+    // Webhook Management API (v1/webhooks/*)
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('webhooks')->group(function () {
+        // Webhook CRUD Operations
+        Route::get('/', [WebhookController::class, 'index'])->middleware('api.cache:300');
+        Route::post('/', [WebhookController::class, 'store']);
+        Route::get('/{id}', [WebhookController::class, 'show'])->middleware('api.cache:600');
+        Route::put('/{id}', [WebhookController::class, 'update']);
+        Route::delete('/{id}', [WebhookController::class, 'destroy']);
+
+        // Webhook Action Endpoints
+        Route::post('/{id}/test', [WebhookController::class, 'test'])->middleware('throttle:5,1'); // 5 per minute
+        Route::post('/{id}/rotate-secret', [WebhookController::class, 'rotateSecret']);
+        Route::post('/{id}/enable', [WebhookController::class, 'enable']);
+        Route::post('/{id}/disable', [WebhookController::class, 'disable']);
+
+        // Webhook Analytics & Deliveries
+        Route::get('/{id}/deliveries', [WebhookController::class, 'deliveries']);
+        Route::get('/{id}/stats', [WebhookController::class, 'stats'])->middleware('api.cache:300');
+        Route::get('/{id}/deliveries/{deliveryId}', [WebhookDeliveryController::class, 'show']);
+    });
+
+    // Webhook Delivery Management (v1/webhook-deliveries/*)
+    Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('webhook-deliveries')->group(function () {
+        Route::post('/{id}/retry', [WebhookDeliveryController::class, 'retry'])->middleware('throttle:10,1'); // 10 per minute
+    });
+
+    // Webhook Events (v1/webhook-events/*)
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('webhook-events')->group(function () {
+        Route::get('/', [WebhookEventController::class, 'index'])->middleware('api.cache:3600'); // Cache 1 hour
+        Route::get('/grouped', [WebhookEventController::class, 'groupedByCategory'])->middleware('api.cache:3600');
+        Route::get('/{id}', [WebhookEventController::class, 'show'])->middleware('api.cache:3600');
     });
 });
 
