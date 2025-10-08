@@ -43,6 +43,22 @@ class DeliverWebhookJob implements ShouldQueue
     }
 
     /**
+     * Get the payload from the delivery
+     */
+    public function __get($name)
+    {
+        if ($name === 'payload') {
+            return $this->delivery->payload;
+        }
+
+        if ($name === 'webhook') {
+            return $this->delivery->webhook;
+        }
+
+        return null;
+    }
+
+    /**
      * Execute the job.
      */
     public function handle(WebhookDeliveryService $deliveryService): void

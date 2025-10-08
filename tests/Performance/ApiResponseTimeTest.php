@@ -26,10 +26,11 @@ class ApiResponseTimeTest extends PerformanceTestCase
 
         // Create test data
         $this->organization = Organization::factory()->create();
-        $this->user = User::factory()->for($this->organization)->create([
+        // Use TestCase helper to properly create user with role
+        $this->user = $this->createUser([
+            'organization_id' => $this->organization->id,
             'password' => Hash::make('password123'),
-        ]);
-        $this->user->assignRole('Organization Owner');
+        ], 'Organization Owner');
 
         $this->application = Application::factory()->for($this->organization)->create();
 
@@ -179,7 +180,7 @@ class ApiResponseTimeTest extends PerformanceTestCase
         for ($i = 0; $i < 20; $i++) {
             $this->startMeasuring("oauth_token_{$i}");
 
-            $response = $this->postJson('/api/v1/oauth/token', [
+            $response = $this->postJson('/oauth/token', [
                 'grant_type' => 'password',
                 'client_id' => $this->application->client_id,
                 'client_secret' => $this->application->client_secret,

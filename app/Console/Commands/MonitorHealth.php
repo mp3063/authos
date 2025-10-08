@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\AlertingService;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -51,7 +52,7 @@ class MonitorHealth extends Command
 
             return $statusSummary['overall_status'] === 'healthy' ? 0 : 1;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error('❌ Health monitoring failed: '.$e->getMessage());
             Log::error('Health monitoring command failed', [
                 'error' => $e->getMessage(),
@@ -73,7 +74,7 @@ class MonitorHealth extends Command
 
         // Overall status
         $statusIcon = $statusSummary['overall_status'] === 'healthy' ? '✅' : '⚠️';
-        $this->line("Overall Status: {$statusIcon} ".strtoupper($statusSummary['overall_status']));
+        $this->line("Overall Status: $statusIcon ".strtoupper($statusSummary['overall_status']));
         $this->line("Active Alerts: {$statusSummary['active_alerts']}");
         $this->line("Checked At: {$statusSummary['timestamp']}");
         $this->line('');
@@ -115,7 +116,7 @@ class MonitorHealth extends Command
                 if (! empty($check['details'])) {
                     foreach ($check['details'] as $key => $value) {
                         $formattedValue = is_array($value) ? json_encode($value) : $value;
-                        $this->line('  '.ucwords(str_replace('_', ' ', $key)).": {$formattedValue}");
+                        $this->line('  '.ucwords(str_replace('_', ' ', $key)).": $formattedValue");
                     }
                 }
             }

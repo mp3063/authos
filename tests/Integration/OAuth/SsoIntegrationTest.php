@@ -7,7 +7,6 @@ use App\Models\Organization;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
 
@@ -23,8 +22,6 @@ use Tests\TestCase;
  */
 class SsoIntegrationTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Organization $organization;
@@ -51,6 +48,9 @@ class SsoIntegrationTest extends TestCase
             'name' => 'SSO Test Application',
             'organization_id' => $this->organization->id,
         ]);
+
+        // Grant user access to the application
+        $this->user->applications()->attach($this->application->id);
 
         $this->ssoConfig = SSOConfiguration::create([
             'application_id' => $this->application->id,

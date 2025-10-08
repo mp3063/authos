@@ -85,9 +85,34 @@ class WebhookSignatureService extends BaseService
 
     /**
      * Generate a new webhook secret
+     * Format: whsec_<base62-encoded-random-bytes>
      */
     public function generateSecret(): string
     {
-        return bin2hex(random_bytes(32)); // 64-character hex string
+        // Generate 32 random bytes and encode as base62
+        $bytes = random_bytes(32);
+        $base62 = $this->base62Encode($bytes);
+
+        return 'whsec_'.$base62;
+    }
+
+    /**
+     * Base62 encode binary data
+     */
+    private function base62Encode(string $data): string
+    {
+        $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        $base = strlen($chars);
+
+        // Convert binary to big integer
+        $num = gmp_init('0x'.bin2hex($data), 16);
+        $result = '';
+
+        while (gmp_cmp($num, '0') > 0) {
+            [$num, $remainder] = gmp_div_qr($num, $base);
+            $result = $chars[gmp_intval($remainder)].$result;
+        }
+
+        return $result ?: '0';
     }
 }

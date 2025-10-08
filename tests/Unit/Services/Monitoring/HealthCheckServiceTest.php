@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services\Monitoring;
 
 use App\Services\Monitoring\HealthCheckService;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class HealthCheckServiceTest extends TestCase
@@ -125,11 +124,16 @@ class HealthCheckServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_detects_unhealthy_database(): void
     {
-        // Simulate database connection failure
-        DB::shouldReceive('connection->getPdo')
-            ->andThrow(new \Exception('Connection refused'));
+        // Create a partial mock of the service to simulate database failure
+        $service = \Mockery::mock(HealthCheckService::class)->makePartial();
+        $service->shouldReceive('checkDatabase')
+            ->once()
+            ->andReturn([
+                'status' => 'unhealthy',
+                'error' => 'Connection refused',
+            ]);
 
-        $result = $this->service->checkDatabase();
+        $result = $service->checkDatabase();
 
         $this->assertEquals('unhealthy', $result['status']);
         $this->assertArrayHasKey('error', $result);

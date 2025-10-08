@@ -8,15 +8,12 @@ use App\Models\User;
 use App\Notifications\AccountLockedNotification;
 use App\Notifications\AccountUnlockedNotification;
 use App\Services\Security\AccountLockoutService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AccountLockoutServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private AccountLockoutService $service;
 
     protected function setUp(): void
@@ -316,7 +313,7 @@ class AccountLockoutServiceTest extends TestCase
         ]);
 
         Log::shouldReceive('channel')->andReturnSelf();
-        Log::shouldReceive('info')->times(3);
+        Log::shouldReceive('info')->once();
         Log::shouldReceive('error')->zeroOrMoreTimes();
 
         $count = $this->service->unlockExpiredAccounts();

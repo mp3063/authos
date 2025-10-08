@@ -4,7 +4,6 @@ namespace Tests\Integration\OAuth;
 
 use App\Models\Application;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Client;
 use Tests\TestCase;
@@ -21,8 +20,6 @@ use Tests\TestCase;
  */
 class PasswordGrantFlowTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Application $application;
@@ -33,7 +30,7 @@ class PasswordGrantFlowTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:install', ['--no-interaction' => true]);
+        // Passport is set up in TestCase - no need to install
 
         $this->user = User::factory()->create([
             'email' => 'password@example.com',
@@ -273,8 +270,9 @@ class PasswordGrantFlowTest extends TestCase
     {
         // Enable MFA for user
         $this->user->update([
-            'mfa_secret' => 'test-mfa-secret',
-            'mfa_enabled' => true,
+            'two_factor_secret' => 'test-mfa-secret',
+            'mfa_methods' => ['totp'],
+            'two_factor_confirmed_at' => now(),
         ]);
 
         $response = $this->postJson('/oauth/token', [

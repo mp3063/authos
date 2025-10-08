@@ -21,9 +21,26 @@ class Auth0MigrationTest extends TestCase
         $this->organization = Organization::factory()->create();
     }
 
+    /**
+     * Set up default HTTP mocks for Auth0 endpoints.
+     * Child tests can override specific endpoints as needed.
+     */
+    private function mockAuth0Endpoints(array $overrides = []): void
+    {
+        $defaults = [
+            '*.auth0.com/api/v2/organizations*' => Http::response([], 200),
+            '*.auth0.com/api/v2/roles*' => Http::response([], 200),
+            '*.auth0.com/api/v2/clients*' => Http::response([], 200),
+            '*.auth0.com/api/v2/users*' => Http::response([], 200),
+            '*.auth0.com/api/v2/connections*' => Http::response([], 200),
+        ];
+
+        Http::fake(array_merge($defaults, $overrides));
+    }
+
     public function test_performs_full_migration(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/users*' => Http::response([
                 [
                     'user_id' => 'auth0|123',
@@ -69,7 +86,7 @@ class Auth0MigrationTest extends TestCase
 
     public function test_imports_users_from_auth0(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/users*' => Http::response([
                 [
                     'user_id' => 'auth0|123',
@@ -104,7 +121,7 @@ class Auth0MigrationTest extends TestCase
 
     public function test_imports_applications_from_auth0(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/clients*' => Http::response([
                 [
                     'client_id' => 'auth0-client-123',
@@ -138,7 +155,7 @@ class Auth0MigrationTest extends TestCase
 
     public function test_imports_organizations_from_auth0(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/organizations*' => Http::response([
                 [
                     'id' => 'org_123',
@@ -170,7 +187,7 @@ class Auth0MigrationTest extends TestCase
 
     public function test_imports_roles_from_auth0(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/roles*' => Http::response([
                 [
                     'id' => 'rol_123',
@@ -230,8 +247,13 @@ class Auth0MigrationTest extends TestCase
 
     public function test_handles_migration_errors(): void
     {
-        Http::fake([
+        // Mock all endpoints to return 500 error to ensure migration fails
+        $this->mockAuth0Endpoints([
+            '*.auth0.com/api/v2/organizations*' => Http::response([], 500),
+            '*.auth0.com/api/v2/roles*' => Http::response([], 500),
+            '*.auth0.com/api/v2/clients*' => Http::response([], 500),
             '*.auth0.com/api/v2/users*' => Http::response([], 500),
+            '*.auth0.com/api/v2/connections*' => Http::response([], 500),
         ]);
 
         $migrationJob = MigrationJob::factory()
@@ -255,7 +277,7 @@ class Auth0MigrationTest extends TestCase
 
     public function test_tracks_migration_progress(): void
     {
-        Http::fake([
+        $this->mockAuth0Endpoints([
             '*.auth0.com/api/v2/users*' => Http::response(
                 array_map(fn ($i) => [
                     'user_id' => "auth0|{$i}",
@@ -288,8 +310,13 @@ class Auth0MigrationTest extends TestCase
 
     public function test_validates_auth0_credentials_before_migration(): void
     {
-        Http::fake([
+        // Mock all endpoints to return 401 error to simulate invalid credentials
+        $this->mockAuth0Endpoints([
+            '*.auth0.com/api/v2/organizations*' => Http::response([], 401),
+            '*.auth0.com/api/v2/roles*' => Http::response([], 401),
+            '*.auth0.com/api/v2/clients*' => Http::response([], 401),
             '*.auth0.com/api/v2/users*' => Http::response([], 401),
+            '*.auth0.com/api/v2/connections*' => Http::response([], 401),
         ]);
 
         $migrationJob = MigrationJob::factory()

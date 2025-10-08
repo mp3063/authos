@@ -7,23 +7,37 @@ namespace App\Services\Auth0\Migration;
 class ImportResult
 {
     /** @var array<int, array{item: mixed, id: mixed}> */
-    private array $successful = [];
+    private array $successfulItems = [];
 
     /** @var array<int, array{item: mixed, error: \Throwable}> */
-    private array $failed = [];
+    private array $failedItems = [];
 
     /** @var array<int, string> */
-    private array $skipped = [];
+    private array $skippedItems = [];
+
+    /**
+     * Public counters for backward compatibility with migration jobs
+     * These are updated whenever items are added
+     */
+    public int $total = 0;
+
+    public int $successful = 0;
+
+    public int $failed = 0;
+
+    public int $skipped = 0;
 
     /**
      * Add successful import
      */
     public function addSuccess(mixed $item, mixed $id = null): void
     {
-        $this->successful[] = [
+        $this->successfulItems[] = [
             'item' => $item,
             'id' => $id,
         ];
+        $this->successful++;
+        $this->total++;
     }
 
     /**
@@ -31,10 +45,12 @@ class ImportResult
      */
     public function addFailure(mixed $item, \Throwable $error): void
     {
-        $this->failed[] = [
+        $this->failedItems[] = [
             'item' => $item,
             'error' => $error,
         ];
+        $this->failed++;
+        $this->total++;
     }
 
     /**
@@ -42,7 +58,9 @@ class ImportResult
      */
     public function addSkipped(string $reason): void
     {
-        $this->skipped[] = $reason;
+        $this->skippedItems[] = $reason;
+        $this->skipped++;
+        $this->total++;
     }
 
     /**
@@ -52,7 +70,7 @@ class ImportResult
      */
     public function getSuccessful(): array
     {
-        return $this->successful;
+        return $this->successfulItems;
     }
 
     /**
@@ -62,7 +80,7 @@ class ImportResult
      */
     public function getFailed(): array
     {
-        return $this->failed;
+        return $this->failedItems;
     }
 
     /**
@@ -72,7 +90,7 @@ class ImportResult
      */
     public function getSkipped(): array
     {
-        return $this->skipped;
+        return $this->skippedItems;
     }
 
     /**
@@ -82,7 +100,7 @@ class ImportResult
      */
     public function getSuccessfulIds(): array
     {
-        return array_map(fn ($item) => $item['id'], $this->successful);
+        return array_map(fn ($item) => $item['id'], $this->successfulItems);
     }
 
     /**
@@ -90,7 +108,7 @@ class ImportResult
      */
     public function getSuccessCount(): int
     {
-        return count($this->successful);
+        return count($this->successfulItems);
     }
 
     /**
@@ -98,7 +116,7 @@ class ImportResult
      */
     public function getFailureCount(): int
     {
-        return count($this->failed);
+        return count($this->failedItems);
     }
 
     /**
@@ -106,7 +124,7 @@ class ImportResult
      */
     public function getSkippedCount(): int
     {
-        return count($this->skipped);
+        return count($this->skippedItems);
     }
 
     /**
@@ -166,7 +184,7 @@ class ImportResult
      */
     public function getErrorMessages(): array
     {
-        return array_map(fn ($failed) => $failed['error']->getMessage(), $this->failed);
+        return array_map(fn ($failed) => $failed['error']->getMessage(), $this->failedItems);
     }
 
     /**
@@ -174,8 +192,14 @@ class ImportResult
      */
     public function merge(ImportResult $other): void
     {
-        $this->successful = array_merge($this->successful, $other->successful);
-        $this->failed = array_merge($this->failed, $other->failed);
-        $this->skipped = array_merge($this->skipped, $other->skipped);
+        $this->successfulItems = array_merge($this->successfulItems, $other->successfulItems);
+        $this->failedItems = array_merge($this->failedItems, $other->failedItems);
+        $this->skippedItems = array_merge($this->skippedItems, $other->skippedItems);
+
+        // Update counters
+        $this->successful += $other->successful;
+        $this->failed += $other->failed;
+        $this->skipped += $other->skipped;
+        $this->total += $other->total;
     }
 }

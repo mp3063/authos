@@ -11,9 +11,9 @@ use Spatie\Permission\Models\Role;
 
 abstract class TestCase extends BaseTestCase
 {
-    // Use RefreshDatabase for proper test isolation
-    // This creates a fresh database for each test
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    // Use DatabaseMigrations for PHP 8.4 compatibility (avoids nested transaction issues)
+    // This migrates the database before each test and rolls back after
+    use \Illuminate\Foundation\Testing\DatabaseMigrations;
 
     // Memory optimization: Cache expensive operations
     protected static bool $passportInitialized = false;
@@ -31,6 +31,20 @@ abstract class TestCase extends BaseTestCase
         if (function_exists('gc_collect_cycles')) {
             gc_collect_cycles();
         }
+    }
+
+    /**
+     * Override to run migrations without prompts
+     */
+    protected function runDatabaseMigrations(): void
+    {
+        $this->artisan('migrate:fresh', ['--force' => true])->run();
+
+        $this->app[\Illuminate\Contracts\Console\Kernel::class]->setArtisan(null);
+
+        $this->beforeApplicationDestroyed(function () {
+            $this->artisan('migrate:rollback', ['--force' => true])->run();
+        });
     }
 
     protected function tearDown(): void
@@ -66,18 +80,28 @@ abstract class TestCase extends BaseTestCase
         }
 
         // Always ensure personal access client exists (check every time)
-        // This needs to be checked each time because RefreshDatabase might clear it
-        $existingClient = \Laravel\Passport\Client::where('personal_access_client', true)
-            ->where('provider', 'users')
-            ->first();
+        // This needs to be checked each time because LazilyRefreshDatabase might clear it
+        try {
+            // Check if table exists first (for LazilyRefreshDatabase compatibility)
+            $tableExists = \Illuminate\Support\Facades\Schema::hasTable('oauth_clients');
 
-        if (! $existingClient) {
-            // Create client directly using Passport's client repository
-            $clientRepository = app(\Laravel\Passport\ClientRepository::class);
-            $clientRepository->createPersonalAccessGrantClient(
-                'Test Personal Access Client',
-                'users'
-            );
+            if ($tableExists) {
+                $existingClient = \Laravel\Passport\Client::where('personal_access_client', true)
+                    ->where('provider', 'users')
+                    ->first();
+
+                if (! $existingClient) {
+                    // Create client directly using Passport's client repository
+                    $clientRepository = app(\Laravel\Passport\ClientRepository::class);
+                    $clientRepository->createPersonalAccessGrantClient(
+                        'Test Personal Access Client',
+                        'users'
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            // If there's any error, skip for now
+            // This can happen during migrations or table creation
         }
     }
 

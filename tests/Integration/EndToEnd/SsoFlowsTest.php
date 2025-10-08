@@ -1122,7 +1122,7 @@ class SsoFlowsTest extends EndToEndTestCase
 
         // Setup MFA for user
         $this->regularUser->update([
-            'mfa_enabled' => true,
+            'mfa_methods' => ['totp'],
             'mfa_secret' => 'test_mfa_secret',
         ]);
 

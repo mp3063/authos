@@ -10,14 +10,11 @@ use App\Services\Auth0\Api\OrganizationsApi;
 use App\Services\Auth0\Api\RolesApi;
 use App\Services\Auth0\Api\UsersApi;
 use App\Services\Auth0\Exceptions\Auth0ApiException;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
-use Psr\Http\Message\ResponseInterface;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
 
 class Auth0Client
 {
-    private Client $http;
-
     private string $domain;
 
     private string $token;
@@ -26,17 +23,6 @@ class Auth0Client
     {
         $this->domain = rtrim($domain, '/');
         $this->token = $token;
-
-        $this->http = new Client([
-            'base_uri' => "https://{$this->domain}/api/v2/",
-            'headers' => [
-                'Authorization' => "Bearer {$this->token}",
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ],
-            'timeout' => 60,
-            'http_errors' => false,
-        ]);
     }
 
     public function users(): UsersApi
@@ -75,10 +61,14 @@ class Auth0Client
     public function get(string $endpoint, array $query = []): array
     {
         try {
-            $response = $this->http->get($endpoint, ['query' => $query]);
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->token}",
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->timeout(60)->get("https://{$this->domain}/api/v2/{$endpoint}", $query);
 
             return $this->handleResponse($response);
-        } catch (GuzzleException $e) {
+        } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 API request failed: {$e->getMessage()}", 0, $e);
         }
     }
@@ -94,10 +84,14 @@ class Auth0Client
     public function post(string $endpoint, array $data = []): array
     {
         try {
-            $response = $this->http->post($endpoint, ['json' => $data]);
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->token}",
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->timeout(60)->post("https://{$this->domain}/api/v2/{$endpoint}", $data);
 
             return $this->handleResponse($response);
-        } catch (GuzzleException $e) {
+        } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 API request failed: {$e->getMessage()}", 0, $e);
         }
     }
@@ -110,10 +104,14 @@ class Auth0Client
     public function testConnection(): bool
     {
         try {
-            $response = $this->http->get('users', ['query' => ['per_page' => 1]]);
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->token}",
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->timeout(60)->get("https://{$this->domain}/api/v2/users", ['per_page' => 1]);
 
-            return $response->getStatusCode() === 200;
-        } catch (GuzzleException $e) {
+            return $response->successful();
+        } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 connection test failed: {$e->getMessage()}", 0, $e);
         }
     }
@@ -157,13 +155,12 @@ class Auth0Client
      *
      * @throws Auth0ApiException
      */
-    private function handleResponse(ResponseInterface $response): array
+    private function handleResponse(Response $response): array
     {
-        $statusCode = $response->getStatusCode();
-        $body = (string) $response->getBody();
-        $data = json_decode($body, true);
+        $statusCode = $response->status();
 
         if ($statusCode >= 400) {
+            $data = $response->json() ?? [];
             $message = $data['message'] ?? $data['error_description'] ?? 'Unknown error';
             $errorCode = $data['error'] ?? $data['errorCode'] ?? 'unknown_error';
 
@@ -173,6 +170,6 @@ class Auth0Client
             );
         }
 
-        return $data ?? [];
+        return $response->json() ?? [];
     }
 }

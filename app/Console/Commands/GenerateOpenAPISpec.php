@@ -36,7 +36,7 @@ class GenerateOpenAPISpec extends Command
             json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
 
-        $this->info("OpenAPI spec generated: {$outputPath}");
+        $this->info("OpenAPI spec generated: $outputPath");
 
         if ($this->option('validate')) {
             return $this->validateSpec($spec);
@@ -102,7 +102,7 @@ class GenerateOpenAPISpec extends Command
             $path = '/'.ltrim(substr($uri, 4), '/');
 
             // Convert Laravel route params to OpenAPI format
-            $path = preg_replace('/\{([^}]+)\}/', '{$1}', $path);
+            $path = preg_replace('/\{([^}]+)}/', '{$1}', $path);
 
             $methods = $route->methods();
 
@@ -241,7 +241,7 @@ class GenerateOpenAPISpec extends Command
         $parameters = [];
 
         // Path parameters
-        preg_match_all('/\{([^}]+)\}/', $uri, $matches);
+        preg_match_all('/\{([^}]+)}/', $uri, $matches);
         foreach ($matches[1] as $param) {
             $parameters[] = [
                 'name' => $param,
@@ -277,7 +277,7 @@ class GenerateOpenAPISpec extends Command
             'required' => true,
             'content' => [
                 'application/json' => [
-                    'schema' => ['$ref' => "#/components/schemas/{$schemaName}"],
+                    'schema' => ['$ref' => "#/components/schemas/$schemaName"],
                 ],
             ],
         ];

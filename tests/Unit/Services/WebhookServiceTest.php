@@ -46,8 +46,9 @@ class WebhookServiceTest extends TestCase
 
     public function test_validates_https_url(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Webhook URL must use HTTPS');
+        $this->app['env'] = 'production';
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
 
         $data = [
             'url' => 'http://example.com/webhook',
@@ -59,10 +60,9 @@ class WebhookServiceTest extends TestCase
 
     public function test_blocks_localhost_in_production(): void
     {
-        config(['app.env' => 'production']);
+        $this->app['env'] = 'production';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Localhost URLs are not allowed in production');
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
 
         $data = [
             'url' => 'https://localhost/webhook',
@@ -74,7 +74,7 @@ class WebhookServiceTest extends TestCase
 
     public function test_allows_localhost_in_local_environment(): void
     {
-        config(['app.env' => 'local']);
+        $this->app['env'] = 'local';
 
         $data = [
             'url' => 'https://localhost/webhook',
@@ -89,10 +89,9 @@ class WebhookServiceTest extends TestCase
 
     public function test_blocks_private_ips(): void
     {
-        config(['app.env' => 'production']);
+        $this->app['env'] = 'production';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Private IP addresses are not allowed');
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
 
         $data = [
             'url' => 'https://192.168.1.1/webhook',
@@ -160,10 +159,11 @@ class WebhookServiceTest extends TestCase
             ->for($this->organization)
             ->create(['url' => 'https://example.com/webhook']);
 
-        $result = $this->service->testWebhook($webhook);
+        $delivery = $this->service->testWebhook($webhook);
 
-        $this->assertTrue($result['success']);
-        $this->assertEquals(200, $result['status_code']);
+        $this->assertInstanceOf(\App\Models\WebhookDelivery::class, $delivery);
+        $this->assertEquals('webhook.test', $delivery->event_type);
+        $this->assertEquals($webhook->id, $delivery->webhook_id);
         Http::assertSent(function ($request) {
             return $request->url() === 'https://example.com/webhook'
                 && $request->hasHeader('X-Webhook-Signature')
@@ -263,6 +263,6 @@ class WebhookServiceTest extends TestCase
 
         $this->service->deleteWebhook($webhook);
 
-        $this->assertDatabaseMissing('webhooks', ['id' => $webhook->id]);
+        $this->assertSoftDeleted('webhooks', ['id' => $webhook->id]);
     }
 }

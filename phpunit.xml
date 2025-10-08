@@ -53,6 +53,7 @@
         <env name="RATE_LIMIT_API" value="1000"/>
         <env name="RATE_LIMIT_AUTH" value="100"/>
         <env name="RATE_LIMIT_OAUTH" value="200"/>
+        <env name="LARAVEL_PROMPTS_FALLBACK_WHEN_UNABLE_TO_PROMPT" value="1"/>
         <ini name="memory_limit" value="1G"/>
     </php>
 </phpunit>

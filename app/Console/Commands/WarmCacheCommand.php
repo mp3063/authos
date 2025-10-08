@@ -68,7 +68,7 @@ class WarmCacheCommand extends Command
         $this->info('Cache warming completed:');
 
         foreach ($results as $type => $count) {
-            $this->line("  - {$type}: {$count} items cached");
+            $this->line("  - $type: $count items cached");
         }
 
         $this->newLine();

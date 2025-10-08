@@ -151,7 +151,9 @@ class MemoryUsageTest extends PerformanceTestCase
         $withoutChunkingMb = ($peakWithoutChunking - $startMemory) / 1024 / 1024;
         $withChunkingMb = ($peakWithChunking - $startMemory2) / 1024 / 1024;
 
-        $memorySaving = (($withoutChunkingMb - $withChunkingMb) / $withoutChunkingMb) * 100;
+        $memorySaving = $withoutChunkingMb > 0
+            ? (($withoutChunkingMb - $withChunkingMb) / $withoutChunkingMb) * 100
+            : 0;
 
         echo "\n✓ Collection Chunking Memory Efficiency:\n";
         echo '  Without Chunking: '.number_format($withoutChunkingMb, 2)." MB\n";

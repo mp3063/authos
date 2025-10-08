@@ -8,13 +8,10 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\Auth0\DTOs\Auth0UserDTO;
 use App\Services\Auth0\Migration\Importers\UserImporter;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class UserImporterTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private UserImporter $importer;
@@ -176,7 +173,7 @@ class UserImporterTest extends TestCase
         $user = User::where('email', 'test@example.com')->first();
         $this->assertTrue($user->mfa_enabled);
         $this->assertNotNull($user->mfa_secret);
-        $this->assertNotNull($user->mfa_recovery_codes);
+        $this->assertNotEmpty($user->mfa_backup_codes);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

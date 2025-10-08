@@ -3,6 +3,8 @@
 namespace Tests\Performance;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 abstract class PerformanceTestCase extends TestCase
@@ -14,6 +16,14 @@ abstract class PerformanceTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Seed roles if they don't exist - child classes need this for authentication
+        $this->seedRoles();
+
+        // Disable rate limiting for performance tests by overriding the rate limiters
+        RateLimiter::for('api', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
+        RateLimiter::for('auth', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
+        RateLimiter::for('oauth', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
 
         $this->metrics = [
             'start_time' => microtime(true),
@@ -27,6 +37,17 @@ abstract class PerformanceTestCase extends TestCase
         if ($this->enableQueryLog) {
             DB::enableQueryLog();
         }
+    }
+
+    /**
+     * Seed roles for performance tests
+     */
+    protected function seedRoles(): void
+    {
+        Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Organization Owner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'User', 'guard_name' => 'web']);
     }
 
     protected function tearDown(): void
@@ -59,11 +80,16 @@ abstract class PerformanceTestCase extends TestCase
         $endMemory = memory_get_usage(true);
         $queriesAfter = $this->enableQueryLog ? count(DB::getQueryLog()) : 0;
 
+        // Ensure measurement was started
+        if (! isset($this->metrics[$label])) {
+            throw new \RuntimeException("Measurement for '{$label}' was not started. Call startMeasuring() first.");
+        }
+
         $metrics = [
             'duration_ms' => ($endTime - $this->metrics[$label]['start_time']) * 1000,
             'memory_used_mb' => ($endMemory - $this->metrics[$label]['start_memory']) / 1024 / 1024,
             'peak_memory_mb' => memory_get_peak_usage(true) / 1024 / 1024,
-            'query_count' => $queriesAfter - $this->metrics[$label]['queries_before'],
+            'query_count' => $queriesAfter - ($this->metrics[$label]['queries_before'] ?? 0),
         ];
 
         $this->metrics[$label.'_result'] = $metrics;
@@ -74,13 +100,16 @@ abstract class PerformanceTestCase extends TestCase
     /**
      * Measure the performance of a callback
      */
-    protected function measure(callable $callback, string $label = 'operation'): mixed
+    protected function measure(callable $callback, string $label = 'operation'): array
     {
         $this->startMeasuring($label);
         $result = $callback();
-        $this->stopMeasuring($label);
+        $metrics = $this->stopMeasuring($label);
 
-        return $result;
+        // Store the response for later assertions
+        $this->metrics[$label.'_result']['response'] = $result;
+
+        return $metrics;
     }
 
     /**

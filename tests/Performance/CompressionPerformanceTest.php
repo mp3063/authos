@@ -4,6 +4,7 @@ namespace Tests\Performance;
 
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Passport;
 
 class CompressionPerformanceTest extends PerformanceTestCase
@@ -19,8 +20,11 @@ class CompressionPerformanceTest extends PerformanceTestCase
         parent::setUp();
 
         $this->organization = Organization::factory()->create();
-        $this->user = User::factory()->for($this->organization)->create();
-        $this->user->assignRole('Organization Owner');
+        // Use TestCase helper to properly create user with role
+        $this->user = $this->createUser([
+            'organization_id' => $this->organization->id,
+            'password' => Hash::make('password123'),
+        ], 'Organization Owner');
 
         Passport::actingAs($this->user);
         $this->accessToken = $this->user->createToken('Test Token')->accessToken;

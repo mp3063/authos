@@ -30,12 +30,8 @@ class WebhookResource extends JsonResource
             'metadata' => $this->metadata,
             'organization_id' => $this->organization_id,
 
-            // Include secret only on creation or for authorized users
-            'secret' => $this->when(
-                $request->route()->getActionMethod() === 'store' ||
-                $request->route()->getActionMethod() === 'rotateSecret',
-                $this->decrypted_secret
-            ),
+            // Include decrypted secret (access is already protected by auth)
+            'secret' => $this->secret,
 
             // Relationships
             'organization' => new OrganizationResource($this->whenLoaded('organization')),

@@ -5,6 +5,7 @@ namespace Tests\Performance;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Passport;
 
 class ThroughputTest extends PerformanceTestCase
@@ -22,11 +23,15 @@ class ThroughputTest extends PerformanceTestCase
         parent::setUp();
 
         $this->organization = Organization::factory()->create();
-        $this->user = User::factory()->for($this->organization)->create();
-        $this->user->assignRole('Organization Owner');
+        // Use TestCase helper to properly create user with role
+        // Set password explicitly for login tests
+        $this->user = $this->createUser([
+            'organization_id' => $this->organization->id,
+            'password' => Hash::make('password123'),
+        ], 'Organization Owner');
 
-        Passport::actingAs($this->user);
-        $this->accessToken = $this->user->createToken('Test Token')->accessToken;
+        Passport::actingAs($this->user, ['*']);
+        $this->accessToken = $this->user->createToken('Test Token', ['*'])->accessToken;
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -69,9 +74,9 @@ class ThroughputTest extends PerformanceTestCase
         $startTime = microtime(true);
 
         for ($i = 0; $i < $requests; $i++) {
-            $this->getJson('/api/v1/users', [
-                'Authorization' => "Bearer {$this->accessToken}",
-            ])->assertStatus(200);
+            $this->withHeader('Authorization', "Bearer {$this->accessToken}")
+                ->getJson('/api/v1/users')
+                ->assertStatus(200);
         }
 
         $endTime = microtime(true);
@@ -101,7 +106,7 @@ class ThroughputTest extends PerformanceTestCase
         $startTime = microtime(true);
 
         for ($i = 0; $i < $tokens; $i++) {
-            $this->postJson('/api/v1/oauth/token', [
+            $this->postJson('/oauth/token', [
                 'grant_type' => 'password',
                 'client_id' => $app->client_id,
                 'client_secret' => $app->client_secret,
@@ -135,15 +140,14 @@ class ThroughputTest extends PerformanceTestCase
         $startTime = microtime(true);
 
         for ($i = 0; $i < $users; $i++) {
-            $this->postJson('/api/v1/users', [
-                'name' => "Test User {$i}",
-                'email' => "throughput{$i}@example.com",
-                'password' => 'password123',
-                'password_confirmation' => 'password123',
-                'organization_id' => $this->organization->id,
-            ], [
-                'Authorization' => "Bearer {$this->accessToken}",
-            ])->assertStatus(201);
+            $this->withHeader('Authorization', "Bearer {$this->accessToken}")
+                ->postJson('/api/v1/users', [
+                    'name' => "Test User {$i}",
+                    'email' => "throughput{$i}@example.com",
+                    'password' => 'password123',
+                    'password_confirmation' => 'password123',
+                    'organization_id' => $this->organization->id,
+                ])->assertStatus(201);
         }
 
         $endTime = microtime(true);
@@ -169,9 +173,9 @@ class ThroughputTest extends PerformanceTestCase
         while (time() < $endTime) {
             $startRequest = microtime(true);
 
-            $this->getJson('/api/v1/users', [
-                'Authorization' => "Bearer {$this->accessToken}",
-            ])->assertStatus(200);
+            $this->withHeader('Authorization', "Bearer {$this->accessToken}")
+                ->getJson('/api/v1/users')
+                ->assertStatus(200);
 
             $requestTime = (microtime(true) - $startRequest) * 1000;
             $samples[] = $requestTime;

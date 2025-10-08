@@ -57,16 +57,19 @@ class DomainControllerTest extends TestCase
 
     public function test_can_add_custom_domain(): void
     {
+        $customDomain = CustomDomain::factory()->make([
+            'organization_id' => $this->organization->id,
+            'domain' => 'auth.example.com',
+            'verification_code' => 'abc123xyz',
+            'verification_method' => 'dns',
+            'status' => 'pending',
+        ]);
+
         $this->domainService
             ->shouldReceive('addDomain')
             ->once()
             ->with($this->organization->id, 'auth.example.com')
-            ->andReturn([
-                'domain' => 'auth.example.com',
-                'verification_code' => 'abc123xyz',
-                'verification_method' => 'dns',
-                'status' => 'pending',
-            ]);
+            ->andReturn($customDomain);
 
         Passport::actingAs($this->adminUser, ['enterprise.domains.manage']);
 

@@ -8,14 +8,11 @@ use App\Models\Organization;
 use App\Services\Auth0\Auth0Client;
 use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\MigrationPlan;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
 
 class MigrationServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private Auth0Client $mockClient;
 
     private Organization $organization;

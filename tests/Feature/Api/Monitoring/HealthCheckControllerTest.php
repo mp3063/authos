@@ -2,13 +2,10 @@
 
 namespace Tests\Feature\Api\Monitoring;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class HealthCheckControllerTest extends TestCase
 {
-    use RefreshDatabase;
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_basic_health_check(): void
     {

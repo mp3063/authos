@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\RetryWebhookDeliveryJob;
 use App\Models\WebhookDelivery;
+use Exception;
 use Illuminate\Console\Command;
 
 class ProcessRetryableWebhooks extends Command
@@ -54,13 +55,13 @@ class ProcessRetryableWebhooks extends Command
 
                 $processed++;
 
-                $this->line("Queued retry for delivery #{$delivery->id} (webhook #{$delivery->webhook_id}, attempt {$delivery->attempt_number})");
-            } catch (\Exception $e) {
-                $this->error("Failed to queue retry for delivery #{$delivery->id}: {$e->getMessage()}");
+                $this->line("Queued retry for delivery #$delivery->id (webhook #$delivery->webhook_id, attempt $delivery->attempt_number)");
+            } catch (Exception $e) {
+                $this->error("Failed to queue retry for delivery #$delivery->id: {$e->getMessage()}");
             }
         }
 
-        $this->info("Successfully queued {$processed} webhook retries.");
+        $this->info("Successfully queued $processed webhook retries.");
 
         return self::SUCCESS;
     }

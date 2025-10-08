@@ -34,6 +34,7 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'avatar',
         'profile',
+        'metadata',
         'organization_id',
         'email_verified_at',
         'password_changed_at',
@@ -73,6 +74,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'profile' => 'array',
+            'metadata' => 'array',
             'two_factor_confirmed_at' => 'datetime',
             'mfa_methods' => 'array',
             'provider_data' => 'array',
@@ -80,6 +82,10 @@ class User extends Authenticatable implements FilamentUser
             'mfa_backup_codes' => 'array',
         ];
     }
+
+    protected $appends = [
+        'mfa_enabled',
+    ];
 
     public function organization(): BelongsTo
     {
@@ -124,6 +130,14 @@ class User extends Authenticatable implements FilamentUser
     public function getMfaMethods(): array
     {
         return $this->mfa_methods ?? [];
+    }
+
+    /**
+     * Get MFA enabled status as virtual attribute
+     */
+    public function getMfaEnabledAttribute(): bool
+    {
+        return $this->hasMfaEnabled();
     }
 
     /**

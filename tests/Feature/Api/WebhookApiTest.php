@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use Database\Seeders\WebhookEventSeeder;
 use Illuminate\Support\Facades\Http;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
@@ -19,6 +20,9 @@ class WebhookApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Seed webhook events for validation
+        $this->seed(WebhookEventSeeder::class);
 
         $this->organization = Organization::factory()->create();
         $this->user = $this->createApiOrganizationAdmin([
@@ -71,6 +75,7 @@ class WebhookApiTest extends TestCase
     public function test_can_create_webhook(): void
     {
         $data = [
+            'name' => 'Test Webhook',
             'url' => 'https://example.com/webhook',
             'events' => ['user.created', 'user.updated'],
             'description' => 'Test webhook',
@@ -99,6 +104,7 @@ class WebhookApiTest extends TestCase
     public function test_requires_https_url(): void
     {
         $data = [
+            'name' => 'Test Webhook',
             'url' => 'http://example.com/webhook',
             'events' => ['user.created'],
         ];
@@ -112,6 +118,7 @@ class WebhookApiTest extends TestCase
     public function test_validates_events_array(): void
     {
         $data = [
+            'name' => 'Test Webhook',
             'url' => 'https://example.com/webhook',
             'events' => 'not-an-array',
         ];
@@ -163,7 +170,7 @@ class WebhookApiTest extends TestCase
 
         $response->assertNoContent();
 
-        $this->assertDatabaseMissing('webhooks', ['id' => $webhook->id]);
+        $this->assertSoftDeleted('webhooks', ['id' => $webhook->id]);
     }
 
     public function test_cannot_delete_other_organizations_webhook(): void
@@ -364,6 +371,7 @@ class WebhookApiTest extends TestCase
             ->create();
 
         $data = [
+            'name' => 'Test Webhook',
             'url' => 'https://example.com/webhook',
             'events' => ['user.created'],
         ];

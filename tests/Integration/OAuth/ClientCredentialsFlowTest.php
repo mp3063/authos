@@ -3,7 +3,6 @@
 namespace Tests\Integration\OAuth;
 
 use App\Models\Application;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Client;
 use Tests\TestCase;
 
@@ -19,8 +18,6 @@ use Tests\TestCase;
  */
 class ClientCredentialsFlowTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected Application $application;
 
     protected Client $confidentialClient;
@@ -29,7 +26,7 @@ class ClientCredentialsFlowTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:install', ['--no-interaction' => true]);
+        // Passport is set up in TestCase - no need to install
 
         $organization = \App\Models\Organization::factory()->create();
 
@@ -145,7 +142,7 @@ class ClientCredentialsFlowTest extends TestCase
             'client_id' => $this->confidentialClient->id,
         ]);
 
-        $response->assertStatus(401);
+        $response->assertStatus(400);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

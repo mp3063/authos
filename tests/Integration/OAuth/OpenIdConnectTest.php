@@ -4,7 +4,6 @@ namespace Tests\Integration\OAuth;
 
 use App\Models\Application;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
@@ -22,8 +21,6 @@ use Tests\TestCase;
  */
 class OpenIdConnectTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Application $application;
@@ -36,7 +33,7 @@ class OpenIdConnectTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:install', ['--no-interaction' => true]);
+        // Passport is set up in TestCase - no need to install
 
         $this->user = User::factory()->create([
             'email_verified_at' => now(),

@@ -38,6 +38,13 @@ class IpBlocklistService
                 'expires_at' => $durationHours ? now()->addHours($durationHours) : $existing->expires_at,
             ]);
 
+            Log::channel('security')->warning('IP address block updated', [
+                'ip_address' => $ipAddress,
+                'block_type' => $blockType,
+                'reason' => $reason,
+                'incident_count' => $existing->incident_count,
+            ]);
+
             $this->clearCache();
 
             return $existing;
@@ -171,7 +178,9 @@ class IpBlocklistService
                 ->where('block_type', 'permanent')->count(),
             'temporary_blocks' => IpBlocklist::where('is_active', true)
                 ->where('block_type', 'temporary')->count(),
+            'expired_blocks' => IpBlocklist::where('is_active', false)->count(),
             'blocks_today' => IpBlocklist::where('blocked_at', '>=', now()->subDay())->count(),
+            'total_incidents' => IpBlocklist::sum('incident_count'),
         ];
     }
 }

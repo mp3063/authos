@@ -56,8 +56,10 @@ class CachePerformanceTest extends TestCase
     public function it_warms_user_cache_efficiently(): void
     {
         $org = Organization::factory()->create();
-        $user = User::factory()->for($org)->create();
-        $user->assignRole('Organization Owner');
+        // Use TestCase helper to properly create user with role
+        $user = $this->createUser([
+            'organization_id' => $org->id,
+        ], 'Organization Owner');
 
         $startTime = microtime(true);
 

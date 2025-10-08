@@ -22,7 +22,7 @@ class UpdateWebhookRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|string|max:255',
-            'url' => 'sometimes|url|max:2048',
+            'url' => 'sometimes|url|max:2048|regex:/^https:\/\//i',
             'events' => 'sometimes|array|min:1',
             'events.*' => [
                 'required',
@@ -47,6 +47,7 @@ class UpdateWebhookRequest extends FormRequest
     {
         return [
             'url.url' => 'Webhook URL must be a valid URL',
+            'url.regex' => 'Webhook URL must use HTTPS',
             'events.min' => 'At least one event must be selected',
             'events.*.exists' => 'Selected event is not valid or inactive',
             'custom_headers.max' => 'Maximum of 10 custom headers allowed',

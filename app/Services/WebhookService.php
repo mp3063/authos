@@ -85,11 +85,13 @@ class WebhookService extends BaseService
     /**
      * Enable a webhook
      */
-    public function enableWebhook(Webhook $webhook): bool
+    public function enableWebhook(Webhook $webhook): Webhook
     {
         $webhook->update([
             'is_active' => true,
             'failure_count' => 0,
+            'disabled_at' => null,
+            'consecutive_failures' => 0,
         ]);
 
         $this->logAction('webhook_enabled', [
@@ -97,28 +99,31 @@ class WebhookService extends BaseService
             'organization_id' => $webhook->organization_id,
         ]);
 
-        return true;
+        return $webhook->fresh();
     }
 
     /**
      * Disable a webhook
      */
-    public function disableWebhook(Webhook $webhook): bool
+    public function disableWebhook(Webhook $webhook): Webhook
     {
-        $webhook->update(['is_active' => false]);
+        $webhook->update([
+            'is_active' => false,
+            'disabled_at' => now(),
+        ]);
 
         $this->logAction('webhook_disabled', [
             'webhook_id' => $webhook->id,
             'organization_id' => $webhook->organization_id,
         ]);
 
-        return true;
+        return $webhook->fresh();
     }
 
     /**
      * Rotate webhook secret
      */
-    public function rotateSecret(Webhook $webhook): string
+    public function rotateSecret(Webhook $webhook): Webhook
     {
         return $this->executeInTransaction(function () use ($webhook) {
             $newSecret = $this->signatureService->generateSecret();
@@ -130,7 +135,7 @@ class WebhookService extends BaseService
                 'organization_id' => $webhook->organization_id,
             ]);
 
-            return $newSecret;
+            return $webhook->fresh();
         });
     }
 
@@ -175,6 +180,7 @@ class WebhookService extends BaseService
             'retrying_deliveries' => $retryingDeliveries,
             'success_rate' => $successRate,
             'average_delivery_time_ms' => $avgDeliveryTime ? round($avgDeliveryTime) : null,
+            'average_response_time_ms' => $avgDeliveryTime ? round($avgDeliveryTime) : null, // Alias for backward compatibility
             'period_days' => $days,
         ];
     }
@@ -212,6 +218,7 @@ class WebhookService extends BaseService
             'event_type' => 'webhook.test',
             'payload' => $testPayload,
             'status' => 'pending',
+            'signature' => '', // Will be updated by delivery service
         ]);
 
         // Dispatch the delivery job
@@ -248,11 +255,11 @@ class WebhookService extends BaseService
             ]);
         }
 
-        // Block localhost
+        // Block localhost in production
         $blockedHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
-        if (in_array($parsed['host'], $blockedHosts)) {
+        if (in_array($parsed['host'], $blockedHosts) && app()->environment('production')) {
             throw ValidationException::withMessages([
-                'url' => ['Localhost webhooks are not allowed'],
+                'url' => ['Localhost webhooks are not allowed in production'],
             ]);
         }
 
@@ -265,9 +272,16 @@ class WebhookService extends BaseService
 
         // Resolve to IP and check private ranges
         if (app()->environment('production')) {
-            $ip = @gethostbyname($parsed['host']);
+            // Check if host is already an IP address
+            if (filter_var($parsed['host'], FILTER_VALIDATE_IP)) {
+                $ip = $parsed['host'];
+            } else {
+                // Resolve hostname to IP
+                $ip = @gethostbyname($parsed['host']);
+            }
 
-            if ($ip !== $parsed['host']) { // Successfully resolved
+            // Validate that IP is public (not private or reserved)
+            if ($ip && filter_var($ip, FILTER_VALIDATE_IP)) {
                 $isPublic = filter_var(
                     $ip,
                     FILTER_VALIDATE_IP,
@@ -301,5 +315,37 @@ class WebhookService extends BaseService
         }
 
         return false;
+    }
+
+    /**
+     * Check and disable webhook if necessary (alias for checkAutoDisable)
+     */
+    public function checkAndDisableWebhook(Webhook $webhook): bool
+    {
+        return $this->checkAutoDisable($webhook);
+    }
+
+    /**
+     * Calculate the success rate for a webhook
+     */
+    public function calculateSuccessRate(Webhook $webhook): float
+    {
+        // Use cached delivery_stats if available for performance
+        if ($webhook->delivery_stats && isset($webhook->delivery_stats['total_deliveries'])) {
+            $totalDeliveries = $webhook->delivery_stats['total_deliveries'];
+            $successfulDeliveries = $webhook->delivery_stats['successful_deliveries'] ?? 0;
+        } else {
+            // Fall back to counting actual deliveries
+            $totalDeliveries = $webhook->deliveries()->count();
+            $successfulDeliveries = $webhook->deliveries()
+                ->where('status', 'success')
+                ->count();
+        }
+
+        if ($totalDeliveries === 0) {
+            return 0.0;
+        }
+
+        return round(($successfulDeliveries / $totalDeliveries) * 100, 2);
     }
 }

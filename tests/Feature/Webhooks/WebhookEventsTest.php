@@ -92,7 +92,7 @@ class WebhookEventsTest extends TestCase
 
         $this->webhook->update(['events' => ['auth.failed']]);
 
-        Event::dispatch(new \App\Events\AuthFailedEvent('user@example.com', '127.0.0.1'));
+        Event::dispatch(new \App\Events\AuthFailedEvent('user@example.com', '127.0.0.1', $this->organization->id));
 
         Queue::assertPushed(DeliverWebhookJob::class, function ($job) {
             return $job->payload['event'] === 'auth.failed';

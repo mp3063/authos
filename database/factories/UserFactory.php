@@ -35,7 +35,7 @@ class UserFactory extends Factory
                 'website' => fake()->optional()->url(),
                 'phone' => fake()->optional()->phoneNumber(),
             ],
-            'organization_id' => null, // Will be set by relations or states
+            'organization_id' => \App\Models\Organization::factory(),
             'is_active' => true,
             'password_changed_at' => now()->subDays(fake()->numberBetween(1, 365)),
             'remember_token' => Str::random(10),

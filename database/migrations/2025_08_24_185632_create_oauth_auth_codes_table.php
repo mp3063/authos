@@ -28,12 +28,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('oauth_auth_codes');
     }
-
-    /**
-     * Get the migration connection name.
-     */
-    public function getConnection(): ?string
-    {
-        return $this->connection ?? config('passport.connection');
-    }
 };

@@ -19,6 +19,37 @@ class WebhookDeliveryService extends BaseService
     ) {}
 
     /**
+     * Create and deliver a webhook
+     */
+    public function deliverWebhook(Webhook $webhook, array $payload, string $eventType = 'test.event'): object
+    {
+        // Create delivery record
+        $delivery = WebhookDelivery::create([
+            'webhook_id' => $webhook->id,
+            'event_type' => $eventType,
+            'payload' => $payload,
+            'status' => WebhookDeliveryStatus::PENDING,
+            'attempt_number' => 1,
+            'max_attempts' => 6,
+            'signature' => '',
+        ]);
+
+        // Deliver
+        $success = $this->deliver($delivery);
+
+        // Refresh delivery to get updated values
+        $delivery->refresh();
+
+        // Return standardized response
+        return (object) [
+            'success' => $success,
+            'status' => $delivery->status->value,
+            'response_status' => $delivery->http_status_code,
+            'delivery_id' => $delivery->id,
+        ];
+    }
+
+    /**
      * Deliver a webhook
      */
     public function deliver(WebhookDelivery $delivery): bool
@@ -120,6 +151,11 @@ class WebhookDeliveryService extends BaseService
             $durationMs
         );
 
+        // Update webhook stats
+        $webhook = $delivery->webhook;
+        $webhook->updateDeliveryStats(true, $durationMs);
+        $webhook->update(['last_delivered_at' => now()]);
+
         $this->logAction('webhook_delivery_success', [
             'delivery_id' => $delivery->id,
             'webhook_id' => $delivery->webhook_id,
@@ -140,11 +176,33 @@ class WebhookDeliveryService extends BaseService
 
         // Check if we should retry
         if ($this->shouldRetry($delivery, $httpStatus)) {
+            // Mark as failed but will retry
+            $delivery->update([
+                'http_status_code' => $httpStatus,
+                'error_message' => $error,
+                'request_duration_ms' => $durationMs,
+            ]);
+
             $this->scheduleRetry($delivery);
+
+            // Increment failure count for retry
+            $webhook->incrementFailureCount();
+
+            // Update webhook stats for retrying delivery
+            if ($durationMs) {
+                $webhook->updateDeliveryStats(false, $durationMs);
+            }
         } else {
             // Mark as permanently failed
             $delivery->markAsFailed($httpStatus, $error);
+
+            // Increment failure count for permanent failure
             $webhook->incrementFailureCount();
+
+            // Update webhook stats
+            if ($durationMs) {
+                $webhook->updateDeliveryStats(false, $durationMs);
+            }
 
             $this->logAction('webhook_delivery_failed', [
                 'delivery_id' => $delivery->id,
@@ -152,16 +210,20 @@ class WebhookDeliveryService extends BaseService
                 'http_status' => $httpStatus,
                 'error' => $error,
             ]);
+        }
 
-            // Check if webhook should be auto-disabled
-            if ($webhook->shouldAutoDisable()) {
-                $webhook->update(['is_active' => false]);
+        // Check if webhook should be auto-disabled (after incrementing failure count)
+        $webhook->refresh();
+        if ($webhook->shouldAutoDisable()) {
+            $webhook->update([
+                'is_active' => false,
+                'disabled_at' => now(),
+            ]);
 
-                $this->logAction('webhook_auto_disabled', [
-                    'webhook_id' => $webhook->id,
-                    'failure_count' => $webhook->failure_count,
-                ]);
-            }
+            $this->logAction('webhook_auto_disabled', [
+                'webhook_id' => $webhook->id,
+                'failure_count' => $webhook->failure_count,
+            ]);
         }
     }
 
@@ -265,5 +327,23 @@ class WebhookDeliveryService extends BaseService
             'delivery_id' => $delivery->id,
             'webhook_id' => $delivery->webhook_id,
         ]);
+    }
+
+    /**
+     * Manually retry a delivery
+     */
+    public function retry(WebhookDelivery $delivery): WebhookDelivery
+    {
+        if (! $delivery->canRetry()) {
+            return $delivery;
+        }
+
+        // Deliver the webhook
+        $this->deliver($delivery);
+
+        // Refresh and return
+        $delivery->refresh();
+
+        return $delivery;
     }
 }

@@ -5,7 +5,6 @@ namespace Tests\Integration\OAuth;
 use App\Models\Application;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
@@ -24,8 +23,6 @@ use Tests\TestCase;
  */
 class TokenManagementTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Application $application;
@@ -38,7 +35,7 @@ class TokenManagementTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:install', ['--no-interaction' => true]);
+        // Passport is set up in TestCase - no need to install
 
         $this->user = User::factory()->create([
             'email_verified_at' => now(),

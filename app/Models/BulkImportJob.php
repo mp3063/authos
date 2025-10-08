@@ -49,6 +49,7 @@ class BulkImportJob extends Model
         'errors',
         'records',
         'filters',
+        'columns',
         'export_type',
         'format',
         'file_path',
@@ -66,6 +67,7 @@ class BulkImportJob extends Model
         'errors' => 'array',
         'records' => 'array',
         'filters' => 'array',
+        'columns' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];

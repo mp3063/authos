@@ -73,7 +73,7 @@ class UserImporter
     /**
      * Import a single user
      */
-    private function importUser(Auth0UserDTO $auth0User): User
+    protected function importUser(Auth0UserDTO $auth0User): User
     {
         return DB::transaction(function () use ($auth0User) {
             // Create user
@@ -86,10 +86,10 @@ class UserImporter
                 'organization_id' => $this->getOrganizationId(),
             ]);
 
-            // Store Auth0 user ID in metadata for reference
+            // Store Auth0 user ID in profile for reference
             $user->update([
-                'metadata' => array_merge(
-                    $user->metadata ?? [],
+                'profile' => array_merge(
+                    $user->profile ?? [],
                     [
                         'auth0_user_id' => $auth0User->userId,
                         'imported_from_auth0' => true,
@@ -163,6 +163,13 @@ class UserImporter
     private function markForPasswordReset(User $user): void
     {
         $user->update([
+            'profile' => array_merge(
+                $user->profile ?? [],
+                [
+                    'requires_password_reset' => true,
+                    'password_reset_reason' => 'Migrated from Auth0',
+                ]
+            ),
             'metadata' => array_merge(
                 $user->metadata ?? [],
                 [
@@ -182,6 +189,13 @@ class UserImporter
     private function markForLazyMigration(User $user, Auth0UserDTO $auth0User): void
     {
         $user->update([
+            'profile' => array_merge(
+                $user->profile ?? [],
+                [
+                    'lazy_migration_enabled' => true,
+                    'auth0_user_id' => $auth0User->userId,
+                ]
+            ),
             'metadata' => array_merge(
                 $user->metadata ?? [],
                 [
@@ -246,10 +260,10 @@ class UserImporter
             $secret = $google2fa->generateSecretKey();
 
             $user->update([
-                'mfa_enabled' => true,
+                'mfa_methods' => ['totp'], // Set TOTP as MFA method
                 'mfa_secret' => encrypt($secret),
-                'metadata' => array_merge(
-                    $user->metadata ?? [],
+                'profile' => array_merge(
+                    $user->profile ?? [],
                     [
                         'mfa_migrated_from_auth0' => true,
                         'mfa_requires_setup' => true, // User needs to reconfigure MFA
@@ -263,7 +277,7 @@ class UserImporter
                 ->toArray();
 
             $user->update([
-                'mfa_recovery_codes' => encrypt(json_encode($recoveryCodes)),
+                'mfa_backup_codes' => $recoveryCodes,
             ]);
         } catch (\Throwable $e) {
             // Log error but don't fail the import
@@ -279,8 +293,8 @@ class UserImporter
      */
     private function importMetadata(User $user, Auth0UserDTO $auth0User): void
     {
-        $metadata = array_merge(
-            $user->metadata ?? [],
+        $profile = array_merge(
+            $user->profile ?? [],
             [
                 'auth0_app_metadata' => $auth0User->appMetadata,
                 'auth0_user_metadata' => $auth0User->userMetadata,
@@ -290,7 +304,23 @@ class UserImporter
             ]
         );
 
-        $user->update(['metadata' => $metadata]);
+        // Store Auth0-specific data in metadata field
+        $metadata = array_merge(
+            $user->metadata ?? [],
+            [
+                'auth0_user_id' => $auth0User->userId,
+                'auth0_app_metadata' => $auth0User->appMetadata,
+                'auth0_user_metadata' => $auth0User->userMetadata,
+                'auth0_logins_count' => $auth0User->loginsCount,
+                'auth0_last_login' => $auth0User->lastLogin?->format('Y-m-d H:i:s'),
+                'auth0_created_at' => $auth0User->createdAt?->format('Y-m-d H:i:s'),
+            ]
+        );
+
+        $user->update([
+            'profile' => $profile,
+            'metadata' => $metadata,
+        ]);
     }
 
     /**

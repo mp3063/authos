@@ -81,6 +81,14 @@ class WebhookDelivery extends Model
     }
 
     /**
+     * Accessors
+     */
+    public function getWillRetryAttribute(): bool
+    {
+        return $this->canRetry();
+    }
+
+    /**
      * Helper Methods
      */
     public function isSuccessful(): bool

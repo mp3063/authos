@@ -5,14 +5,11 @@ namespace Tests\Unit\Services\Security;
 use App\Models\SecurityIncident;
 use App\Models\User;
 use App\Services\Security\SecurityIncidentService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class SecurityIncidentServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private SecurityIncidentService $service;
 
     protected function setUp(): void
@@ -73,8 +70,18 @@ class SecurityIncidentServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('severityLogLevelProvider')]
     public function it_logs_incidents_with_appropriate_level(string $severity, string $expectedLogLevel): void
     {
+        // Create Super Admin role if severity is critical (needed for admin notification)
+        if ($severity === 'critical') {
+            \Spatie\Permission\Models\Role::create(['name' => 'Super Admin', 'guard_name' => 'web']);
+        }
+
         Log::shouldReceive('channel')->andReturnSelf();
-        Log::shouldReceive($expectedLogLevel)->once();
+        // Critical severity logs twice: once for incident, once for admin notification
+        if ($severity === 'critical') {
+            Log::shouldReceive($expectedLogLevel)->twice();
+        } else {
+            Log::shouldReceive($expectedLogLevel)->once();
+        }
 
         $data = [
             'type' => 'test_incident',
@@ -83,7 +90,10 @@ class SecurityIncidentServiceTest extends TestCase
             'description' => 'Test incident',
         ];
 
-        $this->service->createIncident($data);
+        $incident = $this->service->createIncident($data);
+
+        // Verify the incident was created with correct severity
+        $this->assertEquals($severity, $incident->severity);
     }
 
     public static function severityLogLevelProvider(): array
@@ -99,11 +109,14 @@ class SecurityIncidentServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_notifies_admins_for_critical_incidents(): void
     {
+        // Create Super Admin role
+        $role = \Spatie\Permission\Models\Role::create(['name' => 'Super Admin', 'guard_name' => 'web']);
+
         // Create super admins
         $admin1 = User::factory()->create();
         $admin2 = User::factory()->create();
-        $admin1->assignRole('Super Admin');
-        $admin2->assignRole('Super Admin');
+        $admin1->assignRole($role);
+        $admin2->assignRole($role);
 
         Log::shouldReceive('channel')->andReturnSelf();
         Log::shouldReceive('critical')->twice(); // Once for incident, once for notification
@@ -121,8 +134,11 @@ class SecurityIncidentServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_notify_for_non_critical_incidents(): void
     {
+        // Create Super Admin role
+        $role = \Spatie\Permission\Models\Role::create(['name' => 'Super Admin', 'guard_name' => 'web']);
+
         $admin = User::factory()->create();
-        $admin->assignRole('Super Admin');
+        $admin->assignRole($role);
 
         Log::shouldReceive('channel')->andReturnSelf();
         Log::shouldReceive('error')->once();
@@ -262,19 +278,22 @@ class SecurityIncidentServiceTest extends TestCase
             'detected_at' => now()->subDays(3),
         ]);
 
-        // Incidents by type
+        // Incidents by type (mark as resolved so they don't affect total_open count)
         SecurityIncident::factory()->create([
             'type' => 'brute_force',
+            'status' => 'resolved',
             'detected_at' => now()->subDays(2),
         ]);
 
         SecurityIncident::factory()->create([
             'type' => 'brute_force',
+            'status' => 'resolved',
             'detected_at' => now()->subDays(3),
         ]);
 
         SecurityIncident::factory()->create([
             'type' => 'sql_injection',
+            'status' => 'resolved',
             'detected_at' => now()->subDays(4),
         ]);
 

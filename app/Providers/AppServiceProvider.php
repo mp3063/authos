@@ -47,8 +47,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AnalyticsQueryService::class);
         $this->app->singleton(PerformanceMonitoringService::class);
 
-        // Prevent Passport from auto-running migrations (we manage them manually)
-        Passport::ignoreRoutes();
+        // Note: Passport routes are automatically registered
+        // We don't call Passport::ignoreRoutes() so OAuth endpoints are available
     }
 
     /**
@@ -78,6 +78,9 @@ class AppServiceProvider extends ServiceProvider
         Passport::tokensExpireIn(now()->addDays(15));
         Passport::refreshTokensExpireIn(now()->addDays(30));
         Passport::personalAccessTokensExpireIn(now()->addMonths(6));
+
+        // Enable password grant type
+        Passport::enablePasswordGrant();
 
         // Configure OAuth routes - We'll use custom routes for PKCE integration
         // Passport routes are available but we extend them with middleware

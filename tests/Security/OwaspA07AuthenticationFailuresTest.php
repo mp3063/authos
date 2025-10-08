@@ -7,7 +7,6 @@ use App\Models\FailedLoginAttempt;
 use App\Models\IpBlocklist;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
@@ -25,8 +24,6 @@ use Tests\TestCase;
  */
 class OwaspA07AuthenticationFailuresTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Organization $organization;
@@ -355,7 +352,7 @@ class OwaspA07AuthenticationFailuresTest extends TestCase
     /** @test */
     public function it_validates_mfa_recovery_codes_are_single_use()
     {
-        $this->user->update(['mfa_enabled' => true]);
+        $this->user->update(['mfa_methods' => ['totp']]);
 
         Passport::actingAs($this->user);
 

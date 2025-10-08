@@ -8,14 +8,11 @@ use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use App\Services\Monitoring\MetricsCollectionService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class MetricsCollectionServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private MetricsCollectionService $service;
 
     protected function setUp(): void
@@ -49,13 +46,13 @@ class MetricsCollectionServiceTest extends TestCase
         $user = User::factory()->create();
         AuthenticationLog::factory()->create([
             'user_id' => $user->id,
-            'status' => 'success',
+            'success' => true,
             'created_at' => now(),
         ]);
 
         AuthenticationLog::factory()->create([
             'user_id' => $user->id,
-            'status' => 'failed',
+            'success' => false,
             'created_at' => now(),
         ]);
 
@@ -100,7 +97,7 @@ class MetricsCollectionServiceTest extends TestCase
     public function it_gets_webhook_metrics(): void
     {
         // Create test data
-        $webhook = Webhook::factory()->create(['enabled' => true]);
+        $webhook = Webhook::factory()->create(['is_active' => true]);
         WebhookDelivery::factory()->create([
             'webhook_id' => $webhook->id,
             'status' => 'success',
@@ -151,7 +148,7 @@ class MetricsCollectionServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_gets_mfa_metrics(): void
     {
-        User::factory()->create(['mfa_enabled' => true]);
+        User::factory()->create(['mfa_methods' => ['totp']]);
 
         Cache::forget('metrics:mfa');
 

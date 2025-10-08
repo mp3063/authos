@@ -5,14 +5,11 @@ namespace Tests\Unit\Services;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class AuthenticationLogServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private AuthenticationLogService $service;
 
     protected function setUp(): void
@@ -143,7 +140,8 @@ class AuthenticationLogServiceTest extends TestCase
         $user = User::factory()->create();
 
         $request = Request::create('/test', 'POST');
-        // Don't set User-Agent
+        // Explicitly remove User-Agent header
+        $request->headers->remove('User-Agent');
 
         $this->service->logAuthenticationEvent($user, 'test_event', [], $request);
 
@@ -340,7 +338,8 @@ class AuthenticationLogServiceTest extends TestCase
 
         $log = AuthenticationLog::where('user_id', $user->id)->first();
 
-        $this->assertGreaterThanOrEqual($beforeLog, $log->created_at);
-        $this->assertLessThanOrEqual($afterLog, $log->created_at);
+        // Compare timestamps to avoid Carbon object comparison issues
+        $this->assertGreaterThanOrEqual($beforeLog->timestamp, $log->created_at->timestamp);
+        $this->assertLessThanOrEqual($afterLog->timestamp, $log->created_at->timestamp);
     }
 }

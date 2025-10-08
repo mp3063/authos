@@ -226,7 +226,7 @@ class WebhookController extends BaseApiController
         try {
             $this->webhookService->deleteWebhook($webhook);
 
-            return $this->deletedResponse('Webhook deleted successfully');
+            return $this->noContentResponse();
         } catch (\Exception $e) {
             return $this->errorResponse(
                 'Failed to delete webhook: '.$e->getMessage(),
@@ -265,6 +265,8 @@ class WebhookController extends BaseApiController
                     'message' => 'Test webhook sent successfully',
                     'delivery_id' => $delivery->id,
                     'status' => $delivery->status?->value ?? $delivery->status,
+                    'status_code' => $delivery->http_status_code,
+                    'response_time_ms' => $delivery->response_time_ms,
                     'sent_at' => $delivery->sent_at?->toISOString(),
                 ],
                 'Test webhook sent successfully'

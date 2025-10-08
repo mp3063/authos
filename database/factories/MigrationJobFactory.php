@@ -2,74 +2,81 @@
 
 namespace Database\Factories;
 
-use App\Models\MigrationJob;
 use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<MigrationJob>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\MigrationJob>
  */
 class MigrationJobFactory extends Factory
 {
-    protected $model = MigrationJob::class;
-
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
     public function definition(): array
     {
         return [
             'organization_id' => Organization::factory(),
-            'source' => 'auth0',
+            'source' => fake()->randomElement(['auth0', 'okta', 'cognito', 'custom']),
             'status' => 'pending',
             'config' => [
-                'tenant_domain' => 'tenant.auth0.com',
-                'api_token' => 'test-api-token',
+                'tenant_domain' => fake()->domainName(),
+                'api_token' => fake()->uuid(),
+                'migrate_users' => true,
+                'migrate_applications' => fake()->boolean(),
+                'migrate_roles' => fake()->boolean(),
             ],
-            'total_items' => 0,
-            'processed_items' => 0,
-            'migrated_data' => [],
-            'stats' => [],
-            'validation_errors' => null,
-            'error_message' => null,
+            'stats' => null,
+            'error_log' => null,
             'started_at' => null,
             'completed_at' => null,
         ];
     }
 
-    public function processing(): static
+    /**
+     * Indicate that the migration job is running.
+     */
+    public function running(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'processing',
+            'status' => 'running',
             'started_at' => now(),
         ]);
     }
 
+    /**
+     * Indicate that the migration job is completed.
+     */
     public function completed(): static
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'completed',
-            'started_at' => now()->subMinutes(30),
+            'started_at' => now()->subHours(2),
             'completed_at' => now(),
             'stats' => [
-                'users_migrated' => 100,
-                'applications_migrated' => 5,
-                'duration_seconds' => 1800,
+                'users_migrated' => fake()->numberBetween(10, 1000),
+                'applications_migrated' => fake()->numberBetween(1, 50),
+                'roles_migrated' => fake()->numberBetween(1, 20),
             ],
         ]);
     }
 
+    /**
+     * Indicate that the migration job failed.
+     */
     public function failed(): static
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'failed',
-            'error_message' => 'Migration failed due to API error',
-            'started_at' => now()->subMinutes(10),
+            'started_at' => now()->subHours(1),
             'completed_at' => now(),
-        ]);
-    }
-
-    public function withItems(int $total): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'total_items' => $total,
+            'error_log' => [
+                'error' => 'API authentication failed',
+                'code' => 'AUTH_ERROR',
+                'timestamp' => now()->toISOString(),
+            ],
         ]);
     }
 }

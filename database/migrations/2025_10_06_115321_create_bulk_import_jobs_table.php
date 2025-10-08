@@ -34,6 +34,7 @@ return new class extends Migration
             $table->json('errors')->nullable(); // Detailed error records
             $table->json('records')->nullable(); // Import records data
             $table->json('filters')->nullable(); // Export filters
+            $table->json('columns')->nullable(); // Column mapping for imports
 
             // Import/Export specific fields
             $table->string('export_type')->nullable(); // Type of export (users, applications, etc.)

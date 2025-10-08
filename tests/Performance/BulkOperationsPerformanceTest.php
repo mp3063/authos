@@ -5,6 +5,7 @@ namespace Tests\Performance;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\Passport;
 
@@ -25,8 +26,11 @@ class BulkOperationsPerformanceTest extends PerformanceTestCase
         Storage::fake('local');
 
         $this->organization = Organization::factory()->create();
-        $this->user = User::factory()->for($this->organization)->create();
-        $this->user->assignRole('Organization Owner');
+        // Use TestCase helper to properly create user with role
+        $this->user = $this->createUser([
+            'organization_id' => $this->organization->id,
+            'password' => Hash::make('password123'),
+        ], 'Organization Owner');
 
         Passport::actingAs($this->user);
         $this->accessToken = $this->user->createToken('Test Token')->accessToken;

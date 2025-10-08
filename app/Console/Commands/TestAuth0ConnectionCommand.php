@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Auth0\Auth0Client;
 use App\Services\Auth0\Exceptions\Auth0ApiException;
 use Illuminate\Console\Command;
+use Throwable;
 
 class TestAuth0ConnectionCommand extends Command
 {
@@ -93,9 +94,9 @@ class TestAuth0ConnectionCommand extends Command
             $total = count($results);
 
             if ($successful === $total) {
-                $this->info("All {$total} API endpoints are accessible!");
+                $this->info("All $total API endpoints are accessible!");
             } else {
-                $this->warn("{$successful}/{$total} API endpoints are accessible");
+                $this->warn("$successful/$total API endpoints are accessible");
             }
 
             return $successful === $total ? self::SUCCESS : self::FAILURE;
@@ -103,7 +104,7 @@ class TestAuth0ConnectionCommand extends Command
             $this->error("Auth0 API Error: {$e->getMessage()}");
 
             return self::FAILURE;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->error("Test failed: {$e->getMessage()}");
 
             return self::FAILURE;
@@ -117,11 +118,11 @@ class TestAuth0ConnectionCommand extends Command
     {
         try {
             $result = $callback();
-            $this->line("<fg=green>✓</> {$name}: OK (found {$result} items)");
+            $this->line("<fg=green>✓</> $name: OK (found $result items)");
 
             return true;
-        } catch (\Throwable $e) {
-            $this->line("<fg=red>✗</> {$name}: FAILED ({$e->getMessage()})");
+        } catch (Throwable $e) {
+            $this->line("<fg=red>✗</> $name: FAILED ({$e->getMessage()})");
 
             return false;
         }

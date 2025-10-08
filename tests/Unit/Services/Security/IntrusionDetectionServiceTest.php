@@ -10,7 +10,6 @@ use App\Services\Security\AccountLockoutService;
 use App\Services\Security\IntrusionDetectionService;
 use App\Services\Security\IpBlocklistService;
 use App\Services\Security\SecurityIncidentService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -19,8 +18,6 @@ use Tests\TestCase;
 
 class IntrusionDetectionServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private IntrusionDetectionService $service;
 
     private SecurityIncidentService $incidentService;

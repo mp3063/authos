@@ -61,7 +61,7 @@ class MFATest extends DuskTestCase
     public function test_user_can_disable_mfa(): void
     {
         $user = $this->createTestUser([
-            'mfa_enabled' => true,
+            'mfa_methods' => ['totp'],
             'mfa_secret' => 'test-secret',
         ]);
 
@@ -76,7 +76,7 @@ class MFATest extends DuskTestCase
 
             $this->assertDatabaseHas('users', [
                 'id' => $user->id,
-                'mfa_enabled' => false,
+                'mfa_methods' => json_encode([]),
             ]);
         });
     }
@@ -87,7 +87,7 @@ class MFATest extends DuskTestCase
     public function test_login_with_mfa_requires_code(): void
     {
         $user = $this->createTestUser([
-            'mfa_enabled' => true,
+            'mfa_methods' => ['totp'],
             'mfa_secret' => 'test-secret',
         ]);
 

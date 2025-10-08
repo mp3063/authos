@@ -6,7 +6,6 @@ use App\Models\BulkImportJob;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -15,8 +14,6 @@ use Tests\TestCase;
 
 class BulkImportExportTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected Organization $organization;
 
     protected User $user;

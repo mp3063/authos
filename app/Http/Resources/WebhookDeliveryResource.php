@@ -20,9 +20,12 @@ class WebhookDeliveryResource extends JsonResource
             'event_type' => $this->event_type,
             'status' => $this->status?->value ?? $this->status,
             'http_status_code' => $this->http_status_code,
+            'response_status' => $this->http_status_code, // Alias for backward compatibility
             'attempt_number' => $this->attempt_number,
+            'attempt' => $this->attempt_number, // Alias for backward compatibility
             'max_attempts' => $this->max_attempts,
             'request_duration_ms' => $this->request_duration_ms,
+            'response_time_ms' => $this->request_duration_ms, // Alias for backward compatibility
             'error_message' => $this->error_message,
             'next_retry_at' => $this->next_retry_at?->toISOString(),
             'sent_at' => $this->sent_at?->toISOString(),

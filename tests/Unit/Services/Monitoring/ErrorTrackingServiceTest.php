@@ -21,7 +21,13 @@ class ErrorTrackingServiceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_tracks_errors_with_categorization(): void
     {
-        Log::spy();
+        $mockChannel = \Mockery::mock();
+        $mockChannel->shouldReceive('error')->once();
+
+        Log::shouldReceive('channel')
+            ->with('monitoring')
+            ->once()
+            ->andReturn($mockChannel);
 
         $exception = new \Exception('Test error');
 
@@ -31,15 +37,21 @@ class ErrorTrackingServiceTest extends TestCase
             ['context' => 'test']
         );
 
-        Log::shouldHaveReceived('channel')
-            ->with('monitoring')
-            ->once();
+        // Verify the mock expectations were met
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_tracks_critical_errors(): void
     {
-        Log::spy();
+        $mockChannel = \Mockery::mock();
+        // Critical errors are logged twice: once in logError() and once in triggerCriticalAlert()
+        $mockChannel->shouldReceive('critical')->times(2);
+
+        Log::shouldReceive('channel')
+            ->with('monitoring')
+            ->times(2)
+            ->andReturn($mockChannel);
 
         $exception = new \Exception('Critical test error');
 
@@ -48,15 +60,20 @@ class ErrorTrackingServiceTest extends TestCase
             ErrorTrackingService::SEVERITY_CRITICAL
         );
 
-        Log::shouldHaveReceived('channel')
-            ->with('monitoring')
-            ->once();
+        // Verify the mock expectations were met
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_tracks_failed_authentication_attempts(): void
     {
-        Log::spy();
+        $mockChannel = \Mockery::mock();
+        $mockChannel->shouldReceive('warning')->once();
+
+        Log::shouldReceive('channel')
+            ->with('security')
+            ->once()
+            ->andReturn($mockChannel);
 
         $this->service->trackFailedAuthentication(
             'test@example.com',
@@ -64,15 +81,20 @@ class ErrorTrackingServiceTest extends TestCase
             'invalid_credentials'
         );
 
-        Log::shouldHaveReceived('channel')
-            ->with('security')
-            ->once();
+        // Verify the mock expectations were met
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_tracks_webhook_failures(): void
     {
-        Log::spy();
+        $mockChannel = \Mockery::mock();
+        $mockChannel->shouldReceive('warning')->once();
+
+        Log::shouldReceive('channel')
+            ->with('monitoring')
+            ->once()
+            ->andReturn($mockChannel);
 
         $this->service->trackWebhookFailure(
             1,
@@ -81,9 +103,8 @@ class ErrorTrackingServiceTest extends TestCase
             ['url' => 'https://example.com/webhook']
         );
 
-        Log::shouldHaveReceived('channel')
-            ->with('monitoring')
-            ->once();
+        // Verify the mock expectations were met
+        $this->assertTrue(true);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

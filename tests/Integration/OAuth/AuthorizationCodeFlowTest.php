@@ -4,7 +4,6 @@ namespace Tests\Integration\OAuth;
 
 use App\Models\Application;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Tests\TestCase;
@@ -23,8 +22,6 @@ use Tests\TestCase;
  */
 class AuthorizationCodeFlowTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Application $application;
@@ -37,7 +34,7 @@ class AuthorizationCodeFlowTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:install', ['--no-interaction' => true]);
+        // Passport is set up in TestCase - no need to install
 
         // Create test user with organization
         $this->user = User::factory()->create([
@@ -407,12 +404,11 @@ class AuthorizationCodeFlowTest extends TestCase
         preg_match('/name="auth_token" value="([^"]+)"/', $authResponse->getContent(), $matches);
         $authToken = $matches[1];
 
-        // User denies authorization
-        $denialResponse = $this->post('/oauth/authorize', [
+        // User denies authorization (by not including approve parameter)
+        $denialResponse = $this->delete('/oauth/authorize', [
             'state' => $state,
             'client_id' => $this->oauthClient->id,
             'auth_token' => $authToken,
-            'approve' => '0', // Deny
         ]);
 
         $denialResponse->assertRedirect();

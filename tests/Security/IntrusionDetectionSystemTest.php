@@ -8,7 +8,6 @@ use App\Models\Organization;
 use App\Models\SecurityIncident;
 use App\Models\User;
 use App\Services\Security\IntrusionDetectionService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
@@ -25,8 +24,6 @@ use Tests\TestCase;
  */
 class IntrusionDetectionSystemTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Organization $organization;

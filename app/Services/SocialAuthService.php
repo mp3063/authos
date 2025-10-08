@@ -22,7 +22,15 @@ class SocialAuthService
      */
     public function getRedirectUrl(string $provider, ?string $organizationSlug = null): string
     {
-        $driver = Socialite::driver($provider);
+        // Twitter (OAuth 1.0) doesn't support stateless() or custom state parameter
+        if ($provider === 'twitter') {
+            $driver = Socialite::driver($provider);
+            $driver = $this->addProviderScopes($driver, $provider);
+
+            return $driver->redirect()->getTargetUrl();
+        }
+
+        $driver = Socialite::driver($provider)->stateless();
 
         // Add additional scopes based on provider
         $driver = $this->addProviderScopes($driver, $provider);
@@ -81,12 +89,16 @@ class SocialAuthService
      */
     private function addProviderScopes($driver, string $provider)
     {
+        // Twitter uses OAuth 1.0 which doesn't support scopes
+        if ($provider === 'twitter') {
+            return $driver;
+        }
+
         $scopes = match ($provider) {
             'google' => ['openid', 'profile', 'email'],
             'github' => ['user:email'],
             'facebook' => ['email', 'public_profile'],
             'linkedin' => ['openid', 'profile', 'email'],
-            'twitter' => ['tweet.read', 'users.read', 'offline.access'],
             default => [],
         };
 

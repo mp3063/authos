@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('avatar')->nullable();
             $table->json('profile')->nullable();
+            $table->json('metadata')->nullable();
             $table->unsignedBigInteger('organization_id')->nullable();
             $table->timestamp('password_changed_at')->nullable();
             $table->boolean('is_active')->default(true);

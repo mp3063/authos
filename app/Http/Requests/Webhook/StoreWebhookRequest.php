@@ -20,9 +20,11 @@ class StoreWebhookRequest extends FormRequest
      */
     public function rules(): array
     {
+        $organizationId = $this->user()->organization_id;
+
         return [
             'name' => 'required|string|max:255',
-            'url' => 'required|url|max:2048',
+            'url' => 'required|url|max:2048|regex:/^https:\/\//i',
             'events' => 'required|array|min:1',
             'events.*' => [
                 'required',
@@ -37,6 +39,15 @@ class StoreWebhookRequest extends FormRequest
             'ip_whitelist' => 'sometimes|nullable|array|max:20',
             'ip_whitelist.*' => 'ip',
             'metadata' => 'sometimes|nullable|array',
+            'organization_id' => [
+                'sometimes',
+                function ($attribute, $value, $fail) use ($organizationId) {
+                    $webhookCount = \App\Models\Webhook::where('organization_id', $organizationId)->count();
+                    if ($webhookCount >= 10) {
+                        $fail('Maximum of 10 webhooks allowed per organization');
+                    }
+                },
+            ],
         ];
     }
 
@@ -49,6 +60,7 @@ class StoreWebhookRequest extends FormRequest
             'name.required' => 'Webhook name is required',
             'url.required' => 'Webhook URL is required',
             'url.url' => 'Webhook URL must be a valid URL',
+            'url.regex' => 'Webhook URL must use HTTPS',
             'events.required' => 'At least one event must be selected',
             'events.min' => 'At least one event must be selected',
             'events.*.exists' => 'Selected event is not valid or inactive',
@@ -81,6 +93,9 @@ class StoreWebhookRequest extends FormRequest
         if (! $this->has('is_active')) {
             $this->merge(['is_active' => true]);
         }
+
+        // Add organization_id for validation
+        $this->merge(['organization_id' => $this->user()->organization_id]);
     }
 
     /**

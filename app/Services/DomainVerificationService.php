@@ -13,10 +13,13 @@ class DomainVerificationService
      * Add domain and generate verification code
      * Returns array format for API compatibility
      */
-    public function addDomain(int $organizationId, string $domain): array
+    public function addDomain(int|Organization $organizationId, string $domain): CustomDomain
     {
+        // Accept both int and Organization object for flexibility
+        $orgId = $organizationId instanceof Organization ? $organizationId->id : $organizationId;
+
         // Check for duplicates
-        $existing = CustomDomain::where('organization_id', $organizationId)
+        $existing = CustomDomain::where('organization_id', $orgId)
             ->where('domain', strtolower($domain))
             ->first();
 
@@ -24,21 +27,14 @@ class DomainVerificationService
             throw new Exception('Domain already exists');
         }
 
-        $customDomain = CustomDomain::create([
-            'organization_id' => $organizationId,
+        return CustomDomain::create([
+            'organization_id' => $orgId,
             'domain' => strtolower($domain),
             'status' => 'pending',
             'verification_code' => CustomDomain::generateVerificationCode(),
             'verification_method' => 'dns',
             'is_active' => false,
         ]);
-
-        return [
-            'domain' => $customDomain->domain,
-            'verification_code' => $customDomain->verification_code,
-            'verification_method' => $customDomain->verification_method,
-            'status' => $customDomain->status,
-        ];
     }
 
     /**
@@ -99,12 +95,12 @@ class DomainVerificationService
 
     /**
      * Verify domain ownership via DNS TXT record
-     * Accepts domain ID for API compatibility
+     * Accepts domain ID or CustomDomain model for flexibility
      */
-    public function verifyDomain(int $domainId): array
+    public function verifyDomain(int|CustomDomain $domainId): array
     {
         try {
-            $domain = CustomDomain::findOrFail($domainId);
+            $domain = $domainId instanceof CustomDomain ? $domainId : CustomDomain::findOrFail($domainId);
             $verified = $this->checkDnsTxtRecord($domain->domain, $domain->verification_code);
 
             if ($verified) {

@@ -2,7 +2,6 @@
 
 namespace Tests\Security;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -18,8 +17,6 @@ use Tests\TestCase;
  */
 class OwaspA05SecurityMisconfigurationTest extends TestCase
 {
-    use RefreshDatabase;
-
     /** @test */
     public function it_includes_security_headers_in_responses()
     {

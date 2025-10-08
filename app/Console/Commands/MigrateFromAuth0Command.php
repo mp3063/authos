@@ -11,6 +11,7 @@ use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\Importers\UserImporter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Throwable;
 
 class MigrateFromAuth0Command extends Command
 {
@@ -46,7 +47,7 @@ class MigrateFromAuth0Command extends Command
             $targetOrganization = Organization::find($organizationId);
 
             if (! $targetOrganization) {
-                $this->error("Organization with ID {$organizationId} not found");
+                $this->error("Organization with ID $organizationId not found");
 
                 return self::FAILURE;
             }
@@ -57,7 +58,7 @@ class MigrateFromAuth0Command extends Command
 
         // Validate strategy
         if (! in_array($strategy, [UserImporter::STRATEGY_RESET, UserImporter::STRATEGY_LAZY, UserImporter::STRATEGY_HASH], true)) {
-            $this->error("Invalid password strategy: {$strategy}");
+            $this->error("Invalid password strategy: $strategy");
 
             return self::FAILURE;
         }
@@ -88,7 +89,7 @@ class MigrateFromAuth0Command extends Command
 
             // Export plan if requested
             if ($exportPath = $this->option('export')) {
-                $this->info("Exporting migration plan to {$exportPath}...");
+                $this->info("Exporting migration plan to $exportPath...");
                 File::put($exportPath, $plan->exportToJson());
                 $this->info('Plan exported successfully!');
                 $this->newLine();
@@ -145,7 +146,7 @@ class MigrateFromAuth0Command extends Command
             $this->error("Auth0 API Error: {$e->getMessage()}");
 
             return self::FAILURE;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->error("Migration failed: {$e->getMessage()}");
             $this->error($e->getTraceAsString());
 
@@ -243,7 +244,7 @@ class MigrateFromAuth0Command extends Command
                     $this->warn(ucfirst($category).':');
 
                     foreach (array_slice($categoryErrors, 0, 5) as $error) {
-                        $this->line("  - {$error}");
+                        $this->line("  - $error");
                     }
 
                     if (count($categoryErrors) > 5) {

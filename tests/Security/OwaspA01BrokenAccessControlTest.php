@@ -5,7 +5,6 @@ namespace Tests\Security;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
 
@@ -22,8 +21,6 @@ use Tests\TestCase;
  */
 class OwaspA01BrokenAccessControlTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected Organization $org1;
 
     protected Organization $org2;
@@ -336,7 +333,7 @@ class OwaspA01BrokenAccessControlTest extends TestCase
         }
     }
 
-    protected function withToken(string $token)
+    public function withToken(string $token)
     {
         return $this->withHeaders([
             'Authorization' => 'Bearer '.$token,

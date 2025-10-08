@@ -52,7 +52,13 @@ class Webhook extends Model
     ];
 
     protected $hidden = [
-        'secret',
+        // Secret is handled manually in WebhookResource
+    ];
+
+    protected $attributes = [
+        'is_active' => true,
+        'consecutive_failures' => 0,
+        'failure_count' => 0,
     ];
 
     /**
@@ -94,6 +100,21 @@ class Webhook extends Model
         return $this->secret; // Already decrypted by encrypted cast
     }
 
+    public function getTotalDeliveriesAttribute(): int
+    {
+        return $this->delivery_stats['total_deliveries'] ?? 0;
+    }
+
+    public function getSuccessfulDeliveriesAttribute(): int
+    {
+        return $this->delivery_stats['successful_deliveries'] ?? 0;
+    }
+
+    public function getFailedDeliveriesAttribute(): int
+    {
+        return $this->delivery_stats['failed_deliveries'] ?? 0;
+    }
+
     /**
      * Helper Methods
      */
@@ -120,6 +141,7 @@ class Webhook extends Model
     public function incrementFailureCount(): void
     {
         $this->increment('failure_count');
+        $this->increment('consecutive_failures');
         $this->update(['last_failed_at' => now()]);
     }
 
@@ -127,13 +149,14 @@ class Webhook extends Model
     {
         $this->update([
             'failure_count' => 0,
+            'consecutive_failures' => 0,
             'last_delivered_at' => now(),
         ]);
     }
 
     public function shouldAutoDisable(): bool
     {
-        return $this->failure_count >= 10;
+        return $this->consecutive_failures >= 10;
     }
 
     public function enable(): void
@@ -154,6 +177,9 @@ class Webhook extends Model
 
     public function updateDeliveryStats(bool $success, int $responseTimeMs): void
     {
+        // Refresh to get latest stats
+        $this->refresh();
+
         $stats = $this->delivery_stats ?? [
             'total_deliveries' => 0,
             'successful_deliveries' => 0,
@@ -173,6 +199,9 @@ class Webhook extends Model
         $stats['average_response_time_ms'] = ($totalResponseTime + $responseTimeMs) / $stats['total_deliveries'];
 
         $this->update(['delivery_stats' => $stats]);
+
+        // Refresh again to ensure the model has the latest database values
+        $this->refresh();
     }
 
     public function getSuccessRate(int $days = 30): float

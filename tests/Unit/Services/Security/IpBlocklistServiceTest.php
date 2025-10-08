@@ -5,7 +5,6 @@ namespace Tests\Unit\Services\Security;
 use App\Models\IpBlocklist;
 use App\Models\User;
 use App\Services\Security\IpBlocklistService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -13,8 +12,6 @@ use Tests\TestCase;
 
 class IpBlocklistServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private IpBlocklistService $service;
 
     protected function setUp(): void
@@ -377,6 +374,7 @@ class IpBlocklistServiceTest extends TestCase
 
         IpBlocklist::factory()->create([
             'is_active' => true,
+            'block_type' => 'temporary',
             'blocked_at' => now()->subMinutes(30),
         ]);
 

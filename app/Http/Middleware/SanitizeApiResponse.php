@@ -79,6 +79,8 @@ class SanitizeApiResponse
             'api/v1/mfa/setup/totp',
             'api/v1/applications/*/client-credentials',
             'api/v1/applications/*/credentials/regenerate',
+            'api/v1/webhooks',        // Webhook creation returns secret
+            'api/v1/webhooks/*/rotate-secret',  // Webhook secret rotation
         ];
 
         foreach ($allowedPaths as $path) {

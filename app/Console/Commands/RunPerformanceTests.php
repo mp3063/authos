@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -128,7 +129,7 @@ class RunPerformanceTests extends Command
         $command = [
             base_path('vendor/bin/phpunit'),
             '--testsuite=Performance',
-            "--filter={$filter}",
+            "--filter=$filter",
             '--no-coverage',
         ];
 
@@ -142,10 +143,10 @@ class RunPerformanceTests extends Command
 
         if ($process->isSuccessful()) {
             $this->results[$filter] = 'passed';
-            $this->info("  ✓ {$filter} completed");
+            $this->info("  ✓ $filter completed");
         } else {
             $this->results[$filter] = 'failed';
-            $this->error("  ✗ {$filter} failed");
+            $this->error("  ✗ $filter failed");
         }
 
         $this->newLine();
@@ -201,7 +202,7 @@ class RunPerformanceTests extends Command
                 $this->newLine();
                 $this->info("Report saved to: {$latestReport->getPathname()}");
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error('Failed to generate report: '.$e->getMessage());
         }
     }

@@ -4,7 +4,6 @@ namespace Tests\Security;
 
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
@@ -22,8 +21,6 @@ use Tests\TestCase;
  */
 class OwaspA03InjectionTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected User $user;
 
     protected Organization $organization;
