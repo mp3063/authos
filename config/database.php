@@ -37,10 +37,11 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'IMMEDIATE',
+            // Parallel test execution optimizations
+            'busy_timeout' => env('DB_BUSY_TIMEOUT', 30000), // 30 second retry timeout for locked databases
+            'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),  // Write-Ahead Logging for better concurrency
+            'synchronous' => env('DB_SYNCHRONOUS', 'NORMAL'), // Faster writes with acceptable durability
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
         ],
 
         'mysql' => [

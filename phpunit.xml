@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap-parallel.php"
          colors="true"
+         cacheDirectory=".phpunit.cache"
+         beStrictAboutOutputDuringTests="false"
+         failOnRisky="false"
+         failOnWarning="true"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -23,13 +27,15 @@
             <directory>app</directory>
         </include>
     </source>
-    <coverage>
+    <!-- Coverage disabled by default for speed. Use XDEBUG_MODE=coverage to enable -->
+    <!-- or use: herd composer test:coverage -->
+    <!-- <coverage>
         <report>
             <clover outputFile="coverage/clover.xml"/>
             <html outputDirectory="coverage/html"/>
             <text outputFile="php://stdout" showOnlySummary="true"/>
         </report>
-    </coverage>
+    </coverage> -->
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
@@ -54,6 +60,17 @@
         <env name="RATE_LIMIT_AUTH" value="100"/>
         <env name="RATE_LIMIT_OAUTH" value="200"/>
         <env name="LARAVEL_PROMPTS_FALLBACK_WHEN_UNABLE_TO_PROMPT" value="1"/>
+
+        <!-- SQLite parallel execution optimizations -->
+        <env name="DB_BUSY_TIMEOUT" value="30000"/>
+        <env name="DB_JOURNAL_MODE" value="WAL"/>
+        <env name="DB_SYNCHRONOUS" value="NORMAL"/>
+        <env name="DB_TRANSACTION_MODE" value="IMMEDIATE"/>
+
+        <!-- Performance optimizations -->
         <ini name="memory_limit" value="1G"/>
+        <ini name="max_execution_time" value="300"/>
+        <ini name="zend.assertions" value="1"/>
+        <ini name="assert.exception" value="1"/>
     </php>
 </phpunit>
