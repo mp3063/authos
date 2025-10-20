@@ -8,7 +8,9 @@ class LdapConfigurationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('organizations.update');
+        // Skip FormRequest authorization - handled by controller/middleware
+        // FormRequest auth runs before middleware, causing issues with team-scoped permissions
+        return true;
     }
 
     public function rules(): array

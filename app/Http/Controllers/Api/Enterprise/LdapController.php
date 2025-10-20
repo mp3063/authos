@@ -21,13 +21,19 @@ class LdapController extends BaseApiController
     public function testConnection(LdapConfigurationRequest $request): JsonResponse
     {
         try {
-            // Check if LDAP is enabled for the organization
-            $user = $request->user();
+            // Get authenticated user (sets team context automatically)
+            $user = $this->getAuthenticatedUser();
 
             if (! $user) {
                 return $this->errorResponse('Unauthorized', 401);
             }
 
+            // Check if user has permission to manage LDAP
+            if (! $user->can('organizations.update')) {
+                return $this->forbiddenResponse('Insufficient permissions');
+            }
+
+            // Check if LDAP is enabled for the organization
             $ldapEnabled = $user->organization->settings['enterprise_features']['ldap_enabled'] ?? false;
 
             if (! $ldapEnabled) {
@@ -56,7 +62,12 @@ class LdapController extends BaseApiController
     public function syncUsers(Request $request): JsonResponse
     {
         try {
-            $user = $request->user();
+            $user = $this->getAuthenticatedUser();
+
+            // Check permission
+            if (! $user || ! $user->can('organizations.update')) {
+                return $this->forbiddenResponse('Insufficient permissions');
+            }
 
             // Get the organization's LDAP configuration
             $config = LdapConfiguration::where('organization_id', $user->organization_id)
@@ -80,7 +91,12 @@ class LdapController extends BaseApiController
     public function listUsers(Request $request): JsonResponse
     {
         try {
-            $user = $request->user();
+            $user = $this->getAuthenticatedUser();
+
+            // Check permission
+            if (! $user || ! $user->can('organizations.update')) {
+                return $this->forbiddenResponse('Insufficient permissions');
+            }
 
             // Get the organization's LDAP configuration
             $config = LdapConfiguration::where('organization_id', $user->organization_id)
@@ -99,7 +115,12 @@ class LdapController extends BaseApiController
     public function configure(LdapConfigurationRequest $request): JsonResponse
     {
         try {
-            $user = $request->user();
+            $user = $this->getAuthenticatedUser();
+
+            // Check permission
+            if (! $user || ! $user->can('organizations.update')) {
+                return $this->forbiddenResponse('Insufficient permissions');
+            }
 
             $config = LdapConfiguration::updateOrCreate(
                 ['organization_id' => $user->organization_id],
