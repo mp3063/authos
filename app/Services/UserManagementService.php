@@ -46,6 +46,7 @@ class UserManagementService extends BaseService implements UserManagementService
         app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($organization->id);
 
         // Assign roles if provided
+        // Guard is handled by User model's getDefaultGuardName() method
         if (! empty($userData['roles'])) {
             $user->syncRoles($userData['roles']);
         } elseif ($roleId) {
@@ -181,6 +182,7 @@ class UserManagementService extends BaseService implements UserManagementService
             return false;
         }
 
+        // Guard is handled by User model's getDefaultGuardName() method
         $user->assignRole($role);
 
         return true;

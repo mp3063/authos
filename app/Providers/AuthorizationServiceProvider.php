@@ -35,6 +35,10 @@ class AuthorizationServiceProvider extends ServiceProvider
             $user->setPermissionsTeamId($user->organization_id);
             app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
 
+            // Force refresh permissions to prevent cache issues
+            $user->unsetRelation('permissions');
+            $user->unsetRelation('roles');
+
             // Check if user has permission within their organization
             try {
                 if ($user->hasPermissionTo($ability)) {

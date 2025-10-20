@@ -32,3 +32,6 @@ Thumbs.db
 /.phpinsights/
 /phpmd-report.html
 /.php-insights.php
+
+# Parallel Test Databases
+/database/testing_parallel_*.sqlite
