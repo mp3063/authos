@@ -25,7 +25,22 @@ abstract class BaseApiController extends Controller
     protected function getAuthenticatedUser(): ?User
     {
         /** @var \App\Models\User|null $user */
-        $user = auth()->user();
+        $user = auth('api')->user();
+
+        // Set team context for Spatie Permission
+        if ($user && $user->organization_id && method_exists($user, 'setPermissionsTeamId')) {
+            // Clear cached permissions before setting new team context
+            app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Refresh user from database to ensure we have fresh role/permission relationships
+            // This is important for tests and ensures permission checks work correctly
+            $user = User::with('roles', 'permissions')->find($user->id);
+
+            if ($user) {
+                $user->setPermissionsTeamId($user->organization_id);
+                app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
+            }
+        }
 
         return $user;
     }

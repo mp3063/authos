@@ -87,6 +87,20 @@ class User extends Authenticatable implements FilamentUser
         'mfa_enabled',
     ];
 
+    /**
+     * Override Spatie Permission to dynamically determine guard based on authentication context
+     * This ensures roles work correctly whether authenticated via 'web' or 'api' guard
+     */
+    public function getDefaultGuardName(): string
+    {
+        // If authenticated via API guard, use 'api' for permission checks
+        if (auth('api')->check() && auth('api')->id() === $this->id) {
+            return 'api';
+        }
+
+        return 'web';
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
