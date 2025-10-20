@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             OrganizationSeeder::class,
             RolePermissionSeeder::class,
             ApplicationSeeder::class,
+            WebhookEventSeeder::class,
+            WebhookSeeder::class,
         ]);
 
         // Create a super admin user (global, no organization)
