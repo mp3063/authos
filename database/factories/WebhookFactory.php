@@ -17,6 +17,7 @@ class WebhookFactory extends Factory
     {
         return [
             'organization_id' => Organization::factory(),
+            'name' => $this->faker->words(3, true).' Webhook',
             'url' => $this->faker->url(),
             'events' => ['user.created', 'user.updated'],
             'secret' => 'whsec_'.bin2hex(random_bytes(32)),

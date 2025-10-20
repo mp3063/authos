@@ -178,7 +178,7 @@ class WebhookResource extends Resource
                 ->label('Events')
                 ->badge()
                 ->color('info')
-                ->formatStateUsing(fn ($state): string => count($state ?? []).' events')
+                ->formatStateUsing(fn ($state, Webhook $record): string => count($record->events ?? []).' events')
                 ->tooltip(fn (Webhook $record): string => implode(', ', array_slice($record->events ?? [], 0, 5)).(count($record->events ?? []) > 5 ? '...' : '')),
 
             IconColumn::make('is_active')

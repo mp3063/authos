@@ -11,7 +11,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Split;
 use Filament\Schemas\Components\TextEntry;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
@@ -55,29 +54,27 @@ class ViewWebhookDelivery extends ViewRecord
             ->schema([
                 Section::make('Delivery Information')
                     ->schema([
-                        Split::make([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('webhook.name')
-                                        ->label('Webhook')
-                                        ->weight(FontWeight::Bold)
-                                        ->url(
-                                            fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
-                                        ),
-                                    TextEntry::make('webhook.url')
-                                        ->label('Webhook URL')
-                                        ->copyable()
-                                        ->url(fn ($state) => $state)
-                                        ->openUrlInNewTab(),
-                                    TextEntry::make('event_type')
-                                        ->badge()
-                                        ->color('info'),
-                                    TextEntry::make('status')
-                                        ->badge()
-                                        ->formatStateUsing(fn (WebhookDeliveryStatus $state): string => $state->getLabel())
-                                        ->color(fn (WebhookDeliveryStatus $state): string => $state->getColor()),
-                                ]),
-                        ]),
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('webhook.name')
+                                    ->label('Webhook')
+                                    ->weight(FontWeight::Bold)
+                                    ->url(
+                                        fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
+                                    ),
+                                TextEntry::make('webhook.url')
+                                    ->label('Webhook URL')
+                                    ->copyable()
+                                    ->url(fn ($state) => $state)
+                                    ->openUrlInNewTab(),
+                                TextEntry::make('event_type')
+                                    ->badge()
+                                    ->color('info'),
+                                TextEntry::make('status')
+                                    ->badge()
+                                    ->formatStateUsing(fn (WebhookDeliveryStatus $state): string => $state->getLabel())
+                                    ->color(fn (WebhookDeliveryStatus $state): string => $state->getColor()),
+                            ]),
                     ]),
 
                 Section::make('HTTP Response')

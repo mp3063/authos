@@ -172,6 +172,7 @@ class WebhookDeliveryResource extends Resource
                     return Cache::remember('webhook_delivery_event_types', 600, function () {
                         return WebhookDelivery::query()
                             ->distinct()
+                            ->whereNotNull('event_type')
                             ->pluck('event_type', 'event_type')
                             ->toArray();
                     });

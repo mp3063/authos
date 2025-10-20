@@ -6,12 +6,11 @@ use App\Filament\Resources\WebhookResource;
 use App\Models\Webhook;
 use App\Services\WebhookService;
 use Filament\Actions;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Split;
-use Filament\Schemas\Components\TextEntry;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 
@@ -64,25 +63,23 @@ class ViewWebhook extends ViewRecord
             ->schema([
                 Section::make('Webhook Information')
                     ->schema([
-                        Split::make([
-                            Grid::make(2)
-                                ->schema([
-                                    TextEntry::make('name')
-                                        ->weight(FontWeight::Bold),
-                                    TextEntry::make('url')
-                                        ->url(fn ($record) => $record->url)
-                                        ->openUrlInNewTab()
-                                        ->copyable()
-                                        ->icon('heroicon-o-link'),
-                                    TextEntry::make('organization.name')
-                                        ->badge(),
-                                    TextEntry::make('is_active')
-                                        ->label('Status')
-                                        ->badge()
-                                        ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
-                                        ->color(fn ($state) => $state ? 'success' : 'danger'),
-                                ]),
-                        ]),
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('name')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('url')
+                                    ->url(fn ($record) => $record->url)
+                                    ->openUrlInNewTab()
+                                    ->copyable()
+                                    ->icon('heroicon-o-link'),
+                                TextEntry::make('organization.name')
+                                    ->badge(),
+                                TextEntry::make('is_active')
+                                    ->label('Status')
+                                    ->badge()
+                                    ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
+                                    ->color(fn ($state) => $state ? 'success' : 'danger'),
+                            ]),
                         TextEntry::make('description')
                             ->placeholder('No description provided')
                             ->columnSpanFull(),
@@ -145,7 +142,7 @@ class ViewWebhook extends ViewRecord
                                     ->placeholder('Never'),
                                 TextEntry::make('headers')
                                     ->label('Custom Headers')
-                                    ->json()
+                                    ->formatStateUsing(fn ($state): string => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : 'No custom headers')
                                     ->placeholder('No custom headers')
                                     ->columnSpanFull(),
                                 TextEntry::make('ip_whitelist')

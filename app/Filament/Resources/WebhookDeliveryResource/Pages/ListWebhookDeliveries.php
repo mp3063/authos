@@ -4,10 +4,8 @@ namespace App\Filament\Resources\WebhookDeliveryResource\Pages;
 
 use App\Enums\WebhookDeliveryStatus;
 use App\Filament\Resources\WebhookDeliveryResource;
-use App\Models\WebhookDelivery;
-use Filament\Facades\Filament;
-use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListWebhookDeliveries extends ListRecords
@@ -16,50 +14,67 @@ class ListWebhookDeliveries extends ListRecords
 
     public function getTabs(): array
     {
-        $user = Filament::auth()->user();
-        $query = WebhookDelivery::query();
-
-        // Apply organization scoping via webhook relationship
-        if (! $user->isSuperAdmin() && $user->organization_id) {
-            $query->whereHas('webhook', function ($q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
-            });
-        }
-
         return [
             'all' => Tab::make('All Deliveries')
-                ->badge((clone $query)->count()),
+                ->badge(fn () => $this->getCachedBadgeCount()),
 
             'success' => Tab::make('Success')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('status', WebhookDeliveryStatus::SUCCESS))
-                ->badge((clone $query)->where('status', WebhookDeliveryStatus::SUCCESS)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', WebhookDeliveryStatus::SUCCESS))
+                ->badge(fn () => $this->getCachedBadgeCount(WebhookDeliveryStatus::SUCCESS))
                 ->badgeColor('success'),
 
             'failed' => Tab::make('Failed')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('status', WebhookDeliveryStatus::FAILED))
-                ->badge((clone $query)->where('status', WebhookDeliveryStatus::FAILED)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', WebhookDeliveryStatus::FAILED))
+                ->badge(fn () => $this->getCachedBadgeCount(WebhookDeliveryStatus::FAILED))
                 ->badgeColor('danger'),
 
             'retrying' => Tab::make('Retrying')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('status', WebhookDeliveryStatus::RETRYING))
-                ->badge((clone $query)->where('status', WebhookDeliveryStatus::RETRYING)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', WebhookDeliveryStatus::RETRYING))
+                ->badge(fn () => $this->getCachedBadgeCount(WebhookDeliveryStatus::RETRYING))
                 ->badgeColor('warning'),
 
             'pending' => Tab::make('Pending')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereIn('status', [
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', [
                     WebhookDeliveryStatus::PENDING,
                     WebhookDeliveryStatus::SENDING,
                 ]))
-                ->badge((clone $query)->whereIn('status', [
+                ->badge(fn () => $this->getCachedBadgeCount([
                     WebhookDeliveryStatus::PENDING,
                     WebhookDeliveryStatus::SENDING,
-                ])->count())
+                ]))
                 ->badgeColor('info'),
 
             'last_24h' => Tab::make('Last 24 Hours')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('created_at', '>=', now()->subDay()))
-                ->badge((clone $query)->where('created_at', '>=', now()->subDay())->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('created_at', '>=', now()->subDay()))
+                ->badge(fn () => $this->getCachedBadgeCount(last24h: true))
                 ->badgeColor('gray'),
         ];
+    }
+
+    /**
+     * Get cached badge count for tabs
+     */
+    protected function getCachedBadgeCount(
+        WebhookDeliveryStatus|array|null $status = null,
+        bool $last24h = false
+    ): int {
+        try {
+            $query = static::getResource()::getEloquentQuery();
+
+            if (is_array($status)) {
+                $query->whereIn('status', $status);
+            } elseif ($status !== null) {
+                $query->where('status', $status);
+            }
+
+            if ($last24h) {
+                $query->where('created_at', '>=', now()->subDay());
+            }
+
+            return $query->count();
+        } catch (\Exception $e) {
+            // Return 0 if there's any error calculating the count
+            return 0;
+        }
     }
 }
