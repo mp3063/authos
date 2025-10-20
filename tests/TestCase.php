@@ -11,87 +11,144 @@ use Spatie\Permission\Models\Role;
 
 abstract class TestCase extends BaseTestCase
 {
-    // Use DatabaseMigrations for PHP 8.4 compatibility (avoids nested transaction issues)
-    // This migrates the database before each test and rolls back after
-    use \Illuminate\Foundation\Testing\DatabaseMigrations;
+    // Use RefreshDatabase for much better performance (migrates once, uses transactions)
+    // This is safe with PHP 8.4 and SQLite :memory: database
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-    // Memory optimization: Cache expensive operations
+    // Memory optimization: Cache expensive operations (parallel-safe with static state)
     protected static bool $passportInitialized = false;
-
     protected static array $rolesAndPermissionsSeeded = [];
+
+    // Parallel execution support: Each process gets its own database
+    protected static bool $databaseInitialized = false;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Set up Passport for testing (cached)
+        // CRITICAL: Clear Spatie Permission cache aggressively for parallel test isolation
+        if (class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
+            $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+
+            // Clear all permission caches
+            $registrar->forgetCachedPermissions();
+
+            // Reset team context to null (important for multi-tenant tests)
+            $registrar->setPermissionsTeamId(null);
+
+            // Clear any Laravel cache that might store permissions
+            if (app()->bound('cache')) {
+                try {
+                    \Illuminate\Support\Facades\Cache::tags(['spatie.permission.cache'])->flush();
+                } catch (\Exception $e) {
+                    // Some cache drivers don't support tags, that's okay
+                }
+            }
+        }
+
+        // Set up Passport for testing (cached, parallel-safe)
         $this->setupPassport();
 
-        // Memory optimization: Force garbage collection before each test
-        if (function_exists('gc_collect_cycles')) {
+        // Memory optimization: Reduce GC frequency for better performance
+        // Only run GC every 10th test to reduce overhead
+        if (function_exists('gc_collect_cycles') && rand(1, 10) === 1) {
             gc_collect_cycles();
         }
     }
 
-    /**
-     * Override to run migrations without prompts
-     */
-    protected function runDatabaseMigrations(): void
-    {
-        $this->artisan('migrate:fresh', ['--force' => true])->run();
-
-        $this->app[\Illuminate\Contracts\Console\Kernel::class]->setArtisan(null);
-
-        $this->beforeApplicationDestroyed(function () {
-            $this->artisan('migrate:rollback', ['--force' => true])->run();
-        });
-    }
 
     protected function tearDown(): void
     {
+        // Clear authentication state BEFORE other cleanup to prevent issues
+        if (auth()->hasUser()) {
+            $user = auth()->user();
+            if ($user && method_exists($user, 'setPermissionsTeamId')) {
+                $user->setPermissionsTeamId(null);
+            }
+        }
+        auth()->forgetGuards();
+
         // Explicitly close Mockery to prevent hanging
         if (class_exists(\Mockery::class)) {
             \Mockery::close();
         }
 
+        // CRITICAL: Aggressively clear Spatie Permission cache to prevent test pollution
+        if (class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
+            $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+
+            // Clear all permission caches
+            $registrar->forgetCachedPermissions();
+
+            // Reset team context
+            $registrar->setPermissionsTeamId(null);
+
+            // Clear Laravel cache for permissions
+            if (app()->bound('cache')) {
+                try {
+                    \Illuminate\Support\Facades\Cache::tags(['spatie.permission.cache'])->flush();
+                } catch (\Exception $e) {
+                    // Some cache drivers don't support tags
+                }
+            }
+        }
+
         parent::tearDown();
 
-        // Force garbage collection after each test
-        if (function_exists('gc_collect_cycles')) {
-            gc_collect_cycles();
-        }
+        // Memory optimization: Reduce GC frequency in tearDown too
+        // Transactions handle cleanup, so aggressive GC is unnecessary
     }
 
     /**
-     * Set up Passport OAuth for testing (optimized with caching)
+     * Set up Passport OAuth for testing (parallel-safe with optimized caching)
      */
     protected function setupPassport(): void
     {
-        // Generate keys only once
+        // Parallel-safe: Generate keys only once per process
         if (! static::$passportInitialized) {
             // Use proper Passport setup for v13.x testing
-            if (file_exists(storage_path('oauth-keys'))) {
-                Passport::loadKeysFrom(storage_path('oauth-keys'));
+            // Keys are stored directly in storage/ not in a subdirectory
+            $privateKeyPath = storage_path('oauth-private.key');
+            $publicKeyPath = storage_path('oauth-public.key');
+
+            if (file_exists($privateKeyPath) && file_exists($publicKeyPath)) {
+                // Keys exist, ensure correct permissions (600 or 660)
+                @chmod($privateKeyPath, 0600);
+                @chmod($publicKeyPath, 0600);
             } else {
-                // Generate keys only once
-                Artisan::call('passport:keys', ['--force' => true]);
+                // Generate keys only once (parallel-safe with file locking)
+                $lockFile = storage_path('.generating_passport_keys.lock');
+
+                $fp = fopen($lockFile, 'c+');
+                if (flock($fp, LOCK_EX)) {
+                    // Double-check after acquiring lock
+                    if (!file_exists($privateKeyPath)) {
+                        Artisan::call('passport:keys', ['--force' => true]);
+                        // Ensure correct permissions after generation
+                        if (file_exists($privateKeyPath)) {
+                            @chmod($privateKeyPath, 0600);
+                        }
+                        if (file_exists($publicKeyPath)) {
+                            @chmod($publicKeyPath, 0600);
+                        }
+                    }
+                    flock($fp, LOCK_UN);
+                }
+                fclose($fp);
+                @unlink($lockFile);
             }
             static::$passportInitialized = true;
         }
 
-        // Always ensure personal access client exists (check every time)
-        // This needs to be checked each time because LazilyRefreshDatabase might clear it
+        // Parallel-safe: Each process/transaction gets its own clients
+        // RefreshDatabase trait ensures each test starts fresh via transactions
         try {
-            // Check if table exists first (for LazilyRefreshDatabase compatibility)
-            $tableExists = \Illuminate\Support\Facades\Schema::hasTable('oauth_clients');
-
-            if ($tableExists) {
+            if (\Illuminate\Support\Facades\Schema::hasTable('oauth_clients')) {
                 $existingClient = \Laravel\Passport\Client::where('personal_access_client', true)
                     ->where('provider', 'users')
                     ->first();
 
                 if (! $existingClient) {
-                    // Create client directly using Passport's client repository
                     $clientRepository = app(\Laravel\Passport\ClientRepository::class);
                     $clientRepository->createPersonalAccessGrantClient(
                         'Test Personal Access Client',
@@ -100,8 +157,7 @@ abstract class TestCase extends BaseTestCase
                 }
             }
         } catch (\Exception $e) {
-            // If there's any error, skip for now
-            // This can happen during migrations or table creation
+            // Silently ignore errors during setup (migrations may not be complete)
         }
     }
 
@@ -266,7 +322,15 @@ abstract class TestCase extends BaseTestCase
             }
 
             $permissionModels = $query->get();
+
+            // Clear cached permissions before syncing
+            $roleModel->forgetCachedPermissions();
+
             $roleModel->syncPermissions($permissionModels);
+
+            // Force refresh role permissions
+            $roleModel->unsetRelation('permissions');
+            $roleModel->load('permissions');
         }
     }
 
@@ -347,4 +411,5 @@ abstract class TestCase extends BaseTestCase
             $model->getKeyName() => $model->getKey(),
         ]);
     }
+
 }

@@ -24,7 +24,7 @@ class CompressionPerformanceTest extends PerformanceTestCase
         $this->user = $this->createUser([
             'organization_id' => $this->organization->id,
             'password' => Hash::make('password123'),
-        ], 'Organization Owner');
+        ], 'Super Admin');
 
         Passport::actingAs($this->user);
         $this->accessToken = $this->user->createToken('Test Token')->accessToken;

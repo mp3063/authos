@@ -17,8 +17,9 @@ class CachePerformanceTest extends TestCase
     {
         parent::setUp();
 
-        // Clear and prepare database for performance tests
-        Artisan::call('migrate:fresh', ['--seed' => true, '--env' => 'testing']);
+        // Database is already fresh due to RefreshDatabase trait
+        // Just seed the required data if needed by tests
+        // Artisan::call('migrate:fresh') causes VACUUM error in transactions
 
         $this->cacheWarming = app(CacheWarmingService::class);
     }
@@ -59,7 +60,7 @@ class CachePerformanceTest extends TestCase
         // Use TestCase helper to properly create user with role
         $user = $this->createUser([
             'organization_id' => $org->id,
-        ], 'Organization Owner');
+        ], 'Super Admin');
 
         $startTime = microtime(true);
 

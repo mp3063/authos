@@ -22,6 +22,16 @@ class IpBlocklistServiceTest extends TestCase
         Cache::flush();
     }
 
+    protected function tearDown(): void
+    {
+        // Clean up Mockery expectations to prevent "risky" test warnings
+        if (class_exists(\Mockery::class)) {
+            \Mockery::close();
+        }
+
+        parent::tearDown();
+    }
+
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_blocks_ip_address(): void
     {

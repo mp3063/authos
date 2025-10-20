@@ -85,6 +85,8 @@ class PerformanceBenchmarkServiceTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function it_benchmarks_query_with_bindings(): void
     {
         // Mock logs - may be called by benchmark service and observers

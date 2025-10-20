@@ -152,20 +152,27 @@ class CacheEffectivenessTest extends PerformanceTestCase
             });
         }, 'app_cache');
 
-        // Test query result cache
+        // Test query result cache using Laravel's built-in Cache facade
         DB::enableQueryLog();
         $queryCacheMetrics = $this->measure(function () use ($org) {
-            // First call - should hit database
-            $org->users()->remember(3600)->get();
+            $cacheKey = "org:users:{$org->id}";
 
-            // Second call - should hit cache
-            return $org->users()->remember(3600)->get();
+            // First call - should hit database
+            Cache::remember($cacheKey, 3600, function () use ($org) {
+                return $org->users()->get();
+            });
+
+            // Second call - should hit cache (no database query)
+            return Cache::remember($cacheKey, 3600, function () use ($org) {
+                return $org->users()->get();
+            });
         }, 'query_cache');
         $queryCount = count(DB::getQueryLog());
         DB::disableQueryLog();
 
         // Verify multi-layer caching reduces database queries
-        $this->assertLessThan(5, $queryCount, 'Multi-layer caching should minimize database queries');
+        // First call hits DB (1 query), second call hits cache (0 queries) = 1 total
+        $this->assertLessThanOrEqual(2, $queryCount, 'Multi-layer caching should minimize database queries');
 
         echo "\n✓ Multi-Layer Cache Performance:\n";
         echo '  App Cache: '.number_format($appCacheMetrics['duration_ms'], 2)." ms\n";

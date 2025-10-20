@@ -19,6 +19,16 @@ class SecurityIncidentServiceTest extends TestCase
         $this->service = new SecurityIncidentService;
     }
 
+    protected function tearDown(): void
+    {
+        // Clean up Mockery expectations to prevent "risky" test warnings
+        if (class_exists(\Mockery::class)) {
+            \Mockery::close();
+        }
+
+        parent::tearDown();
+    }
+
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_creates_security_incident(): void
     {
@@ -128,7 +138,11 @@ class SecurityIncidentServiceTest extends TestCase
             'description' => 'SQL injection attempt detected',
         ];
 
-        $this->service->createIncident($data);
+        $incident = $this->service->createIncident($data);
+
+        // Assert incident was created with critical severity
+        $this->assertInstanceOf(SecurityIncident::class, $incident);
+        $this->assertEquals('critical', $incident->severity);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -151,7 +165,12 @@ class SecurityIncidentServiceTest extends TestCase
             'description' => 'High rate of API requests',
         ];
 
-        $this->service->createIncident($data);
+        $incident = $this->service->createIncident($data);
+
+        // Assert incident was created but not at critical level
+        $this->assertInstanceOf(SecurityIncident::class, $incident);
+        $this->assertEquals('high', $incident->severity);
+        $this->assertNotEquals('critical', $incident->severity);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

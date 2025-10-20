@@ -11,31 +11,18 @@ use App\Services\Auth0\Api\RolesApi;
 use App\Services\Auth0\Api\UsersApi;
 use App\Services\Auth0\Auth0Client;
 use App\Services\Auth0\Exceptions\Auth0ApiException;
-use GuzzleHttp\Client as HttpClient;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class Auth0ClientTest extends TestCase
 {
     private Auth0Client $client;
 
-    private MockHandler $mockHandler;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->mockHandler = new MockHandler;
-        $handlerStack = HandlerStack::create($this->mockHandler);
-        $httpClient = new HttpClient(['handler' => $handlerStack]);
-
         $this->client = new Auth0Client('test.auth0.com', 'test-token');
-        $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('http');
-        $property->setAccessible(true);
-        $property->setValue($this->client, $httpClient);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -81,9 +68,9 @@ class Auth0ClientTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_makes_successful_get_request(): void
     {
-        $this->mockHandler->append(
-            new Response(200, [], json_encode(['data' => 'test']))
-        );
+        Http::fake([
+            'test.auth0.com/*' => Http::response(['data' => 'test'], 200),
+        ]);
 
         $result = $this->client->get('test-endpoint');
 
@@ -93,9 +80,9 @@ class Auth0ClientTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_throws_exception_on_api_error(): void
     {
-        $this->mockHandler->append(
-            new Response(400, [], json_encode(['error' => 'test_error', 'message' => 'Test error']))
-        );
+        Http::fake([
+            'test.auth0.com/*' => Http::response(['error' => 'test_error', 'message' => 'Test error'], 400),
+        ]);
 
         $this->expectException(Auth0ApiException::class);
         $this->expectExceptionMessage('Test error');
@@ -106,9 +93,9 @@ class Auth0ClientTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_tests_connection_successfully(): void
     {
-        $this->mockHandler->append(
-            new Response(200, [], json_encode([]))
-        );
+        Http::fake([
+            'test.auth0.com/*' => Http::response([], 200),
+        ]);
 
         $result = $this->client->testConnection();
 
@@ -118,18 +105,19 @@ class Auth0ClientTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_pagination(): void
     {
-        // First page
-        $this->mockHandler->append(
-            new Response(200, [], json_encode([
-                ['id' => 1],
-                ['id' => 2],
-            ]))
-        );
+        Http::fake(function ($request) {
+            $query = parse_url($request->url(), PHP_URL_QUERY);
+            parse_str($query, $params);
 
-        // Second page (empty)
-        $this->mockHandler->append(
-            new Response(200, [], json_encode([]))
-        );
+            if (($params['page'] ?? 0) == 0) {
+                return Http::response([
+                    ['id' => 1],
+                    ['id' => 2],
+                ], 200);
+            }
+
+            return Http::response([], 200);
+        });
 
         $results = [];
         foreach ($this->client->paginate('test-endpoint', [], 2) as $result) {

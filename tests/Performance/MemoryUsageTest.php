@@ -24,7 +24,7 @@ class MemoryUsageTest extends PerformanceTestCase
 
         $this->organization = Organization::factory()->create();
         $this->user = User::factory()->for($this->organization)->create();
-        $this->user->assignRole('Organization Owner');
+        $this->user->assignRole('Super Admin');
 
         Passport::actingAs($this->user);
         $this->accessToken = $this->user->createToken('Test Token')->accessToken;

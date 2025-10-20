@@ -27,6 +27,9 @@ class ApplicationApiTest extends TestCase
     {
         parent::setUp();
 
+        // Clear Spatie Permission cache before each test to prevent pollution
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
         $this->organization = Organization::factory()->create();
 
         // Create required roles for API guard
@@ -38,6 +41,11 @@ class ApplicationApiTest extends TestCase
         $this->adminUser = $this->createApiOrganizationAdmin([
             'organization_id' => $this->organization->id,
         ]);
+
+        // Force reload permissions to ensure they're fresh
+        $this->adminUser->unsetRelation('permissions');
+        $this->adminUser->unsetRelation('roles');
+        $this->adminUser->load('roles.permissions', 'permissions');
 
         $this->regularUser = $this->createApiUser([
             'organization_id' => $this->organization->id,

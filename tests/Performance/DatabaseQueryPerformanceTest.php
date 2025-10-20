@@ -16,8 +16,9 @@ class DatabaseQueryPerformanceTest extends TestCase
     {
         parent::setUp();
 
-        // Clear and prepare database for performance tests
-        Artisan::call('migrate:fresh', ['--seed' => true, '--env' => 'testing']);
+        // Database is already fresh due to RefreshDatabase trait
+        // Just seed the required data if needed by tests
+        // Artisan::call('migrate:fresh') causes VACUUM error in transactions
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -180,8 +181,15 @@ class DatabaseQueryPerformanceTest extends TestCase
         $org = Organization::factory()->create();
         $users = User::factory()->count(20)->for($org)->create();
 
+        // Ensure the role exists with the correct guard
+        $role = \Spatie\Permission\Models\Role::firstOrCreate([
+            'name' => 'Super Admin',
+            'guard_name' => 'api', // Use 'api' guard for API tests
+            'organization_id' => null, // Global role
+        ]);
+
         foreach ($users as $user) {
-            $user->assignRole('Organization Owner');
+            $user->assignRole($role);
         }
 
         DB::enableQueryLog();

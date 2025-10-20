@@ -299,7 +299,9 @@ class MigrationIntegrationTest extends TestCase
 
         $user = User::where('email', 'user@example.com')->first();
 
-        $this->assertNotNull($user->metadata);
+        // Add null check before accessing metadata
+        $this->assertNotNull($user, 'User should exist after migration');
+        $this->assertNotNull($user->metadata, 'User metadata should exist');
         $this->assertEquals('+1234567890', $user->metadata['phone'] ?? null);
         $this->assertEquals('premium', $user->metadata['subscription'] ?? null);
     }

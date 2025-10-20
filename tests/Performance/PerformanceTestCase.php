@@ -3,6 +3,7 @@
 namespace Tests\Performance;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -15,6 +16,11 @@ abstract class PerformanceTestCase extends TestCase
 
     protected function setUp(): void
     {
+        // CRITICAL: Call parent::setUp() which includes RefreshDatabase
+        // RefreshDatabase will:
+        // 1. Migrate database once (first test only)
+        // 2. Start a transaction for test isolation
+        // 3. Transaction will be rolled back in tearDown automatically
         parent::setUp();
 
         // Seed roles if they don't exist - child classes need this for authentication
@@ -24,6 +30,12 @@ abstract class PerformanceTestCase extends TestCase
         RateLimiter::for('api', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
         RateLimiter::for('auth', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
         RateLimiter::for('oauth', fn () => \Illuminate\Cache\RateLimiting\Limit::none());
+
+        // Mock haveibeenpwned API for Password::uncompromised() validation
+        // This prevents tests from hitting external API and failing
+        Http::fake([
+            'api.pwnedpasswords.com/*' => Http::response('0', 200), // Password not compromised
+        ]);
 
         $this->metrics = [
             'start_time' => microtime(true),
