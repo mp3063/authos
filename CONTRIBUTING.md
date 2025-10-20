@@ -71,7 +71,7 @@ git checkout -b fix/issue-description
 
 ### 2. Make Your Changes
 
-Follow our [Code Standards](CODE_STANDARDS.md) while developing.
+Follow our [Code Standards](.claude/CODE_STANDARDS.md) while developing.
 
 ### 3. Run Quality Checks
 

@@ -64,7 +64,7 @@ Detailed completion reports for each development phase.
 
 ### For Developers
 1. Start with [../CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
-2. Review [../CODE_STANDARDS.md](../CODE_STANDARDS.md) - Coding standards
+2. Review [../CODE_STANDARDS.md](../.claude/CODE_STANDARDS.md) - Coding standards
 3. Read [development/QUALITY_TOOLS.md](./development/QUALITY_TOOLS.md) - Quality tools setup
 4. Check [testing/TEST_SUITE_SUMMARY.md](./testing/TEST_SUITE_SUMMARY.md) - Testing overview
 
@@ -108,7 +108,7 @@ Detailed completion reports for each development phase.
 - **Main README**: [../README.md](../README.md)
 - **Project Plan**: [../.claude/project_plan.md](../.claude/project_plan.md)
 - **Contributing Guide**: [../CONTRIBUTING.md](../CONTRIBUTING.md)
-- **Code Standards**: [../CODE_STANDARDS.md](../CODE_STANDARDS.md)
+- **Code Standards**: [../CODE_STANDARDS.md](../.claude/CODE_STANDARDS.md)
 
 ---
 

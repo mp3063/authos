@@ -48,10 +48,21 @@ herd start                    # http://authos.test
 herd php artisan migrate:refresh --seed
 herd php artisan passport:keys
 
-# Testing
-./run-tests.sh                             # Full suite (~1,280 tests)
+# Testing (Fast Parallel Execution - 4-10x faster!)
+./fast-tests.sh                            # All tests (parallel, auto CPU cores)
+./fast-tests.sh tests/Unit                 # Unit tests only (parallel)
+./fast-tests.sh --processes=8              # Custom process count
+herd composer test:parallel                # All tests via composer
+herd composer test:parallel:unit           # Unit tests only
+herd composer test:parallel:feature        # Feature tests only
+
+# Testing (Standard Execution)
+./run-tests.sh                             # All tests (parallel, timeout protected)
 ./run-tests.sh tests/Unit/                 # Unit tests
 ./run-tests.sh tests/Integration/OAuth/    # OAuth integration
+herd composer test                         # Via composer
+herd composer test:unit                    # Unit tests only
+herd composer test:feature                 # Feature tests only
 herd composer test:coverage                # With coverage report
 
 # Code Quality
