@@ -4,7 +4,7 @@
 Enterprise authentication service - Auth0/Okta alternative with Filament 4 admin, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
 
 **Status**: Production-Ready ✅
-- **~1,350 test methods**, **154 API endpoints**, **12 Filament resources**
+- **~1,280 test methods**, **154 API endpoints**, **12 Filament resources**
 - Multi-tenant with organization isolation
 - Complete OAuth 2.0 + PKCE, OIDC, SAML 2.0
 - 5 social providers (Google, GitHub, Facebook, Twitter, LinkedIn)
@@ -49,10 +49,9 @@ herd php artisan migrate:refresh --seed
 herd php artisan passport:keys
 
 # Testing
-./run-tests.sh                             # Full suite (~1,350 tests)
+./run-tests.sh                             # Full suite (~1,280 tests)
 ./run-tests.sh tests/Unit/                 # Unit tests
 ./run-tests.sh tests/Integration/OAuth/    # OAuth integration
-./run-dusk.sh                              # E2E browser tests
 herd composer test:coverage                # With coverage report
 
 # Code Quality
