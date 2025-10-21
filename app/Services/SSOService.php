@@ -90,9 +90,7 @@ class SSOService
         ];
 
         // Add MFA status if MFA is enabled for user/organization
-        $orgMfaRequired = $user->organization && is_array($user->organization->settings)
-            ? ($user->organization->settings['mfa_required'] ?? false)
-            : false;
+        $orgMfaRequired = $user->organization && is_array($user->organization->settings) && (($user->organization->settings['mfa_required'] ?? false));
 
         if ($user->mfa_enabled || $orgMfaRequired) {
             $metadata['mfa_verified'] = $user->mfa_enabled;
@@ -100,8 +98,7 @@ class SSOService
 
         // Update external_session_id and metadata separately to avoid guarded attribute issues
         $session->external_session_id = $state;
-        $session->metadata = array_merge($session->metadata ?? [], $metadata);
-        $session->save();
+        $this->updateSessionMetadata($session, $metadata);
 
         return [
             'redirect_url' => $redirectUrl,
@@ -151,13 +148,11 @@ class SSOService
         $authCode = Str::random(32);
 
         // Store auth code in session metadata for validation
-        // Update metadata directly to avoid guarded attribute issues
-        $session->metadata = array_merge($session->metadata ?? [], [
+        $this->updateSessionMetadata($session, [
             'auth_code' => $authCode,
             'auth_code_expires' => now()->addMinutes(10)->timestamp,
             'redirect_uri' => $redirectUri,
         ]);
-        $session->save();
 
         return [
             'auth_code' => $authCode,
@@ -442,20 +437,6 @@ class SSOService
     }
 
     /**
-     * Get active SSO sessions for a user
-     *
-     * @return Collection<int, SSOSession>
-     */
-    public function getActiveSSOSessions(int $userId): Collection
-    {
-        return SSOSession::with(['application'])
-            ->where('user_id', $userId)
-            ->active()
-            ->orderBy('last_activity_at', 'desc')
-            ->get();
-    }
-
-    /**
      * Get SSO configuration for organization
      */
     public function getSSOConfiguration(int $organizationId): ?SSOConfiguration
@@ -694,16 +675,12 @@ class SSOService
         }
 
         // Update session with tokens and user info
-        $existingMetadata = $sessionMetadata;
-        $newMetadata = array_merge($existingMetadata, [
+        $this->updateSessionMetadata($session, [
             'access_token' => $accessToken,
             'id_token' => $idToken,
             'refresh_token' => $refreshToken,
             'user_info' => $userInfo,
         ]);
-
-        $session->metadata = $newMetadata;
-        $session->save();
 
         // Log authentication result
         if ($authenticationSuccessful) {
@@ -851,16 +828,13 @@ class SSOService
             $newRefreshToken = 'new-refresh-token-123';
         }
 
-        $updatedMetadata = array_merge($session->metadata ?? [], [
+        // Update attributes separately to avoid guarded attribute issues
+        $session->refresh_token = $newRefreshToken;
+        $this->updateSessionMetadata($session, [
             'access_token' => $newAccessToken,
             'refresh_token' => $newRefreshToken,
             'token_updated_at' => now()->toISOString(),
         ]);
-
-        // Update attributes separately to avoid guarded attribute issues
-        $session->refresh_token = $newRefreshToken;
-        $session->metadata = $updatedMetadata;
-        $session->save();
 
         return [
             'success' => true,
@@ -1135,5 +1109,14 @@ class SSOService
             'email' => 'user@example.com',
             'name' => 'SAML User',
         ];
+    }
+
+    /**
+     * Update session metadata with new data
+     */
+    private function updateSessionMetadata(SSOSession $session, array $newData): void
+    {
+        $session->metadata = array_merge($session->metadata ?? [], $newData);
+        $session->save();
     }
 }
