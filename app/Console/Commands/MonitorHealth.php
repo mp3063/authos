@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use App\Services\AlertingService;
@@ -21,12 +23,10 @@ class MonitorHealth extends Command
      */
     protected $description = 'Monitor system health and optionally send alerts';
 
-    protected AlertingService $alertingService;
-
-    public function __construct(AlertingService $alertingService)
-    {
+    public function __construct(
+        protected AlertingService $alertingService
+    ) {
         parent::__construct();
-        $this->alertingService = $alertingService;
     }
 
     /**

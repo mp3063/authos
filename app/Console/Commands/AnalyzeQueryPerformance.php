@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use App\Services\PerformanceMonitoringService;
@@ -22,7 +24,7 @@ class AnalyzeQueryPerformance extends Command
     /**
      * Execute the console command.
      */
-    public function handle(PerformanceMonitoringService $performanceService)
+    public function handle(PerformanceMonitoringService $performanceService): int
     {
         $hours = (int) $this->option('hours');
         $showRecommendations = $this->option('recommendations');
