@@ -9,12 +9,14 @@ use App\Models\User;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
 use BackedEnum;
+use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -24,6 +26,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class WebhookDeliveryResource extends Resource
@@ -64,6 +67,9 @@ class WebhookDeliveryResource extends Resource
         return $schema->schema([]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public static function table(Table $table): Table
     {
         return $table->columns([
@@ -71,7 +77,7 @@ class WebhookDeliveryResource extends Resource
                 ->label('Webhook')
                 ->searchable()
                 ->sortable()
-                ->description(fn (WebhookDelivery $record): string => \Illuminate\Support\Str::limit($record->webhook->url ?? 'N/A', 40))
+                ->description(fn (WebhookDelivery $record): string => Str::limit($record->webhook->url ?? 'N/A', 40))
                 ->url(
                     fn (WebhookDelivery $record): ?string => $record->webhook ? route('filament.admin.resources.webhooks.view', ['record' => $record->webhook]) : null
                 ),
@@ -189,10 +195,10 @@ class WebhookDeliveryResource extends Resource
                 ->native(false),
 
             Filter::make('created_at')
-                ->form([
-                    \Filament\Forms\Components\DatePicker::make('created_from')
+                ->schema([
+                    DatePicker::make('created_from')
                         ->label('Created from'),
-                    \Filament\Forms\Components\DatePicker::make('created_until')
+                    DatePicker::make('created_until')
                         ->label('Created until'),
                 ])
                 ->query(function (Builder $query, array $data): Builder {
@@ -224,7 +230,7 @@ class WebhookDeliveryResource extends Resource
                                 ->title('Delivery queued for retry')
                                 ->success()
                                 ->send();
-                        } catch (\Exception $e) {
+                        } catch (Exception $e) {
                             Notification::make()
                                 ->title('Error queuing retry')
                                 ->body($e->getMessage())
@@ -260,7 +266,7 @@ class WebhookDeliveryResource extends Resource
                         }
 
                         Notification::make()
-                            ->title("Retried {$retried} deliveries")
+                            ->title("Retried $retried deliveries")
                             ->success()
                             ->send();
                     }),

@@ -7,11 +7,11 @@ use App\Filament\Resources\WebhookDeliveryResource;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
 use Filament\Actions;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\TextEntry;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 
@@ -175,7 +175,7 @@ class ViewWebhookDelivery extends ViewRecord
                                     ->label('Next Retry At')
                                     ->dateTime()
                                     ->placeholder('Not scheduled')
-                                    ->description(fn ($state) => $state ? $state->diffForHumans() : null),
+                                    ->sinceTooltip(),
                                 TextEntry::make('signature')
                                     ->label('Webhook Signature')
                                     ->copyable()
@@ -193,15 +193,15 @@ class ViewWebhookDelivery extends ViewRecord
                             ->schema([
                                 TextEntry::make('created_at')
                                     ->dateTime()
-                                    ->description(fn ($state) => $state->diffForHumans()),
+                                    ->sinceTooltip(),
                                 TextEntry::make('sent_at')
                                     ->dateTime()
                                     ->placeholder('Not sent yet')
-                                    ->description(fn ($state) => $state ? $state->diffForHumans() : null),
+                                    ->sinceTooltip(),
                                 TextEntry::make('completed_at')
                                     ->dateTime()
                                     ->placeholder('Not completed')
-                                    ->description(fn ($state) => $state ? $state->diffForHumans() : null),
+                                    ->sinceTooltip(),
                             ]),
                     ])
                     ->collapsible()

@@ -23,6 +23,12 @@ class Register extends BaseRegister
             ]);
     }
 
+    /**
+     * Get the organization form component.
+     *
+     *
+     * @throws \Throwable
+     */
     protected function getOrganizationFormComponent(): Select
     {
         return Select::make('organization_id')
@@ -30,7 +36,7 @@ class Register extends BaseRegister
             ->options(
                 Organization::where('is_active', true)
                     ->get()
-                    ->filter(function ($organization) {
+                    ->filter(function (Organization $organization): bool {
                         $settings = $organization->settings ?? [];
 
                         return ! isset($settings['allow_registration']) || $settings['allow_registration'] !== false;

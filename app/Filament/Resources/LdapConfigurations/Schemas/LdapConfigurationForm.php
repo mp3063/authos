@@ -2,22 +2,25 @@
 
 namespace App\Filament\Resources\LdapConfigurations\Schemas;
 
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class LdapConfigurationForm
 {
+    /**
+     * @throws \Throwable
+     */
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->schema([
                 Section::make('Basic Information')->schema([
-                    Grid::make(2)->schema([
+                    Grid::make()->schema([
                         Select::make('organization_id')
                             ->relationship('organization', 'name')
                             ->required()
@@ -35,7 +38,7 @@ class LdapConfigurationForm
                 ]),
 
                 Section::make('Connection Settings')->schema([
-                    Grid::make(2)->schema([
+                    Grid::make()->schema([
                         TextInput::make('host')
                             ->required()
                             ->maxLength(255)
@@ -59,7 +62,7 @@ class LdapConfigurationForm
                             ->helperText('Enable STARTTLS after initial connection'),
                     ]),
 
-                    Grid::make(1)->schema([
+                    Grid::make()->schema([
                         TextInput::make('base_dn')
                             ->required()
                             ->maxLength(255)
@@ -69,7 +72,7 @@ class LdapConfigurationForm
                 ]),
 
                 Section::make('Authentication')->schema([
-                    Grid::make(2)->schema([
+                    Grid::make()->schema([
                         TextInput::make('username')
                             ->label('Bind DN')
                             ->required()
@@ -87,7 +90,7 @@ class LdapConfigurationForm
                 ]),
 
                 Section::make('User Synchronization')->schema([
-                    Grid::make(2)->schema([
+                    Grid::make()->schema([
                         TextInput::make('user_filter')
                             ->placeholder('(objectClass=person)')
                             ->maxLength(255)
@@ -104,9 +107,9 @@ class LdapConfigurationForm
                             ->default(true)
                             ->helperText('Disable to prevent authentication via this LDAP server'),
 
-                        Placeholder::make('last_sync_info')
+                        TextEntry::make('last_sync_info')
                             ->label('Last Synchronization')
-                            ->content(fn ($record) => $record?->last_sync_at
+                            ->formatStateUsing(fn ($record) => $record?->last_sync_at
                                 ? $record->last_sync_at->diffForHumans()
                                 : 'Never synchronized')
                             ->visible(fn ($context) => $context === 'edit'),

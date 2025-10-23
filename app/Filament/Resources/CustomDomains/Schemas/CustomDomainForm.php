@@ -3,22 +3,25 @@
 namespace App\Filament\Resources\CustomDomains\Schemas;
 
 use Filament\Actions\Action;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class CustomDomainForm
 {
+    /**
+     * @throws \Throwable
+     */
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->schema([
                 Section::make('Domain Configuration')->schema([
-                    Grid::make(2)->schema([
+                    Grid::make()->schema([
                         Select::make('organization_id')
                             ->relationship('organization', 'name')
                             ->required()
@@ -52,14 +55,14 @@ class CustomDomainForm
                 Section::make('DNS Verification')
                     ->description('Configure DNS records to verify domain ownership')
                     ->schema([
-                        Placeholder::make('verification_code')
+                        TextEntry::make('verification_code')
                             ->label('Verification Code')
-                            ->content(fn ($record) => $record?->verification_code ?? 'Will be generated after creation')
+                            ->formatStateUsing(fn ($state) => $state ?? 'Will be generated after creation')
                             ->visible(fn ($context) => $context === 'edit'),
 
-                        Placeholder::make('dns_instructions')
+                        TextEntry::make('dns_instructions')
                             ->label('DNS Configuration Instructions')
-                            ->content(function ($record) {
+                            ->formatStateUsing(function ($record) {
                                 if (! $record) {
                                     return 'DNS instructions will appear after domain creation';
                                 }
@@ -80,9 +83,9 @@ class CustomDomainForm
                             })
                             ->visible(fn ($context) => $context === 'edit'),
 
-                        Placeholder::make('verification_status')
+                        TextEntry::make('verification_status')
                             ->label('Verification Status')
-                            ->content(fn ($record) => $record?->verified_at
+                            ->formatStateUsing(fn ($record) => $record?->verified_at
                                 ? '✓ Verified on '.$record->verified_at->format('M d, Y H:i')
                                 : '⏳ Pending verification - Add DNS records above')
                             ->visible(fn ($context) => $context === 'edit'),
@@ -92,9 +95,9 @@ class CustomDomainForm
                 Section::make('SSL Certificate')
                     ->description('SSL certificate information (automatically managed)')
                     ->schema([
-                        Placeholder::make('ssl_info')
+                        TextEntry::make('ssl_info')
                             ->label('SSL Certificate Status')
-                            ->content(fn ($record) => $record?->ssl_certificate
+                            ->formatStateUsing(fn ($record) => $record?->ssl_certificate
                                 ? 'SSL Certificate installed and active'
                                 : 'SSL Certificate will be provisioned after verification')
                             ->visible(fn ($context) => $context === 'edit'),

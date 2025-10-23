@@ -8,6 +8,7 @@ use App\Filament\Resources\PermissionResource\Pages\ListPermissions;
 use App\Filament\Resources\PermissionResource\Pages\ViewPermission;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -44,8 +45,12 @@ class PermissionResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * @throws \Throwable
+     */
     public static function form(Schema $schema): Schema
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         return $schema
@@ -70,17 +75,17 @@ class PermissionResource extends Resource
                         // Hidden field to set organization_id for non-super admins
                         Select::make('organization_id')
                             ->relationship('organization', 'name')
-                            ->default($user->isSuperAdmin() ? null : $user->organization_id)
-                            ->disabled(! $user->isSuperAdmin())
-                            ->hidden(! $user->isSuperAdmin())
-                            ->helperText($user->isSuperAdmin() ? 'Leave empty for global permission' : 'Organization scope'),
-                    ])->columns(2),
+                            ->default($user && $user->isSuperAdmin() ? null : $user?->organization_id)
+                            ->disabled(! ($user && $user->isSuperAdmin()))
+                            ->hidden(! ($user && $user->isSuperAdmin()))
+                            ->helperText($user && $user->isSuperAdmin() ? 'Leave empty for global permission' : 'Organization scope'),
+                    ])->columns(),
 
                 Section::make('Assignment')
                     ->schema([
                         Select::make('roles')
                             ->relationship('roles', 'name', function ($query) use ($user) {
-                                if (! $user->isSuperAdmin()) {
+                                if ($user && ! $user->isSuperAdmin()) {
                                     // Only show roles for user's organization or global roles
                                     $query->where(function ($q) use ($user) {
                                         $q->where('organization_id', $user->organization_id)
@@ -96,6 +101,9 @@ class PermissionResource extends Resource
             ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public static function table(Table $table): Table
     {
         return $table
@@ -153,8 +161,7 @@ class PermissionResource extends Resource
                     ->listWithLineBreaks()
                     ->limitList(3)
                     ->expandableLimitedList()
-                    ->badge()
-                    ->separator(','),
+                    ->badge(),
 
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -181,7 +188,7 @@ class PermissionResource extends Resource
 
                 Filter::make('scope')
                     ->label('Permission Scope')
-                    ->form([
+                    ->schema([
                         Select::make('scope')->options([
                             'global' => 'Global Permissions',
                             'organization' => 'Organization Permissions',
@@ -209,8 +216,8 @@ class PermissionResource extends Resource
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
                             $data['value'],
-                            fn (Builder $query, $category): Builder => $query->where('name', 'like', "{$category}.%")
-                                ->orWhere('name', 'like', "%{$category}%"),
+                            fn (Builder $query, $category): Builder => $query->where('name', 'like', "$category.%")
+                                ->orWhere('name', 'like', "%$category%"),
                         );
                     }),
 
@@ -222,7 +229,7 @@ class PermissionResource extends Resource
                     ->query(fn (Builder $query): Builder => $query->has('users'))
                     ->label('Direct User Permissions'),
             ])
-            ->actions([
+            ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
@@ -231,7 +238,7 @@ class PermissionResource extends Resource
                         ->label('Assign to Role')
                         ->icon('heroicon-o-plus')
                         ->color('success')
-                        ->form([
+                        ->schema([
                             Select::make('role')
                                 ->relationship('roles', 'name')
                                 ->required()
@@ -270,7 +277,7 @@ class PermissionResource extends Resource
                         ->label('Assign to Role')
                         ->icon('heroicon-o-user-group')
                         ->color('success')
-                        ->form([
+                        ->schema([
                             Select::make('role')
                                 ->relationship('roles', 'name')
                                 ->required()
@@ -309,14 +316,15 @@ class PermissionResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return static::getModel()::count();
         }
 
         return static::getModel()::where(function ($query) use ($user) {
-            $query->where('organization_id', $user->organization_id)
+            $query->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         })->count();
     }
@@ -324,54 +332,59 @@ class PermissionResource extends Resource
     public static function getEloquentQuery(): EloquentBuilder
     {
         $query = parent::getEloquentQuery();
+
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can see all permissions
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return $query;
         }
 
         // Organization users can only see their organization's permissions + global permissions
         return $query->where(function ($q) use ($user) {
-            $q->where('organization_id', $user->organization_id)
+            $q->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         });
     }
 
     public static function canCreate(): bool
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
-        return $user->isSuperAdmin() ||
-               $user->hasOrganizationPermission('permissions.create');
+        return ($user && $user->isSuperAdmin()) ||
+               ($user && $user->hasOrganizationPermission('permissions.create'));
     }
 
     public static function canEdit($record): bool
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can edit all permissions
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return true;
         }
 
         // Organization users can only edit their organization's permissions
-        return $record->organization_id === $user->organization_id &&
+        return $user && $record->organization_id === $user->organization_id &&
                $user->hasOrganizationPermission('permissions.update');
     }
 
     public static function canDelete($record): bool
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can delete permissions (except global system permissions)
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return ! str_starts_with($record->name, 'system.') &&
                    ! in_array($record->name, ['admin.access', 'access admin panel']);
         }
 
         // Organization users can only delete their organization's permissions
-        return $record->organization_id === $user->organization_id &&
+        return $user && $record->organization_id === $user->organization_id &&
                $user->hasOrganizationPermission('permissions.delete');
     }
 }

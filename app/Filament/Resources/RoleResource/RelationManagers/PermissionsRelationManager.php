@@ -19,6 +19,9 @@ class PermissionsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * @throws \Throwable
+     */
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -29,6 +32,9 @@ class PermissionsRelationManager extends RelationManager
             ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function table(Table $table): Table
     {
         return $table
@@ -71,10 +77,10 @@ class PermissionsRelationManager extends RelationManager
                     ->preloadRecordSelect()
                     ->multiple(),
             ])
-            ->actions([
+            ->recordActions([
                 DetachAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
                     DetachBulkAction::make(),
                 ]),

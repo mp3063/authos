@@ -19,6 +19,9 @@ class ApplicationsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * @throws \Throwable
+     */
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -55,6 +58,9 @@ class ApplicationsRelationManager extends RelationManager
             ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function table(Table $table): Table
     {
         return $table
@@ -98,11 +104,11 @@ class ApplicationsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make(),
             ])
-            ->actions([
+            ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

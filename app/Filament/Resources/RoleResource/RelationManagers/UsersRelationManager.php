@@ -18,6 +18,9 @@ class UsersRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * @throws \Throwable
+     */
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -28,6 +31,9 @@ class UsersRelationManager extends RelationManager
             ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function table(Table $table): Table
     {
         return $table
@@ -64,10 +70,10 @@ class UsersRelationManager extends RelationManager
                 AttachAction::make()
                     ->preloadRecordSelect(),
             ])
-            ->actions([
+            ->recordActions([
                 DetachAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
                     DetachBulkAction::make(),
                 ]),

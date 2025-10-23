@@ -3,9 +3,9 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AuthenticationLog;
-use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Tables\Actions\Action;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -50,13 +50,13 @@ class UserActivityWidget extends BaseWidget
                     ->label('Time')
                     ->dateTime('M d, H:i:s')
                     ->sortable()
-                    ->size(TextColumn\TextColumnSize::ExtraSmall),
+                    ->size(TextSize::ExtraSmall),
 
                 TextColumn::make('event')
                     ->badge()
                     ->color(fn ($record) => $record->getEventBadgeColor())
                     ->icon(fn ($record) => $record->getEventIcon())
-                    ->size(TextColumn\TextColumnSize::Small),
+                    ->size(TextSize::Small),
 
                 TextColumn::make('user.name')
                     ->label('User')
@@ -82,7 +82,7 @@ class UserActivityWidget extends BaseWidget
                     ->copyable()
                     ->icon('heroicon-o-globe-alt')
                     ->color('gray')
-                    ->size(TextColumn\TextColumnSize::Small),
+                    ->size(TextSize::Small),
 
                 TextColumn::make('location')
                     ->label('Location')
@@ -96,7 +96,7 @@ class UserActivityWidget extends BaseWidget
                     })
                     ->icon('heroicon-o-map-pin')
                     ->color('gray')
-                    ->size(TextColumn\TextColumnSize::Small),
+                    ->size(TextSize::Small),
 
                 TextColumn::make('user_agent')
                     ->label('Device')
@@ -166,7 +166,7 @@ class UserActivityWidget extends BaseWidget
                     ->searchable()
                     ->preload(),
             ])
-            ->actions([
+            ->recordActions([
                 Action::make('view_details')
                     ->icon('heroicon-o-eye')
                     ->color('gray')

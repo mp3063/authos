@@ -3,16 +3,16 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Invitation;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
-use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\BulkAction;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Mail;
 
 class PendingInvitationsWidget extends BaseWidget
 {
@@ -121,7 +121,7 @@ class PendingInvitationsWidget extends BaseWidget
                         return implode(' • ', $info) ?: 'New invitation';
                     })
                     ->color('gray')
-                    ->size(TextColumn\TextColumnSize::ExtraSmall),
+                    ->size(TextSize::ExtraSmall),
             ])
             ->filters([
                 SelectFilter::make('role')
@@ -133,7 +133,7 @@ class PendingInvitationsWidget extends BaseWidget
                     ])
                     ->multiple(),
             ])
-            ->actions([
+            ->recordActions([
                 Action::make('resend')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
@@ -200,7 +200,7 @@ class PendingInvitationsWidget extends BaseWidget
                     ->modalDescription(fn ($record) => "Are you sure you want to cancel the invitation for {$record->email}?")
                     ->modalSubmitActionLabel('Cancel Invitation'),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkAction::make('resend_selected')
                     ->label('Resend Selected')
                     ->icon('heroicon-o-paper-airplane')

@@ -9,6 +9,7 @@ use App\Filament\Resources\RoleResource\Pages\ViewRole;
 use App\Filament\Resources\RoleResource\RelationManagers\PermissionsRelationManager;
 use App\Filament\Resources\RoleResource\RelationManagers\UsersRelationManager;
 use App\Models\Role;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -46,8 +47,12 @@ class RoleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * @throws \Throwable
+     */
     public static function form(Schema $schema): Schema
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         return $schema->schema([
@@ -66,19 +71,19 @@ class RoleResource extends Resource
                 // Hidden field to set organization_id for non-super admins
                 Select::make('organization_id')
                     ->relationship('organization', 'name')
-                    ->default($user->isSuperAdmin() ? null : $user->organization_id)
-                    ->disabled(! $user->isSuperAdmin())
-                    ->hidden(! $user->isSuperAdmin())
-                    ->helperText($user->isSuperAdmin() ? 'Leave empty for global role' : 'Organization scope'),
-            ])->columns(2),
+                    ->default($user && $user->isSuperAdmin() ? null : $user?->organization_id)
+                    ->disabled(! ($user && $user->isSuperAdmin()))
+                    ->hidden(! ($user && $user->isSuperAdmin()))
+                    ->helperText($user && $user->isSuperAdmin() ? 'Leave empty for global role' : 'Organization scope'),
+            ]),
 
             Section::make('Permissions')->schema([
                 CheckboxList::make('permissions')
                     ->relationship('permissions', 'name', function ($query) use ($user) {
-                        if (! $user->isSuperAdmin()) {
+                        if ($user && ! $user->isSuperAdmin()) {
                             // Only show permissions for user's organization or global permissions
                             $query->where(function ($q) use ($user) {
-                                $q->where('organization_id', $user->organization_id)
+                                $q->where('organization_id', $user?->organization_id)
                                     ->orWhereNull('organization_id');
                             });
                         }
@@ -92,6 +97,9 @@ class RoleResource extends Resource
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public static function table(Table $table): Table
     {
         return $table->columns([
@@ -116,8 +124,7 @@ class RoleResource extends Resource
                 ->listWithLineBreaks()
                 ->limitList(3)
                 ->expandableLimitedList()
-                ->badge()
-                ->separator(','),
+                ->badge(),
 
             TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
 
@@ -136,7 +143,7 @@ class RoleResource extends Resource
 
             Filter::make('scope')
                 ->label('Role Scope')
-                ->form([
+                ->schema([
                     Select::make('scope')->options([
                         'global' => 'Global Roles',
                         'organization' => 'Organization Roles',
@@ -166,7 +173,7 @@ class RoleResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
 
-                Action::make('duplicate')->label('Duplicate Role')->icon('heroicon-o-squares-plus')->color('gray')->form([
+                Action::make('duplicate')->label('Duplicate Role')->icon('heroicon-o-squares-plus')->color('gray')->schema([
                     TextInput::make('name')->required()->placeholder('New role name')->helperText('Enter name for the duplicated role'),
                 ])->action(function ($record, $data) {
                     $newRole = $record->replicate();
@@ -194,9 +201,11 @@ class RoleResource extends Resource
 
                             return false;
                         }
+
+                        return true;
                     }),
             ]),
-        ])->bulkActions([
+        ])->toolbarActions([
             BulkActionGroup::make([
                 DeleteBulkAction::make()->requiresConfirmation()->modalDescription('Are you sure you want to delete these roles?'),
 
@@ -236,14 +245,15 @@ class RoleResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return static::getModel()::count();
         }
 
         return static::getModel()::where(function ($query) use ($user) {
-            $query->where('organization_id', $user->organization_id)
+            $query->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         })->count();
     }
@@ -251,16 +261,18 @@ class RoleResource extends Resource
     public static function getEloquentQuery(): EloquentBuilder
     {
         $query = parent::getEloquentQuery();
+
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can see all roles
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return $query;
         }
 
         // Organization users can only see their organization's roles + global roles
         return $query->where(function ($q) use ($user) {
-            $q->where('organization_id', $user->organization_id)
+            $q->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         });
     }
@@ -275,30 +287,32 @@ class RoleResource extends Resource
 
     public static function canEdit($record): bool
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can edit all roles
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return true;
         }
 
         // Organization users can only edit their organization's roles
-        return $record->organization_id === $user->organization_id &&
+        return $user && $record->organization_id === $user->organization_id &&
                $user->hasOrganizationPermission('roles.update');
     }
 
     public static function canDelete($record): bool
     {
+        /** @var User|null $user */
         $user = Filament::auth()->user();
 
         // Super admins can delete all roles (except global system roles)
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return ! in_array($record->name, ['Super Admin', 'System Administrator']);
         }
 
         // Organization users can only delete their organization's roles
-        return $record->organization_id === $user->organization_id &&
+        return $user && $record->organization_id === $user->organization_id &&
                $user->hasOrganizationPermission('roles.delete') &&
-               ! in_array($record->name, ['Organization Owner']); // Prevent deleting owner role
+               $record->name != 'Organization Owner'; // Prevent deleting owner role
     }
 }

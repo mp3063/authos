@@ -5,11 +5,13 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AuthenticationLogResource\Pages\ListAuthenticationLogs;
 use App\Filament\Resources\AuthenticationLogResource\Pages\ViewAuthenticationLog;
 use App\Models\AuthenticationLog;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -43,12 +45,18 @@ class AuthenticationLogResource extends Resource
         return false;
     }
 
+    /**
+     * @throws \Throwable
+     */
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([// This resource is read-only, no form needed
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public static function table(Table $table): Table
     {
         return $table->columns([
@@ -113,16 +121,16 @@ class AuthenticationLogResource extends Resource
 
             SelectFilter::make('application')->relationship('application', 'name')->searchable()->preload(),
 
-            Filter::make('ip_address')->form([
+            Filter::make('ip_address')->schema([
                 TextInput::make('ip')->label('IP Address'),
             ])->query(function (Builder $query, array $data): Builder {
                 return $query->when(
                     $data['ip'],
-                    fn (Builder $query, $ip): Builder => $query->where('ip_address', 'like', "%{$ip}%"),
+                    fn (Builder $query, $ip): Builder => $query->where('ip_address', 'like', "%$ip%"),
                 );
             }),
 
-            Filter::make('date_range')->form([
+            Filter::make('date_range')->schema([
                 DatePicker::make('from')->label('From Date'),
                 DatePicker::make('until')->label('Until Date'),
             ])->query(function (Builder $query, array $data): Builder {
@@ -162,7 +170,7 @@ class AuthenticationLogResource extends Resource
                     ->modalDescription('Are you sure you want to delete these log entries? This action cannot be undone.')
                     ->visible(fn () => auth()->user()->can('delete authentication logs')),
 
-                BulkAction::make('export')->label('Export Selected')->icon('heroicon-o-arrow-down-tray')->color('gray')->action(function ($records) {
+                BulkAction::make('export')->label('Export Selected')->icon('heroicon-o-arrow-down-tray')->color('gray')->action(function () {
                     // Export functionality would be implemented here
                     Notification::make()
                         ->title('Export started')
@@ -209,15 +217,17 @@ class AuthenticationLogResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['user', 'application']);
-        $user = \Filament\Facades\Filament::auth()->user();
+
+        /** @var User|null $user */
+        $user = Filament::auth()->user();
 
         // Super admins can see all authentication logs
-        if ($user->isSuperAdmin()) {
+        if ($user && $user->isSuperAdmin()) {
             return $query;
         }
 
         // Other users can only see logs from their organization
-        if ($user->organization_id) {
+        if ($user && $user->organization_id) {
             $query->whereHas('user', function ($subQuery) use ($user) {
                 $subQuery->where('organization_id', $user->organization_id);
             });
