@@ -293,6 +293,85 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
     }
 
     // ============================================================
+    // SUFFIX PATTERN MATCH TESTS (*.created)
+    // ============================================================
+
+    #[Test]
+    public function suffix_pattern_matches_all_created_events()
+    {
+        // ARRANGE: Create webhook subscribed to "*.created" pattern
+        $webhook = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://example.com/webhook-created-pattern',
+            'events' => ['*.created'], // Pattern: matches user.created, application.created, organization.created, etc.
+            'is_active' => true,
+        ]);
+
+        $user = $this->createUser([
+            'organization_id' => $this->organization->id,
+            'email' => 'suffix@example.com',
+        ]);
+
+        $application = Application::factory()->create([
+            'organization_id' => $this->organization->id,
+            'name' => 'Suffix Test App',
+        ]);
+
+        // ACT: Dispatch various *.created events (should all match)
+        $eventUserCreated = new UserCreatedEvent($user);
+        $this->subscriber->handleUserCreated($eventUserCreated);
+
+        $eventAppCreated = new ApplicationCreatedEvent($application);
+        $this->subscriber->handleApplicationCreated($eventAppCreated);
+
+        // ASSERT: All *.created events matched
+        $this->assertDatabaseHas('webhook_deliveries', [
+            'webhook_id' => $webhook->id,
+            'event_type' => 'user.created',
+        ]);
+
+        $this->assertDatabaseHas('webhook_deliveries', [
+            'webhook_id' => $webhook->id,
+            'event_type' => 'application.created',
+        ]);
+
+        // ACT: Dispatch non-created events (should NOT match)
+        $eventUserUpdated = new UserUpdatedEvent($user, ['name' => 'Updated']);
+        $this->subscriber->handleUserUpdated($eventUserUpdated);
+
+        $eventUserDeleted = new UserDeletedEvent($user);
+        $this->subscriber->handleUserDeleted($eventUserDeleted);
+
+        $eventOrgUpdated = new OrganizationUpdatedEvent($this->organization, ['name' => 'Changed']);
+        $this->subscriber->handleOrganizationUpdated($eventOrgUpdated);
+
+        // ASSERT: Non-created events did NOT match *.created pattern
+        $this->assertDatabaseMissing('webhook_deliveries', [
+            'webhook_id' => $webhook->id,
+            'event_type' => 'user.updated',
+        ]);
+
+        $this->assertDatabaseMissing('webhook_deliveries', [
+            'webhook_id' => $webhook->id,
+            'event_type' => 'user.deleted',
+        ]);
+
+        $this->assertDatabaseMissing('webhook_deliveries', [
+            'webhook_id' => $webhook->id,
+            'event_type' => 'organization.updated',
+        ]);
+
+        // ASSERT: Only *.created events were delivered
+        $createdDeliveries = WebhookDelivery::where('webhook_id', $webhook->id)
+            ->whereIn('event_type', ['user.created', 'application.created'])
+            ->count();
+        $this->assertEquals(2, $createdDeliveries, 'Pattern *.created should match exactly 2 created events');
+
+        $totalDeliveries = WebhookDelivery::where('webhook_id', $webhook->id)->count();
+        $this->assertEquals(2, $totalDeliveries, 'Only created events should trigger webhook');
+    }
+
+    // ============================================================
     // PREFIX PATTERN MATCH TESTS (organization.*)
     // ============================================================
 

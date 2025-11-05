@@ -665,4 +665,306 @@ class WebhookDeliveryFlowTest extends IntegrationTestCase
         $this->assertContains($deliveryA->id, $orgADeliveries->pluck('id'));
         $this->assertNotContains($deliveryB->id, $orgADeliveries->pluck('id'));
     }
+
+    // ============================================================
+    // MULTIPLE EVENT TYPES
+    // ============================================================
+
+    #[Test]
+    public function multiple_event_types_delivered_correctly()
+    {
+        // ARRANGE: Create webhook subscribed to multiple events
+        $multiEventWebhook = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://example.com/webhook-multi',
+            'secret' => 'multi-secret',
+            'events' => ['user.created', 'user.updated', 'user.deleted', 'auth.login'],
+            'is_active' => true,
+        ]);
+
+        // Mock successful responses for all events
+        Http::fake([
+            'example.com/*' => Http::response(['status' => 'processed'], 200),
+        ]);
+
+        // ACT: Deliver different event types
+        $eventPayloads = [
+            ['event' => 'user.created', 'user_id' => 100, 'action' => 'create'],
+            ['event' => 'user.updated', 'user_id' => 100, 'action' => 'update'],
+            ['event' => 'user.deleted', 'user_id' => 100, 'action' => 'delete'],
+            ['event' => 'auth.login', 'user_id' => 100, 'action' => 'login'],
+        ];
+
+        $results = [];
+        foreach ($eventPayloads as $payload) {
+            $results[] = $this->deliveryService->deliverWebhook(
+                $multiEventWebhook,
+                $payload,
+                $payload['event']
+            );
+        }
+
+        // ASSERT: All deliveries successful
+        $this->assertCount(4, $results);
+        foreach ($results as $result) {
+            $this->assertTrue($result->success);
+        }
+
+        // ASSERT: Correct number of delivery records
+        $deliveries = WebhookDelivery::where('webhook_id', $multiEventWebhook->id)->get();
+        $this->assertCount(4, $deliveries);
+
+        // ASSERT: Each delivery has correct event type
+        $eventTypes = $deliveries->pluck('event_type')->toArray();
+        $this->assertContains('user.created', $eventTypes);
+        $this->assertContains('user.updated', $eventTypes);
+        $this->assertContains('user.deleted', $eventTypes);
+        $this->assertContains('auth.login', $eventTypes);
+
+        // ASSERT: Event type sent in header for each request
+        Http::assertSentCount(4);
+    }
+
+    // ============================================================
+    // CONCURRENT DELIVERY HANDLING
+    // ============================================================
+
+    #[Test]
+    public function concurrent_delivery_to_multiple_webhooks()
+    {
+        // ARRANGE: Create multiple webhooks for same organization
+        $webhook1 = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://webhook1.example.com/endpoint',
+            'secret' => 'secret-1',
+            'events' => ['user.created'],
+        ]);
+
+        $webhook2 = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://webhook2.example.com/endpoint',
+            'secret' => 'secret-2',
+            'events' => ['user.created'],
+        ]);
+
+        $webhook3 = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://webhook3.example.com/endpoint',
+            'secret' => 'secret-3',
+            'events' => ['user.created'],
+        ]);
+
+        // Mock different responses for each webhook
+        Http::fake([
+            'webhook1.example.com/*' => Http::response(['webhook' => '1', 'status' => 'ok'], 200),
+            'webhook2.example.com/*' => Http::response(['webhook' => '2', 'status' => 'ok'], 201),
+            'webhook3.example.com/*' => Http::response(['webhook' => '3', 'status' => 'ok'], 202),
+        ]);
+
+        $payload = [
+            'event' => 'user.created',
+            'user_id' => 12345,
+            'email' => 'concurrent@example.com',
+        ];
+
+        // ACT: Deliver to all webhooks concurrently (simulate parallel processing)
+        $result1 = $this->deliveryService->deliverWebhook($webhook1, $payload, 'user.created');
+        $result2 = $this->deliveryService->deliverWebhook($webhook2, $payload, 'user.created');
+        $result3 = $this->deliveryService->deliverWebhook($webhook3, $payload, 'user.created');
+
+        // ASSERT: All deliveries successful
+        $this->assertTrue($result1->success);
+        $this->assertTrue($result2->success);
+        $this->assertTrue($result3->success);
+
+        // ASSERT: Each got correct status code
+        $this->assertEquals(200, $result1->response_status);
+        $this->assertEquals(201, $result2->response_status);
+        $this->assertEquals(202, $result3->response_status);
+
+        // ASSERT: Each webhook has its own delivery record
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $webhook1->id)->get());
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $webhook2->id)->get());
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $webhook3->id)->get());
+
+        // ASSERT: Each webhook's stats updated independently
+        $webhook1->refresh();
+        $webhook2->refresh();
+        $webhook3->refresh();
+
+        $this->assertEquals(1, $webhook1->total_deliveries);
+        $this->assertEquals(1, $webhook2->total_deliveries);
+        $this->assertEquals(1, $webhook3->total_deliveries);
+
+        // ASSERT: Each has its own signature
+        $delivery1 = WebhookDelivery::where('webhook_id', $webhook1->id)->first();
+        $delivery2 = WebhookDelivery::where('webhook_id', $webhook2->id)->first();
+        $delivery3 = WebhookDelivery::where('webhook_id', $webhook3->id)->first();
+
+        $this->assertNotEquals($delivery1->signature, $delivery2->signature);
+        $this->assertNotEquals($delivery2->signature, $delivery3->signature);
+        $this->assertNotEquals($delivery1->signature, $delivery3->signature);
+    }
+
+    #[Test]
+    public function concurrent_delivery_handles_mixed_success_and_failure()
+    {
+        // ARRANGE: Create multiple webhooks
+        $successWebhook = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://success.example.com/webhook',
+            'secret' => 'success-secret',
+            'events' => ['test.event'],
+        ]);
+
+        $failureWebhook = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://failure.example.com/webhook',
+            'secret' => 'failure-secret',
+            'events' => ['test.event'],
+        ]);
+
+        $timeoutWebhook = Webhook::factory()->create([
+            'organization_id' => $this->organization->id,
+            'url' => 'https://timeout.example.com/webhook',
+            'secret' => 'timeout-secret',
+            'events' => ['test.event'],
+            'timeout_seconds' => 5,
+        ]);
+
+        // Mock different outcomes for each webhook
+        Http::fake([
+            'success.example.com/*' => Http::response(['status' => 'ok'], 200),
+            'failure.example.com/*' => Http::response(['error' => 'Internal Error'], 500),
+            'timeout.example.com/*' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('Timeout');
+            },
+        ]);
+
+        $payload = ['event' => 'test.event', 'data' => ['concurrent_test' => true]];
+
+        // ACT: Deliver to all webhooks
+        $successResult = $this->deliveryService->deliverWebhook($successWebhook, $payload, 'test.event');
+        $failureResult = $this->deliveryService->deliverWebhook($failureWebhook, $payload, 'test.event');
+        $timeoutResult = $this->deliveryService->deliverWebhook($timeoutWebhook, $payload, 'test.event');
+
+        // ASSERT: Success webhook delivered successfully
+        $this->assertTrue($successResult->success);
+        $this->assertEquals(200, $successResult->response_status);
+
+        // ASSERT: Failure webhook failed
+        $this->assertFalse($failureResult->success);
+        $this->assertEquals(500, $failureResult->response_status);
+
+        // ASSERT: Timeout webhook failed
+        $this->assertFalse($timeoutResult->success);
+
+        // ASSERT: Each webhook's stats reflect their outcome
+        $successWebhook->refresh();
+        $failureWebhook->refresh();
+        $timeoutWebhook->refresh();
+
+        $this->assertEquals(1, $successWebhook->successful_deliveries);
+        $this->assertEquals(0, $successWebhook->consecutive_failures);
+
+        $this->assertGreaterThan(0, $failureWebhook->consecutive_failures);
+        $this->assertGreaterThan(0, $timeoutWebhook->consecutive_failures);
+
+        // ASSERT: All have delivery records
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $successWebhook->id)->get());
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $failureWebhook->id)->get());
+        $this->assertCount(1, WebhookDelivery::where('webhook_id', $timeoutWebhook->id)->get());
+    }
+
+    // ============================================================
+    // RESPONSE BODY CAPTURE
+    // ============================================================
+
+    #[Test]
+    public function response_body_captured_for_successful_delivery()
+    {
+        // ARRANGE: Mock response with detailed body
+        $responseBody = [
+            'status' => 'received',
+            'webhook_id' => 'wh_12345',
+            'processed_at' => now()->toIso8601String(),
+            'message' => 'Webhook processed successfully',
+        ];
+
+        Http::fake([
+            'example.com/*' => Http::response($responseBody, 200),
+        ]);
+
+        $payload = ['event' => 'test.event', 'data' => ['test' => true]];
+
+        // ACT: Deliver webhook
+        $result = $this->deliveryService->deliverWebhook($this->webhook, $payload);
+
+        // ASSERT: Response body captured
+        $delivery = WebhookDelivery::find($result->delivery_id);
+        $this->assertNotNull($delivery->response_body);
+
+        $savedBody = json_decode($delivery->response_body, true);
+        $this->assertEquals('received', $savedBody['status']);
+        $this->assertEquals('wh_12345', $savedBody['webhook_id']);
+        $this->assertStringContainsString('processed successfully', $savedBody['message']);
+    }
+
+    #[Test]
+    public function response_body_captured_for_failed_delivery()
+    {
+        // ARRANGE: Mock error response with detailed error
+        $errorBody = [
+            'error' => 'ValidationError',
+            'message' => 'Invalid payload structure',
+            'details' => [
+                'field' => 'user_id',
+                'issue' => 'required but missing',
+            ],
+        ];
+
+        Http::fake([
+            'example.com/*' => Http::response($errorBody, 400),
+        ]);
+
+        $payload = ['event' => 'test.event', 'data' => []];
+
+        // ACT: Deliver webhook
+        $result = $this->deliveryService->deliverWebhook($this->webhook, $payload);
+
+        // ASSERT: Error response captured (stored in error_message for 4xx errors)
+        $delivery = WebhookDelivery::find($result->delivery_id);
+        $this->assertNotNull($delivery->error_message);
+
+        // ASSERT: Error message contains the response body as JSON string
+        $savedBody = json_decode($delivery->error_message, true);
+        $this->assertEquals('ValidationError', $savedBody['error']);
+        $this->assertEquals('Invalid payload structure', $savedBody['message']);
+        $this->assertArrayHasKey('details', $savedBody);
+    }
+
+    #[Test]
+    public function response_body_truncated_if_too_large()
+    {
+        // ARRANGE: Mock response with large body (> 10KB limit)
+        $largeBody = [
+            'status' => 'ok',
+            'data' => str_repeat('A', 12000), // 12KB of data
+        ];
+
+        Http::fake([
+            'example.com/*' => Http::response($largeBody, 200),
+        ]);
+
+        $payload = ['event' => 'test.event', 'data' => ['test' => true]];
+
+        // ACT: Deliver webhook
+        $result = $this->deliveryService->deliverWebhook($this->webhook, $payload);
+
+        // ASSERT: Response body captured but truncated to 10KB
+        $delivery = WebhookDelivery::find($result->delivery_id);
+        $this->assertNotNull($delivery->response_body);
+        $this->assertLessThanOrEqual(10000, strlen($delivery->response_body));
+    }
 }
+
