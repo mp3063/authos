@@ -105,6 +105,7 @@ class SecurityHeaders
     {
         return $request->is('oauth/*') ||
                $request->is('api/oauth/*') ||
-               $request->is('.well-known/*');
+               $request->is('.well-known/*') ||
+               $request->is('api/.well-known/*');
     }
 }
