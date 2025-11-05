@@ -22,6 +22,15 @@
             <directory>tests/Performance</directory>
         </testsuite>
     </testsuites>
+    <groups>
+        <include>
+            <group>critical</group>
+            <group>security</group>
+            <group>integration</group>
+            <group>e2e</group>
+            <group>unit</group>
+        </include>
+    </groups>
     <source>
         <include>
             <directory>app</directory>
