@@ -75,7 +75,7 @@ abstract class IntegrationTestCase extends TestCase
      * @param  Organization|null  $organization  Organization to associate with
      * @return Application
      */
-    protected function createApplication(array $attributes = [], ?Organization $organization = null): Application
+    protected function createOAuthApplication(array $attributes = [], ?Organization $organization = null): Application
     {
         if (! $organization && ! isset($attributes['organization_id'])) {
             $organization = $this->createOrganization();
