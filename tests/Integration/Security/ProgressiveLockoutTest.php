@@ -30,6 +30,11 @@ use Tests\Integration\IntegrationTestCase;
  * - Manual admin unlock
  * - Failed attempt counter reset on successful login
  *
+ * NOTE: This integration test suite intentionally overlaps with the Unit test
+ * (AccountLockoutServiceTest) to provide defense-in-depth testing for this
+ * critical security feature. The integration tests verify end-to-end behavior
+ * without mocked dependencies, while unit tests focus on isolated service methods.
+ *
  * @group security
  * @group critical
  * @group integration
@@ -244,36 +249,60 @@ class ProgressiveLockoutTest extends IntegrationTestCase
     // ============================================================
 
     #[Test]
-    public function lockout_duration_escalates_progressively_with_more_attempts()
+    public function lockout_duration_uses_three_attempt_threshold_for_four_attempts()
     {
-        // ARRANGE: User
+        // ARRANGE: User with 4 failed attempts
         $user = $this->createUser(['email' => 'user@example.com']);
 
-        // TEST: 4 attempts should use 3-attempt threshold (5 minutes)
+        // ACT: Create 4 failed attempts (should use 3-attempt threshold)
         $this->createFailedAttempts($user->email, 4);
         $lockout = $this->lockoutService->checkAndApplyLockout($user->email, '127.0.0.1');
+
+        // ASSERT: Lockout created with 5 minute duration (3-attempt threshold)
         $this->assertNotNull($lockout);
+        $this->assertEquals(4, $lockout->attempt_count);
         $this->assertEqualsWithDelta(5, now()->diffInMinutes($lockout->unlock_at), 0.02);
 
-        // Clean up
-        AccountLockout::truncate();
-        FailedLoginAttempt::truncate();
+        // ASSERT: Notification sent
+        Notification::assertSentTo($user, AccountLockedNotification::class);
+    }
 
-        // TEST: 6 attempts should use 5-attempt threshold (15 minutes)
+    #[Test]
+    public function lockout_duration_uses_five_attempt_threshold_for_six_attempts()
+    {
+        // ARRANGE: User with 6 failed attempts
+        $user = $this->createUser(['email' => 'user@example.com']);
+
+        // ACT: Create 6 failed attempts (should use 5-attempt threshold)
         $this->createFailedAttempts($user->email, 6);
         $lockout = $this->lockoutService->checkAndApplyLockout($user->email, '127.0.0.1');
+
+        // ASSERT: Lockout created with 15 minute duration (5-attempt threshold)
         $this->assertNotNull($lockout);
+        $this->assertEquals(6, $lockout->attempt_count);
         $this->assertEqualsWithDelta(15, now()->diffInMinutes($lockout->unlock_at), 0.02);
 
-        // Clean up
-        AccountLockout::truncate();
-        FailedLoginAttempt::truncate();
+        // ASSERT: Notification sent
+        Notification::assertSentTo($user, AccountLockedNotification::class);
+    }
 
-        // TEST: 8 attempts should use 7-attempt threshold (30 minutes)
+    #[Test]
+    public function lockout_duration_uses_seven_attempt_threshold_for_eight_attempts()
+    {
+        // ARRANGE: User with 8 failed attempts
+        $user = $this->createUser(['email' => 'user@example.com']);
+
+        // ACT: Create 8 failed attempts (should use 7-attempt threshold)
         $this->createFailedAttempts($user->email, 8);
         $lockout = $this->lockoutService->checkAndApplyLockout($user->email, '127.0.0.1');
+
+        // ASSERT: Lockout created with 30 minute duration (7-attempt threshold)
         $this->assertNotNull($lockout);
+        $this->assertEquals(8, $lockout->attempt_count);
         $this->assertEqualsWithDelta(30, now()->diffInMinutes($lockout->unlock_at), 0.02);
+
+        // ASSERT: Notification sent
+        Notification::assertSentTo($user, AccountLockedNotification::class);
     }
 
     #[Test]
