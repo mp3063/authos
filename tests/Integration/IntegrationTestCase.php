@@ -73,7 +73,6 @@ abstract class IntegrationTestCase extends TestCase
      *
      * @param  array  $attributes  Override default attributes
      * @param  Organization|null  $organization  Organization to associate with
-     * @return Application
      */
     protected function createOAuthApplication(array $attributes = [], ?Organization $organization = null): Application
     {
@@ -206,7 +205,6 @@ abstract class IntegrationTestCase extends TestCase
      *
      * @param  Application  $app  Application to create parameters for
      * @param  bool  $usePkce  Whether to include PKCE challenge
-     * @return array
      */
     protected function generateOAuthParameters(Application $app, bool $usePkce = true): array
     {

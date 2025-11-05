@@ -17,6 +17,7 @@ abstract class TestCase extends BaseTestCase
 
     // Memory optimization: Cache expensive operations (parallel-safe with static state)
     protected static bool $passportInitialized = false;
+
     protected static array $rolesAndPermissionsSeeded = [];
 
     // Parallel execution support: Each process gets its own database
@@ -55,7 +56,6 @@ abstract class TestCase extends BaseTestCase
             gc_collect_cycles();
         }
     }
-
 
     protected function tearDown(): void
     {
@@ -122,7 +122,7 @@ abstract class TestCase extends BaseTestCase
                 $fp = fopen($lockFile, 'c+');
                 if (flock($fp, LOCK_EX)) {
                     // Double-check after acquiring lock
-                    if (!file_exists($privateKeyPath)) {
+                    if (! file_exists($privateKeyPath)) {
                         Artisan::call('passport:keys', ['--force' => true]);
                         // Ensure correct permissions after generation
                         if (file_exists($privateKeyPath)) {
@@ -411,5 +411,4 @@ abstract class TestCase extends BaseTestCase
             $model->getKeyName() => $model->getKey(),
         ]);
     }
-
 }

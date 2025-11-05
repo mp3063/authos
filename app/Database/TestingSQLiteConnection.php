@@ -35,7 +35,7 @@ class TestingSQLiteConnection extends SQLiteConnection
         static $configured = [];
         $connectionKey = spl_object_id($pdo);
 
-        if (!isset($configured[$connectionKey])) {
+        if (! isset($configured[$connectionKey])) {
             $this->configurePdoForTesting($pdo);
             $configured[$connectionKey] = true;
         }
@@ -94,6 +94,7 @@ class TestingSQLiteConnection extends SQLiteConnection
                 // If database is locked and we have retries left, wait and retry
                 if (str_contains($e->getMessage(), 'database is locked') && $attempt < $maxRetries - 1) {
                     usleep($retryDelay * ($attempt + 1)); // Exponential backoff
+
                     continue;
                 }
 

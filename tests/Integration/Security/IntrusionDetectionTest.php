@@ -8,6 +8,7 @@ use App\Models\SecurityIncident;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -49,7 +50,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // BRUTE FORCE DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function brute_force_detected_by_email_threshold()
     {
         // ARRANGE: Create 5 failed attempts on same email
@@ -87,7 +88,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertGreaterThan(0, $incidents);
     }
 
-    /** @test */
+    #[Test]
     public function brute_force_detected_by_ip_threshold()
     {
         // ARRANGE: Create multiple users
@@ -119,7 +120,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function brute_force_triggers_automatic_ip_block_on_severe_threshold()
     {
         // ARRANGE: Create 20 failed attempts (2x threshold of 10)
@@ -158,7 +159,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function brute_force_severity_escalates_with_attempt_count()
     {
         // ARRANGE: Create 10 failed attempts (2x email threshold of 5)
@@ -188,7 +189,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function brute_force_detection_respects_time_window()
     {
         // ARRANGE
@@ -217,7 +218,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // CREDENTIAL STUFFING DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function credential_stuffing_detected_with_multiple_unique_emails()
     {
         // ARRANGE: Create 10 failed attempts with unique emails
@@ -249,7 +250,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function credential_stuffing_triggers_immediate_ip_block()
     {
         // ARRANGE: Create 10 failed attempts with unique emails
@@ -281,7 +282,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function credential_stuffing_detection_respects_five_minute_window()
     {
         // ARRANGE: 5 users
@@ -318,7 +319,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // SQL INJECTION DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function sql_injection_detected_with_or_equals_pattern()
     {
         // ARRANGE: Create mock request with SQL injection
@@ -345,7 +346,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function sql_injection_detected_with_union_select_pattern()
     {
         // ARRANGE: Create mock request with SQL injection
@@ -374,7 +375,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertArrayHasKey('pattern', $incident->metadata);
     }
 
-    /** @test */
+    #[Test]
     public function sql_injection_detected_with_drop_table_pattern()
     {
         // ARRANGE: Create mock request with SQL injection
@@ -401,7 +402,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function sql_injection_detected_with_comment_patterns()
     {
         $service = app(\App\Services\Security\IntrusionDetectionService::class);
@@ -435,7 +436,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(3, $incidentCount);
     }
 
-    /** @test */
+    #[Test]
     public function sql_injection_detection_service_creates_incident()
     {
         // ARRANGE: Create mock request with SQL injection
@@ -466,7 +467,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // XSS DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function xss_detected_with_script_tag()
     {
         // ARRANGE: Create mock request with XSS payload
@@ -492,7 +493,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function xss_detected_with_onerror_event_handler()
     {
         // ARRANGE: Create mock request with XSS payload
@@ -521,7 +522,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertArrayHasKey('parameter', $incident->metadata);
     }
 
-    /** @test */
+    #[Test]
     public function xss_detected_with_javascript_protocol()
     {
         // ARRANGE: Create mock request with XSS payload
@@ -547,7 +548,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function xss_detected_with_iframe_embed_object_tags()
     {
         $service = app(\App\Services\Security\IntrusionDetectionService::class);
@@ -580,7 +581,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(3, $incidentCount);
     }
 
-    /** @test */
+    #[Test]
     public function xss_detected_with_onload_event_handler()
     {
         // ARRANGE: Create mock request with XSS payload
@@ -610,7 +611,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // API ABUSE DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function api_abuse_detected_with_excessive_requests_per_minute()
     {
         // ARRANGE: Simulate 101 requests in cache
@@ -618,7 +619,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         for ($i = 0; $i < 101; $i++) {
             $timestamps[] = now()->timestamp;
         }
-        Cache::put("api_requests:127.0.0.1", $timestamps, 120);
+        Cache::put('api_requests:127.0.0.1', $timestamps, 120);
 
         // Create mock request
         $request = Request::create('/api/v1/user', 'GET');
@@ -642,7 +643,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function api_abuse_detection_tracks_requests_per_minute()
     {
         // ARRANGE: Simulate 50 requests in cache (below threshold of 100)
@@ -651,7 +652,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         for ($i = 0; $i < 50; $i++) {
             $timestamps[] = now()->timestamp;
         }
-        Cache::put("api_requests:127.0.0.1", $timestamps, 120);
+        Cache::put('api_requests:127.0.0.1', $timestamps, 120);
 
         // Create mock request
         $request = Request::create('/api/v1/user', 'GET');
@@ -672,38 +673,45 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function api_abuse_incident_includes_request_details()
     {
-        // ARRANGE
-        $user = $this->createUser();
-
-        // Simulate 100+ requests by directly manipulating cache
+        // ARRANGE: Simulate 101 requests in cache
         $timestamps = [];
         for ($i = 0; $i < 101; $i++) {
             $timestamps[] = now()->timestamp;
         }
-        Cache::put("api_requests:127.0.0.1", $timestamps, 120);
+        Cache::put('api_requests:127.0.0.1', $timestamps, 120);
 
-        // ACT: Make one more request to trigger detection
-        $this->actingAs($user)->getJson('/api/v1/user');
+        // Create mock request
+        $request = Request::create('/api/v1/user', 'GET');
+        $request->server->set('REMOTE_ADDR', '127.0.0.1');
+        $request->headers->set('User-Agent', 'TestAgent/1.0');
+
+        // Get the service
+        $service = app(\App\Services\Security\IntrusionDetectionService::class);
+
+        // ACT: Detect API abuse
+        $detected = $service->detectAnomalousApiActivity($request);
+
+        // ASSERT: Detection successful
+        $this->assertTrue($detected);
 
         // ASSERT: Incident includes metadata
         $incident = SecurityIncident::where('type', 'api_abuse')
             ->where('ip_address', '127.0.0.1')
             ->first();
 
-        if ($incident) {
-            $this->assertArrayHasKey('requests_per_minute', $incident->metadata);
-            $this->assertGreaterThanOrEqual(100, $incident->metadata['requests_per_minute']);
-        }
+        $this->assertNotNull($incident, 'API abuse incident should be created');
+        $this->assertArrayHasKey('requests_per_minute', $incident->metadata);
+        $this->assertGreaterThanOrEqual(100, $incident->metadata['requests_per_minute']);
     }
 
     // ============================================================
     // UNUSUAL LOGIN PATTERN DETECTION TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function unusual_login_pattern_detected_with_ip_change_within_two_hours()
     {
         // ARRANGE: User with recent login from different IP
@@ -755,7 +763,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertArrayHasKey('time_difference_minutes', $incident->metadata);
     }
 
-    /** @test */
+    #[Test]
     public function unusual_login_pattern_not_detected_if_same_ip()
     {
         // ARRANGE: User with recent login
@@ -793,7 +801,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function unusual_login_pattern_not_detected_if_time_gap_exceeds_two_hours()
     {
         // ARRANGE: User with NO recent login (all logins > 2 hours ago)
@@ -849,7 +857,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
     // IP SCORING TESTS
     // ============================================================
 
-    /** @test */
+    #[Test]
     public function ip_security_score_decreases_with_failed_attempts()
     {
         // ARRANGE: Create failed attempts directly
@@ -879,7 +887,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertEquals(75, $score);
     }
 
-    /** @test */
+    #[Test]
     public function ip_security_score_decreases_with_security_incidents()
     {
         // ARRANGE: Create security incident
@@ -900,7 +908,7 @@ class IntrusionDetectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(1, $incidents);
     }
 
-    /** @test */
+    #[Test]
     public function ip_security_score_decreases_with_previous_blocks()
     {
         // ARRANGE: Create previous block

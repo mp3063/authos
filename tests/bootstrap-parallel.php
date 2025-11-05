@@ -14,11 +14,11 @@ $testToken = getenv('TEST_TOKEN');
 if ($testToken !== false && $testToken !== '') {
     // We're running in parallel - use per-process SQLite file
     $basePath = dirname(__DIR__);
-    $databaseDir = $basePath . '/database';
-    $databasePath = $databaseDir . "/testing_parallel_{$testToken}.sqlite";
+    $databaseDir = $basePath.'/database';
+    $databasePath = $databaseDir."/testing_parallel_{$testToken}.sqlite";
 
     // Create empty database file if it doesn't exist
-    if (!file_exists($databasePath)) {
+    if (! file_exists($databasePath)) {
         touch($databasePath);
     }
 
@@ -30,4 +30,4 @@ if ($testToken !== false && $testToken !== '') {
 // Otherwise, phpunit.xml already sets DB_DATABASE=:memory: for sequential execution
 
 // Load the standard Laravel autoloader
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+require_once dirname(__DIR__).'/vendor/autoload.php';
