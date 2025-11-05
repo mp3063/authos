@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
-use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
@@ -36,7 +35,9 @@ use Tests\Integration\IntegrationTestCase;
 class SecurityHeadersTest extends IntegrationTestCase
 {
     protected User $user;
+
     protected Organization $organization;
+
     protected Application $application;
 
     protected function setUp(): void
