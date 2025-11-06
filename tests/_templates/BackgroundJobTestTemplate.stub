@@ -1,0 +1,290 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Integration\Jobs;
+
+use App\Jobs\{{JOB_NAME}};
+use App\Models\{{MODEL_NAME}};
+use App\Models\Organization;
+use App\Services\{{SERVICE_NAME}};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Log;
+use Mockery;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+/**
+ * Integration Test for {{JOB_NAME}} Background Job
+ *
+ * Tests background job execution, configuration, error handling,
+ * and interaction with external services.
+ *
+ * WHAT TO TEST IN BACKGROUND JOBS:
+ * - Job can be dispatched to queue
+ * - Job configuration (queue, timeout, retries)
+ * - Successful execution path
+ * - Failure handling and retry logic
+ * - External service interaction (mocked)
+ * - Database updates from job
+ *
+ * @group integration
+ * @group jobs
+ * @group {{JOB_SLUG}}
+ */
+class {{TEST_CLASS_NAME}} extends TestCase
+{
+    use RefreshDatabase;
+
+    private Organization $organization;
+    private {{MODEL_NAME}} $model;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->organization = Organization::factory()->create();
+        $this->model = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
+    }
+
+    // ============================================================
+    // DISPATCH TESTS
+    // ============================================================
+
+    #[Test]
+    public function job_can_be_dispatched_to_queue()
+    {
+        // ARRANGE
+        Queue::fake();
+
+        // ACT
+        {{JOB_NAME}}::dispatch($this->model);
+
+        // ASSERT
+        Queue::assertPushed({{JOB_NAME}}::class, function ($job) {
+            return $job->model->id === $this->model->id;
+        });
+    }
+
+    #[Test]
+    public function job_is_dispatched_to_correct_queue()
+    {
+        // ARRANGE
+        Queue::fake();
+
+        // ACT
+        {{JOB_NAME}}::dispatch($this->model)->onQueue('{{QUEUE_NAME}}');
+
+        // ASSERT
+        Queue::assertPushedOn('{{QUEUE_NAME}}', {{JOB_NAME}}::class);
+    }
+
+    // ============================================================
+    // CONFIGURATION TESTS
+    // ============================================================
+
+    #[Test]
+    public function job_has_correct_timeout_configuration()
+    {
+        // ARRANGE
+        $job = new {{JOB_NAME}}($this->model);
+
+        // ACT & ASSERT
+        $this->assertEquals(300, $job->timeout); // 5 minutes
+    }
+
+    #[Test]
+    public function job_has_correct_retry_configuration()
+    {
+        // ARRANGE
+        $job = new {{JOB_NAME}}($this->model);
+
+        // ACT & ASSERT
+        $this->assertEquals(3, $job->tries);
+        $this->assertEquals(60, $job->backoff); // 1 minute between retries
+    }
+
+    // ============================================================
+    // SUCCESSFUL EXECUTION TESTS
+    // ============================================================
+
+    #[Test]
+    public function job_executes_successfully_with_valid_data()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->with($this->model)
+            ->andReturnTrue();
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        // ACT
+        $job = new {{JOB_NAME}}($this->model);
+        $job->handle($mockService);
+
+        // ASSERT
+        $this->model->refresh();
+        $this->assertEquals('completed', $this->model->status);
+        $this->assertNotNull($this->model->processed_at);
+    }
+
+    #[Test]
+    public function job_updates_database_correctly()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->andReturnUsing(function ($model) {
+                $model->update([
+                    'status' => 'processed',
+                    'processed_at' => now(),
+                    'result' => 'success',
+                ]);
+            });
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        // ACT
+        $job = new {{JOB_NAME}}($this->model);
+        $job->handle($mockService);
+
+        // ASSERT
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $this->model->id,
+            'status' => 'processed',
+            'result' => 'success',
+        ]);
+    }
+
+    // ============================================================
+    // FAILURE HANDLING TESTS
+    // ============================================================
+
+    #[Test]
+    public function job_handles_service_exceptions_gracefully()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->andThrow(new \RuntimeException('Service unavailable'));
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(
+                '{{JOB_NAME}} failed',
+                Mockery::on(function ($context) {
+                    return isset($context['error']) &&
+                           str_contains($context['error'], 'Service unavailable');
+                })
+            );
+
+        // ACT
+        $job = new {{JOB_NAME}}($this->model);
+
+        try {
+            $job->handle($mockService);
+            $this->fail('Expected exception was not thrown');
+        } catch (\Exception $e) {
+            // ASSERT
+            $this->assertStringContainsString('Service unavailable', $e->getMessage());
+        }
+
+        // ASSERT
+        $this->model->refresh();
+        $this->assertEquals('failed', $this->model->status);
+    }
+
+    #[Test]
+    public function job_marks_model_as_failed_on_exception()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->andThrow(new \Exception('Processing failed'));
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        Log::shouldReceive('error')->once();
+
+        // ACT
+        $job = new {{JOB_NAME}}($this->model);
+        
+        try {
+            $job->handle($mockService);
+        } catch (\Exception $e) {
+            // Expected
+        }
+
+        // ASSERT
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $this->model->id,
+            'status' => 'failed',
+        ]);
+    }
+
+    // ============================================================
+    // EXTERNAL SERVICE MOCKING TESTS
+    // ============================================================
+
+    #[Test]
+    public function job_calls_external_service_with_correct_parameters()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->with(
+                Mockery::on(function ($arg) {
+                    return $arg->id === $this->model->id;
+                }),
+                ['option' => 'value']
+            )
+            ->andReturnTrue();
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        // ACT
+        $job = new {{JOB_NAME}}($this->model, ['option' => 'value']);
+        $job->handle($mockService);
+
+        // ASSERT: Mock expectations verified in tearDown
+    }
+
+    #[Test]
+    public function job_handles_external_api_timeout()
+    {
+        // ARRANGE
+        $mockService = Mockery::mock({{SERVICE_NAME}}::class);
+        $mockService->shouldReceive('process')
+            ->once()
+            ->andThrow(new \Exception('Request timeout'));
+
+        $this->app->instance({{SERVICE_NAME}}::class, $mockService);
+
+        Log::shouldReceive('error')->once();
+
+        // ACT & ASSERT
+        $job = new {{JOB_NAME}}($this->model);
+        
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Request timeout');
+        
+        $job->handle($mockService);
+    }
+}

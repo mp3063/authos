@@ -1,0 +1,378 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Integration\Security;
+
+use App\Models\AccountLockout;
+use App\Models\FailedLoginAttempt;
+use App\Models\SecurityIncident;
+use App\Models\User;
+use App\Models\Organization;
+use App\Services\Security\{{SECURITY_SERVICE}};
+use Illuminate\Support\Facades\Notification;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Integration\IntegrationTestCase;
+
+/**
+ * Security Integration Test for {{FEATURE_NAME}}
+ *
+ * Tests security-critical functionality including:
+ * - Attack detection and prevention
+ * - Multi-tenant boundary enforcement
+ * - Progressive lockout mechanisms
+ * - Security incident logging
+ * - Intrusion detection patterns
+ *
+ * SECURITY TESTING PRINCIPLES:
+ * - Test with MALICIOUS intent scenarios
+ * - Verify security violations are DETECTED
+ * - Ensure security incidents are LOGGED
+ * - Test multi-tenant BOUNDARY enforcement
+ * - Verify progressive LOCKOUT mechanics
+ *
+ * @group integration
+ * @group security
+ * @group critical
+ */
+class {{TEST_CLASS_NAME}} extends IntegrationTestCase
+{
+    private Organization $organization;
+    private User $user;
+    private {{SECURITY_SERVICE}} $securityService;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->organization = $this->createOrganization([
+            'settings' => [
+                'security_level' => 'high',
+                'mfa_required' => true,
+                'lockout_enabled' => true,
+            ],
+        ]);
+
+        $this->user = $this->createUser([
+            'organization_id' => $this->organization->id,
+        ], 'User');
+
+        $this->securityService = app({{SECURITY_SERVICE}}::class);
+    }
+
+    // ============================================================
+    // ATTACK DETECTION TESTS
+    // ============================================================
+
+    #[Test]
+    public function detects_sql_injection_attempts()
+    {
+        // ARRANGE: Malicious SQL injection payload
+        $maliciousInput = "1' OR '1'='1";
+
+        // ACT: Attempt attack
+        $this->actingAs($this->user, 'api');
+        $response = $this->getJson("/api/v1/{{ENDPOINT}}?id={$maliciousInput}");
+
+        // ASSERT: Request rejected or sanitized
+        $response->assertStatus(400);
+
+        // ASSERT: Security incident logged
+        $this->assertSecurityIncidentCreated([
+            'type' => 'sql_injection_attempt',
+            'severity' => 'high',
+        ]);
+    }
+
+    #[Test]
+    public function detects_xss_attempts()
+    {
+        // ARRANGE: XSS payload
+        $xssPayload = "<script>alert('xss')</script>";
+
+        // ACT: Submit payload
+        $this->actingAs($this->user, 'api');
+        $response = $this->postJson('/api/v1/{{ENDPOINT}}', [
+            'content' => $xssPayload,
+        ]);
+
+        // ASSERT: Input sanitized or rejected
+        $response->assertStatus(422);
+
+        // ASSERT: Security incident created
+        $this->assertSecurityIncidentCreated([
+            'type' => 'xss_attempt',
+            'user_id' => $this->user->id,
+        ]);
+    }
+
+    #[Test]
+    public function detects_brute_force_login_attempts()
+    {
+        // ARRANGE: User credentials
+        $email = $this->user->email;
+
+        // ACT: Simulate multiple failed login attempts
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/api/v1/auth/login', [
+                'email' => $email,
+                'password' => 'wrong-password',
+            ]);
+        }
+
+        // ASSERT: Account locked after threshold
+        $this->assertTrue($this->securityService->isAccountLocked($email));
+
+        // ASSERT: Security incident logged
+        $this->assertSecurityIncidentCreated([
+            'type' => 'brute_force_attempt',
+            'user_id' => $this->user->id,
+            'severity' => 'critical',
+        ]);
+    }
+
+    // ============================================================
+    // MULTI-TENANT BOUNDARY TESTS
+    // ============================================================
+
+    #[Test]
+    public function prevents_cross_organization_data_access()
+    {
+        // ARRANGE: Create second organization
+        $otherOrg = $this->createOrganization(['name' => 'Other Org']);
+        $otherUser = $this->createUser([
+            'organization_id' => $otherOrg->id,
+        ], 'User');
+
+        // ARRANGE: Create resource in other organization
+        $otherResource = \App\Models\{{MODEL_NAME}}::factory()->create([
+            'organization_id' => $otherOrg->id,
+        ]);
+
+        // ACT: Attempt cross-org access
+        $this->actingAs($this->user, 'api');
+        $response = $this->getJson("/api/v1/{{ENDPOINT}}/{$otherResource->id}");
+
+        // ASSERT: Access denied with 404 (not 403 to prevent info leakage)
+        $response->assertStatus(404);
+
+        // ASSERT: Security incident logged
+        $this->assertSecurityIncidentCreated([
+            'type' => 'unauthorized_access_attempt',
+            'user_id' => $this->user->id,
+        ]);
+    }
+
+    #[Test]
+    public function prevents_organization_id_tampering()
+    {
+        // ARRANGE: Create resource in user's org
+        $resource = \App\Models\{{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+
+        // ARRANGE: Create other organization
+        $otherOrg = $this->createOrganization();
+
+        // ACT: Attempt to change organization_id
+        $this->actingAs($this->user, 'api');
+        $response = $this->putJson("/api/v1/{{ENDPOINT}}/{$resource->id}", [
+            'organization_id' => $otherOrg->id, // Tampering attempt
+            'name' => 'Updated Name',
+        ]);
+
+        // ASSERT: Organization ID not changed
+        $resource->refresh();
+        $this->assertEquals($this->organization->id, $resource->organization_id);
+        $this->assertNotEquals($otherOrg->id, $resource->organization_id);
+
+        // ASSERT: Security incident logged
+        $this->assertSecurityIncidentCreated([
+            'type' => 'parameter_tampering',
+            'user_id' => $this->user->id,
+        ]);
+    }
+
+    // ============================================================
+    // PROGRESSIVE LOCKOUT TESTS
+    // ============================================================
+
+    #[Test]
+    public function implements_progressive_lockout_schedule()
+    {
+        // Test 5-tier progressive lockout: 3→5min, 5→15min, 7→30min, 10→1hr, 15→24hr
+        $testCases = [
+            ['attempts' => 3, 'minutes' => 5],
+            ['attempts' => 5, 'minutes' => 15],
+            ['attempts' => 7, 'minutes' => 30],
+            ['attempts' => 10, 'minutes' => 60],
+            ['attempts' => 15, 'minutes' => 1440],
+        ];
+
+        foreach ($testCases as $case) {
+            // ARRANGE: Fresh user
+            $testUser = $this->createUser(['email' => "test{$case['attempts']}@example.com"]);
+
+            // ACT: Create failed attempts
+            for ($i = 0; $i < $case['attempts']; $i++) {
+                FailedLoginAttempt::create([
+                    'email' => $testUser->email,
+                    'ip_address' => '127.0.0.1',
+                    'user_agent' => 'Test',
+                    'attempt_type' => 'password',
+                    'failure_reason' => 'invalid_credentials',
+                    'attempted_at' => now(),
+                ]);
+            }
+
+            // ACT: Trigger lockout
+            $lockout = $this->securityService->checkAndApplyLockout(
+                $testUser->email,
+                '127.0.0.1'
+            );
+
+            // ASSERT: Correct lockout duration
+            $expectedUnlock = now()->addMinutes($case['minutes']);
+            $this->assertNotNull($lockout);
+            $this->assertEqualsWithDelta(
+                $case['minutes'],
+                now()->diffInMinutes($lockout->unlock_at),
+                1, // Allow 1 minute variance
+                "Failed for {$case['attempts']} attempts"
+            );
+        }
+    }
+
+    #[Test]
+    public function lockout_sends_notification_to_user()
+    {
+        // ARRANGE: Clear notifications
+        Notification::fake();
+
+        // ACT: Trigger lockout
+        for ($i = 0; $i < 3; $i++) {
+            FailedLoginAttempt::create([
+                'email' => $this->user->email,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'Test',
+                'attempt_type' => 'password',
+                'failure_reason' => 'invalid_credentials',
+                'attempted_at' => now(),
+            ]);
+        }
+
+        $this->securityService->checkAndApplyLockout($this->user->email, '127.0.0.1');
+
+        // ASSERT: Notification sent
+        Notification::assertSentTo(
+            $this->user,
+            \App\Notifications\AccountLockedNotification::class
+        );
+    }
+
+    // ============================================================
+    // INTRUSION DETECTION TESTS
+    // ============================================================
+
+    #[Test]
+    public function detects_suspicious_ip_patterns()
+    {
+        // ARRANGE: Multiple IPs attempting access
+        $suspiciousIPs = [
+            '192.168.1.1',
+            '192.168.1.2',
+            '192.168.1.3',
+            '192.168.1.4',
+            '192.168.1.5',
+        ];
+
+        // ACT: Rapid login attempts from different IPs
+        foreach ($suspiciousIPs as $ip) {
+            $this->postJson('/api/v1/auth/login', [
+                'email' => $this->user->email,
+                'password' => 'wrong',
+            ], ['REMOTE_ADDR' => $ip]);
+        }
+
+        // ASSERT: Intrusion detected and logged
+        $this->assertSecurityIncidentCreated([
+            'type' => 'distributed_brute_force',
+            'user_id' => $this->user->id,
+        ]);
+    }
+
+    #[Test]
+    public function detects_unusual_access_patterns()
+    {
+        // ARRANGE: User with known location
+        $normalIP = '192.168.1.100';
+        $suspiciousIP = '10.0.0.1';
+
+        // ACT: Successful login from normal IP
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $this->user->email,
+            'password' => 'password',
+        ], ['REMOTE_ADDR' => $normalIP]);
+
+        // ACT: Immediately login from different location
+        sleep(1);
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $this->user->email,
+            'password' => 'password',
+        ], ['REMOTE_ADDR' => $suspiciousIP]);
+
+        // ASSERT: Anomaly detected
+        $incidents = SecurityIncident::where('user_id', $this->user->id)
+            ->where('type', 'unusual_location')
+            ->count();
+
+        $this->assertGreaterThan(0, $incidents);
+    }
+
+    // ============================================================
+    // SECURITY INCIDENT VERIFICATION
+    // ============================================================
+
+    #[Test]
+    public function security_incidents_contain_required_data()
+    {
+        // ACT: Trigger security incident
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'nonexistent@example.com',
+            'password' => "'; DROP TABLE users; --",
+        ]);
+
+        // ASSERT: Incident has all required fields
+        $incident = SecurityIncident::latest()->first();
+        
+        $this->assertNotNull($incident);
+        $this->assertNotNull($incident->type);
+        $this->assertNotNull($incident->severity);
+        $this->assertNotNull($incident->ip_address);
+        $this->assertNotNull($incident->user_agent);
+        $this->assertIsArray($incident->details);
+        $this->assertNotNull($incident->detected_at);
+    }
+
+    #[Test]
+    public function critical_incidents_trigger_admin_notifications()
+    {
+        // ARRANGE: Create super admin
+        $admin = $this->createSuperAdmin();
+        Notification::fake();
+
+        // ACT: Trigger critical security incident
+        for ($i = 0; $i < 15; $i++) {
+            $this->postJson('/api/v1/auth/login', [
+                'email' => $this->user->email,
+                'password' => 'wrong',
+            ]);
+        }
+
+        // ASSERT: Admin notified
+        Notification::assertSentTo(
+            $admin,
+            \App\Notifications\CriticalSecurityIncidentNotification::class
+        );
+    }
+}

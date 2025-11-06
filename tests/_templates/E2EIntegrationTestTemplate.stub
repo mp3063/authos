@@ -1,0 +1,448 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Integration\{{CATEGORY}};
+
+use App\Models\{{MODEL_NAME}};
+use App\Models\User;
+use App\Models\Organization;
+use App\Models\AuthenticationLog;
+use Illuminate\Support\Facades\Notification;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Integration\IntegrationTestCase;
+
+/**
+ * End-to-End Integration Test for {{FEATURE_NAME}}
+ *
+ * This test verifies complete user workflows for {{FEATURE_NAME}} functionality,
+ * testing the entire flow from user action through to side effects (database,
+ * cache, logs, notifications, webhooks, etc.).
+ *
+ * WHAT ARE E2E INTEGRATION TESTS?
+ * - Test COMPLETE flows (multiple HTTP requests in sequence)
+ * - Test REAL database interactions (not mocked)
+ * - Verify SIDE EFFECTS (audit logs, notifications, webhooks)
+ * - Use REAL Passport OAuth tokens (not mocked)
+ * - Test MULTI-TENANT isolation between organizations
+ *
+ * WHEN TO USE THIS TEMPLATE:
+ * - Testing complete user journeys (registration → login → action → verify)
+ * - Testing OAuth authorization flows
+ * - Testing multi-step workflows with state transitions
+ * - Testing cross-cutting concerns (security, audit, notifications)
+ * - Testing API endpoints that trigger background jobs
+ *
+ * @group integration
+ * @group {{FEATURE_SLUG}}
+ */
+class {{TEST_CLASS_NAME}} extends IntegrationTestCase
+{
+    private Organization $organization;
+    private User $user;
+    private {{MODEL_NAME}} ${{MODEL_VARIABLE}};
+
+    /**
+     * Set up test environment before each test
+     *
+     * BEST PRACTICE: Create common test data in setUp() to avoid duplication
+     * Only create what's needed by MOST tests in this class
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // ARRANGE: Create organization with specific settings
+        $this->organization = $this->createOrganization([
+            'name' => 'Test Organization',
+            'slug' => 'test-org',
+            'settings' => [
+                'feature_enabled' => true,
+                // Add relevant organization settings here
+            ],
+        ]);
+
+        // ARRANGE: Create authenticated user with proper role
+        $this->user = $this->createUser([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'organization_id' => $this->organization->id,
+            'email_verified_at' => now(),
+        ], 'Organization Admin');
+    }
+
+    // ============================================================
+    // COMPLETE FLOW TESTS (E2E)
+    // These test entire user journeys from start to finish
+    // ============================================================
+
+    /**
+     * Test complete {{FEATURE_NAME}} workflow from creation to completion
+     *
+     * PATTERN: Complete E2E Flow Test
+     * - Test multiple sequential HTTP requests
+     * - Verify response at each step
+     * - Verify side effects (database, cache, logs)
+     * - Test happy path with realistic data
+     */
+    #[Test]
+    public function user_can_complete_entire_{{FEATURE_SLUG}}_workflow()
+    {
+        // ARRANGE: Set up initial state
+        $initialData = [
+            'name' => 'Test Resource',
+            'description' => 'Test description',
+            'organization_id' => $this->organization->id,
+        ];
+
+        // ACT: Step 1 - User creates resource via API
+        $this->actingAs($this->user, 'api');
+        $createResponse = $this->postJson('/api/v1/{{ENDPOINT}}', $initialData);
+
+        // ASSERT: Step 1 - Creation successful
+        $createResponse->assertStatus(201);
+        $createResponse->assertJsonStructure([
+            'id',
+            'name',
+            'description',
+            'organization_id',
+            'created_at',
+        ]);
+
+        $resourceId = $createResponse->json('id');
+
+        // ASSERT: Database record created
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $resourceId,
+            'name' => 'Test Resource',
+            'organization_id' => $this->organization->id,
+        ]);
+
+        // ASSERT: Audit log created for creation event
+        $this->assertAuthenticationLogged([
+            'user_id' => $this->user->id,
+            'event' => '{{FEATURE_SLUG}}_created',
+        ]);
+
+        // ACT: Step 2 - User retrieves the created resource
+        $getResponse = $this->getJson("/api/v1/{{ENDPOINT}}/{$resourceId}");
+
+        // ASSERT: Step 2 - Resource retrieved successfully
+        $getResponse->assertStatus(200);
+        $getResponse->assertJson([
+            'id' => $resourceId,
+            'name' => 'Test Resource',
+        ]);
+
+        // ACT: Step 3 - User updates the resource
+        $updateData = ['name' => 'Updated Resource Name'];
+        $updateResponse = $this->putJson("/api/v1/{{ENDPOINT}}/{$resourceId}", $updateData);
+
+        // ASSERT: Step 3 - Update successful
+        $updateResponse->assertStatus(200);
+        $updateResponse->assertJson(['name' => 'Updated Resource Name']);
+
+        // ASSERT: Database updated
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $resourceId,
+            'name' => 'Updated Resource Name',
+        ]);
+
+        // ASSERT: Update logged
+        $this->assertAuthenticationLogged([
+            'user_id' => $this->user->id,
+            'event' => '{{FEATURE_SLUG}}_updated',
+        ]);
+
+        // ACT: Step 4 - User deletes the resource
+        $deleteResponse = $this->deleteJson("/api/v1/{{ENDPOINT}}/{$resourceId}");
+
+        // ASSERT: Step 4 - Deletion successful
+        $deleteResponse->assertStatus(204);
+
+        // ASSERT: Database record soft-deleted or removed
+        $this->assertDatabaseMissing('{{TABLE_NAME}}', [
+            'id' => $resourceId,
+            'deleted_at' => null, // Check soft delete if applicable
+        ]);
+
+        // ASSERT: Deletion logged
+        $this->assertAuthenticationLogged([
+            'user_id' => $this->user->id,
+            'event' => '{{FEATURE_SLUG}}_deleted',
+        ]);
+    }
+
+    // ============================================================
+    // MULTI-STEP FLOW WITH STATE TRANSITIONS
+    // Test workflows with multiple state changes
+    // ============================================================
+
+    /**
+     * Test {{FEATURE_NAME}} state transitions throughout lifecycle
+     *
+     * PATTERN: State Transition Testing
+     * - Verify initial state
+     * - Trigger state changes
+     * - Assert state transitions are valid
+     * - Verify side effects at each state
+     */
+    #[Test]
+    public function {{FEATURE_SLUG}}_progresses_through_valid_states()
+    {
+        // ARRANGE: Create resource in initial state
+        $resource = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+            'status' => 'pending',
+        ]);
+
+        // ASSERT: Initial state
+        $this->assertEquals('pending', $resource->status);
+
+        // ACT: Transition to 'processing' state
+        $this->actingAs($this->user, 'api');
+        $response = $this->postJson("/api/v1/{{ENDPOINT}}/{$resource->id}/process");
+
+        // ASSERT: State transition successful
+        $response->assertStatus(200);
+        $resource->refresh();
+        $this->assertEquals('processing', $resource->status);
+
+        // ASSERT: State transition logged
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $resource->id,
+            'status' => 'processing',
+        ]);
+
+        // ACT: Transition to 'completed' state
+        $response = $this->postJson("/api/v1/{{ENDPOINT}}/{$resource->id}/complete");
+
+        // ASSERT: Final state reached
+        $response->assertStatus(200);
+        $resource->refresh();
+        $this->assertEquals('completed', $resource->status);
+        $this->assertNotNull($resource->completed_at);
+    }
+
+    // ============================================================
+    // SIDE EFFECT VERIFICATION
+    // Test that actions trigger expected side effects
+    // ============================================================
+
+    /**
+     * Test {{FEATURE_NAME}} action triggers all expected side effects
+     *
+     * PATTERN: Side Effect Verification
+     * - Perform action
+     * - Verify database changes
+     * - Verify cache updates
+     * - Verify audit logs
+     * - Verify notifications sent
+     * - Verify webhooks dispatched
+     */
+    #[Test]
+    public function {{FEATURE_SLUG}}_action_triggers_all_side_effects()
+    {
+        // ARRANGE: Create resource
+        $resource = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+
+        // ARRANGE: Clear existing notifications
+        Notification::fake();
+
+        // ACT: Perform action that should trigger side effects
+        $this->actingAs($this->user, 'api');
+        $response = $this->postJson("/api/v1/{{ENDPOINT}}/{$resource->id}/action");
+
+        // ASSERT: HTTP response successful
+        $response->assertStatus(200);
+
+        // ASSERT: Database updated
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $resource->id,
+            'action_performed' => true,
+            'action_at' => $resource->fresh()->action_at,
+        ]);
+
+        // ASSERT: Cache invalidated or updated
+        // Example: Assert specific cache key was cleared
+        $cacheKey = "{{FEATURE_SLUG}}:{$resource->id}";
+        $this->assertNull(\Cache::get($cacheKey));
+
+        // ASSERT: Audit log created
+        $this->assertAuthenticationLogged([
+            'user_id' => $this->user->id,
+            'event' => '{{FEATURE_SLUG}}_action_performed',
+        ]);
+
+        // ASSERT: Notification sent to user
+        Notification::assertSentTo(
+            $this->user,
+            \App\Notifications\{{FEATURE_NAME}}ActionNotification::class
+        );
+
+        // ASSERT: Webhook delivery created (if applicable)
+        $this->assertWebhookDeliveryCreated([
+            'event_type' => '{{FEATURE_SLUG}}.action_performed',
+            'payload' => json_encode(['resource_id' => $resource->id]),
+        ]);
+    }
+
+    // ============================================================
+    // ERROR HANDLING TESTS
+    // Test how system handles various error conditions
+    // ============================================================
+
+    /**
+     * Test {{FEATURE_NAME}} handles validation errors correctly
+     *
+     * PATTERN: Error Handling Test
+     * - Send invalid data
+     * - Verify appropriate error response
+     * - Verify no side effects occurred
+     * - Verify error logged if critical
+     */
+    #[Test]
+    public function {{FEATURE_SLUG}}_returns_validation_errors_for_invalid_data()
+    {
+        // ARRANGE: Prepare invalid data
+        $invalidData = [
+            'name' => '', // Required field missing
+            'email' => 'not-an-email', // Invalid format
+            'age' => -5, // Invalid value
+        ];
+
+        // ACT: Attempt to create resource with invalid data
+        $this->actingAs($this->user, 'api');
+        $response = $this->postJson('/api/v1/{{ENDPOINT}}', $invalidData);
+
+        // ASSERT: Validation error returned
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['name', 'email', 'age']);
+
+        // ASSERT: No database record created
+        $this->assertDatabaseCount('{{TABLE_NAME}}', 0);
+
+        // ASSERT: No audit log for failed creation
+        $this->assertEquals(0, AuthenticationLog::where([
+            'user_id' => $this->user->id,
+            'event' => '{{FEATURE_SLUG}}_created',
+        ])->count());
+    }
+
+    /**
+     * Test {{FEATURE_NAME}} handles not found errors correctly
+     *
+     * PATTERN: Not Found Error Test
+     * - Request non-existent resource
+     * - Verify 404 response
+     * - Verify no data leakage in error message
+     */
+    #[Test]
+    public function {{FEATURE_SLUG}}_returns_404_for_nonexistent_resource()
+    {
+        // ACT: Attempt to access non-existent resource
+        $this->actingAs($this->user, 'api');
+        $response = $this->getJson('/api/v1/{{ENDPOINT}}/99999');
+
+        // ASSERT: Not found error
+        $response->assertStatus(404);
+        $response->assertJson([
+            'message' => 'Resource not found',
+        ]);
+
+        // ASSERT: Error doesn't leak information about database structure
+        $responseData = $response->json();
+        $this->assertArrayNotHasKey('sql', $responseData);
+        $this->assertArrayNotHasKey('bindings', $responseData);
+    }
+
+    // ============================================================
+    // MULTI-TENANT ISOLATION TESTS
+    // Test organization boundary enforcement
+    // ============================================================
+
+    /**
+     * Test {{FEATURE_NAME}} enforces organization boundaries
+     *
+     * PATTERN: Multi-Tenant Isolation Test
+     * - Create resources in different organizations
+     * - Verify users can only access their org's resources
+     * - Verify 404 (not 403) for cross-org access attempts
+     */
+    #[Test]
+    public function user_cannot_access_{{FEATURE_SLUG}}_from_different_organization()
+    {
+        // ARRANGE: Create another organization
+        $otherOrg = $this->createOrganization([
+            'name' => 'Other Organization',
+            'slug' => 'other-org',
+        ]);
+
+        // ARRANGE: Create resource in other organization
+        $otherResource = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $otherOrg->id,
+        ]);
+
+        // ACT: User from first org attempts to access other org's resource
+        $this->actingAs($this->user, 'api');
+        $response = $this->getJson("/api/v1/{{ENDPOINT}}/{$otherResource->id}");
+
+        // ASSERT: Not found (404) - not forbidden (403) to prevent info leakage
+        $response->assertStatus(404);
+
+        // ASSERT: User can still access their own organization's resources
+        $ownResource = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+        $ownResponse = $this->getJson("/api/v1/{{ENDPOINT}}/{$ownResource->id}");
+        $ownResponse->assertStatus(200);
+    }
+
+    // ============================================================
+    // AUTHORIZATION TESTS
+    // Test role-based access control
+    // ============================================================
+
+    /**
+     * Test {{FEATURE_NAME}} enforces proper authorization
+     *
+     * PATTERN: Authorization Test
+     * - Test with different user roles
+     * - Verify permissions are enforced
+     * - Verify unauthorized access is denied
+     */
+    #[Test]
+    public function regular_user_cannot_perform_admin_{{FEATURE_SLUG}}_actions()
+    {
+        // ARRANGE: Create regular user (not admin)
+        $regularUser = $this->createUser([
+            'organization_id' => $this->organization->id,
+        ], 'User');
+
+        // ARRANGE: Create resource
+        $resource = {{MODEL_NAME}}::factory()->create([
+            'organization_id' => $this->organization->id,
+        ]);
+
+        // ACT: Regular user attempts admin action
+        $this->actingAs($regularUser, 'api');
+        $response = $this->deleteJson("/api/v1/{{ENDPOINT}}/{$resource->id}");
+
+        // ASSERT: Forbidden
+        $response->assertStatus(403);
+
+        // ASSERT: Resource not deleted
+        $this->assertDatabaseHas('{{TABLE_NAME}}', [
+            'id' => $resource->id,
+        ]);
+
+        // ACT: Admin performs same action
+        $this->actingAs($this->user, 'api'); // This user is Organization Admin
+        $adminResponse = $this->deleteJson("/api/v1/{{ENDPOINT}}/{$resource->id}");
+
+        // ASSERT: Admin action successful
+        $adminResponse->assertStatus(204);
+    }
+}
