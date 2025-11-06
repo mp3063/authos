@@ -18,13 +18,13 @@ class SocialAccountFactory extends Factory
         return [
             'user_id' => User::factory(),
             'provider' => $this->faker->randomElement(['google', 'github', 'facebook', 'twitter', 'linkedin']),
-            'provider_user_id' => $this->faker->uuid(),
+            'provider_id' => $this->faker->uuid(),
             'name' => $this->faker->name(),
             'email' => $this->faker->email(),
             'avatar' => $this->faker->imageUrl(),
-            'token' => bin2hex(random_bytes(32)),
-            'refresh_token' => bin2hex(random_bytes(32)),
-            'expires_at' => now()->addDays(30),
+            'provider_token' => bin2hex(random_bytes(32)),
+            'provider_refresh_token' => bin2hex(random_bytes(32)),
+            'token_expires_at' => now()->addDays(30),
         ];
     }
 
@@ -32,7 +32,7 @@ class SocialAccountFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'provider' => 'google',
-            'provider_user_id' => 'google-'.$this->faker->randomNumber(9),
+            'provider_id' => 'google-'.$this->faker->randomNumber(9),
         ]);
     }
 
@@ -40,14 +40,14 @@ class SocialAccountFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'provider' => 'github',
-            'provider_user_id' => 'github-'.$this->faker->randomNumber(9),
+            'provider_id' => 'github-'.$this->faker->randomNumber(9),
         ]);
     }
 
     public function expired(): static
     {
         return $this->state(fn (array $attributes) => [
-            'expires_at' => now()->subDays(1),
+            'token_expires_at' => now()->subDays(1),
         ]);
     }
 }

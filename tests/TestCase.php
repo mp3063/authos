@@ -268,8 +268,24 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
-    protected function createAccessToken(User $user, array $scopes = ['*']): string
+    protected function createAccessToken(User $user, array $scopes = ['*'], int|string|null $clientId = null): string
     {
+        if ($clientId !== null) {
+            // Create token with specific client ID for integration tests
+            $tokenId = \Illuminate\Support\Str::random(80);
+            \Laravel\Passport\Token::create([
+                'id' => $tokenId,
+                'user_id' => $user->id,
+                'client_id' => $clientId,
+                'name' => 'TestToken',
+                'scopes' => $scopes,
+                'revoked' => false,
+                'expires_at' => now()->addHours(1),
+            ]);
+
+            return $tokenId;
+        }
+
         $token = $user->createToken('TestToken', $scopes);
 
         return $token->accessToken;
