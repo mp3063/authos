@@ -82,6 +82,20 @@ class ProcessBulkExportJob implements ShouldQueue
             $query->whereNotNull('email_verified_at');
         }
 
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        if (! empty($filters['roles'])) {
+            $query->whereHas('roles', function ($q) use ($filters) {
+                $q->whereIn('name', (array) $filters['roles']);
+            });
+        }
+
         $users = $query->get();
 
         // Generate file content based on format

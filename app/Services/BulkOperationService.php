@@ -233,14 +233,15 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
         $includeApplications = $options['include_applications'] ?? true;
         $includeActivity = $options['include_activity'] ?? false;
 
-        // Build user query
-        $query = User::whereHas('applications', function ($q) use ($organization, $options) {
-            $q->where('organization_id', $organization->id);
+        // Build user query - filter by organization
+        $query = User::where('organization_id', $organization->id);
 
-            if (! empty($options['application_ids'])) {
+        // Optionally filter by applications if specified
+        if (! empty($options['application_ids'])) {
+            $query->whereHas('applications', function ($q) use ($options) {
                 $q->whereIn('application_id', $options['application_ids']);
-            }
-        });
+            });
+        }
 
         if (! empty($options['date_from']) && ! empty($options['date_to'])) {
             $query->whereBetween('created_at', [

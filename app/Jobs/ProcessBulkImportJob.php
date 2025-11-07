@@ -171,7 +171,12 @@ class ProcessBulkImportJob implements ShouldQueue
 
         // Process valid records
         if (! empty($validRecords)) {
-            $this->processRecords($validRecords, $options);
+            $this->processRecords($validRecords, $options, count($invalidRecords));
+        } else {
+            // If no valid records, just update processed count with invalid records
+            $this->importJob->update([
+                'processed_records' => count($invalidRecords),
+            ]);
         }
     }
 
@@ -201,16 +206,20 @@ class ProcessBulkImportJob implements ShouldQueue
     /**
      * Process valid records in batches
      */
-    private function processRecords(array $records, ImportOptions $options): void
+    private function processRecords(array $records, ImportOptions $options, int $alreadyProcessedCount = 0): void
     {
         $batchSize = $options->batchSize ?? 100;
         $totalRecords = count($records);
-        $processedCount = $this->importJob->processed_records ?? 0;
+        $processedCount = $this->importJob->processed_records; // Start with already processed records for resume support
         $successfulCount = $this->importJob->successful_records ?? 0;
         $failedCount = $this->importJob->failed_records ?? 0;
 
+        // For resume functionality, check if we've already processed some valid records
+        $validRecordsProcessed = $this->importJob->processed_records - $alreadyProcessedCount;
+        $validRecordsProcessed = max(0, $validRecordsProcessed); // Ensure non-negative
+
         // Skip already processed records (for resume functionality)
-        $recordsToProcess = array_slice($records, $processedCount);
+        $recordsToProcess = array_slice($records, $validRecordsProcessed);
 
         // Process in batches
         foreach (array_chunk($recordsToProcess, $batchSize) as $batch) {

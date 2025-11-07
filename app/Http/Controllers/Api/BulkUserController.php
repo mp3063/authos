@@ -329,4 +329,25 @@ class BulkUserController extends Controller
             'message' => 'Job deleted successfully',
         ]);
     }
+
+    /**
+     * Get job status by UUID (for bulk operations tracking)
+     */
+    public function getJobStatus(Request $request, string $jobId): JsonResponse
+    {
+        // For now, return a mock response since we're using UUIDs as job IDs
+        // In production, this would query actual job queue status
+        return response()->json([
+            'data' => [
+                'job_id' => $jobId,
+                'status' => 'completed',
+                'progress' => 100,
+                'total' => 0,
+                'completed' => 0,
+                'message' => 'Job completed successfully',
+                'created_at' => now()->toIso8601String(),
+                'updated_at' => now()->toIso8601String(),
+            ],
+        ]);
+    }
 }
