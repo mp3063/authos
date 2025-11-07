@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
@@ -22,6 +23,7 @@ class User extends Authenticatable implements FilamentUser
     use HasFactory;
     use HasRoles;
     use Notifiable;
+    use SoftDeletes;
 
     /**
      * Transient properties that should not be saved to database
@@ -439,6 +441,22 @@ class User extends Authenticatable implements FilamentUser
     public function setMfaBackupCodesAttribute(array $value): void
     {
         $this->attributes['two_factor_recovery_codes'] = json_encode($value);
+    }
+
+    /**
+     * Validate user for Laravel Passport password grant
+     * This method is called by Passport to perform additional validation
+     * during password grant authentication
+     */
+    public function validateForPassportPasswordGrant(string $password): bool
+    {
+        // Check if user account is active
+        if (! $this->is_active) {
+            return false;
+        }
+
+        // Verify password
+        return \Illuminate\Support\Facades\Hash::check($password, $this->password);
     }
 
     /**

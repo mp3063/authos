@@ -34,6 +34,7 @@ return new class extends Migration
             $table->timestamp('two_factor_confirmed_at')->nullable();
             $table->json('mfa_methods')->nullable();
             $table->timestamps();
+            $table->softDeletes();
 
             // Foreign key constraints
             $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('set null');
