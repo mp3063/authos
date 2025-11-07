@@ -21,7 +21,15 @@ class ChangePasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_password' => ['required', 'string'],
+            'current_password' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) {
+                    if (! \Illuminate\Support\Facades\Hash::check($value, $this->user()->password)) {
+                        $fail('The current password is incorrect.');
+                    }
+                },
+            ],
             'password' => [
                 'required',
                 'string',
@@ -52,12 +60,6 @@ class ChangePasswordRequest extends FormRequest
      */
     protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
     {
-        throw new \Illuminate\Http\Exceptions\HttpResponseException(
-            response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422)
-        );
+        throw new \Illuminate\Validation\ValidationException($validator);
     }
 }

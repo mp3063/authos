@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Crypt;
 
 class SocialAccount extends Model
 {
@@ -34,6 +36,28 @@ class SocialAccount extends Model
             'provider_data' => 'array',
             'token_expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Encrypt/decrypt provider_token
+     */
+    protected function providerToken(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? Crypt::decryptString($value) : null,
+            set: fn (?string $value) => $value ? Crypt::encryptString($value) : null,
+        );
+    }
+
+    /**
+     * Encrypt/decrypt provider_refresh_token
+     */
+    protected function providerRefreshToken(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? Crypt::decryptString($value) : null,
+            set: fn (?string $value) => $value ? Crypt::encryptString($value) : null,
+        );
     }
 
     public function user(): BelongsTo

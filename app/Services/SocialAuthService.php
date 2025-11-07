@@ -234,6 +234,23 @@ class SocialAuthService
 
         $user = User::create($userData);
 
+        // Create social account record
+        \App\Models\SocialAccount::create([
+            'user_id' => $user->id,
+            'provider' => $provider,
+            'provider_id' => $socialUser->getId(),
+            'provider_token' => $socialUser->token,
+            'provider_refresh_token' => $socialUser->refreshToken,
+            'token_expires_at' => $socialUser->expiresIn ? now()->addSeconds($socialUser->expiresIn) : null,
+            'email' => $socialUser->getEmail(),
+            'name' => $socialUser->getName(),
+            'avatar' => $socialUser->getAvatar(),
+            'provider_data' => [
+                'nickname' => $socialUser->getNickname(),
+                'raw' => $socialUser->getRaw(),
+            ],
+        ]);
+
         // Assign default role
         $this->assignDefaultRole($user, $organization);
 
@@ -259,6 +276,27 @@ class SocialAuthService
             ],
         ]);
 
+        // Update or create social account record
+        \App\Models\SocialAccount::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'provider' => $user->provider,
+            ],
+            [
+                'provider_id' => $socialUser->getId(),
+                'provider_token' => $socialUser->token,
+                'provider_refresh_token' => $socialUser->refreshToken,
+                'token_expires_at' => $socialUser->expiresIn ? now()->addSeconds($socialUser->expiresIn) : null,
+                'email' => $socialUser->getEmail(),
+                'name' => $socialUser->getName(),
+                'avatar' => $socialUser->getAvatar(),
+                'provider_data' => [
+                    'nickname' => $socialUser->getNickname(),
+                    'raw' => $socialUser->getRaw(),
+                ],
+            ]
+        );
+
         return $user;
     }
 
@@ -267,7 +305,42 @@ class SocialAuthService
      */
     public function linkSocialAccount(User $user, string $provider, SocialiteUser $socialUser): User
     {
-        // Update user with social provider information
+        // Check if social account already exists for this provider and provider_id
+        $existingSocialAccount = \App\Models\SocialAccount::where('provider', $provider)
+            ->where('provider_id', $socialUser->getId())
+            ->first();
+
+        if ($existingSocialAccount && $existingSocialAccount->user_id !== $user->id) {
+            throw new \Exception('This social account is already linked to another user.');
+        }
+
+        // Check if user already has this provider linked
+        $userExistingAccount = \App\Models\SocialAccount::where('user_id', $user->id)
+            ->where('provider', $provider)
+            ->first();
+
+        if ($userExistingAccount) {
+            throw new \Exception('You already have a ' . ucfirst($provider) . ' account linked.');
+        }
+
+        // Create new social account record
+        \App\Models\SocialAccount::create([
+            'user_id' => $user->id,
+            'provider' => $provider,
+            'provider_id' => $socialUser->getId(),
+            'provider_token' => $socialUser->token,
+            'provider_refresh_token' => $socialUser->refreshToken,
+            'token_expires_at' => $socialUser->expiresIn ? now()->addSeconds($socialUser->expiresIn) : null,
+            'email' => $socialUser->getEmail(),
+            'name' => $socialUser->getName(),
+            'avatar' => $socialUser->getAvatar(),
+            'provider_data' => [
+                'nickname' => $socialUser->getNickname(),
+                'raw' => $socialUser->getRaw(),
+            ],
+        ]);
+
+        // Update user with social provider information (for backward compatibility)
         $user->update([
             'provider' => $provider,
             'provider_id' => $socialUser->getId(),
