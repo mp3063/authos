@@ -87,11 +87,28 @@ class AppServiceProvider extends ServiceProvider
 
         // Configure OpenID Connect scopes
         Passport::tokensCan([
+            '*' => 'Full access',
             'openid' => 'OpenID Connect access',
             'profile' => 'Access user profile information',
             'email' => 'Access user email address',
             'read' => 'Read access to your account',
             'write' => 'Write access to your account',
+            'users.read' => 'Read user information',
+            'users.write' => 'Write user information',
+            'users.update' => 'Update user information',
+            'users.delete' => 'Delete users',
+            'users.manage' => 'Manage users',
+            'applications.read' => 'Read application information',
+            'applications.write' => 'Write application information',
+            'applications.update' => 'Update applications',
+            'applications.delete' => 'Delete applications',
+            'applications.manage' => 'Manage applications',
+            'organizations.read' => 'Read organization information',
+            'organizations.write' => 'Write organization information',
+            'organizations.update' => 'Update organizations',
+            'organizations.manage' => 'Manage organizations',
+            'sso' => 'Single Sign-On access',
+            'roles.assign' => 'Assign roles to users',
         ]);
 
         Passport::defaultScopes(['openid']);
