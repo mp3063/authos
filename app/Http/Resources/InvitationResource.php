@@ -28,8 +28,17 @@ class InvitationResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
 
-            // Hide token in API responses for security
-            'token' => $this->when(false, null),
+            // Include token for pending invitations
+            'token' => $this->when(
+                $this->status === 'pending',
+                $this->token
+            ),
+
+            // Include invitation URL for pending invitations
+            'invitation_url' => $this->when(
+                $this->status === 'pending',
+                url("/api/v1/invitations/{$this->token}")
+            ),
 
             // Relationships
             'organization' => new OrganizationResource($this->whenLoaded('organization')),

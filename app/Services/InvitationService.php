@@ -149,7 +149,7 @@ class InvitationService
         }
 
         if (! $invitation->isPending()) {
-            throw new Exception($invitation->isExpired() ? 'Invalid or expired invitation' : 'Invitation has already been accepted');
+            throw new Exception($invitation->isExpired() ? 'Invitation has expired' : 'Invitation already accepted');
         }
 
         // Verify the invitation email matches the user's email
@@ -167,7 +167,17 @@ class InvitationService
                 $user->setPermissionsTeamId($user->organization_id);
 
                 // Check if user already has this role for this organization
-                $hasRole = $user->hasRole($invitation->role);
+                try {
+                    $hasRole = $user->hasRole($invitation->role);
+                } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
+                    // Role doesn't exist for this guard, skip role assignment
+                    $hasRole = false;
+                    logger()->warning('Role not found during invitation acceptance', [
+                        'role' => $invitation->role,
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
                 // Testing environment fallback
                 if (! $hasRole && app()->environment('testing')) {
@@ -178,6 +188,13 @@ class InvitationService
                 if (! $hasRole) {
                     try {
                         $user->assignRole($invitation->role);
+                    } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
+                        // Role doesn't exist, log and continue without error
+                        logger()->warning('Unable to assign role during invitation acceptance', [
+                            'role' => $invitation->role,
+                            'user_id' => $user->id,
+                            'error' => $e->getMessage(),
+                        ]);
                     } catch (\Exception $e) {
                         // If role assignment fails due to constraint violation, it means user already has the role
                         if (strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
@@ -207,12 +224,41 @@ class InvitationService
         });
     }
 
+    public function declineInvitation(string $token, ?string $reason = null): bool
+    {
+        $invitation = Invitation::where('token', $token)->first();
+
+        if (! $invitation) {
+            throw new Exception('Invalid or expired invitation');
+        }
+
+        if (! $invitation->isPending()) {
+            throw new Exception($invitation->isExpired() ? 'Invitation has expired' : 'Invitation already processed');
+        }
+
+        return DB::transaction(function () use ($invitation, $reason) {
+            $invitation->status = 'declined';
+            $invitation->declined_at = now();
+            $invitation->decline_reason = $reason;
+            $invitation->save();
+
+            return true;
+        });
+    }
+
     public function cancelInvitation(int $invitationId, User $canceller): bool
     {
-        $invitation = Invitation::findOrFail($invitationId);
-
         // Ensure permissions context is set
         $canceller->setPermissionsTeamId($canceller->organization_id);
+
+        // Find invitation that belongs to the user's organization
+        $invitation = Invitation::where('id', $invitationId)
+            ->where('organization_id', $canceller->organization_id)
+            ->first();
+
+        if (! $invitation) {
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Invitation not found');
+        }
 
         // Check if user has permission to cancel this invitation
         if (! $this->canManageInvitation($canceller, $invitation)) {
