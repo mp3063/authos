@@ -174,6 +174,10 @@ class SocialAccountsTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_can_link_github_account(): void
     {
+        // Configure GitHub provider
+        config(['services.github.client_id' => 'test-github-id']);
+        config(['services.github.client_secret' => 'test-github-secret']);
+
         // ARRANGE: Mock GitHub OAuth response
         $mockSocialiteUser = Mockery::mock(SocialiteUser::class);
         $mockSocialiteUser->shouldReceive('getId')->andReturn('github-789');
@@ -215,6 +219,10 @@ class SocialAccountsTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_can_link_facebook_account(): void
     {
+        // Configure Facebook provider
+        config(['services.facebook.client_id' => 'test-facebook-id']);
+        config(['services.facebook.client_secret' => 'test-facebook-secret']);
+
         // ARRANGE: Mock Facebook OAuth response
         $mockSocialiteUser = Mockery::mock(SocialiteUser::class);
         $mockSocialiteUser->shouldReceive('getId')->andReturn('facebook-555');

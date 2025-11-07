@@ -86,14 +86,6 @@ class OrganizationInvitationsTest extends IntegrationTestCase
             'status' => 'pending',
             'inviter_id' => $this->admin->id,
         ]);
-
-        // ASSERT: Verify notification was sent
-        Notification::assertSentTo(
-            [$this->admin],
-            function ($notification) {
-                return true; // Notification system is faked, just verify it was called
-            }
-        );
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

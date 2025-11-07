@@ -184,78 +184,96 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_gets_api_usage_stats_for_different_periods(): void
     {
-        // ARRANGE: Create authentication logs spanning different periods
-        $user = $this->createApiUser(['organization_id' => $this->organization->id]);
-        $this->application->users()->attach($user->id, ['granted_at' => now()]);
+        // ARRANGE: Create a dedicated application for this test to ensure test isolation
+        $testPassportClient = Client::create([
+            'name' => 'Period Test App',
+            'secret' => hash('sha256', 'period-test-secret'),
+            'redirect' => 'https://period.example.com/callback',
+            'personal_access_client' => false,
+            'password_client' => false,
+            'revoked' => false,
+        ]);
 
-        // Last 24 hours
-        AuthenticationLog::create([
-            'user_id' => $user->id,
+        $testApplication = $this->createOAuthApplication([
+            'name' => 'Period Test Application',
             'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'client_id' => (string) Str::uuid(),
+            'client_secret' => 'period-test-secret',
+            'passport_client_id' => $testPassportClient->id,
+        ]);
+
+        // Create authentication logs spanning different periods
+        $user = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $testApplication->users()->attach($user->id, ['granted_at' => now()]);
+
+        // Last 24 hours - Use DB::table to bypass Eloquent timestamps
+        \DB::table('authentication_logs')->insert([
+            'user_id' => $user->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subHours(2),
+            'updated_at' => Carbon::now()->subHours(2),
         ]);
 
-        AuthenticationLog::create([
+        \DB::table('authentication_logs')->insert([
             'user_id' => $user->id,
-            'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subHours(5),
+            'updated_at' => Carbon::now()->subHours(5),
         ]);
 
         // Last 7 days (but not 24h)
-        AuthenticationLog::create([
+        \DB::table('authentication_logs')->insert([
             'user_id' => $user->id,
-            'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subDays(3),
+            'updated_at' => Carbon::now()->subDays(3),
         ]);
 
         // Last 30 days (but not 7d)
-        AuthenticationLog::create([
+        \DB::table('authentication_logs')->insert([
             'user_id' => $user->id,
-            'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subDays(15),
+            'updated_at' => Carbon::now()->subDays(15),
         ]);
 
         // Last 90 days (but not 30d)
-        AuthenticationLog::create([
+        \DB::table('authentication_logs')->insert([
             'user_id' => $user->id,
-            'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subDays(60),
+            'updated_at' => Carbon::now()->subDays(60),
         ]);
 
         // Outside 90 days (should not be counted)
-        AuthenticationLog::create([
+        \DB::table('authentication_logs')->insert([
             'user_id' => $user->id,
-            'organization_id' => $this->organization->id,
-            'application_id' => $this->application->id,
+            'application_id' => $testApplication->id,
             'event' => 'login_success',
             'ip_address' => '192.168.1.100',
             'user_agent' => 'Mozilla/5.0',
             'created_at' => Carbon::now()->subDays(100),
+            'updated_at' => Carbon::now()->subDays(100),
         ]);
 
         // ACT & ASSERT: Test 24h period
         $response24h = $this->actingAsApiUserWithToken($this->user)
-            ->getJson("/api/v1/applications/{$this->application->id}/analytics?period=24h");
+            ->getJson("/api/v1/applications/{$testApplication->id}/analytics?period=24h");
 
         $response24h->assertOk()
             ->assertJsonPath('data.period', '24h')
@@ -263,7 +281,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
 
         // ACT & ASSERT: Test 7d period
         $response7d = $this->actingAsApiUserWithToken($this->user)
-            ->getJson("/api/v1/applications/{$this->application->id}/analytics?period=7d");
+            ->getJson("/api/v1/applications/{$testApplication->id}/analytics?period=7d");
 
         $response7d->assertOk()
             ->assertJsonPath('data.period', '7d')
@@ -271,7 +289,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
 
         // ACT & ASSERT: Test 30d period
         $response30d = $this->actingAsApiUserWithToken($this->user)
-            ->getJson("/api/v1/applications/{$this->application->id}/analytics?period=30d");
+            ->getJson("/api/v1/applications/{$testApplication->id}/analytics?period=30d");
 
         $response30d->assertOk()
             ->assertJsonPath('data.period', '30d')
@@ -279,7 +297,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
 
         // ACT & ASSERT: Test 90d period
         $response90d = $this->actingAsApiUserWithToken($this->user)
-            ->getJson("/api/v1/applications/{$this->application->id}/analytics?period=90d");
+            ->getJson("/api/v1/applications/{$testApplication->id}/analytics?period=90d");
 
         $response90d->assertOk()
             ->assertJsonPath('data.period', '90d')
@@ -287,7 +305,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
 
         // ACT & ASSERT: Test default period (7d)
         $responseDefault = $this->actingAsApiUserWithToken($this->user)
-            ->getJson("/api/v1/applications/{$this->application->id}/analytics");
+            ->getJson("/api/v1/applications/{$testApplication->id}/analytics");
 
         $responseDefault->assertOk()
             ->assertJsonPath('data.period', '7d')

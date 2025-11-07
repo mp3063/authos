@@ -50,6 +50,9 @@ class WebhookDeliveryFlowTest extends IntegrationTestCase
     {
         parent::setUp();
 
+        // Fake the queue to prevent retry jobs from executing synchronously
+        \Illuminate\Support\Facades\Queue::fake();
+
         // Create organization and webhook
         $this->organization = $this->createOrganization(['name' => 'Test Organization']);
 

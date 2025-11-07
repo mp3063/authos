@@ -375,9 +375,10 @@ class SecurityTest extends TestCase
             'role' => 'Super Admin',
         ]);
 
-        // Organization boundary middleware blocks access with 404 for users without proper org admin role
-        // This is correct security behavior - prevents privilege escalation
-        $response->assertStatus(404);
+        // Authorization check should return 403 Forbidden since orgAdmin lacks permission to assign Super Admin role
+        // This is correct security behavior - prevents privilege escalation within the same organization
+        // Note: 404 would be returned if trying to access a user in a different organization
+        $response->assertStatus(403);
 
         // Verify user did not get super admin role
         $this->user1->refresh();

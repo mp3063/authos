@@ -164,7 +164,7 @@ class UserSessionsTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->user->id,
-            'action' => 'session_revoked',
+            'event' => 'session_revoked',
         ]);
     }
 
@@ -203,7 +203,7 @@ class UserSessionsTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->user->id,
-            'action' => 'all_sessions_revoked',
+            'event' => 'all_sessions_revoked',
         ]);
     }
 
@@ -312,7 +312,7 @@ class UserSessionsTest extends TestCase
         // Verify audit log shows admin performed action
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->user->id,
-            'action' => 'session_revoked',
+            'event' => 'session_revoked',
         ]);
     }
 

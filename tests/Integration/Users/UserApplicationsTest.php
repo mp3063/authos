@@ -153,7 +153,7 @@ class UserApplicationsTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->regularUser->id,
-            'action' => 'application_access_granted',
+            'event' => 'application_access_granted',
         ]);
     }
 
@@ -192,7 +192,7 @@ class UserApplicationsTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->regularUser->id,
-            'action' => 'application_access_revoked',
+            'event' => 'application_access_revoked',
         ]);
     }
 
@@ -271,7 +271,7 @@ class UserApplicationsTest extends TestCase
         foreach ($userIds as $userId) {
             $this->assertDatabaseHas('authentication_logs', [
                 'user_id' => $userId,
-                'action' => 'application_access_granted',
+                'event' => 'application_access_granted',
             ]);
         }
     }

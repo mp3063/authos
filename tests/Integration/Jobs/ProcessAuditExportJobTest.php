@@ -33,7 +33,7 @@ class ProcessAuditExportJobTest extends TestCase
         $this->organization = Organization::factory()->create();
         $this->export = AuditExport::factory()->create([
             'organization_id' => $this->organization->id,
-            'format' => 'csv',
+            'type' => 'csv',
             'status' => 'pending',
         ]);
     }
@@ -53,6 +53,10 @@ class ProcessAuditExportJobTest extends TestCase
     #[Test]
     public function job_generates_csv_export_correctly(): void
     {
+        // Mock Log facade
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
+
         $mockService = Mockery::mock(AuditExportService::class);
         $mockService->shouldReceive('processExport')
             ->once()
@@ -81,7 +85,11 @@ class ProcessAuditExportJobTest extends TestCase
     #[Test]
     public function job_generates_json_export_correctly(): void
     {
-        $this->export->update(['format' => 'json']);
+        // Mock Log facade
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
+
+        $this->export->update(['type' => 'json']);
 
         $mockService = Mockery::mock(AuditExportService::class);
         $mockService->shouldReceive('processExport')
@@ -117,7 +125,11 @@ class ProcessAuditExportJobTest extends TestCase
     #[Test]
     public function job_generates_excel_export_correctly(): void
     {
-        $this->export->update(['format' => 'xlsx']);
+        // Mock Log facade
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
+
+        $this->export->update(['type' => 'xlsx']);
 
         $mockService = Mockery::mock(AuditExportService::class);
         $mockService->shouldReceive('processExport')
@@ -146,6 +158,10 @@ class ProcessAuditExportJobTest extends TestCase
     #[Test]
     public function job_stores_file_in_storage_disk(): void
     {
+        // Mock Log facade
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
+
         $mockService = Mockery::mock(AuditExportService::class);
         $mockService->shouldReceive('processExport')
             ->once()
@@ -172,6 +188,10 @@ class ProcessAuditExportJobTest extends TestCase
     #[Test]
     public function job_handles_large_datasets_with_chunking(): void
     {
+        // Mock Log facade
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
+
         $mockService = Mockery::mock(AuditExportService::class);
         $mockService->shouldReceive('processExport')
             ->once()
@@ -192,7 +212,7 @@ class ProcessAuditExportJobTest extends TestCase
                 $export->update([
                     'status' => 'completed',
                     'file_path' => 'exports/large_audit.csv',
-                    'records_exported' => $chunks * $recordsPerChunk,
+                    'records_count' => $chunks * $recordsPerChunk,
                 ]);
             });
 
@@ -203,7 +223,7 @@ class ProcessAuditExportJobTest extends TestCase
 
         $this->export->refresh();
         $this->assertEquals('completed', $this->export->status);
-        $this->assertEquals(10000, $this->export->records_exported);
+        $this->assertEquals(10000, $this->export->records_count);
     }
 
     protected function tearDown(): void

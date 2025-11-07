@@ -78,7 +78,10 @@ class AuthenticationFlowsTest extends EndToEndTestCase
         $this->assertNotNull($user);
         $this->assertEquals('Alice Johnson', $user->name);
         $this->assertEquals($this->defaultOrganization->id, $user->organization_id);
-        $this->assertTrue($user->hasRole('User'));
+
+        // Set team context to check organization-scoped role
+        $user->setPermissionsTeamId($user->organization_id);
+        $this->assertTrue($user->hasRole('User', 'api')); // Check for 'api' guard role
         $this->assertEquals('Full-stack developer with a passion for authentication systems', $user->profile['bio']);
         $this->assertNull($user->email_verified_at); // Not verified yet
 

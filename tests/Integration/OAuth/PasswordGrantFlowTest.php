@@ -232,7 +232,8 @@ class PasswordGrantFlowTest extends TestCase
         ]);
 
         // Should fail because client is not a password client
-        $response->assertStatus(401);
+        // Passport returns 400 (Bad Request) for unauthorized grant type
+        $response->assertStatus(400);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

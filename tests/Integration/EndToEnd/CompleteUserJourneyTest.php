@@ -60,7 +60,10 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $user = User::where('email', 'john.doe@example.com')->first();
         $this->assertNotNull($user);
         $this->assertEquals($this->defaultOrganization->id, $user->organization_id);
-        $this->assertTrue($user->hasRole('User'));
+
+        // Set team context to check organization-scoped role
+        $user->setPermissionsTeamId($user->organization_id);
+        $this->assertTrue($user->hasRole('User', 'api')); // Check for 'api' guard role
 
         // Verify authentication log was created
         $this->assertAuditLogExists($user, 'user_registered');

@@ -67,7 +67,7 @@ class OpenIdConnectTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function test_oidc_discovery_endpoint(): void
     {
-        $response = $this->getJson('/.well-known/openid-configuration');
+        $response = $this->getJson('/api/.well-known/openid-configuration');
 
         $response->assertStatus(200);
         $discovery = $response->json();

@@ -322,12 +322,15 @@ class CacheInvalidationTest extends IntegrationTestCase
         $userCacheKey = 'api_cache:GET:_api_users_'.$user->id;
         Cache::put($userCacheKey, ['data' => 'user'], 60);
 
-        // ACT: Delete user
-        $user->delete();
+        // Get ID before deletion
+        $userId = $user->id;
 
-        // ASSERT: User should be deleted
+        // ACT: Force delete user (bypass soft delete to test actual deletion)
+        $user->forceDelete();
+
+        // ASSERT: User should be force deleted (not soft deleted)
         $this->assertDatabaseMissing('users', [
-            'id' => $user->id,
+            'id' => $userId,
         ]);
     }
 

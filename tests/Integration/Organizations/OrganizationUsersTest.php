@@ -156,14 +156,19 @@ class OrganizationUsersTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function test_can_transfer_user_between_organizations(): void
     {
+        // ARRANGE: Create a Super Admin for cross-organization operations
+        // Note: Only Super Admins can transfer users between organizations and view users in other organizations
+        // Organization Admins are restricted to their own organization for security
+        $superAdmin = $this->createSuperAdmin();
+
         // ARRANGE: Create two organizations
         $sourceOrg = $this->organization;
         $targetOrg = $this->createOrganization(['name' => 'Target Organization']);
 
         $user = $this->createUser(['organization_id' => $sourceOrg->id]);
 
-        // ACT: Transfer user to target organization
-        $response = $this->actingAs($this->admin, 'api')
+        // ACT: Transfer user to target organization (requires Super Admin)
+        $response = $this->actingAs($superAdmin, 'api')
             ->putJson("/api/v1/users/{$user->id}", [
                 'organization_id' => $targetOrg->id,
             ]);
@@ -175,8 +180,8 @@ class OrganizationUsersTest extends IntegrationTestCase
         $user->refresh();
         $this->assertEquals($targetOrg->id, $user->organization_id);
 
-        // ASSERT: Verify user appears in target organization
-        $targetResponse = $this->actingAs($this->admin, 'api')
+        // ASSERT: Verify user appears in target organization (Super Admin has cross-org visibility)
+        $targetResponse = $this->actingAs($superAdmin, 'api')
             ->getJson("/api/v1/organizations/{$targetOrg->id}/users");
 
         $targetData = $targetResponse->json('data');

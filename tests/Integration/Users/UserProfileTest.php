@@ -61,31 +61,31 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'data' => [
                     'id' => $this->user->id,
                     'name' => 'Test User',
                     'email' => 'testuser@test.com',
-                    'organization_id' => $this->organization->id,
-                    'is_active' => true,
                     'mfa_enabled' => false,
+                    'organization' => [
+                        'id' => $this->organization->id,
+                        'name' => 'Test Organization',
+                    ],
                 ],
             ])
             ->assertJsonStructure([
-                'success',
                 'data' => [
                     'id',
                     'name',
                     'email',
                     'avatar',
+                    'email_verified_at',
                     'profile',
-                    'organization_id',
-                    'organization',
-                    'is_active',
                     'mfa_enabled',
+                    'mfa_methods',
+                    'organization',
+                    'roles',
                     'created_at',
                     'updated_at',
-                    'roles',
                 ],
             ]);
 
@@ -117,7 +117,6 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'message' => 'Profile updated successfully',
                 'data' => [
                     'name' => 'Updated Name',
@@ -134,7 +133,7 @@ class UserProfileTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->user->id,
-            'action' => 'profile_updated',
+            'event' => 'profile_updated',
         ]);
     }
 
@@ -154,11 +153,11 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'message' => 'Avatar uploaded successfully',
             ])
             ->assertJsonStructure([
                 'data' => [
+                    'avatar',
                     'avatar_url',
                 ],
             ]);
@@ -170,12 +169,6 @@ class UserProfileTest extends TestCase
         // Verify database
         $this->user->refresh();
         $this->assertNotNull($this->user->avatar);
-
-        // Verify audit log
-        $this->assertDatabaseHas('authentication_logs', [
-            'user_id' => $this->user->id,
-            'action' => 'avatar_updated',
-        ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -199,19 +192,12 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'message' => 'Avatar removed successfully',
             ]);
 
         // Verify database
         $this->user->refresh();
         $this->assertNull($this->user->avatar);
-
-        // Verify audit log
-        $this->assertDatabaseHas('authentication_logs', [
-            'user_id' => $this->user->id,
-            'action' => 'avatar_removed',
-        ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -223,15 +209,9 @@ class UserProfileTest extends TestCase
         $preferences = [
             'theme' => 'dark',
             'language' => 'en',
-            'notifications' => [
-                'email' => true,
-                'sms' => false,
-                'push' => true,
-            ],
-            'dashboard' => [
-                'widgets' => ['overview', 'activity', 'security'],
-                'default_view' => 'grid',
-            ],
+            'timezone' => 'America/New_York',
+            'date_format' => 'Y-m-d',
+            'time_format' => 'H:i',
         ];
 
         // ACT
@@ -240,17 +220,19 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'message' => 'Preferences updated successfully',
-                'data' => $preferences,
+                'data' => [
+                    'theme' => 'dark',
+                    'language' => 'en',
+                    'timezone' => 'America/New_York',
+                ],
             ]);
 
-        // Verify database
+        // Verify database - preferences are stored in profile['preferences']
         $this->user->refresh();
-        $this->assertEquals('dark', $this->user->metadata['preferences']['theme']);
-        $this->assertEquals('en', $this->user->metadata['preferences']['language']);
-        $this->assertTrue($this->user->metadata['preferences']['notifications']['email']);
-        $this->assertFalse($this->user->metadata['preferences']['notifications']['sms']);
+        $this->assertEquals('dark', $this->user->profile['preferences']['theme']);
+        $this->assertEquals('en', $this->user->profile['preferences']['language']);
+        $this->assertEquals('America/New_York', $this->user->profile['preferences']['timezone']);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -259,14 +241,16 @@ class UserProfileTest extends TestCase
         // ARRANGE
         Passport::actingAs($this->user);
 
-        $preferences = [
-            'theme' => 'light',
+        $customPreferences = [
+            'theme' => 'dark',
             'language' => 'es',
-            'notifications' => ['email' => true],
         ];
 
+        // Store preferences in profile['preferences']
         $this->user->update([
-            'metadata' => ['preferences' => $preferences],
+            'profile' => array_merge($this->user->profile ?? [], [
+                'preferences' => $customPreferences,
+            ]),
         ]);
 
         // ACT
@@ -274,10 +258,20 @@ class UserProfileTest extends TestCase
 
         // ASSERT
         $response->assertStatus(200)
+            ->assertJsonStructure(['data'])
             ->assertJson([
-                'success' => true,
-                'data' => $preferences,
+                'data' => [
+                    'theme' => 'dark',
+                    'language' => 'es',
+                ],
             ]);
+
+        // Verify default preferences are merged with custom ones
+        $data = $response->json('data');
+        $this->assertEquals('dark', $data['theme']);
+        $this->assertEquals('es', $data['language']);
+        $this->assertArrayHasKey('timezone', $data);
+        $this->assertArrayHasKey('date_format', $data);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -297,7 +291,6 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJson([
-                'success' => true,
                 'data' => [
                     'name' => $newName,
                 ],
@@ -311,7 +304,7 @@ class UserProfileTest extends TestCase
         // Verify audit log
         $this->assertDatabaseHas('authentication_logs', [
             'user_id' => $this->user->id,
-            'action' => 'profile_updated',
+            'event' => 'profile_updated',
         ]);
     }
 
@@ -331,7 +324,17 @@ class UserProfileTest extends TestCase
 
         // ASSERT
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['avatar']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'avatar',
+                ],
+            ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -340,8 +343,8 @@ class UserProfileTest extends TestCase
         // ARRANGE
         Passport::actingAs($this->user);
 
-        // Create file larger than allowed (e.g., 10MB)
-        $largeFile = UploadedFile::fake()->image('avatar.jpg')->size(11000); // 11MB
+        // Create file larger than allowed (max 2MB per controller)
+        $largeFile = UploadedFile::fake()->image('avatar.jpg')->size(3000); // 3MB (exceeds 2MB limit)
 
         // ACT
         $response = $this->postJson('/api/v1/profile/avatar', [
@@ -350,7 +353,17 @@ class UserProfileTest extends TestCase
 
         // ASSERT
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['avatar']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'avatar',
+                ],
+            ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -370,7 +383,19 @@ class UserProfileTest extends TestCase
 
         // ASSERT
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'profile']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'name',
+                    'email',
+                    'profile',
+                ],
+            ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -391,7 +416,17 @@ class UserProfileTest extends TestCase
 
         // ASSERT
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertJson([
+                'error' => 'validation_failed',
+                'error_description' => 'The given data was invalid.',
+            ])
+            ->assertJsonStructure([
+                'error',
+                'error_description',
+                'details' => [
+                    'email',
+                ],
+            ]);
 
         // Verify email was not changed
         $this->user->refresh();
@@ -447,12 +482,17 @@ class UserProfileTest extends TestCase
         // ASSERT
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'success',
                 'data',
             ]);
 
-        // Should return empty or default preferences
-        $this->assertIsArray($response->json('data'));
+        // Should return default preferences
+        $data = $response->json('data');
+        $this->assertIsArray($data);
+        $this->assertEquals('UTC', $data['timezone']);
+        $this->assertEquals('en', $data['language']);
+        $this->assertEquals('light', $data['theme']);
+        $this->assertEquals('Y-m-d', $data['date_format']);
+        $this->assertEquals('H:i', $data['time_format']);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

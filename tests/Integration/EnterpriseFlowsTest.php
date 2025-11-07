@@ -79,9 +79,14 @@ class EnterpriseFlowsTest extends TestCase
         $this->assertArrayHasKey('instructions', $instructions);
 
         // Step 3: Simulate verification (will fail without real DNS, but tests the workflow)
-        $verified = $domainService->verifyDomain($domain);
+        $result = $domainService->verifyDomain($domain);
 
-        $this->assertIsBool($verified);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('success', $result);
+        $this->assertArrayHasKey('verified', $result);
+        $this->assertArrayHasKey('message', $result);
+        $this->assertIsBool($result['success']);
+        $this->assertIsBool($result['verified']);
 
         // Step 4: Regenerate verification code if needed
         $originalCode = $domain->verification_code;

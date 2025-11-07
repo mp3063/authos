@@ -115,7 +115,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         // ARRANGE: Prepare session timeout settings
         $sessionSettings = [
             'settings' => [
-                'session_timeout' => 120, // 2 hours in minutes
+                'session_timeout' => 300, // 5 hours in minutes (minimum allowed)
                 'session_absolute_timeout' => 480, // 8 hours
                 'session_idle_timeout' => 30, // 30 minutes
                 'require_reauth_for_sensitive' => true,
@@ -131,7 +131,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
 
         // ASSERT: Verify settings
         $this->organization->refresh();
-        $this->assertEquals(120, $this->organization->settings['session_timeout']);
+        $this->assertEquals(300, $this->organization->settings['session_timeout']);
         $this->assertEquals(480, $this->organization->settings['session_absolute_timeout']);
         $this->assertEquals(30, $this->organization->settings['session_idle_timeout']);
         $this->assertTrue($this->organization->settings['require_reauth_for_sensitive']);
@@ -344,7 +344,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->organization->update([
             'settings' => [
                 'require_mfa' => true,
-                'session_timeout' => 60,
+                'session_timeout' => 300,
                 'password_policy' => [
                     'min_length' => 8,
                 ],
@@ -354,7 +354,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         // ACT: Update only one setting
         $partialUpdate = [
             'settings' => [
-                'session_timeout' => 120,
+                'session_timeout' => 360, // 6 hours (must be >= 300)
             ],
         ];
 
@@ -366,7 +366,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
 
         // ASSERT: Verify only session_timeout changed, other settings preserved
         $this->organization->refresh();
-        $this->assertEquals(120, $this->organization->settings['session_timeout']);
+        $this->assertEquals(360, $this->organization->settings['session_timeout']);
         $this->assertTrue($this->organization->settings['require_mfa']); // Preserved
         $this->assertEquals(8, $this->organization->settings['password_policy']['min_length']); // Preserved
     }
@@ -382,7 +382,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
                     'enabled' => true,
                     'max_attempts' => 3,
                 ],
-                'session_timeout' => 15, // Very short timeout
+                'session_timeout' => 300, // Minimum allowed timeout
             ],
         ];
 
@@ -402,7 +402,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
             ->assertJson([
                 'data' => [
                     'require_mfa' => true,
-                    'session_timeout' => 15,
+                    'session_timeout' => 300,
                 ],
             ]);
     }

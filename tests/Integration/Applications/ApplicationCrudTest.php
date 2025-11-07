@@ -366,7 +366,7 @@ class ApplicationCrudTest extends IntegrationTestCase
 
         // ACT: Filter by active status
         $activeResponse = $this->actingAsApiUserWithToken($this->user)
-            ->getJson('/api/v1/applications?is_active=true');
+            ->getJson('/api/v1/applications?is_active=1');
 
         // ASSERT: Only active applications returned
         $activeData = $activeResponse->json('data');
@@ -494,8 +494,10 @@ class ApplicationCrudTest extends IntegrationTestCase
             ]);
 
         // ASSERT: Validation catches invalid URLs
-        $invalidResponse->assertStatus(422)
-            ->assertJsonPath('details.redirect_uris.0', 'The redirect_uris.0 field must be a valid URL.');
+        $invalidResponse->assertStatus(422);
+        $errors = $invalidResponse->json('details');
+        $this->assertArrayHasKey('redirect_uris.0', $errors);
+        $this->assertEquals('The redirect_uris.0 field must be a valid URL.', $errors['redirect_uris.0'][0]);
 
         // ACT: Test too many redirect URIs (max 10)
         $tooManyUris = array_fill(0, 11, 'https://example.com/callback');
@@ -510,6 +512,6 @@ class ApplicationCrudTest extends IntegrationTestCase
 
         // ASSERT: Validation enforces maximum
         $tooManyResponse->assertStatus(422)
-            ->assertJsonPath('details.redirect_uris.0', 'The redirect_uris field must not have more than 10 items.');
+            ->assertJsonPath('details.redirect_uris.0', 'The redirect uris field must not have more than 10 items.');
     }
 }

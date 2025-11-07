@@ -56,9 +56,8 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
             'email_verified_at' => null, // Unverified
         ]);
 
-        User::factory()->count(2)->create([
+        User::factory()->count(2)->withMfa()->create([
             'organization_id' => $this->organization->id,
-            'mfa_enabled' => true,
         ]);
 
         // ACT: Get user metrics
@@ -81,7 +80,8 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         // ASSERT: Verify metric values
         $metrics = $response->json('data');
         $this->assertGreaterThanOrEqual(15, $metrics['total_users']); // 10 + 3 + 2 + admin
-        $this->assertEquals(10, $metrics['verified_users']);
+        // 10 explicitly verified + 2 withMfa (verified by default) + 1 admin (verified by default) = 13
+        $this->assertEquals(13, $metrics['verified_users']);
         $this->assertEquals(3, $metrics['unverified_users']);
         $this->assertGreaterThanOrEqual(2, $metrics['mfa_enabled_users']);
     }
@@ -96,20 +96,14 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
 
         foreach ($users as $user) {
             // Create successful logins
-            AuthenticationLog::factory()->count(3)->create([
+            AuthenticationLog::factory()->count(3)->successfulLogin()->create([
                 'user_id' => $user->id,
-                'organization_id' => $this->organization->id,
-                'event_type' => 'login',
-                'status' => 'success',
                 'created_at' => now()->subDays(rand(1, 7)),
             ]);
 
             // Create failed logins
-            AuthenticationLog::factory()->count(2)->create([
+            AuthenticationLog::factory()->count(2)->failedLogin()->create([
                 'user_id' => $user->id,
-                'organization_id' => $this->organization->id,
-                'event_type' => 'login',
-                'status' => 'failed',
                 'created_at' => now()->subDays(rand(1, 7)),
             ]);
         }
@@ -208,15 +202,12 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
     public function test_can_get_mfa_adoption_rate(): void
     {
         // ARRANGE: Create users with MFA
-        User::factory()->count(7)->create([
+        User::factory()->count(7)->withMfa()->create([
             'organization_id' => $this->organization->id,
-            'mfa_enabled' => true,
-            'mfa_secret' => 'test_secret',
         ]);
 
         User::factory()->count(3)->create([
             'organization_id' => $this->organization->id,
-            'mfa_enabled' => false,
         ]);
 
         // ACT: Get MFA metrics
@@ -236,8 +227,10 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $mfaUsers = $metrics['mfa_enabled_users'];
         $expectedRate = ($mfaUsers / $totalUsers) * 100;
 
+        // 7 users with MFA explicitly created
         $this->assertEquals(7, $metrics['mfa_enabled_users']);
-        $this->assertEquals(3, $metrics['mfa_disabled_users']);
+        // 3 regular users + 1 admin without MFA = 4
+        $this->assertEquals(4, $metrics['mfa_disabled_users']);
         $this->assertEqualsWithDelta($expectedRate, $metrics['mfa_adoption_rate'], 1);
     }
 
@@ -254,8 +247,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
 
         foreach ($incidents as $type => $count) {
             SecurityIncident::factory()->count($count)->create([
-                'organization_id' => $this->organization->id,
-                'incident_type' => $type,
+                'type' => $type,
                 'severity' => 'medium',
                 'created_at' => now()->subDays(rand(1, 7)),
             ]);
@@ -326,18 +318,14 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
     {
         // ARRANGE: Create logs with different dates
         $recentUser = $this->createUser(['organization_id' => $this->organization->id]);
-        AuthenticationLog::factory()->count(5)->create([
+        AuthenticationLog::factory()->count(5)->successfulLogin()->create([
             'user_id' => $recentUser->id,
-            'organization_id' => $this->organization->id,
-            'event_type' => 'login',
             'created_at' => now()->subDays(3),
         ]);
 
         $oldUser = $this->createUser(['organization_id' => $this->organization->id]);
-        AuthenticationLog::factory()->count(10)->create([
+        AuthenticationLog::factory()->count(10)->successfulLogin()->create([
             'user_id' => $oldUser->id,
-            'organization_id' => $this->organization->id,
-            'event_type' => 'login',
             'created_at' => now()->subDays(40),
         ]);
 
@@ -369,10 +357,8 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         ]);
 
         foreach ($otherUsers as $user) {
-            AuthenticationLog::factory()->count(5)->create([
+            AuthenticationLog::factory()->count(5)->successfulLogin()->create([
                 'user_id' => $user->id,
-                'organization_id' => $otherOrg->id,
-                'event_type' => 'login',
             ]);
         }
 

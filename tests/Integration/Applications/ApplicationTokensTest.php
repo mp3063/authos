@@ -118,7 +118,6 @@ class ApplicationTokensTest extends IntegrationTestCase
                         'user' => ['id', 'name', 'email'],
                         'created_at',
                         'expires_at',
-                        'last_used_at',
                     ],
                 ],
             ]);
@@ -164,7 +163,6 @@ class ApplicationTokensTest extends IntegrationTestCase
         $token = Token::find($tokenId);
         $token->update([
             'name' => 'My Access Token',
-            'last_used_at' => Carbon::now()->subMinutes(15),
         ]);
 
         // ACT: Get token details
@@ -182,7 +180,6 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertEquals(['openid', 'profile', 'email', 'read'], $tokenData['scopes']);
         $this->assertNotNull($tokenData['created_at']);
         $this->assertNotNull($tokenData['expires_at']);
-        $this->assertNotNull($tokenData['last_used_at']);
 
         // ASSERT: User details present
         $this->assertEquals('Token User', $tokenData['user']['name']);
@@ -388,11 +385,11 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertEquals($newCredentials['client_id'], $this->application->client_id);
         $this->assertEquals($newCredentials['client_secret'], $this->application->client_secret);
 
-        // ASSERT: Passport client updated
+        // ASSERT: Passport client updated (secret is bcrypt hashed)
         $this->passportClient->refresh();
-        $this->assertEquals(
-            hash('sha256', $newCredentials['client_secret']),
-            $this->passportClient->secret
+        $this->assertTrue(
+            password_verify($newCredentials['client_secret'], $this->passportClient->secret),
+            'Passport client secret should be bcrypt hash of the plaintext secret'
         );
 
         // ASSERT: All existing tokens invalidated

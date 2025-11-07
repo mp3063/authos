@@ -216,7 +216,12 @@ abstract class TestCase extends BaseTestCase
 
     protected function createOrganization(array $attributes = []): Organization
     {
-        return Organization::factory()->create($attributes);
+        $organization = Organization::factory()->create($attributes);
+
+        // Automatically set up default roles for the organization in tests
+        $organization->setupDefaultRoles();
+
+        return $organization;
     }
 
     protected function createSuperAdmin(array $attributes = []): User

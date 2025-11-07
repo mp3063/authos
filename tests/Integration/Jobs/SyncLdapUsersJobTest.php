@@ -64,11 +64,22 @@ class SyncLdapUsersJobTest extends TestCase
     #[Test]
     public function job_executes_successfully_with_valid_ldap_config(): void
     {
+        // Mock Log facade
+        Log::shouldReceive('info')
+            ->with(Mockery::pattern('/Starting LDAP sync/'))
+            ->once();
+        Log::shouldReceive('info')
+            ->with('LDAP sync completed', Mockery::any())
+            ->once();
+
         // Mock the LDAP service
         $mockService = Mockery::mock(LdapAuthService::class);
         $mockService->shouldReceive('syncUsers')
             ->once()
-            ->with($this->ldapConfig, $this->organization)
+            ->with(
+                Mockery::type(LdapConfiguration::class),
+                Mockery::type(Organization::class)
+            )
             ->andReturn([
                 'created' => 5,
                 'updated' => 3,
@@ -162,10 +173,10 @@ class SyncLdapUsersJobTest extends TestCase
     public function job_handles_ldap_connection_failures_gracefully(): void
     {
         Log::shouldReceive('info')
-            ->with(Mockery::pattern('/Starting LDAP sync/'), Mockery::any())
+            ->with(Mockery::pattern('/Starting LDAP sync/'))
             ->once();
         Log::shouldReceive('error')
-            ->with(Mockery::pattern('/LDAP sync failed/'), Mockery::any())
+            ->with(Mockery::pattern('/LDAP sync failed/'))
             ->once();
 
         // Mock the LDAP service to throw connection exception

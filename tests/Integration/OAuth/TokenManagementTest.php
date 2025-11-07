@@ -164,8 +164,10 @@ class TokenManagementTest extends TestCase
             'client_secret' => 'test-secret-123',
         ]);
 
-        $response->assertStatus(401);
-        $response->assertJsonFragment(['error' => 'invalid_request']);
+        // Invalid refresh token returns 400 (Bad Request), not 401
+        $response->assertStatus(400);
+        // Passport returns 'invalid_grant' for invalid refresh tokens
+        $response->assertJsonFragment(['error' => 'invalid_grant']);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -270,7 +272,8 @@ class TokenManagementTest extends TestCase
             // Missing client_secret
         ]);
 
-        $response->assertStatus(401);
+        // Missing client_secret returns 400 (Bad Request), not 401
+        $response->assertStatus(400);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

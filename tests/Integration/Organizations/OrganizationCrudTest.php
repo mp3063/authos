@@ -352,8 +352,8 @@ class OrganizationCrudTest extends IntegrationTestCase
         $response = $this->actingAs($otherUser, 'api')
             ->getJson("/api/v1/organizations/{$this->organization->id}");
 
-        // ASSERT: Verify organization boundary is enforced (403 for authorization failure)
-        $response->assertForbidden();
+        // ASSERT: Verify organization boundary is enforced (404 for cross-org access - security through obscurity)
+        $response->assertNotFound();
 
         // ACT: Attempt to update other organization
         $updateResponse = $this->actingAs($otherUser, 'api')
@@ -361,8 +361,8 @@ class OrganizationCrudTest extends IntegrationTestCase
                 'name' => 'Hacked Name',
             ]);
 
-        // ASSERT: Verify update is blocked (403 for authorization failure)
-        $updateResponse->assertForbidden();
+        // ASSERT: Verify update is blocked (404 for cross-org access - don't reveal existence)
+        $updateResponse->assertNotFound();
 
         // ASSERT: Verify no changes were made
         $this->organization->refresh();

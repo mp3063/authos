@@ -38,12 +38,13 @@ class BulkImportExportTest extends TestCase
 
         Storage::fake('local');
         Storage::fake('public');
+        Queue::fake();
     }
 
     #[Test]
     public function it_can_create_import_job_via_api()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $csvContent = "email,name,password\ntest@example.com,Test User,password123";
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
@@ -73,7 +74,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_create_export_job_via_api()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $response = $this->postJson('/api/v1/bulk/users/export', [
             'format' => 'csv',
@@ -98,7 +99,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_list_import_export_jobs()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         // Create some jobs
         BulkImportJob::factory()->count(3)->create([
@@ -121,7 +122,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_get_job_status()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $job = BulkImportJob::factory()->create([
             'organization_id' => $this->organization->id,
@@ -150,7 +151,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_validates_import_file_requirements()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         // Missing file
         $response = $this->postJson('/api/v1/bulk/users/import', [
@@ -164,7 +165,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_validates_export_format_requirements()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         // Missing format
         $response = $this->postJson('/api/v1/bulk/users/export', []);
@@ -232,7 +233,7 @@ class BulkImportExportTest extends TestCase
             'created_by' => $otherUser->id,
         ]);
 
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         // User from different org should not see this job
         $response = $this->getJson("/api/v1/bulk/imports/{$job->id}");
@@ -242,7 +243,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_cancel_pending_job()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $job = BulkImportJob::factory()->create([
             'organization_id' => $this->organization->id,
@@ -261,8 +262,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_retry_failed_job()
     {
-        Queue::fake();
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $job = BulkImportJob::factory()->create([
             'organization_id' => $this->organization->id,
@@ -282,7 +282,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_can_delete_completed_job()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $job = BulkImportJob::factory()->create([
             'organization_id' => $this->organization->id,
@@ -299,7 +299,7 @@ class BulkImportExportTest extends TestCase
     #[Test]
     public function it_cannot_delete_in_progress_job()
     {
-        Passport::actingAs($this->user);
+        Passport::actingAs($this->user, ['users.manage']);
 
         $job = BulkImportJob::factory()->create([
             'organization_id' => $this->organization->id,

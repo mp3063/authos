@@ -334,8 +334,16 @@ class ClientCredentialsFlowTest extends TestCase
             $this->assertArrayHasKey('jti', $payload);
             $this->assertArrayHasKey('exp', $payload);
 
-            // Client credentials tokens should not have 'sub' claim (no user)
-            $this->assertArrayNotHasKey('sub', $payload);
+            // Client credentials tokens: 'sub' claim is set to client_id
+            // This is standard behavior in league/oauth2-server and matches
+            // major OAuth providers (Auth0, Okta, Keycloak)
+            // The 'sub' claim identifies the client acting on its own behalf
+            $this->assertArrayHasKey('sub', $payload);
+            $this->assertEquals($this->confidentialClient->id, $payload['sub']);
+
+            // Important: 'sub' equals 'aud' indicates client is acting on own behalf,
+            // not on behalf of a user (which is correct for client credentials flow)
+            $this->assertEquals($payload['aud'], $payload['sub']);
         }
     }
 

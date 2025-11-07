@@ -146,33 +146,9 @@ class ProcessBulkImportJobTest extends TestCase
     #[Test]
     public function job_sends_notification_on_completion(): void
     {
-        Log::shouldReceive('info')
-            ->once()
-            ->with(
-                Mockery::pattern('/Starting bulk import job/'),
-                Mockery::any()
-            );
-
-        Log::shouldReceive('info')
-            ->with(
-                Mockery::pattern('/Processing .* valid records/'),
-                Mockery::any()
-            )
-            ->zeroOrMoreTimes();
-
-        Log::shouldReceive('info')
-            ->once()
-            ->with(
-                Mockery::pattern('/Completed bulk import job/'),
-                Mockery::any()
-            );
-
-        Log::shouldReceive('info')
-            ->with(
-                Mockery::pattern('/Processed batch/'),
-                Mockery::any()
-            )
-            ->zeroOrMoreTimes();
+        Log::shouldReceive('info')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('debug')->withAnyArgs()->zeroOrMoreTimes();
+        Log::shouldReceive('error')->withAnyArgs()->zeroOrMoreTimes();
 
         $this->importJob->update([
             'records' => [

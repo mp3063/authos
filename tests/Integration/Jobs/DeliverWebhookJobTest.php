@@ -72,11 +72,12 @@ class DeliverWebhookJobTest extends TestCase
             ->with($this->delivery)
             ->andReturnUsing(function ($delivery) {
                 $delivery->update([
-                    'status' => 'delivered',
-                    'response_status' => 200,
+                    'status' => 'success',
+                    'http_status_code' => 200,
                     'response_body' => json_encode(['success' => true]),
-                    'delivered_at' => now(),
+                    'completed_at' => now(),
                 ]);
+                return true;
             });
 
         $this->app->instance(WebhookDeliveryService::class, $mockService);
@@ -85,7 +86,7 @@ class DeliverWebhookJobTest extends TestCase
         $job->handle($mockService);
 
         $this->delivery->refresh();
-        $this->assertEquals('delivered', $this->delivery->status);
+        $this->assertEquals('success', $this->delivery->status->value);
     }
 
     #[Test]
@@ -96,11 +97,12 @@ class DeliverWebhookJobTest extends TestCase
             ->once()
             ->andReturnUsing(function ($delivery) {
                 $delivery->update([
-                    'status' => 'delivered',
-                    'response_status' => 200,
+                    'status' => 'success',
+                    'http_status_code' => 200,
                     'response_body' => json_encode(['success' => true, 'message' => 'Received']),
-                    'delivered_at' => now(),
+                    'completed_at' => now(),
                 ]);
+                return true;
             });
 
         $this->app->instance(WebhookDeliveryService::class, $mockService);
@@ -109,7 +111,7 @@ class DeliverWebhookJobTest extends TestCase
         $job->handle($mockService);
 
         $this->delivery->refresh();
-        $this->assertEquals(200, $this->delivery->response_status);
+        $this->assertEquals(200, $this->delivery->http_status_code);
         $this->assertNotNull($this->delivery->response_body);
 
         $responseData = json_decode($this->delivery->response_body, true);
@@ -149,7 +151,7 @@ class DeliverWebhookJobTest extends TestCase
         }
 
         $this->delivery->refresh();
-        $this->assertEquals('failed', $this->delivery->status);
+        $this->assertEquals('failed', $this->delivery->status->value);
     }
 
     #[Test]
@@ -182,7 +184,7 @@ class DeliverWebhookJobTest extends TestCase
         }
 
         $this->delivery->refresh();
-        $this->assertEquals('failed', $this->delivery->status);
+        $this->assertEquals('failed', $this->delivery->status->value);
     }
 
     #[Test]
@@ -193,26 +195,27 @@ class DeliverWebhookJobTest extends TestCase
             ->once()
             ->andReturnUsing(function ($delivery) {
                 $delivery->update([
-                    'status' => 'delivered',
-                    'response_status' => 200,
+                    'status' => 'success',
+                    'http_status_code' => 200,
                     'response_body' => '{"success":true}',
-                    'delivered_at' => now(),
-                    'attempts' => 1,
+                    'completed_at' => now(),
+                    'attempt_number' => 1,
                 ]);
+                return true;
             });
 
         $this->app->instance(WebhookDeliveryService::class, $mockService);
 
-        $this->assertEquals('pending', $this->delivery->status);
-        $this->assertEquals(0, $this->delivery->attempts);
+        $this->assertEquals('pending', $this->delivery->status->value);
+        $this->assertEquals(1, $this->delivery->attempt_number);
 
         $job = new DeliverWebhookJob($this->delivery);
         $job->handle($mockService);
 
         $this->delivery->refresh();
-        $this->assertEquals('delivered', $this->delivery->status);
-        $this->assertEquals(1, $this->delivery->attempts);
-        $this->assertNotNull($this->delivery->delivered_at);
+        $this->assertEquals('success', $this->delivery->status->value);
+        $this->assertEquals(1, $this->delivery->attempt_number);
+        $this->assertNotNull($this->delivery->completed_at);
     }
 
     protected function tearDown(): void

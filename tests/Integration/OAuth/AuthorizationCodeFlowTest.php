@@ -436,10 +436,12 @@ class AuthorizationCodeFlowTest extends TestCase
 
         $authResponse->assertStatus(200);
 
-        // Verify scopes are displayed to user
-        $authResponse->assertSee('openid');
-        $authResponse->assertSee('profile');
-        $authResponse->assertSee('email');
+        // Verify scopes are displayed to user (as human-readable descriptions)
+        $authResponse->assertSee('OpenID Connect access');
+        $authResponse->assertSee('Access user profile information');
+        $authResponse->assertSee('Access user email address');
+        $authResponse->assertSee('Read access to your account');
+        $authResponse->assertSee('Write access to your account');
     }
 
     protected function generateS256CodeChallenge(string $codeVerifier): string
