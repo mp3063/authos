@@ -147,7 +147,7 @@ class ApplicationController extends BaseApiController
         // Create Passport client
         $passportClient = Client::create([
             'name' => $request->name,
-            'secret' => hash('sha256', $clientSecret),
+            'secret' => $clientSecret, // Passport will auto-hash this with bcrypt
             'redirect' => implode(',', $request->redirect_uris),
             'personal_access_client' => false,
             'password_client' => in_array('password', $request->allowed_grant_types),
@@ -318,7 +318,7 @@ class ApplicationController extends BaseApiController
 
         // Update Passport client
         Client::find($application->passport_client_id)?->update([
-            'secret' => hash('sha256', $newClientSecret),
+            'secret' => $newClientSecret, // Passport will auto-hash this with bcrypt
         ]);
 
         // Revoke all existing tokens
@@ -433,6 +433,7 @@ class ApplicationController extends BaseApiController
 
         $application = Application::findOrFail($id);
         $tokens = Token::where('client_id', $application->passport_client_id)
+            ->where('revoked', false)
             ->where('expires_at', '>', now())
             ->get();
 
@@ -452,7 +453,6 @@ class ApplicationController extends BaseApiController
                     ] : null,
                     'created_at' => $token->created_at,
                     'expires_at' => $token->expires_at,
-                    'last_used_at' => $token->last_used_at,
                 ];
             }),
         ]);

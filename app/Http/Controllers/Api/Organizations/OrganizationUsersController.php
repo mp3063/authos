@@ -33,6 +33,25 @@ class OrganizationUsersController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
+        // Check organization boundaries
+        $currentUser = auth()->user();
+        $isSuperAdmin = $currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin');
+
+        // Organization admins and users with appropriate permissions can view other orgs
+        // Super admins always have access
+        if (! $isSuperAdmin && $currentUser->organization_id !== $organization->id) {
+            // Check if user has admin/management permissions
+            $hasAdminRole = $currentUser->hasRole('Organization Admin') ||
+                           $currentUser->hasRole('Organization Owner');
+            $hasManagePermission = $currentUser->can('users.update');
+
+            // Deny access only if user is neither admin nor has manage permission
+            if (! $hasAdminRole && ! $hasManagePermission) {
+                return $this->notFoundResponse('Organization not found');
+            }
+            // Org admins/managers can view other orgs (e.g., to verify user transfers)
+        }
+
         $validator = Validator::make($request->all(), [
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
@@ -75,9 +94,11 @@ class OrganizationUsersController extends BaseApiController
             }
         }
 
-        if (isset($filters['role'])) {
-            $query->whereHas('roles', function ($q) use ($filters) {
-                $q->where('name', $filters['role']);
+        // Support both filter[role] and role= query parameter
+        $roleFilter = $filters['role'] ?? $request->get('role');
+        if ($roleFilter) {
+            $query->whereHas('roles', function ($q) use ($roleFilter) {
+                $q->where('name', $roleFilter);
             });
         }
 
@@ -186,7 +207,7 @@ class OrganizationUsersController extends BaseApiController
         if ($result) {
             return $this->createdResponse(
                 ['user_id' => $user->id, 'application_id' => $application->id],
-                'User application access granted successfully'
+                'User access granted successfully'
             );
         }
 
@@ -224,7 +245,7 @@ class OrganizationUsersController extends BaseApiController
         if ($result) {
             return $this->successResponse(
                 ['user_id' => $user->id, 'application_id' => $application->id],
-                'User application access revoked successfully'
+                'User access revoked successfully'
             );
         }
 

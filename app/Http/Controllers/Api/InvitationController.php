@@ -149,7 +149,39 @@ class InvitationController extends BaseApiController
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => 'Failed to accept invitation',
+                'error' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Decline an invitation (public endpoint)
+     */
+    public function decline(Request $request, string $token): JsonResponse
+    {
+        $request->validate([
+            'reason' => 'sometimes|string|max:500',
+        ]);
+
+        try {
+            $declined = $this->invitationService->declineInvitation(
+                $token,
+                $request->get('reason')
+            );
+
+            if ($declined) {
+                return response()->json([
+                    'message' => 'Invitation declined',
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Failed to decline invitation',
+            ], 400);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Failed to decline invitation',
             ], 400);
         }
     }
@@ -175,6 +207,10 @@ class InvitationController extends BaseApiController
                 'message' => 'Failed to cancel invitation',
             ], 400);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Invitation not found',
+            ], 404);
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to cancel invitation',
@@ -224,19 +260,17 @@ class InvitationController extends BaseApiController
                 $request->user()
             );
 
-            $allResults = array_merge($serviceResults['successful'], $serviceResults['failed']);
             $successCount = count($serviceResults['successful']);
             $errorCount = count($serviceResults['failed']);
 
             return response()->json([
                 'message' => "Bulk invite completed. {$successCount} sent, {$errorCount} failed.",
-                'results' => $allResults,
-                'summary' => [
-                    'total' => $successCount + $errorCount,
-                    'successful' => $successCount,
-                    'failed' => $errorCount,
+                'data' => [
+                    'invited_count' => $successCount,
+                    'failed_count' => $errorCount,
+                    'invitations' => array_merge($serviceResults['successful'], $serviceResults['failed']),
                 ],
-            ]);
+            ], 201);
 
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());

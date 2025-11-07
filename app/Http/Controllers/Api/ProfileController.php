@@ -130,6 +130,14 @@ class ProfileController extends Controller
         $avatarPath = $request->file('avatar')->store('avatars', 'public');
         $user->update(['avatar' => $avatarPath]);
 
+        // Log avatar update
+        $this->authLogService->logAuthenticationEvent(
+            $user,
+            'avatar_updated',
+            [],
+            $request
+        );
+
         return response()->json([
             'data' => [
                 'avatar' => $user->avatar,
@@ -142,7 +150,7 @@ class ProfileController extends Controller
     /**
      * Remove user avatar
      */
-    public function removeAvatar(): JsonResponse
+    public function removeAvatar(Request $request): JsonResponse
     {
         $user = Auth::user();
 
@@ -151,6 +159,14 @@ class ProfileController extends Controller
         }
 
         $user->update(['avatar' => null]);
+
+        // Log avatar removal
+        $this->authLogService->logAuthenticationEvent(
+            $user,
+            'avatar_removed',
+            [],
+            $request
+        );
 
         return response()->json([
             'message' => 'Avatar removed successfully',
@@ -254,18 +270,9 @@ class ProfileController extends Controller
      */
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
-
         $user = Auth::user();
 
-        // Verify current password
-        if (! Hash::check($request->current_password, $user->password)) {
-            return response()->json([
-                'error' => 'authentication_failed',
-                'error_description' => 'Current password is incorrect.',
-            ], 401);
-        }
-
-        // Update password
+        // Update password (current password already validated by FormRequest)
         $user->update([
             'password' => Hash::make($request->password),
             'password_changed_at' => now(),
@@ -738,6 +745,53 @@ class ProfileController extends Controller
                 'linked_providers' => $socialAccounts->values(),
                 'available_providers' => $availableProviders,
             ],
+        ]);
+    }
+
+    /**
+     * Unlink a social account by provider
+     */
+    public function unlinkSocialAccount(string $provider): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check if user has a password before unlinking social account
+        if (! $user->hasPassword()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot unlink social account without setting a password first',
+            ], 400);
+        }
+
+        // Find the social account
+        $socialAccount = \App\Models\SocialAccount::where('user_id', $user->id)
+            ->where('provider', $provider)
+            ->first();
+
+        if (! $socialAccount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Social account not found',
+            ], 404);
+        }
+
+        // Delete the social account
+        $socialAccount->delete();
+
+        // If this was the user's main provider, clear it
+        if ($user->provider === $provider) {
+            $user->update([
+                'provider' => null,
+                'provider_id' => null,
+                'provider_token' => null,
+                'provider_refresh_token' => null,
+                'provider_data' => null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Social account unlinked successfully',
         ]);
     }
 }

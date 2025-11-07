@@ -114,7 +114,7 @@ class OrganizationCrudController extends BaseApiController
         $defaultSettings = [
             'allow_registration' => true,
             'require_email_verification' => true,
-            'session_lifetime' => 1440,
+            'session_timeout' => 60, // 60 minutes default
             'password_policy' => [
                 'min_length' => 8,
                 'require_uppercase' => true,
@@ -240,44 +240,23 @@ class OrganizationCrudController extends BaseApiController
     {
         $this->authorize('organizations.read');
 
-        $organization = Organization::findOrFail($id);
+        // Use organization scope to return 404 for unauthorized access
+        $query = Organization::query();
+
+        // If not super admin, scope to user's organization
+        if (!auth()->user()->hasRole('Super Admin')) {
+            $query->where('id', auth()->user()->organization_id);
+        }
+
+        $organization = $query->findOrFail($id);
 
         $settings = $organization->settings ?? [];
 
-        // Transform settings to match test expectations (now reading from flat structure)
-        $transformedSettings = [
-            'general' => [
-                'require_mfa' => $settings['require_mfa'] ?? false,
-                'session_timeout' => $settings['session_timeout'] ?? 3600,
-                'password_policy' => $settings['password_policy'] ?? [
-                    'min_length' => 8,
-                    'require_uppercase' => true,
-                    'require_lowercase' => true,
-                    'require_numbers' => true,
-                    'require_symbols' => false,
-                ],
-            ],
-            'security' => [
-                'allowed_domains' => $settings['allowed_domains'] ?? [],
-                'sso_enabled' => $settings['sso_enabled'] ?? false,
-            ],
-            'customization' => [
-                'theme' => 'default',
-                'branding' => [
-                    'logo' => null,
-                    'primary_color' => '#3B82F6',
-                    'secondary_color' => '#1E293B',
-                ],
-            ],
-        ];
-
-        // Return flat response structure for test compatibility
-        $responseData = array_merge(
-            $transformedSettings,
-            ['message' => 'Organization settings retrieved successfully']
-        );
-
-        return response()->json($responseData);
+        // Return flat data structure for test compatibility
+        return response()->json([
+            'message' => 'Organization settings retrieved successfully',
+            'data' => $settings
+        ]);
     }
 
     /**
@@ -285,26 +264,53 @@ class OrganizationCrudController extends BaseApiController
      */
     public function updateSettings(UpdateOrganizationSettingsRequest $request, string $id): JsonResponse
     {
+        // Use organization scope BEFORE authorization to return 404 for unauthorized access
+        $query = Organization::query();
+
+        // If not super admin, scope to user's organization
+        if (!auth()->user()->hasRole('Super Admin')) {
+            $query->where('id', auth()->user()->organization_id);
+        }
+
+        // This will throw 404 if organization not found or not in user's org
+        $organization = $query->findOrFail($id);
+
+        // Now check authorization
         $this->authorize('organizations.update');
-
-        $organization = Organization::findOrFail($id);
-
-        // Validation handled by UpdateOrganizationSettingsRequest
 
         $currentSettings = $organization->settings ?? [];
 
-        // Keep flat structure for test compatibility
-        $inputData = $request->all();
-        $newSettings = array_merge($currentSettings, [
-            'require_mfa' => $inputData['require_mfa'] ?? $currentSettings['require_mfa'] ?? false,
-            'session_timeout' => $inputData['session_timeout'] ?? $currentSettings['session_timeout'] ?? 3600,
-            'password_policy' => array_merge(
-                $currentSettings['password_policy'] ?? [],
-                $inputData['password_policy'] ?? []
-            ),
-            'allowed_domains' => $inputData['allowed_domains'] ?? $currentSettings['allowed_domains'] ?? [],
-            'sso_enabled' => $inputData['sso_enabled'] ?? $currentSettings['sso_enabled'] ?? false,
-        ]);
+        // Extract settings from request (tests send data wrapped in 'settings' key)
+        $inputData = $request->input('settings', $request->all());
+
+        // Deep merge all settings fields
+        $newSettings = $currentSettings;
+
+        // Top-level settings
+        $topLevelFields = [
+            'require_mfa', 'session_timeout', 'allowed_ip_ranges', 'password_expiry_days',
+            'enforce_2fa_for_admins', 'session_absolute_timeout', 'session_idle_timeout',
+            'require_reauth_for_sensitive', 'allowed_domains', 'sso_enabled',
+            'mfa_grace_period', 'mfa_methods'
+        ];
+
+        foreach ($topLevelFields as $field) {
+            if (isset($inputData[$field])) {
+                $newSettings[$field] = $inputData[$field];
+            }
+        }
+
+        // Nested settings (deep merge)
+        $nestedFields = ['lockout_policy', 'password_policy', 'notifications', 'oauth'];
+
+        foreach ($nestedFields as $field) {
+            if (isset($inputData[$field])) {
+                $newSettings[$field] = array_merge(
+                    $currentSettings[$field] ?? [],
+                    $inputData[$field]
+                );
+            }
+        }
 
         $organization->update(['settings' => $newSettings]);
 
@@ -313,6 +319,52 @@ class OrganizationCrudController extends BaseApiController
 
         return response()->json([
             'message' => 'Settings updated successfully',
+            'data' => [
+                'settings' => $newSettings
+            ]
+        ]);
+    }
+
+    /**
+     * Reset organization settings to defaults
+     */
+    public function resetSettings(string $id): JsonResponse
+    {
+        $this->authorize('organizations.update');
+
+        // Use organization scope to return 404 for unauthorized access
+        $query = Organization::query();
+
+        // If not super admin, scope to user's organization
+        if (!auth()->user()->hasRole('Super Admin')) {
+            $query->where('id', auth()->user()->organization_id);
+        }
+
+        $organization = $query->findOrFail($id);
+
+        // Default settings
+        $defaultSettings = [
+            'require_mfa' => false,
+            'session_timeout' => 60, // 60 minutes default
+            'password_policy' => [
+                'min_length' => 8,
+                'require_uppercase' => true,
+                'require_lowercase' => true,
+                'require_numbers' => true,
+                'require_symbols' => false,
+            ],
+        ];
+
+        $organization->update(['settings' => $defaultSettings]);
+
+        // Invalidate organization cache after settings reset
+        $this->invalidateOrganizationCache($organization->id);
+
+        return response()->json([
+            'message' => 'Settings reset to defaults successfully',
+            'data' => [
+                'settings' => $defaultSettings
+            ]
         ]);
     }
 }

@@ -66,18 +66,24 @@ class AuthController extends Controller
         ]);
 
         // Assign default user role for API guard
-        try {
-            // Set the guard context for role assignment
-            $user->guard_name = 'api';
-            $user->assignRole('User');
-        } catch (Exception) {
-            // Fallback: try to find role by direct query
-            $userRole = Role::where('name', 'User')
-                ->where('guard_name', 'api')
-                ->first();
-            if ($userRole) {
-                $user->roles()->attach($userRole->id);
-            }
+        // We must find the role directly and attach it because getDefaultGuardName()
+        // returns 'web' during registration (user not authenticated yet)
+        //
+        // Note: Spatie teams feature is enabled with organization_id as team_foreign_key
+        // We need to find the organization-specific role and attach it with proper context
+        $userRole = Role::where('name', 'User')
+            ->where('guard_name', 'api')
+            ->where('organization_id', $organizationId)
+            ->first();
+
+        if ($userRole) {
+            // Set the team context before attaching the role
+            $user->setPermissionsTeamId($organizationId);
+
+            // Attach the role with organization context in pivot
+            $user->roles()->syncWithoutDetaching([
+                $userRole->id => ['organization_id' => $organizationId]
+            ]);
         }
 
         // Log registration event

@@ -383,7 +383,7 @@ class CustomRoleController extends Controller
         );
 
         return $this->successResponse(
-            null,
+            ['assigned_count' => count($userIds)],
             sprintf('Custom role assigned to %d users successfully', count($userIds))
         );
     }
@@ -431,7 +431,7 @@ class CustomRoleController extends Controller
         );
 
         return $this->successResponse(
-            null,
+            ['removed_count' => count($userIds)],
             sprintf('Custom role removed from %d users successfully', count($userIds))
         );
     }
@@ -446,6 +446,17 @@ class CustomRoleController extends Controller
             ? $customRole->users->count()
             : $customRole->users()->count();
 
+        // Group permissions by category
+        $permissionsGrouped = [];
+        foreach ($customRole->permissions ?? [] as $permission) {
+            $parts = explode('.', $permission);
+            $category = $parts[0] ?? 'other';
+            if (!isset($permissionsGrouped[$category])) {
+                $permissionsGrouped[$category] = [];
+            }
+            $permissionsGrouped[$category][] = $permission;
+        }
+
         $data = [
             'id' => $customRole->id,
             'organization_id' => $customRole->organization_id,
@@ -454,6 +465,7 @@ class CustomRoleController extends Controller
             'description' => $customRole->description,
             'permissions' => $customRole->permissions ?? [],
             'permissions_count' => count($customRole->permissions ?? []),
+            'permissions_grouped' => $permissionsGrouped,
             'is_system' => $customRole->is_system,
             'is_active' => $customRole->is_active,
             'users_count' => $usersCount,

@@ -34,7 +34,7 @@ class OrganizationAnalyticsController extends BaseApiController
         $organization = Organization::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'period' => 'sometimes|string|in:24h,7d,30d,90d,1y',
+            'period' => 'sometimes|string|in:24h,7d,7days,30d,30days,90d,1y',
             'metrics' => 'sometimes|array',
             'metrics.*' => 'string|in:users,applications,authentication_logs,active_sessions',
             'timezone' => 'sometimes|string|timezone',
@@ -44,7 +44,7 @@ class OrganizationAnalyticsController extends BaseApiController
             return $this->validationErrorResponse($validator->errors());
         }
 
-        $period = $request->get('period', '30d');
+        $period = $this->normalizePeriod($request->get('period', '30d'));
         $metrics = $request->get('metrics', ['users', 'applications', 'authentication_logs']);
         $timezone = $request->get('timezone', 'UTC');
 
@@ -94,7 +94,7 @@ class OrganizationAnalyticsController extends BaseApiController
             'user_metrics_'.$organization->id,
             $cacheParams,
             function () use ($organization, $period) {
-                return $this->analyticsService->getUserGrowthMetrics($organization, $period);
+                return $this->analyticsService->getComprehensiveUserMetrics($organization, $period);
             }
         );
 
@@ -211,11 +211,20 @@ class OrganizationAnalyticsController extends BaseApiController
                 default => throw new Exception('Invalid data type'),
             };
 
+            // Generate a unique export ID
+            $exportId = uniqid('export_', true);
+
+            // In a real implementation, this would save the export to storage
+            // and return a signed URL. For now, we'll return a placeholder URL.
+            $downloadUrl = url("/api/v1/organizations/{$organization->id}/exports/{$exportId}/download");
+
             return $this->successResponse(
                 [
+                    'export_id' => $exportId,
+                    'status' => 'completed',
+                    'download_url' => $downloadUrl,
                     'format' => $format,
                     'data_type' => $dataType,
-                    'data' => $exportData,
                     'exported_at' => now()->toIso8601String(),
                 ],
                 'Organization data exported successfully'
@@ -293,6 +302,18 @@ class OrganizationAnalyticsController extends BaseApiController
             $days <= 30 => '30d',
             $days <= 90 => '90d',
             default => '1y',
+        };
+    }
+
+    /**
+     * Normalize period format (convert '7days' to '7d', '30days' to '30d', etc.)
+     */
+    private function normalizePeriod(string $period): string
+    {
+        return match ($period) {
+            '7days' => '7d',
+            '30days' => '30d',
+            default => $period,
         };
     }
 }
