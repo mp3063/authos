@@ -104,10 +104,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         // User roles
         Route::get('/{id}/roles', [UserController::class, 'roles']);
         Route::post('/{id}/roles', [UserController::class, 'assignRole']);
+        Route::put('/{id}/roles', [UserController::class, 'updateRoles']);
         Route::delete('/{id}/roles/{roleId}', [UserController::class, 'removeRole']);
 
         // User sessions
         Route::get('/{id}/sessions', [UserController::class, 'sessions']);
+        Route::get('/{id}/sessions/{sessionId}', [UserController::class, 'showSession']);
         Route::delete('/{id}/sessions', [UserController::class, 'revokeSessions']);
         Route::delete('/{id}/sessions/{sessionId}', [UserController::class, 'revokeSession']);
     });
@@ -128,6 +130,11 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/imports/{job}/cancel', [BulkUserController::class, 'cancel']);
         Route::post('/imports/{job}/retry', [BulkUserController::class, 'retry']);
         Route::delete('/imports/{job}', [BulkUserController::class, 'destroy']);
+    });
+
+    // Job status tracking endpoint (no org.boundary requirement)
+    Route::middleware(['auth:api', 'throttle:api'])->prefix('bulk')->group(function () {
+        Route::get('/jobs/{jobId}', [BulkUserController::class, 'getJobStatus']);
     });
 
     // Application Management API
@@ -166,6 +173,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/security', [ProfileController::class, 'security']);
         Route::post('/change-password', [ProfileController::class, 'changePassword']);
         Route::get('/social-accounts', [ProfileController::class, 'socialAccounts']);
+        Route::delete('/social-accounts/{provider}', [ProfileController::class, 'unlinkSocialAccount']);
     });
 
     // MFA Management API
@@ -194,6 +202,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         // Organization settings
         Route::get('/{id}/settings', [OrganizationCrudController::class, 'settings']);
         Route::put('/{id}/settings', [OrganizationCrudController::class, 'updateSettings']);
+        Route::post('/{id}/settings/reset', [OrganizationCrudController::class, 'resetSettings']);
 
         // Organization users and applications
         Route::get('/{id}/users', [OrganizationUsersController::class, 'users']);
@@ -221,6 +230,11 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/bulk/revoke-access', [BulkAccessController::class, 'bulkRevokeAccess']);
         Route::post('/{id}/bulk/export-users', [BulkDataController::class, 'exportUsers']);
         Route::post('/{id}/bulk/import-users', [BulkDataController::class, 'importUsers']);
+        Route::delete('/{id}/bulk/delete-users', [BulkUserOperationsController::class, 'bulkDeleteUsers']);
+        Route::post('/{id}/bulk/enable-mfa', [BulkUserOperationsController::class, 'bulkEnableMfa']);
+
+        // Bulk settings update (Super Admin only - no specific org ID)
+        Route::post('/bulk/update-settings', [BulkUserOperationsController::class, 'bulkUpdateSettings']);
 
         // Custom Roles Management
         Route::get('/{id}/custom-roles', [CustomRoleController::class, 'index']);
@@ -232,15 +246,20 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/custom-roles/{roleId}/remove-users', [CustomRoleController::class, 'removeUsers']);
 
         // Organization Reports
+        Route::get('/{id}/reports', [OrganizationReportController::class, 'index']);
         Route::get('/{id}/reports/user-activity', [OrganizationReportController::class, 'userActivity']);
         Route::get('/{id}/reports/application-usage', [OrganizationReportController::class, 'applicationUsage']);
         Route::get('/{id}/reports/security-audit', [OrganizationReportController::class, 'securityAudit']);
+        Route::post('/{id}/reports/schedule', [OrganizationReportController::class, 'scheduleReport']);
+        Route::put('/{id}/reports/schedule/{scheduleId}', [OrganizationReportController::class, 'updateSchedule']);
+        Route::delete('/{id}/reports/schedule/{scheduleId}', [OrganizationReportController::class, 'deleteSchedule']);
     });
 
     // Public invitation endpoints (no auth required for viewing, auth required for accepting)
     Route::prefix('invitations')->group(function () {
         Route::get('/{token}', [InvitationController::class, 'show']);
         Route::post('/{token}/accept', [InvitationController::class, 'accept'])->middleware('auth:api');
+        Route::post('/{token}/decline', [InvitationController::class, 'decline']);
     });
 
     // SSO (Single Sign-On) API
