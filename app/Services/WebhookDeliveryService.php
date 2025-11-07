@@ -188,8 +188,8 @@ class WebhookDeliveryService extends BaseService
             // Increment failure count for retry
             $webhook->incrementFailureCount();
 
-            // Update webhook stats for retrying delivery
-            if ($durationMs) {
+            // Update webhook stats for retrying delivery (only if we have response time)
+            if ($durationMs !== null) {
                 $webhook->updateDeliveryStats(false, $durationMs);
             }
         } else {
@@ -199,8 +199,8 @@ class WebhookDeliveryService extends BaseService
             // Increment failure count for permanent failure
             $webhook->incrementFailureCount();
 
-            // Update webhook stats
-            if ($durationMs) {
+            // Update webhook stats (only if we have response time)
+            if ($durationMs !== null) {
                 $webhook->updateDeliveryStats(false, $durationMs);
             }
 

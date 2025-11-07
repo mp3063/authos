@@ -79,17 +79,13 @@ class RetryWebhookDeliveryJob implements ShouldQueue
             }
 
             // Attempt delivery
+            // Note: deliver() will automatically handle retry scheduling via handleFailure()
             $success = $deliveryService->deliver($this->delivery);
 
-            if (! $success) {
-                // Delivery failed, schedule next retry if possible
-                if ($this->delivery->canRetry()) {
-                    $deliveryService->scheduleRetry($this->delivery);
-                } else {
-                    // Move to dead letter queue
-                    ProcessDeadLetterWebhookJob::dispatch($this->delivery)
-                        ->onQueue('webhook_deadletter');
-                }
+            if (! $success && $this->delivery->hasReachedMaxAttempts()) {
+                // Max attempts reached, move to dead letter queue
+                ProcessDeadLetterWebhookJob::dispatch($this->delivery)
+                    ->onQueue('webhook_deadletter');
             }
 
         } catch (\Exception $e) {
