@@ -77,6 +77,8 @@ class SanitizeApiResponse
         $allowedPaths = [
             'api/v1/mfa/setup',       // Added for MFA setup endpoint
             'api/v1/mfa/setup/totp',
+            'api/v1/applications',    // Application creation returns client_secret
+            'api/v1/applications/*',  // Application details (read) can return client_secret
             'api/v1/applications/*/client-credentials',
             'api/v1/applications/*/credentials/regenerate',
             'api/v1/webhooks',        // Webhook creation returns secret
