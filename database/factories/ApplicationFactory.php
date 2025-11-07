@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
+use Laravel\Passport\Client;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Application>
@@ -45,6 +46,29 @@ class ApplicationFactory extends Factory
             ],
             'is_active' => true,
         ];
+    }
+
+    /**
+     * Configure the model factory to create a Passport client after creating the application.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function ($application) {
+            // Create Passport client if not already set
+            if (! $application->passport_client_id) {
+                $passportClient = Client::create([
+                    'name' => $application->name,
+                    'secret' => $application->client_secret, // Passport will auto-hash this
+                    'redirect' => implode(',', $application->redirect_uris),
+                    'personal_access_client' => false,
+                    'password_client' => in_array('password', $application->allowed_grant_types ?? []),
+                    'revoked' => false,
+                ]);
+
+                // Update application with passport_client_id
+                $application->update(['passport_client_id' => $passportClient->id]);
+            }
+        });
     }
 
     /**
