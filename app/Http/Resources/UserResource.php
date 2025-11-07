@@ -17,14 +17,12 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'email' => $this->email,
-            'name' => $this->first_name.' '.$this->last_name,  // For test compatibility
-            'first_name' => $this->first_name,
-            'last_name' => $this->last_name,
-            'full_name' => $this->first_name.' '.$this->last_name,
+            'name' => $this->name,
             'is_active' => $this->is_active,
             'avatar_url' => $this->avatar_url,
             'timezone' => $this->timezone,
             'locale' => $this->locale,
+            'email_verified_at' => $this->email_verified_at?->toISOString(),
             'last_login_at' => $this->last_login_at?->toISOString(),
             'mfa_enabled' => $this->mfa_enabled,
             'social_providers' => $this->social_providers,
