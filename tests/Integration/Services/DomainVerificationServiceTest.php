@@ -1,13 +1,14 @@
 <?php
 
-namespace Tests\Unit\Services;
+namespace Tests\Integration\Services;
 
 use App\Models\CustomDomain;
 use App\Models\Organization;
 use App\Services\DomainVerificationService;
-use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Integration\IntegrationTestCase;
 
-class DomainVerificationServiceTest extends TestCase
+class DomainVerificationServiceTest extends IntegrationTestCase
 {
     private DomainVerificationService $service;
 
@@ -21,7 +22,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->organization = Organization::factory()->create();
     }
 
-    public function test_create_domain_creates_with_verification_code(): void
+    #[Test]
+    public function it_creates_domain_with_verification_code(): void
     {
         $domain = $this->service->createDomain($this->organization, 'auth.example.com');
 
@@ -33,14 +35,16 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertFalse($domain->is_active);
     }
 
-    public function test_create_domain_converts_to_lowercase(): void
+    #[Test]
+    public function it_converts_domain_to_lowercase(): void
     {
         $domain = $this->service->createDomain($this->organization, 'AUTH.EXAMPLE.COM');
 
         $this->assertEquals('auth.example.com', $domain->domain);
     }
 
-    public function test_add_domain_is_alias_for_create_domain(): void
+    #[Test]
+    public function it_adds_domain_using_alias_method(): void
     {
         $domain = $this->service->addDomain($this->organization, 'test.example.com');
 
@@ -48,7 +52,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertEquals('test.example.com', $domain->domain);
     }
 
-    public function test_verify_domain_marks_as_verified_when_dns_matches(): void
+    #[Test]
+    public function it_marks_domain_as_verified_when_dns_matches(): void
     {
         $this->markTestSkipped('Skipped: Requires real DNS lookup or mocking dns_get_record which is not easily mockable in PHPUnit');
 
@@ -67,7 +72,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertIsBool($result);
     }
 
-    public function test_verify_domain_returns_false_when_dns_not_found(): void
+    #[Test]
+    public function it_returns_false_when_dns_not_found(): void
     {
         $this->markTestSkipped('Skipped: Requires real DNS lookup or mocking dns_get_record which is not easily mockable in PHPUnit');
 
@@ -82,7 +88,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_check_dns_txt_record_returns_false_for_invalid_domain(): void
+    #[Test]
+    public function it_returns_false_for_invalid_domain_dns_check(): void
     {
         $this->markTestSkipped('Skipped: Requires real DNS lookup or mocking dns_get_record which is not easily mockable in PHPUnit');
 
@@ -91,7 +98,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_generate_verification_code_creates_32_char_string(): void
+    #[Test]
+    public function it_generates_32_character_verification_code(): void
     {
         $code = $this->service->generateVerificationCode();
 
@@ -99,7 +107,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $code);
     }
 
-    public function test_generate_verification_code_creates_unique_codes(): void
+    #[Test]
+    public function it_generates_unique_verification_codes(): void
     {
         $code1 = $this->service->generateVerificationCode();
         $code2 = $this->service->generateVerificationCode();
@@ -107,7 +116,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertNotEquals($code1, $code2);
     }
 
-    public function test_get_verification_instructions_returns_array(): void
+    #[Test]
+    public function it_returns_verification_instructions_as_array(): void
     {
         $domain = CustomDomain::factory()->create([
             'organization_id' => $this->organization->id,
@@ -124,7 +134,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertEquals($domain->verification_code, $instructions['verification_code']);
     }
 
-    public function test_regenerate_verification_code_creates_new_code(): void
+    #[Test]
+    public function it_regenerates_verification_code_and_resets_status(): void
     {
         $domain = CustomDomain::factory()->create([
             'organization_id' => $this->organization->id,
@@ -142,7 +153,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertFalse($updated->is_active);
     }
 
-    public function test_remove_domain_deletes_record(): void
+    #[Test]
+    public function it_removes_domain_and_deletes_record(): void
     {
         $domain = CustomDomain::factory()->create([
             'organization_id' => $this->organization->id,
@@ -157,9 +169,10 @@ class DomainVerificationServiceTest extends TestCase
         ]);
     }
 
-    public function test_check_ssl_certificate_handles_invalid_domain(): void
+    #[Test]
+    public function it_handles_invalid_domain_ssl_check(): void
     {
-        $this->markTestSkipped('Skipped: Requires real SSL connection which is not suitable for unit tests');
+        $this->markTestSkipped('Skipped: Requires real SSL connection which is not suitable for integration tests');
 
         $domain = CustomDomain::factory()->create([
             'organization_id' => $this->organization->id,
@@ -173,7 +186,8 @@ class DomainVerificationServiceTest extends TestCase
         $this->assertFalse($result['success']);
     }
 
-    public function test_get_dns_records_returns_verification_records(): void
+    #[Test]
+    public function it_returns_dns_verification_records(): void
     {
         $domain = CustomDomain::factory()->create([
             'organization_id' => $this->organization->id,

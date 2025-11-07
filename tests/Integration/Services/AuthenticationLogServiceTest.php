@@ -1,14 +1,14 @@
 <?php
 
-namespace Tests\Unit\Services;
+namespace Tests\Integration\Services;
 
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\Request;
-use Tests\TestCase;
+use Tests\Integration\IntegrationTestCase;
 
-class AuthenticationLogServiceTest extends TestCase
+class AuthenticationLogServiceTest extends IntegrationTestCase
 {
     private AuthenticationLogService $service;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Services;
+namespace Tests\Integration\Services;
 
 use App\Models\Application;
 use App\Models\Organization;
@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
+use Tests\Integration\IntegrationTestCase;
 
-class CacheWarmingServiceTest extends TestCase
+class CacheWarmingServiceTest extends IntegrationTestCase
 {
     private CacheWarmingService $service;
 
