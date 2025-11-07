@@ -142,16 +142,37 @@ class UserManagementService extends BaseService implements UserManagementService
     /**
      * Grant application access to user
      */
-    public function grantApplicationAccess(User $user, int $applicationId): bool
-    {
-        // Check if access already exists
-        if ($user->applications()->where('application_id', $applicationId)->exists()) {
-            return false;
+    public function grantApplicationAccess(
+        User $user,
+        int $applicationId,
+        array $permissions = [],
+        ?int $grantedBy = null
+    ): bool {
+        // Check if access already exists - if it does, update permissions instead
+        $exists = $user->applications()->where('application_id', $applicationId)->exists();
+
+        if ($exists) {
+            // Update existing permissions - don't json_encode, pivot cast handles it
+            $user->applications()->updateExistingPivot($applicationId, [
+                'permissions' => $permissions,
+                'granted_by' => $grantedBy,
+                'updated_at' => now(),
+            ]);
+        } else {
+            // Create new access - don't json_encode, pivot cast handles it
+            $user->applications()->attach($applicationId, [
+                'permissions' => $permissions,
+                'granted_at' => now(),
+                'granted_by' => $grantedBy,
+                'login_count' => 0,
+            ]);
         }
 
-        $user->applications()->attach($applicationId, [
-            'granted_at' => now(),
-            'login_count' => 0,
+        // Log the action
+        $this->authLogService->logAuthenticationEvent($user, 'application_access_granted', [
+            'application_id' => $applicationId,
+            'permissions' => $permissions,
+            'granted_by' => $grantedBy,
         ]);
 
         return true;
@@ -160,13 +181,19 @@ class UserManagementService extends BaseService implements UserManagementService
     /**
      * Revoke application access from user
      */
-    public function revokeApplicationAccess(User $user, int $applicationId): bool
+    public function revokeApplicationAccess(User $user, int $applicationId, ?int $revokedBy = null): bool
     {
         if (! $user->applications()->where('application_id', $applicationId)->exists()) {
             return false;
         }
 
         $user->applications()->detach($applicationId);
+
+        // Log the action
+        $this->authLogService->logAuthenticationEvent($user, 'application_access_revoked', [
+            'application_id' => $applicationId,
+            'revoked_by' => $revokedBy,
+        ]);
 
         return true;
     }
@@ -205,65 +232,72 @@ class UserManagementService extends BaseService implements UserManagementService
     }
 
     /**
-     * Get user's active sessions
+     * Get user's active OAuth tokens (sessions)
      */
     public function getUserSessions(User $user): EloquentCollection
     {
-        return $user->ssoSessions()
-            ->with('application')
-            ->active()
+        // Get OAuth access tokens (Passport) for this user
+        return $user->tokens()
+            ->where('revoked', false)
+            ->orderBy('created_at', 'desc')
             ->get();
     }
 
     /**
-     * Revoke all user sessions
+     * Revoke all user OAuth tokens (sessions)
      */
     public function revokeAllUserSessions(User $user): int
     {
-        $activeSessions = $user->ssoSessions()->active()->get();
-        $revokedCount = $activeSessions->count();
+        // Get all active OAuth tokens for this user
+        $activeTokens = $user->tokens()->where('revoked', false)->get();
+        $revokedCount = $activeTokens->count();
 
-        // Log out each session
-        $adminUser = auth()->user() ?? User::find(1);
-        foreach ($activeSessions as $session) {
-            $session->update([
-                'logged_out_at' => now(),
-                'logged_out_by' => $adminUser->id,
-            ]);
+        // Revoke each token
+        foreach ($activeTokens as $token) {
+            $token->revoke();
         }
 
         // Log session revocation
         if (request()) {
-            $this->authLogService->logAuthenticationEvent(
-                $user,
-                'all_sessions_revoked_by_admin',
-                [],
-                request()
-            );
+            \App\Models\AuthenticationLog::create([
+                'user_id' => $user->id,
+                'event' => 'all_sessions_revoked',
+                'success' => true,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'details' => [],
+            ]);
         }
 
         return $revokedCount;
     }
 
     /**
-     * Revoke specific user session
+     * Revoke specific user OAuth token (session)
      */
     public function revokeUserSession(User $user, string $sessionId): bool
     {
-        $session = $user->ssoSessions()->where('id', $sessionId)->first();
+        // Find the specific OAuth token
+        $token = $user->tokens()->where('id', $sessionId)->first();
 
-        if (! $session) {
+        if (! $token) {
             return false;
         }
 
-        // Use the admin user making the request
-        $adminUser = auth()->user() ?? User::find(1);
+        // Revoke the token
+        $token->revoke();
 
-        // Force the logout with explicit update
-        $session->update([
-            'logged_out_at' => now(),
-            'logged_out_by' => $adminUser->id,
-        ]);
+        // Log session revocation
+        if (request()) {
+            \App\Models\AuthenticationLog::create([
+                'user_id' => $user->id,
+                'event' => 'session_revoked',
+                'success' => true,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'details' => ['token_id' => $sessionId],
+            ]);
+        }
 
         return true;
     }
@@ -437,21 +471,25 @@ class UserManagementService extends BaseService implements UserManagementService
     }
 
     /**
-     * Format user sessions response
+     * Format user OAuth tokens (sessions) response
      */
     public function formatUserSessionsResponse(Collection $sessions): array
     {
-        return $sessions->map(function ($session) {
+        return $sessions->map(function ($token) {
+            // Decode scopes from JSON if it's a string
+            $scopes = $token->scopes;
+            if (is_string($scopes)) {
+                $scopes = json_decode($scopes, true) ?? [];
+            }
+
             return [
-                'id' => $session->id,
-                'application' => [
-                    'id' => $session->application->id,
-                    'name' => $session->application->name,
-                ],
-                'ip_address' => $session->ip_address,
-                'user_agent' => $session->user_agent,
-                'last_activity_at' => $session->last_activity_at,
-                'expires_at' => $session->expires_at,
+                'id' => $token->id,
+                'name' => $token->name,
+                'scopes' => $scopes ?? [],
+                'created_at' => $token->created_at?->toISOString(),
+                'expires_at' => $token->expires_at?->toISOString(),
+                'last_used_at' => $token->updated_at?->toISOString(),
+                'revoked' => (bool) $token->revoked,
             ];
         })->toArray();
     }
