@@ -575,6 +575,8 @@ class SSOService
         // Mark authorization code as used to prevent replay attacks
         $sessionMetadata['auth_code_used'] = true;
         $sessionMetadata['auth_code_used_at'] = now()->toISOString();
+        $session->metadata = $sessionMetadata;
+        $session->save();
 
         // Exchange auth code for tokens
         $authenticationSuccessful = true;

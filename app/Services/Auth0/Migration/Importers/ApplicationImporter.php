@@ -66,13 +66,19 @@ class ApplicationImporter
     private function importApplication(Auth0ClientDTO $auth0Client): Application
     {
         return DB::transaction(function () use ($auth0Client) {
+            // Create application with required settings
+            $settings = [
+                'description' => $auth0Client->description ?? "Migrated from Auth0: {$auth0Client->name}",
+            ];
+
             // Create application
             $application = Application::create([
                 'name' => $auth0Client->name,
-                'description' => $auth0Client->description ?? "Migrated from Auth0: {$auth0Client->name}",
                 'organization_id' => $this->getOrganizationId(),
                 'redirect_uris' => $this->mapRedirectUris($auth0Client),
                 'allowed_origins' => $auth0Client->allowedOrigins,
+                'allowed_grant_types' => $this->mapGrantTypes($auth0Client),
+                'settings' => $settings,
                 'is_active' => true,
             ]);
 
@@ -109,6 +115,39 @@ class ApplicationImporter
             $auth0Client->callbacks,
             $auth0Client->allowedLogoutUrls
         ));
+    }
+
+    /**
+     * Map grant types from Auth0 format to our format
+     *
+     * @return array<int, string>
+     */
+    private function mapGrantTypes(Auth0ClientDTO $auth0Client): array
+    {
+        // If Auth0 client has grant types, use them
+        if (! empty($auth0Client->grantTypes)) {
+            // Map Auth0 grant types to our grant types
+            return array_values(array_unique(array_filter(array_map(function ($grantType) {
+                return match ($grantType) {
+                    'authorization_code' => 'authorization_code',
+                    'implicit' => 'implicit',
+                    'refresh_token' => 'refresh_token',
+                    'client_credentials' => 'client_credentials',
+                    'password' => 'password',
+                    'http://auth0.com/oauth/grant-type/password-realm' => 'password',
+                    default => null,
+                };
+            }, $auth0Client->grantTypes))));
+        }
+
+        // Default grant types based on app type
+        return match ($auth0Client->appType) {
+            'regular_web' => ['authorization_code', 'refresh_token'],
+            'spa' => ['authorization_code', 'refresh_token'],
+            'native' => ['authorization_code', 'refresh_token'],
+            'non_interactive' => ['client_credentials'],
+            default => ['authorization_code', 'refresh_token'],
+        };
     }
 
     /**
