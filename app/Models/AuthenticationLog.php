@@ -31,6 +31,16 @@ class AuthenticationLog extends Model
         'updated_at' => 'datetime',
     ];
 
+    protected $appends = ['action'];
+
+    /**
+     * Accessor for 'action' - alias for 'event' for backward compatibility
+     */
+    public function getActionAttribute(): string
+    {
+        return $this->event;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

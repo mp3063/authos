@@ -177,6 +177,7 @@ class BulkImportJob extends Model
         $this->update([
             'errors' => $currentErrors,
             'failed_records' => $this->failed_records + 1,
+            'processed_records' => $this->processed_records + 1,
         ]);
     }
 

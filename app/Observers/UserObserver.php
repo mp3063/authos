@@ -64,4 +64,17 @@ class UserObserver
             $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
         }
     }
+
+    /**
+     * Handle the User "force deleted" event.
+     */
+    public function forceDeleted(User $user): void
+    {
+        $this->cacheInvalidationService->invalidateUserCaches($user->id);
+        $this->cacheInvalidationService->invalidateEndpointCaches('/api/users');
+
+        if ($user->organization_id) {
+            $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
+        }
+    }
 }

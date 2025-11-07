@@ -39,4 +39,13 @@ class OrganizationObserver
         $this->cacheInvalidationService->invalidateOrganizationCaches($organization->id);
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/organizations');
     }
+
+    /**
+     * Handle the Organization "force deleted" event.
+     */
+    public function forceDeleted(Organization $organization): void
+    {
+        $this->cacheInvalidationService->invalidateOrganizationCaches($organization->id);
+        $this->cacheInvalidationService->invalidateEndpointCaches('/api/organizations');
+    }
 }
