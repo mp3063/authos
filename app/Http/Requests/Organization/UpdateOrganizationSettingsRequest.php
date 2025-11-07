@@ -11,7 +11,9 @@ class UpdateOrganizationSettingsRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('organizations.update');
+        // Don't check permission here - let controller handle it after organization scope check
+        // This allows us to return 404 instead of 403 for cross-org access
+        return true;
     }
 
     /**
@@ -19,16 +21,135 @@ class UpdateOrganizationSettingsRequest extends FormRequest
      */
     public function rules(): array
     {
-        // Accept flat structure for test compatibility
+        // Accept both nested (settings.*) and flat structures for compatibility
         return [
+            'settings' => ['sometimes', 'array'],
+
+            // Security settings (nested)
+            'settings.require_mfa' => ['sometimes', 'boolean'],
+            'settings.enforce_2fa_for_admins' => ['sometimes', 'boolean'],
+            'settings.allowed_ip_ranges' => ['sometimes', 'array'],
+            'settings.password_expiry_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'settings.mfa_grace_period' => ['sometimes', 'integer', 'min:0', 'max:90'],
+            'settings.mfa_methods' => ['sometimes', 'array'],
+
+            // Security settings (flat)
             'require_mfa' => ['sometimes', 'boolean'],
-            'session_timeout' => ['sometimes', 'integer', 'min:15', 'max:10080'],
+            'enforce_2fa_for_admins' => ['sometimes', 'boolean'],
+            'allowed_ip_ranges' => ['sometimes', 'array'],
+            'password_expiry_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'mfa_grace_period' => ['sometimes', 'integer', 'min:0', 'max:90'],
+            'mfa_methods' => ['sometimes', 'array'],
+
+            // Session settings (nested)
+            'settings.session_timeout' => ['sometimes', 'integer', 'min:300', 'max:10080'],
+            'settings.session_absolute_timeout' => ['sometimes', 'integer', 'min:1', 'max:43200'],
+            'settings.session_idle_timeout' => ['sometimes', 'integer', 'min:1', 'max:1440'],
+            'settings.require_reauth_for_sensitive' => ['sometimes', 'boolean'],
+
+            // Session settings (flat)
+            'session_timeout' => ['sometimes', 'integer', 'min:300', 'max:10080'],
+            'session_absolute_timeout' => ['sometimes', 'integer', 'min:1', 'max:43200'],
+            'session_idle_timeout' => ['sometimes', 'integer', 'min:1', 'max:1440'],
+            'require_reauth_for_sensitive' => ['sometimes', 'boolean'],
+
+            // Lockout policy (nested)
+            'settings.lockout_policy' => ['sometimes', 'array'],
+            'settings.lockout_policy.enabled' => ['sometimes', 'boolean'],
+            'settings.lockout_policy.max_attempts' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'settings.lockout_policy.lockout_duration' => ['sometimes', 'integer', 'min:1'],
+            'settings.lockout_policy.progressive_lockout' => ['sometimes', 'boolean'],
+            'settings.lockout_policy.notify_user' => ['sometimes', 'boolean'],
+            'settings.lockout_policy.notify_admin' => ['sometimes', 'boolean'],
+
+            // Lockout policy (flat)
+            'lockout_policy' => ['sometimes', 'array'],
+            'lockout_policy.enabled' => ['sometimes', 'boolean'],
+            'lockout_policy.max_attempts' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'lockout_policy.lockout_duration' => ['sometimes', 'integer', 'min:1'],
+            'lockout_policy.progressive_lockout' => ['sometimes', 'boolean'],
+            'lockout_policy.notify_user' => ['sometimes', 'boolean'],
+            'lockout_policy.notify_admin' => ['sometimes', 'boolean'],
+
+            // Password policy (nested)
+            'settings.password_policy' => ['sometimes', 'array'],
+            'settings.password_policy.min_length' => ['sometimes', 'integer', 'min:6', 'max:128'],
+            'settings.password_policy.max_length' => ['sometimes', 'integer', 'min:8', 'max:256', 'gte:settings.password_policy.min_length'],
+            'settings.password_policy.require_uppercase' => ['sometimes', 'boolean'],
+            'settings.password_policy.require_lowercase' => ['sometimes', 'boolean'],
+            'settings.password_policy.require_numbers' => ['sometimes', 'boolean'],
+            'settings.password_policy.require_symbols' => ['sometimes', 'boolean'],
+            'settings.password_policy.prevent_reuse' => ['sometimes', 'integer', 'min:0', 'max:24'],
+            'settings.password_policy.expiry_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'settings.password_policy.expiry_warning_days' => ['sometimes', 'integer', 'min:0', 'max:90'],
+            'settings.password_policy.prevent_common_passwords' => ['sometimes', 'boolean'],
+
+            // Password policy (flat)
             'password_policy' => ['sometimes', 'array'],
             'password_policy.min_length' => ['sometimes', 'integer', 'min:6', 'max:128'],
+            'password_policy.max_length' => ['sometimes', 'integer', 'min:8', 'max:256', 'gte:password_policy.min_length'],
             'password_policy.require_uppercase' => ['sometimes', 'boolean'],
             'password_policy.require_lowercase' => ['sometimes', 'boolean'],
             'password_policy.require_numbers' => ['sometimes', 'boolean'],
             'password_policy.require_symbols' => ['sometimes', 'boolean'],
+            'password_policy.prevent_reuse' => ['sometimes', 'integer', 'min:0', 'max:24'],
+            'password_policy.expiry_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            'password_policy.expiry_warning_days' => ['sometimes', 'integer', 'min:0', 'max:90'],
+            'password_policy.prevent_common_passwords' => ['sometimes', 'boolean'],
+
+            // Branding (nested)
+            'settings.branding' => ['sometimes', 'array'],
+            'settings.branding.primary_color' => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'settings.branding.secondary_color' => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+
+            // Branding (flat)
+            'branding' => ['sometimes', 'array'],
+            'branding.primary_color' => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'branding.secondary_color' => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+
+            // Notification settings (nested)
+            'settings.notifications' => ['sometimes', 'array'],
+            'settings.notifications.login_alerts' => ['sometimes', 'boolean'],
+            'settings.notifications.security_incidents' => ['sometimes', 'boolean'],
+            'settings.notifications.failed_login_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'settings.notifications.new_user_notifications' => ['sometimes', 'boolean'],
+            'settings.notifications.api_key_expiry_warning' => ['sometimes', 'boolean'],
+            'settings.notifications.webhook_failure_alerts' => ['sometimes', 'boolean'],
+
+            // Notification settings (flat)
+            'notifications' => ['sometimes', 'array'],
+            'notifications.login_alerts' => ['sometimes', 'boolean'],
+            'notifications.security_incidents' => ['sometimes', 'boolean'],
+            'notifications.failed_login_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'notifications.new_user_notifications' => ['sometimes', 'boolean'],
+            'notifications.api_key_expiry_warning' => ['sometimes', 'boolean'],
+            'notifications.webhook_failure_alerts' => ['sometimes', 'boolean'],
+
+            // OAuth settings (nested)
+            'settings.oauth' => ['sometimes', 'array'],
+            'settings.oauth.enabled' => ['sometimes', 'boolean'],
+            'settings.oauth.allow_implicit_flow' => ['sometimes', 'boolean'],
+            'settings.oauth.require_pkce' => ['sometimes', 'boolean'],
+            'settings.oauth.token_lifetime' => ['sometimes', 'integer', 'min:300', 'max:86400'],
+            'settings.oauth.refresh_token_lifetime' => ['sometimes', 'integer', 'min:3600', 'max:31536000'],
+            'settings.oauth.rotate_refresh_tokens' => ['sometimes', 'boolean'],
+            'settings.oauth.allowed_scopes' => ['sometimes', 'array'],
+
+            // OAuth settings (flat)
+            'oauth' => ['sometimes', 'array'],
+            'oauth.enabled' => ['sometimes', 'boolean'],
+            'oauth.allow_implicit_flow' => ['sometimes', 'boolean'],
+            'oauth.require_pkce' => ['sometimes', 'boolean'],
+            'oauth.token_lifetime' => ['sometimes', 'integer', 'min:300', 'max:86400'],
+            'oauth.refresh_token_lifetime' => ['sometimes', 'integer', 'min:3600', 'max:31536000'],
+            'oauth.rotate_refresh_tokens' => ['sometimes', 'boolean'],
+            'oauth.allowed_scopes' => ['sometimes', 'array'],
+
+            // Other settings (nested)
+            'settings.allowed_domains' => ['sometimes', 'array'],
+            'settings.sso_enabled' => ['sometimes', 'boolean'],
+
+            // Other settings (flat)
             'allowed_domains' => ['sometimes', 'array'],
             'sso_enabled' => ['sometimes', 'boolean'],
         ];

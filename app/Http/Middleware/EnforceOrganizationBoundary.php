@@ -69,10 +69,11 @@ class EnforceOrganizationBoundary
         if ($organizationId && ! $this->canAccessOrganization($user, $organizationId)) {
             $this->logViolationAttempt($user, 'organization', $organizationId, $request);
 
+            // Return 404 to not leak information about organization existence
             return response()->json([
-                'error' => 'Access denied',
-                'message' => 'Access denied to this organization',
-            ], 403);
+                'error' => 'Not found',
+                'message' => 'The requested resource was not found.',
+            ], 404);
         }
 
         // Validate application access
@@ -158,14 +159,11 @@ class EnforceOrganizationBoundary
             return true;
         }
 
-        // Organization admins can manage users in their organization
-        if ($user->hasRole('organization-admin') || $user->hasRole('Organization Admin') ||
-            $user->hasRole('organization-admin', 'api') || $user->hasRole('Organization Admin', 'api')) {
-            return $targetUser->organization_id === $user->organization_id;
-        }
-
-        // Regular users cannot manage other users
-        return false;
+        // Organization boundary check: users must be in the same organization
+        // This enforces data isolation but allows the controller to handle authorization (403)
+        // If users are in the same org, let the request through to the controller
+        // The controller will check specific permissions and return 403 if needed
+        return $targetUser->organization_id === $user->organization_id;
     }
 
     /**

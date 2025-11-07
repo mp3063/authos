@@ -28,14 +28,29 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     {
         // Get date range based on period
         $dateRange = $this->getDateRangeForPeriod($period);
-        $applicationIds = $organization->applications()->pluck('id');
+
+        // Get users in the organization (using direct organization_id)
+        $userIds = User::where('organization_id', $organization->id)->pluck('id');
+
+        // Get authentication logs for users in this organization
+        $authLogs = AuthenticationLog::whereIn('user_id', $userIds)
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+
+        $successfulLogins = $authLogs->clone()->where('event', 'login_success')->count();
+        $failedLogins = $authLogs->clone()->where('event', 'login_failed')->count();
+        $totalLogins = $successfulLogins + $failedLogins;
+
+        $uniqueUsersLoggedIn = $authLogs->clone()
+            ->where('event', 'login_success')
+            ->distinct('user_id')
+            ->count('user_id');
 
         return [
-            'summary' => $this->getSummaryMetrics($organization, $applicationIds, $dateRange),
-            'user_growth' => $this->getUserGrowthMetrics($organization, $period),
-            'login_activity' => $this->getLoginActivityMetrics($organization, $period),
-            'top_applications' => $this->getTopApplicationsMetrics($organization, $period),
-            'security_events' => $this->getSecurityMetrics($organization, $period),
+            'total_logins' => $totalLogins,
+            'successful_logins' => $successfulLogins,
+            'failed_logins' => $failedLogins,
+            'unique_users_logged_in' => $uniqueUsersLoggedIn,
+            'login_trends' => $this->getLoginTrends($organization, $dateRange),
         ];
     }
 
@@ -54,6 +69,54 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
             'active_users' => $uniqueUsers, // Using unique users as active users for this period
             'total_applications' => $organization->applications()->count(),
             'total_logins_today' => $totalLogins,
+        ];
+    }
+
+    /**
+     * Get comprehensive user metrics for an organization
+     */
+    public function getComprehensiveUserMetrics(Organization $organization, string $period = '30d'): array
+    {
+        $dateRange = $this->calculateDateRange($period, 'UTC');
+
+        // Get all users in the organization (using direct relationship via organization_id)
+        $totalUsers = User::where('organization_id', $organization->id)->count();
+        $verifiedUsers = User::where('organization_id', $organization->id)
+            ->whereNotNull('email_verified_at')
+            ->count();
+        $unverifiedUsers = User::where('organization_id', $organization->id)
+            ->whereNull('email_verified_at')
+            ->count();
+        $mfaEnabledUsers = User::where('organization_id', $organization->id)
+            ->whereNotNull('two_factor_secret')
+            ->count();
+        $mfaDisabledUsers = $totalUsers - $mfaEnabledUsers;
+
+        // Calculate MFA adoption rate
+        $mfaAdoptionRate = $totalUsers > 0 ? round(($mfaEnabledUsers / $totalUsers) * 100, 2) : 0;
+
+        // Get users created this month
+        $usersCreatedThisMonth = User::where('organization_id', $organization->id)
+            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->count();
+
+        // Get active users (logged in within the period)
+        $activeUsers = User::where('organization_id', $organization->id)
+            ->whereHas('authenticationLogs', function ($query) use ($dateRange) {
+                $query->where('event', 'login_success')
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+            })
+            ->count();
+
+        return [
+            'total_users' => $totalUsers,
+            'active_users' => $activeUsers,
+            'verified_users' => $verifiedUsers,
+            'unverified_users' => $unverifiedUsers,
+            'mfa_enabled_users' => $mfaEnabledUsers,
+            'mfa_disabled_users' => $mfaDisabledUsers,
+            'mfa_adoption_rate' => $mfaAdoptionRate,
+            'users_created_this_month' => $usersCreatedThisMonth,
         ];
     }
 
@@ -154,20 +217,33 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     public function getSecurityMetrics(Organization $organization, string $period = '30d'): array
     {
         $dateRange = $this->calculateDateRange($period, 'UTC');
-        $applicationIds = $organization->applications()->pluck('id');
-        $authLogs = $this->getAuthLogQuery($applicationIds, $dateRange);
-        $failedLogins = $authLogs->clone()->where('event', 'login_failed')->count();
+
+        // Get all security incidents for users in this organization (using direct organization_id)
+        $userIds = User::where('organization_id', $organization->id)->pluck('id');
+
+        $incidents = \App\Models\SecurityIncident::whereIn('user_id', $userIds)
+            ->orWhereNull('user_id') // Include incidents not tied to specific users
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->get();
+
+        $totalIncidents = $incidents->count();
+
+        // Group incidents by type
+        $incidentsByType = $incidents->groupBy('type')->map->count()->toArray();
+
+        // Group incidents by severity
+        $incidentsBySeverity = $incidents->groupBy('severity')->map->count()->toArray();
+
+        // Count resolved vs pending
+        $resolvedIncidents = $incidents->where('status', 'resolved')->count();
+        $pendingIncidents = $incidents->whereIn('status', ['open', 'investigating'])->count();
 
         return [
-            'period' => $period,
-            'mfa_enabled_users' => User::whereHas('applications', function ($query) use ($applicationIds) {
-                $query->whereIn('application_id', $applicationIds);
-            })->whereNotNull('mfa_methods')->count(),
-            'failed_login_attempts' => $failedLogins,
-            'suspicious_activity' => $authLogs->clone()
-                ->whereIn('event', ['login_failed', 'token_revoked', 'logout'])
-                ->where('success', false)
-                ->count(),
+            'total_incidents' => $totalIncidents,
+            'incidents_by_type' => $incidentsByType,
+            'incidents_by_severity' => $incidentsBySeverity,
+            'resolved_incidents' => $resolvedIncidents,
+            'pending_incidents' => $pendingIncidents,
         ];
     }
 
@@ -420,6 +496,32 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     }
 
     /**
+     * Get login trends over the period
+     */
+    private function getLoginTrends(Organization $organization, array $dateRange): array
+    {
+        // Get users in the organization (using direct organization_id)
+        $userIds = User::where('organization_id', $organization->id)->pluck('id');
+
+        $trends = AuthenticationLog::whereIn('user_id', $userIds)
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->where('event', 'login_success')
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => $item->date,
+                    'count' => $item->count,
+                ];
+            })
+            ->toArray();
+
+        return $trends;
+    }
+
+    /**
      * Get application metrics for a specific organization
      */
     public function getApplicationMetrics(int $organizationId, string $period = '30d', ?int $applicationId = null): array
@@ -434,10 +536,19 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
             return $this->getSpecificApplicationMetrics($application, $dateRange);
         }
 
-        // Get metrics for all applications in the organization - return just the applications array
-        $usageMetrics = $this->getApplicationUsage($organization, $dateRange);
+        // Get metrics for all applications in the organization
+        $applications = $this->getApplicationUsage($organization, $dateRange);
 
-        return $usageMetrics->toArray();
+        // Count active applications (those with at least one user login in the period)
+        $activeApplications = $applications->filter(function ($app) {
+            return $app['active_users'] > 0;
+        })->count();
+
+        return [
+            'total_applications' => $applications->count(),
+            'active_applications' => $activeApplications,
+            'applications' => $applications->toArray(),
+        ];
     }
 
     /**
