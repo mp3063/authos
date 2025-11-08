@@ -35,3 +35,4 @@ Thumbs.db
 
 # Parallel Test Databases
 /database/testing_parallel_*.sqlite
+database/.cleanup.lock
