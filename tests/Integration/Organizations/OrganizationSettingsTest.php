@@ -410,13 +410,16 @@ class OrganizationSettingsTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function test_unauthorized_user_cannot_modify_settings(): void
     {
+        // ARRANGE: Create a fresh organization with known settings for this test
+        $testOrg = $this->createOrganization(['settings' => ['require_mfa' => false]]);
+
         // ARRANGE: Create user from different organization
         $otherOrg = $this->createOrganization();
         $otherUser = $this->createUser(['organization_id' => $otherOrg->id]);
 
         // ACT: Attempt to modify settings
         $response = $this->actingAs($otherUser, 'api')
-            ->putJson("/api/v1/organizations/{$this->organization->id}/settings", [
+            ->putJson("/api/v1/organizations/{$testOrg->id}/settings", [
                 'settings' => ['require_mfa' => true],
             ]);
 
@@ -424,7 +427,10 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $response->assertNotFound();
 
         // ASSERT: Verify no changes were made
-        $this->organization->refresh();
-        $this->assertNotTrue($this->organization->settings['require_mfa'] ?? false);
+        $testOrg->refresh();
+        $this->assertFalse(
+            $testOrg->settings['require_mfa'] ?? false,
+            'The require_mfa setting should remain unchanged after unauthorized attempt'
+        );
     }
 }

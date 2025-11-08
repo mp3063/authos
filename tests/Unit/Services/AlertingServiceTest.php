@@ -3,15 +3,14 @@
 namespace Tests\Unit\Services;
 
 use App\Services\AlertingService;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
 
-class AlertingServiceTest extends BaseTestCase
+class AlertingServiceTest extends TestCase
 {
-    use DatabaseMigrations;
+    // No database needed for this test - only testing cache/logging
 
     private AlertingService $service;
 
@@ -27,18 +26,6 @@ class AlertingServiceTest extends BaseTestCase
     {
         \Mockery::close();
         parent::tearDown();
-    }
-
-    /**
-     * Creates the application.
-     */
-    public function createApplication(): \Illuminate\Foundation\Application
-    {
-        $app = require __DIR__.'/../../../bootstrap/app.php';
-
-        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        return $app;
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

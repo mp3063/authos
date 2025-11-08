@@ -95,16 +95,17 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         ]);
 
         foreach ($users as $user) {
-            // Create successful logins
+            // Create successful logins - use rand(1, 6) to avoid boundary issues
+            // This ensures logs are safely within the 7-day window
             AuthenticationLog::factory()->count(3)->successfulLogin()->create([
                 'user_id' => $user->id,
-                'created_at' => now()->subDays(rand(1, 7)),
+                'created_at' => now()->subDays(rand(1, 6)),
             ]);
 
-            // Create failed logins
+            // Create failed logins - use rand(1, 6) to avoid boundary issues
             AuthenticationLog::factory()->count(2)->failedLogin()->create([
                 'user_id' => $user->id,
-                'created_at' => now()->subDays(rand(1, 7)),
+                'created_at' => now()->subDays(rand(1, 6)),
             ]);
         }
 
@@ -249,7 +250,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
             SecurityIncident::factory()->count($count)->create([
                 'type' => $type,
                 'severity' => 'medium',
-                'created_at' => now()->subDays(rand(1, 7)),
+                'created_at' => now()->subDays(rand(1, 6)),
             ]);
         }
 

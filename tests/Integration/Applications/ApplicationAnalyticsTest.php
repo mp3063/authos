@@ -403,7 +403,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
         $user1 = $this->createApiUser(['organization_id' => $this->organization->id]);
         $user2 = $this->createApiUser(['organization_id' => $this->organization->id]);
 
-        // Successful logins
+        // Successful logins - use rand(1, 6) to avoid boundary issues with 7-day period queries
         for ($i = 0; $i < 7; $i++) {
             AuthenticationLog::create([
                 'user_id' => $user1->id,
@@ -412,7 +412,7 @@ class ApplicationAnalyticsTest extends IntegrationTestCase
                 'event' => 'login_success',
                 'ip_address' => '192.168.1.100',
                 'user_agent' => 'Mozilla/5.0',
-                'created_at' => Carbon::now()->subDays(rand(1, 7)),
+                'created_at' => Carbon::now()->subDays(rand(1, 6)),
             ]);
         }
 
