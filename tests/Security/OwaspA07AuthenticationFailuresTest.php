@@ -125,10 +125,10 @@ class OwaspA07AuthenticationFailuresTest extends TestCase
         $lockout1 = AccountLockout::where('user_id', $this->user->id)->latest()->first();
 
         if ($lockout1) {
-            $duration1 = now()->diffInMinutes($lockout1->locked_until);
+            $duration1 = now()->diffInMinutes($lockout1->unlock_at);
 
-            // Should be 5 minutes for first lockout
-            $this->assertEquals(5, $duration1);
+            // Should be 5 minutes for first lockout (with 0.1 minute tolerance for timing)
+            $this->assertEqualsWithDelta(5, $duration1, 0.1);
         } else {
             // If no lockout created, assert that at least requests are being tracked
             $this->assertTrue(true, 'Lockout mechanism may require more attempts');

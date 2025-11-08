@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\OrganizationReportController;
 use App\Http\Controllers\Api\Organizations\OrganizationAnalyticsController;
 use App\Http\Controllers\Api\Organizations\OrganizationCrudController;
 use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\UserController;
@@ -59,6 +60,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
         Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth');
         Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('throttle:auth');
+
+        // Password Reset routes (public, rate-limited)
+        Route::prefix('password')->middleware('throttle:5,60')->group(function () {
+            Route::post('/email', [PasswordResetController::class, 'sendResetLinkEmail']);
+            Route::post('/reset', [PasswordResetController::class, 'reset']);
+        });
 
         // Social Authentication routes
         Route::prefix('social')->middleware('throttle:auth')->group(function () {
