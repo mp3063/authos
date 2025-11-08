@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Events\ApplicationCreatedEvent;
+use App\Events\Auth\LoginAttempted;
+use App\Events\Auth\LoginFailed;
+use App\Events\Auth\LoginSuccessful;
 use App\Events\AuthFailedEvent;
 use App\Events\AuthLoginEvent;
 use App\Events\MfaEnabledEvent;
@@ -10,6 +13,11 @@ use App\Events\OrganizationUpdatedEvent;
 use App\Events\UserCreatedEvent;
 use App\Events\UserDeletedEvent;
 use App\Events\UserUpdatedEvent;
+use App\Listeners\Auth\CheckAccountLockout;
+use App\Listeners\Auth\CheckIpBlocklist;
+use App\Listeners\Auth\RecordFailedLoginAttempt;
+use App\Listeners\Auth\RegenerateSession;
+use App\Listeners\Auth\TriggerIntrusionDetection;
 use App\Listeners\WebhookEventSubscriber;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
@@ -21,6 +29,20 @@ class EventServiceProvider extends ServiceProvider
      * @var array<class-string, array<int, class-string>>
      */
     protected $listen = [
+        // Authentication Security Events (executed in order)
+        LoginAttempted::class => [
+            CheckIpBlocklist::class,      // First: Check if IP is blocked
+            CheckAccountLockout::class,    // Second: Check if account is locked
+        ],
+        LoginFailed::class => [
+            // NOTE: Both RecordFailedLoginAttempt and TriggerIntrusionDetection are auto-discovered by Laravel
+            // based on type hints. Removed from here to prevent duplicate registration.
+        ],
+        LoginSuccessful::class => [
+            RegenerateSession::class,      // Clear failed attempts and security cleanup
+        ],
+
+        // Webhook Events
         UserCreatedEvent::class => [
             WebhookEventSubscriber::class.'@handleUserCreated',
         ],

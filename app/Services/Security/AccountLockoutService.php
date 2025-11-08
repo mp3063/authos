@@ -11,6 +11,13 @@ use Illuminate\Support\Facades\Log;
 
 class AccountLockoutService
 {
+    protected SecurityIncidentService $incidentService;
+
+    public function __construct(SecurityIncidentService $incidentService)
+    {
+        $this->incidentService = $incidentService;
+    }
+
     /**
      * Progressive lockout durations in minutes: [attempts => duration]
      */
@@ -73,6 +80,10 @@ class AccountLockoutService
             'duration_minutes' => $durationMinutes,
             'unlock_at' => $unlockAt,
         ]);
+
+        // NOTE: Security incident creation is handled by IntrusionDetectionService, not here.
+        // Account lockout is a countermeasure, while intrusion detection is the detection mechanism.
+        // Separation of concerns: lockout (3+ attempts) vs brute force detection (5+ attempts).
 
         // Send notification to user if exists
         if ($user) {

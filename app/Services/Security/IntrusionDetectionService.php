@@ -16,16 +16,12 @@ class IntrusionDetectionService
 
     protected IpBlocklistService $ipBlocklistService;
 
-    protected AccountLockoutService $lockoutService;
-
     public function __construct(
         SecurityIncidentService $incidentService,
-        IpBlocklistService $ipBlocklistService,
-        AccountLockoutService $lockoutService
+        IpBlocklistService $ipBlocklistService
     ) {
         $this->incidentService = $incidentService;
         $this->ipBlocklistService = $ipBlocklistService;
-        $this->lockoutService = $lockoutService;
     }
 
     /**

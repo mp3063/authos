@@ -1,0 +1,501 @@
+# Event-Driven Security Architecture - Visual Flow
+
+## Complete Login Flow with Security Events
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         CLIENT LOGIN REQUEST                             │
+│                    POST /api/auth/login                                  │
+│                    { email, password, client_id }                        │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AuthController::login()                               │
+│                    ↓ Request validated by LoginRequest                  │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌═════════════════════════════════════════════════════════════════════════┓
+║  PHASE 1: PRE-AUTHENTICATION SECURITY CHECKS                            ║
+║                                                                           ║
+║  LoginAttempted::dispatch(email, ip, userAgent, clientId, metadata)     ║
+╚══════════════════════════════════┬═══════════════════════════════════════╝
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+                    ▼                             ▼
+    ┌───────────────────────────┐   ┌───────────────────────────┐
+    │  CheckIpBlocklist         │   │  CheckAccountLockout      │
+    │  Priority: 1              │   │  Priority: 2              │
+    ├───────────────────────────┤   ├───────────────────────────┤
+    │ • Query cache/DB          │   │ • Query AccountLockout    │
+    │ • Check if IP blocked     │   │ • Check if locked         │
+    │ • If blocked:             │   │ • If locked:              │
+    │   ✗ Throw 403 Exception   │   │   ✗ Throw 403 Exception   │
+    │   ✗ Log attempt           │   │   ✗ Calculate remaining   │
+    │   ✗ ABORT LOGIN           │   │   ✗ Log attempt           │
+    │ • If not blocked:         │   │   ✗ ABORT LOGIN           │
+    │   ✓ Continue              │   │ • If not locked:          │
+    └───────────────────────────┘   │   ✓ Continue              │
+                                    └───────────────────────────┘
+                                              │
+                    ┌─────────────────────────┴────────┐
+                    │  ALL CHECKS PASSED               │
+                    │  ✓ IP not blocked                │
+                    │  ✓ Account not locked            │
+                    └──────────────┬───────────────────┘
+                                   │
+                                   ▼
+┌═════════════════════════════════════════════════════════════════════════┓
+║  PHASE 2: CREDENTIAL VERIFICATION                                       ║
+║                                                                           ║
+║  1. Fetch user: User::where('email', $request->email)->first()          ║
+║  2. Verify password: Hash::check($request->password, $user->password)   ║
+╚══════════════════════════════════┬═══════════════════════════════════════╝
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+            FAILED  │                             │  SUCCESS
+                    ▼                             ▼
+┌═══════════════════════════════════┓ ┌═══════════════════════════════════┓
+║  PHASE 3A: FAILED LOGIN PATH      ║ ║  PHASE 3B: CHECK ACCOUNT STATUS   ║
+║                                   ║ ║                                   ║
+║  LoginFailed::dispatch(           ║ ║  if (!$user->is_active):          ║
+║    email, ip, userAgent,          ║ ║    LoginFailed::dispatch(...)     ║
+║    reason: 'invalid_credentials', ║ ║    return 403 'account_inactive'  ║
+║    user, clientId, metadata       ║ ║                                   ║
+║  )                                ║ ║  Continue ↓                       ║
+╚═══════════════┬═══════════════════╝ ╚═══════════════════════════════════╝
+                │                                     │
+                ▼                                     ▼
+┌───────────────────────────────┐     ┌═════════════════════════════════┓
+│ RecordFailedLoginAttempt      │     ║  PHASE 4: MFA CHECK             ║
+│ Priority: 1                   │     ║                                 ║
+├───────────────────────────────┤     ║  if (shouldRequireMfa($user)):  ║
+│ • Create FailedLoginAttempt   │     ║    return 202 'mfa_required'    ║
+│   record in database          │     ║                                 ║
+│ • Store email, IP, UA         │     ║  Continue ↓                     ║
+│ • Store reason & metadata     │     ╚═════════════════════════════════╝
+│ • Log to security channel     │                   │
+│ • timestamp: attempted_at     │                   ▼
+└───────────────┬───────────────┘     ┌═════════════════════════════════┓
+                │                     ║  PHASE 5: TOKEN GENERATION      ║
+                ▼                     ║                                 ║
+┌───────────────────────────────┐     ║  $token = $user->createToken(  ║
+│ TriggerIntrusionDetection     │     ║    'API Access Token',          ║
+│ Priority: 2                   │     ║    $scopes                      ║
+├───────────────────────────────┤     ║  );                             ║
+│ 1. BRUTE FORCE DETECTION      │     ╚═════════════┬═══════════════════╝
+│   • Count email attempts      │                   │
+│   • Count IP attempts         │                   ▼
+│   • Threshold: 5 email/10 IP  │     ┌═════════════════════════════════┓
+│   • Window: 15 minutes        │     ║  LoginSuccessful::dispatch(     ║
+│   • If detected:              │     ║    user, ip, userAgent,         ║
+│     - Create incident         │     ║    clientId, scopes, metadata   ║
+│     - If severe: Block IP     │     ║  )                              ║
+│                               │     ╚═════════════┬═══════════════════╝
+│ 2. CREDENTIAL STUFFING        │                   │
+│   • Count unique emails       │                   ▼
+│   • From same IP              │     ┌───────────────────────────────┐
+│   • Threshold: 10 emails      │     │ RegenerateSession             │
+│   • Window: 5 minutes         │     │ Priority: 1                   │
+│   • If detected:              │     ├───────────────────────────────┤
+│     - Create CRITICAL         │     │ • Clear failed attempts       │
+│     - Immediate IP block      │     │   for user's email            │
+│                               │     │ • Check if account locked     │
+│ 3. PROGRESSIVE LOCKOUT        │     │ • If locked: Auto-unlock      │
+│   • Count attempts in 1 hour  │     │   (expired or override)       │
+│   • Apply lockout schedule:   │     │ • Log successful cleanup      │
+│     - 3 attempts → 5 min      │     │ • Security channel: INFO      │
+│     - 5 attempts → 15 min     │     └───────────────┬───────────────┘
+│     - 7 attempts → 30 min     │                     │
+│     - 10 attempts → 1 hour    │                     ▼
+│     - 15 attempts → 24 hours  │     ┌═════════════════════════════════┓
+│   • Create AccountLockout     │     ║  RETURN SUCCESS RESPONSE        ║
+│   • Send notification         │     ║                                 ║
+│                               │     ║  200 OK                         ║
+│ 4. CREATE SECURITY INCIDENT   │     ║  {                              ║
+│   • Type: brute_force/        │     ║    user: {...},                 ║
+│     credential_stuffing       │     ║    access_token: "...",         ║
+│   • Severity: high/critical   │     ║    token_type: "Bearer",        ║
+│   • IP address                │     ║    expires_at: "...",           ║
+│   • Description               │     ║    refresh_token: "...",        ║
+│   • Metadata                  │     ║    scopes: "..."                ║
+│                               │     ║  }                              ║
+│ 5. LOG TO SECURITY CHANNEL    │     ╚═════════════════════════════════╝
+│   • ALERT: brute force        │
+│   • CRITICAL: cred stuffing   │
+│   • WARNING: lockout applied  │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌═══════════════════════════════════┓
+║  RETURN FAILURE RESPONSE          ║
+║                                   ║
+║  401 Unauthorized                 ║
+║  {                                ║
+║    message: "Invalid credentials",║
+║    error: "invalid_grant",        ║
+║    error_description: "..."       ║
+║  }                                ║
+╚═══════════════════════════════════╝
+```
+
+## Event Listener Execution Order
+
+```
+LoginAttempted Event
+    │
+    ├─ [1] CheckIpBlocklist
+    │      ↳ Can throw HttpResponseException (403)
+    │      ↳ Aborts login if IP blocked
+    │
+    └─ [2] CheckAccountLockout
+           ↳ Can throw HttpResponseException (403)
+           ↳ Aborts login if account locked
+
+
+LoginFailed Event
+    │
+    ├─ [1] RecordFailedLoginAttempt
+    │      ↳ Stores attempt in database
+    │      ↳ Never throws exceptions
+    │
+    └─ [2] TriggerIntrusionDetection
+           ↳ Analyzes attack patterns
+           ↳ Applies countermeasures
+           ↳ Never throws exceptions
+
+
+LoginSuccessful Event
+    │
+    └─ [1] RegenerateSession
+           ↳ Clears security state
+           ↳ Unlocks account if needed
+           ↳ Never throws exceptions
+```
+
+## Security Service Integration
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      SECURITY SERVICES                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │  IntrusionDetectionService                            │     │
+│  ├───────────────────────────────────────────────────────┤     │
+│  │  • detectBruteForce(email, ip)                        │     │
+│  │    → Returns: bool (detected)                         │     │
+│  │    → Side effect: Creates incident, may block IP      │     │
+│  │                                                        │     │
+│  │  • detectCredentialStuffing(ip)                       │     │
+│  │    → Returns: bool (detected)                         │     │
+│  │    → Side effect: Creates incident, blocks IP         │     │
+│  │                                                        │     │
+│  │  • detectSqlInjection(request)                        │     │
+│  │  • detectXss(request)                                 │     │
+│  │  • detectAnomalousApiActivity(request)                │     │
+│  │  • detectUnusualLoginPattern(user, request)           │     │
+│  │  • recordFailedAttempt(email, request, reason)        │     │
+│  │  • isIpBlocked(ip)                                    │     │
+│  │  • getIpSecurityScore(ip)                             │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │  AccountLockoutService                                │     │
+│  ├───────────────────────────────────────────────────────┤     │
+│  │  • checkAndApplyLockout(email, ip)                    │     │
+│  │    → Returns: ?AccountLockout                         │     │
+│  │    → Side effect: May lock account & notify user      │     │
+│  │                                                        │     │
+│  │  • lockAccount(email, ip, attempts, duration, type)   │     │
+│  │    → Returns: AccountLockout                          │     │
+│  │    → Side effect: Locks account & notifies user       │     │
+│  │                                                        │     │
+│  │  • isAccountLocked(email)                             │     │
+│  │    → Returns: bool                                    │     │
+│  │                                                        │     │
+│  │  • getActiveLockout(email)                            │     │
+│  │    → Returns: ?AccountLockout                         │     │
+│  │                                                        │     │
+│  │  • unlockAccount(email, method)                       │     │
+│  │  • unlockByAdmin(email, admin)                        │     │
+│  │  • clearFailedAttempts(email)                         │     │
+│  │  • getRemainingLockoutTime(email)                     │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │  IpBlocklistService                                   │     │
+│  ├───────────────────────────────────────────────────────┤     │
+│  │  • isIpBlocked(ip)                                    │     │
+│  │    → Returns: bool                                    │     │
+│  │    → Cached for 5 minutes                             │     │
+│  │                                                        │     │
+│  │  • blockIp(ip, type, reason, duration, blockedBy)     │     │
+│  │    → Returns: IpBlocklist                             │     │
+│  │    → Side effect: Blocks IP, clears cache             │     │
+│  │                                                        │     │
+│  │  • unblockIp(ip)                                      │     │
+│  │    → Returns: bool                                    │     │
+│  │    → Side effect: Unblocks IP, clears cache           │     │
+│  │                                                        │     │
+│  │  • getBlockedIps()                                    │     │
+│  │    → Returns: Collection<string> (cached)             │     │
+│  │                                                        │     │
+│  │  • getBlockDetails(ip)                                │     │
+│  │    → Returns: ?IpBlocklist                            │     │
+│  │                                                        │     │
+│  │  • expireBlocks()                                     │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐     │
+│  │  SecurityIncidentService                              │     │
+│  ├───────────────────────────────────────────────────────┤     │
+│  │  • createIncident(data)                               │     │
+│  │    → Returns: SecurityIncident                        │     │
+│  │    → Side effect: Logs, may notify admins            │     │
+│  │                                                        │     │
+│  │  • resolveIncident(id, resolution, resolvedBy)        │     │
+│  │  • getOpenIncidents(severity)                         │     │
+│  │  • getIncidentMetrics()                               │     │
+│  │  • recordAction(id, action)                           │     │
+│  └───────────────────────────────────────────────────────┘     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Database Models & Relationships
+
+```
+┌─────────────────────────┐
+│  FailedLoginAttempt     │
+├─────────────────────────┤
+│  id                     │
+│  email                  │
+│  ip_address             │
+│  user_agent             │
+│  attempt_type           │
+│  failure_reason         │
+│  attempted_at           │
+│  metadata (JSON)        │
+└─────────────────────────┘
+         ↓ used by
+┌─────────────────────────┐
+│  SecurityIncident       │
+├─────────────────────────┤
+│  id                     │
+│  type                   │────┐ Types:
+│  severity               │    │ • brute_force
+│  ip_address             │    │ • credential_stuffing
+│  user_agent             │    │ • sql_injection
+│  user_id (nullable)     │    │ • xss_attempt
+│  endpoint               │    │ • api_abuse
+│  description            │    │ • unusual_login_pattern
+│  metadata (JSON)        │    │
+│  status                 │────┘ Severity:
+│  detected_at            │    │ • critical
+│  resolved_at            │    │ • high
+│  resolution_notes       │    │ • medium
+│  action_taken           │    └ • low
+└─────────────────────────┘
+         ↓ may trigger
+┌─────────────────────────┐
+│  IpBlocklist            │
+├─────────────────────────┤
+│  id                     │
+│  ip_address             │
+│  block_type             │────┐ Types:
+│  reason                 │    │ • temporary
+│  blocked_at             │    └ • permanent
+│  expires_at (nullable)  │
+│  blocked_by (nullable)  │
+│  incident_count         │
+│  is_active              │
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│  AccountLockout         │
+├─────────────────────────┤
+│  id                     │
+│  user_id (nullable)     │────┐ Lockout Types:
+│  email                  │    │ • progressive
+│  ip_address             │    │ • admin_initiated
+│  lockout_type           │────┘ • permanent
+│  attempt_count          │
+│  locked_at              │
+│  unlock_at (nullable)   │
+│  unlocked_at (nullable) │────┐ Unlock Methods:
+│  unlock_method          │────┤ • auto
+│  reason                 │    │ • admin
+└─────────────────────────┘    └ • successful_login
+```
+
+## Caching Strategy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      REDIS CACHE                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Key: security:blocked_ips                                  │
+│  TTL: 300 seconds (5 minutes)                               │
+│  Value: Collection<string> of blocked IP addresses          │
+│                                                             │
+│  ┌───────────────────────────────────────────────┐         │
+│  │  ["192.168.1.100", "10.0.0.50", "172.16.0.1"] │         │
+│  └───────────────────────────────────────────────┘         │
+│                                                             │
+│  Updated on:                                                │
+│  • IpBlocklistService::blockIp()                            │
+│  • IpBlocklistService::unblockIp()                          │
+│  • IpBlocklistService::expireBlocks()                       │
+│                                                             │
+│  Read by:                                                   │
+│  • CheckIpBlocklist listener (every login attempt)          │
+│                                                             │
+│  Benefits:                                                  │
+│  • ~2-5ms lookup time vs ~10-20ms DB query                  │
+│  • Reduces DB load by 90%+                                  │
+│  • Automatic expiry prevents stale data                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Error Response Flow
+
+```
+HTTP 403 - IP Blocked
+┌─────────────────────────────────────────────────┐
+│  {                                              │
+│    "message": "Access denied",                  │
+│    "error": "ip_blocked",                       │
+│    "error_description": "Your IP address has   │
+│                          been blocked due to    │
+│                          suspicious activity."  │
+│  }                                              │
+└─────────────────────────────────────────────────┘
+         ↑
+         │ Thrown by: CheckIpBlocklist
+         │ Trigger: isIpBlocked() returns true
+         │ Logged: security.WARNING
+
+
+HTTP 403 - Account Locked
+┌─────────────────────────────────────────────────┐
+│  {                                              │
+│    "message": "Your account has been           │
+│                temporarily locked...",          │
+│    "error": "account_locked",                   │
+│    "error_description": "Account temporarily   │
+│                          locked due to 5        │
+│                          failed login attempts. │
+│                          Duration: 15 minutes.",│
+│    "locked_until": "2024-01-08T14:30:00Z",     │
+│    "remaining_minutes": 12                      │
+│  }                                              │
+└─────────────────────────────────────────────────┘
+         ↑
+         │ Thrown by: CheckAccountLockout
+         │ Trigger: isAccountLocked() returns true
+         │ Logged: security.WARNING
+
+
+HTTP 401 - Invalid Credentials
+┌─────────────────────────────────────────────────┐
+│  {                                              │
+│    "message": "Invalid credentials",            │
+│    "error": "invalid_grant",                    │
+│    "error_description": "The provided          │
+│                          credentials are        │
+│                          incorrect."            │
+│  }                                              │
+└─────────────────────────────────────────────────┘
+         ↑
+         │ Returned by: AuthController
+         │ Trigger: Credentials don't match
+         │ Event: LoginFailed dispatched
+         │ Logged: security.INFO
+
+
+HTTP 403 - Account Inactive
+┌─────────────────────────────────────────────────┐
+│  {                                              │
+│    "message": "Account is inactive",            │
+│    "error": "account_inactive",                 │
+│    "error_description": "This account has been │
+│                          deactivated."          │
+│  }                                              │
+└─────────────────────────────────────────────────┘
+         ↑
+         │ Returned by: AuthController
+         │ Trigger: $user->is_active === false
+         │ Event: LoginFailed dispatched
+         │ Logged: security.WARNING
+
+
+HTTP 200 - Success
+┌─────────────────────────────────────────────────┐
+│  {                                              │
+│    "user": {...},                               │
+│    "access_token": "...",                       │
+│    "token_type": "Bearer",                      │
+│    "expires_at": "...",                         │
+│    "refresh_token": "...",                      │
+│    "scopes": "openid profile email"             │
+│  }                                              │
+└─────────────────────────────────────────────────┘
+         ↑
+         │ Returned by: AuthController
+         │ Trigger: All checks passed
+         │ Event: LoginSuccessful dispatched
+         │ Logged: security.INFO
+```
+
+## Performance Profile
+
+```
+Login Request Timeline (Successful)
+─────────────────────────────────────────────────────────────
+0ms     Request received
+5ms     LoginAttempted dispatched
+7ms     ├─ CheckIpBlocklist (2ms, cached)
+10ms    └─ CheckAccountLockout (3ms, query)
+50ms    Credential verification (40ms, bcrypt)
+55ms    Token generation (5ms)
+60ms    LoginSuccessful dispatched
+65ms    └─ RegenerateSession (5ms, delete ops)
+70ms    Response sent
+─────────────────────────────────────────────────────────────
+Total: ~70ms (baseline: 55ms, overhead: 15ms)
+
+
+Login Request Timeline (Failed - Brute Force)
+─────────────────────────────────────────────────────────────
+0ms     Request received
+5ms     LoginAttempted dispatched
+7ms     ├─ CheckIpBlocklist (2ms, cached)
+10ms    └─ CheckAccountLockout (3ms, query)
+50ms    Credential verification (40ms, bcrypt)
+55ms    LoginFailed dispatched
+60ms    ├─ RecordFailedLoginAttempt (5ms, insert)
+80ms    └─ TriggerIntrusionDetection (20ms)
+82ms        ├─ detectBruteForce (10ms, 2 queries)
+88ms        ├─ detectCredentialStuffing (6ms, 1 query)
+93ms        └─ checkAndApplyLockout (5ms, query+insert)
+95ms    Response sent
+─────────────────────────────────────────────────────────────
+Total: ~95ms (baseline: 55ms, overhead: 40ms)
+
+
+Login Request Timeline (Blocked IP)
+─────────────────────────────────────────────────────────────
+0ms     Request received
+5ms     LoginAttempted dispatched
+7ms     └─ CheckIpBlocklist (2ms, cached)
+        ✗ HttpResponseException thrown
+10ms    Response sent (403)
+─────────────────────────────────────────────────────────────
+Total: ~10ms (blocked before expensive operations)
+```
