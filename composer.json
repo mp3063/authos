@@ -19,7 +19,6 @@
         "spatie/laravel-permission": "^6.21"
     },
     "require-dev": {
-        "brianium/paratest": "^7.8",
         "fakerphp/faker": "^1.23",
         "friendsofphp/php-cs-fixer": "^3.88",
         "larastan/larastan": "^3.7",
@@ -79,18 +78,6 @@
         "test:feature": [
             "@php artisan config:clear --ansi",
             "@php artisan test --testsuite=Feature"
-        ],
-        "test:parallel": [
-            "@php artisan config:clear --ansi",
-            "./vendor/bin/paratest --processes=auto --runner=WrapperRunner"
-        ],
-        "test:parallel:unit": [
-            "@php artisan config:clear --ansi",
-            "./vendor/bin/paratest --processes=auto --runner=WrapperRunner tests/Unit"
-        ],
-        "test:parallel:feature": [
-            "@php artisan config:clear --ansi",
-            "./vendor/bin/paratest --processes=auto --runner=WrapperRunner tests/Feature"
         ],
         "test:coverage": [
             "@php artisan config:clear --ansi",
