@@ -51,22 +51,16 @@ herd start                    # http://authos.test
 herd php artisan migrate:refresh --seed
 herd php artisan passport:keys
 
-# Testing (Fast Parallel Execution - 4-10x faster!)
-./fast-tests.sh                            # All tests (parallel, auto CPU cores)
-./fast-tests.sh tests/Unit                 # Unit tests only (parallel)
-./fast-tests.sh --processes=8              # Custom process count
-herd composer test:parallel                # All tests via composer
-herd composer test:parallel:unit           # Unit tests only
-herd composer test:parallel:feature        # Feature tests only
 
-# Testing (Standard Execution)
-./run-tests.sh                             # All tests (parallel, timeout protected)
-./run-tests.sh tests/Unit/                 # Unit tests
-./run-tests.sh tests/Integration/OAuth/    # OAuth integration
-herd composer test                         # Via composer
+# Testing (Sequential Execution - 100% Reliable)
+./run-tests.sh                             # All tests (sequential, timeout protected)
+./run-tests.sh tests/Unit/                 # Unit tests only (~8 seconds)
+./run-tests.sh tests/Integration/OAuth/    # OAuth integration tests
+herd composer test                         # All tests via composer
 herd composer test:unit                    # Unit tests only
 herd composer test:feature                 # Feature tests only
 herd composer test:coverage                # With coverage report
+herd php artisan test                      # Direct PHPUnit execution
 
 # Test by category (Integration)
 herd php artisan test tests/Integration/                   # All integration tests
@@ -567,6 +561,12 @@ herd php artisan passport:keys --force    # Missing OAuth keys
 herd php artisan migrate:fresh --seed     # Database issues
 herd php artisan config:clear             # Config cache issues
 ```
+
+**Test Database:**
+- All tests use `:memory:` SQLite (automatically cleaned after each test)
+- `RefreshDatabase` trait uses transactions for perfect test isolation
+- No manual cleanup needed - everything handled by PHPUnit
+- If you encounter "no such table" errors, check `.claude/memory/testing/database-migrations-fix.md`
 
 **Test Execution:**
 - PHPUnit may hang after completion - use `./run-tests.sh` wrapper
