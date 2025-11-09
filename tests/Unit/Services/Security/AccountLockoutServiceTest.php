@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\AccountLockedNotification;
 use App\Notifications\AccountUnlockedNotification;
 use App\Services\Security\AccountLockoutService;
+use App\Services\Security\SecurityIncidentService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -20,7 +21,9 @@ class AccountLockoutServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new AccountLockoutService;
+        // Mock the SecurityIncidentService dependency
+        $incidentService = $this->createMock(SecurityIncidentService::class);
+        $this->service = new AccountLockoutService($incidentService);
         Notification::fake();
     }
 
