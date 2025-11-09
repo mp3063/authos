@@ -70,6 +70,7 @@ class PermissionResource extends Resource
                             ])
                             ->default('web')
                             ->required()
+                            ->reactive() // Update roles when guard changes
                             ->helperText('Authentication guard for this permission'),
 
                         // Hidden field to set organization_id for non-super admins
@@ -78,20 +79,38 @@ class PermissionResource extends Resource
                             ->default($user && $user->isSuperAdmin() ? null : $user?->organization_id)
                             ->disabled(! ($user && $user->isSuperAdmin()))
                             ->hidden(! ($user && $user->isSuperAdmin()))
+                            ->reactive() // Update roles when organization changes
                             ->helperText($user && $user->isSuperAdmin() ? 'Leave empty for global permission' : 'Organization scope'),
                     ])->columns(),
 
                 Section::make('Assignment')
                     ->schema([
                         Select::make('roles')
-                            ->relationship('roles', 'name', function ($query) use ($user) {
-                                if ($user && ! $user->isSuperAdmin()) {
-                                    // Only show roles for user's organization or global roles
-                                    $query->where(function ($q) use ($user) {
-                                        $q->where('organization_id', $user->organization_id)
-                                            ->orWhereNull('organization_id');
-                                    });
-                                }
+                            ->relationship('roles', 'name', function ($query, $get, $record) use ($user) {
+                                // Get the permission's guard_name (from form data or existing record)
+                                $guardName = $get('guard_name') ?? $record?->guard_name ?? 'web';
+
+                                // Get the permission's organization_id (from form data or existing record)
+                                $organizationId = $get('organization_id') ?? $record?->organization_id;
+
+                                // CRITICAL FIX: Filter by guard_name to prevent showing duplicate roles
+                                $query->where('guard_name', $guardName);
+
+                                // CRITICAL FIX: Deduplicate roles - prioritize organization-specific over global
+                                // Use a subquery to find role names that exist for this specific organization
+                                $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                                    ->where('guard_name', $guardName)
+                                    ->where('organization_id', $organizationId)
+                                    ->pluck('name');
+
+                                // Show organization-specific roles + global roles not in organization scope
+                                $query->where(function ($q) use ($organizationId, $orgSpecificNames) {
+                                    $q->where('organization_id', $organizationId)
+                                        ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                            $q2->whereNull('organization_id')
+                                                ->whereNotIn('name', $orgSpecificNames);
+                                        });
+                                });
                             })
                             ->multiple()
                             ->preload()
@@ -145,8 +164,30 @@ class PermissionResource extends Resource
                     ->color('info'),
 
                 TextColumn::make('roles_count')
-                    ->counts('roles')
                     ->label('Roles')
+                    ->getStateUsing(function ($record) {
+                        // CRITICAL FIX: Count only unique roles by filtering guard_name and deduplicating
+                        $guardName = $record->guard_name;
+                        $organizationId = $record->organization_id;
+
+                        // Get organization-specific role names to exclude from global roles
+                        $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                            ->where('guard_name', $guardName)
+                            ->where('organization_id', $organizationId)
+                            ->pluck('name');
+
+                        // Count unique roles matching this permission's guard
+                        return $record->roles()
+                            ->where('guard_name', $guardName)
+                            ->where(function ($q) use ($organizationId, $orgSpecificNames) {
+                                $q->where('organization_id', $organizationId)
+                                    ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                        $q2->whereNull('organization_id')
+                                            ->whereNotIn('name', $orgSpecificNames);
+                                    });
+                            })
+                            ->count();
+                    })
                     ->sortable()
                     ->alignCenter(),
 
@@ -158,6 +199,30 @@ class PermissionResource extends Resource
 
                 TextColumn::make('roles.name')
                     ->label('Assigned Roles')
+                    ->getStateUsing(function ($record) {
+                        // CRITICAL FIX: Filter roles by permission's guard_name to prevent duplicates
+                        $guardName = $record->guard_name;
+                        $organizationId = $record->organization_id;
+
+                        // Get organization-specific role names to exclude from global roles
+                        $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                            ->where('guard_name', $guardName)
+                            ->where('organization_id', $organizationId)
+                            ->pluck('name');
+
+                        // Get unique roles matching this permission's guard
+                        return $record->roles()
+                            ->where('guard_name', $guardName)
+                            ->where(function ($q) use ($organizationId, $orgSpecificNames) {
+                                $q->where('organization_id', $organizationId)
+                                    ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                        $q2->whereNull('organization_id')
+                                            ->whereNotIn('name', $orgSpecificNames);
+                                    });
+                            })
+                            ->pluck('name')
+                            ->toArray();
+                    })
                     ->listWithLineBreaks()
                     ->limitList(3)
                     ->expandableLimitedList()
@@ -240,7 +305,28 @@ class PermissionResource extends Resource
                         ->color('success')
                         ->schema([
                             Select::make('role')
-                                ->relationship('roles', 'name')
+                                ->relationship('roles', 'name', function ($query, $livewire) {
+                                    $record = $livewire->getRecord();
+                                    $guardName = $record->guard_name;
+                                    $organizationId = $record->organization_id;
+
+                                    // Filter by guard_name to prevent duplicates
+                                    $query->where('guard_name', $guardName);
+
+                                    // Deduplicate roles
+                                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                                        ->where('guard_name', $guardName)
+                                        ->where('organization_id', $organizationId)
+                                        ->pluck('name');
+
+                                    $query->where(function ($q) use ($organizationId, $orgSpecificNames) {
+                                        $q->where('organization_id', $organizationId)
+                                            ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                                $q2->whereNull('organization_id')
+                                                    ->whereNotIn('name', $orgSpecificNames);
+                                            });
+                                    });
+                                })
                                 ->required()
                                 ->searchable()
                                 ->preload(),
@@ -279,7 +365,35 @@ class PermissionResource extends Resource
                         ->color('success')
                         ->schema([
                             Select::make('role')
-                                ->relationship('roles', 'name')
+                                ->options(function ($livewire) {
+                                    // Get the first selected record to determine guard and org
+                                    $records = $livewire->getSelectedTableRecords();
+                                    if ($records->isEmpty()) {
+                                        return [];
+                                    }
+
+                                    $firstRecord = $records->first();
+                                    $guardName = $firstRecord->guard_name;
+                                    $organizationId = $firstRecord->organization_id;
+
+                                    // Filter roles by guard_name and deduplicate
+                                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                                        ->where('guard_name', $guardName)
+                                        ->where('organization_id', $organizationId)
+                                        ->pluck('name');
+
+                                    return \Spatie\Permission\Models\Role::query()
+                                        ->where('guard_name', $guardName)
+                                        ->where(function ($q) use ($organizationId, $orgSpecificNames) {
+                                            $q->where('organization_id', $organizationId)
+                                                ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                                    $q2->whereNull('organization_id')
+                                                        ->whereNotIn('name', $orgSpecificNames);
+                                                });
+                                        })
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
                                 ->required()
                                 ->searchable()
                                 ->preload(),
