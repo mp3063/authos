@@ -437,7 +437,6 @@ class ApplicationFlowsTest extends EndToEndTestCase
     #[Test]
     public function test_application_organization_isolation()
     {
-        $this->markTestSkipped('Organization isolation has a bug - users can see cross-organization data');
         // Create second organization with its own admin
         $secondOrg = Organization::factory()->create([
             'name' => 'Second Organization',

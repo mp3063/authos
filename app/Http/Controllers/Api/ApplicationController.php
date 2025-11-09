@@ -215,7 +215,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
@@ -283,7 +283,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.delete');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
 
         // Revoke all tokens for this application
         Token::where('client_id', $application->passport_client_id)->delete();
@@ -304,7 +304,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
 
         // Generate new credentials
         $newClientId = Str::uuid()->toString();
@@ -340,7 +340,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.read');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $users = $application->users()->withPivot(['granted_at', 'last_login_at', 'login_count'])->get();
 
         return response()->json([
@@ -376,7 +376,7 @@ class ApplicationController extends BaseApiController
             ], 422);
         }
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $user = User::findOrFail($request->user_id);
 
         // Check if access already exists
@@ -404,7 +404,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $user = User::findOrFail($userId);
 
         if (! $application->users()->where('user_id', $user->id)->exists()) {
@@ -431,7 +431,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.read');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $tokens = Token::where('client_id', $application->passport_client_id)
             ->where('revoked', false)
             ->where('expires_at', '>', now())
@@ -465,7 +465,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $revokedCount = Token::where('client_id', $application->passport_client_id)->count();
 
         Token::where('client_id', $application->passport_client_id)->delete();
@@ -482,7 +482,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $token = Token::where('client_id', $application->passport_client_id)
             ->where('id', $tokenId)
             ->first();
@@ -534,7 +534,7 @@ class ApplicationController extends BaseApiController
             ], 422);
         }
 
-        $application = Application::findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id);
         $period = $request->input('period', '7d');
 
         // Calculate period start date
@@ -574,6 +574,26 @@ class ApplicationController extends BaseApiController
                     : 0,
             ],
         ]);
+    }
+
+    /**
+     * Find application with organization scope enforcement
+     *
+     * This method ensures that non-super-admin users can only access
+     * applications within their own organization. This is critical for
+     * multi-tenant security and prevents OWASP A01:2021 - Broken Access Control.
+     */
+    private function findApplicationWithOrgScope(string $id): Application
+    {
+        $query = Application::query();
+
+        // Enforce organization-based data isolation for non-super-admin users
+        $currentUser = auth()->user();
+        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+            $query->where('organization_id', $currentUser->organization_id);
+        }
+
+        return $query->findOrFail($id);
     }
 
     /**
