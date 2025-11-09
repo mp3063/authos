@@ -625,9 +625,9 @@ class ProfileController extends Controller
 
         // Enable MFA
         $user->update([
+            'mfa_secret' => encrypt($secretKey), // Store encrypted secret for compatibility
             'mfa_methods' => ['totp'],
-            'mfa_backup_codes' => $backupCodes,
-            'two_factor_recovery_codes' => json_encode($backupCodes),
+            'mfa_backup_codes' => $backupCodes, // Mutator handles JSON encoding to two_factor_recovery_codes
             'two_factor_confirmed_at' => now(),
         ]);
 

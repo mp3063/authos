@@ -151,8 +151,6 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         $this->assertUnifiedApiResponse($setupResponse, 200);
 
         $setupData = $setupResponse->json('data');
-        dump('Setup response:', $setupResponse->json());
-        dump('User MFA enabled:', $user->hasMfaEnabled());
         $this->assertArrayHasKey('secret', $setupData);
         $this->assertArrayHasKey('qr_code_url', $setupData);
         $this->assertArrayHasKey('backup_codes', $setupData);
@@ -188,15 +186,16 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         // Step 6: Complete MFA challenge
         $challengeToken = $loginData['challenge_token'];
         // Note: getCurrentOtp() exceptions are allowed to bubble up for proper test failure reporting
+        $user->refresh(); // Refresh user to get updated MFA settings
         $newTotpCode = $this->google2FA->getCurrentOtp($secret);
 
         $mfaResponse = $this->postJson('/api/v1/auth/mfa/verify', [
             'challenge_token' => $challengeToken,
-            'code' => $newTotpCode,
+            'totp_code' => $newTotpCode,
         ]);
 
         $this->assertUnifiedApiResponse($mfaResponse, 200);
-        $mfaData = $mfaResponse->json('data');
+        $mfaData = $mfaResponse->json();
         $this->assertArrayHasKey('access_token', $mfaData);
 
         // Verify audit logs
@@ -255,8 +254,9 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
             'backup_code' => 'backup123',
         ]);
 
-        // Note: Mock implementation returns 200; production would return 400 for reused codes
-        $reusedBackupResponse->assertStatus(200);
+        // Expect 401 for reused backup code (consumed codes are removed)
+        $reusedBackupResponse->assertStatus(401);
+        $this->assertEquals('invalid_grant', $reusedBackupResponse->json('error'));
 
         // Note: Audit log verification skipped for mock implementation
     }

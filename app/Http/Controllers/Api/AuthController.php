@@ -660,7 +660,7 @@ class AuthController extends Controller
                     'mfa_recovery_code_used',
                     [
                         'client_id' => $request->client_id ?? null,
-                        'remaining_codes' => count(json_decode($user->two_factor_recovery_codes, true) ?? []),
+                        'remaining_codes' => count($user->two_factor_recovery_codes ?? []),
                     ],
                     $request,
                     true
@@ -758,7 +758,7 @@ class AuthController extends Controller
 
         // Warn if recovery code was used and count is low
         if ($usedRecoveryCode) {
-            $remainingCodes = count(json_decode($user->fresh()->two_factor_recovery_codes, true) ?? []);
+            $remainingCodes = count($user->fresh()->two_factor_recovery_codes ?? []);
             if ($remainingCodes <= 2) {
                 $response['warning'] = "Only {$remainingCodes} recovery codes remaining. Please regenerate new codes.";
             }
@@ -803,8 +803,8 @@ class AuthController extends Controller
         }
 
         try {
-            // Get current recovery codes
-            $recoveryCodes = json_decode($user->two_factor_recovery_codes, true);
+            // Get current recovery codes (already decoded as array by User model cast)
+            $recoveryCodes = $user->two_factor_recovery_codes;
 
             if (! is_array($recoveryCodes) || empty($recoveryCodes)) {
                 return false;
@@ -818,7 +818,9 @@ class AuthController extends Controller
             $foundIndex = null;
 
             foreach ($recoveryCodes as $index => $storedCode) {
-                if (hash_equals($storedCode, $normalizedCode)) {
+                // Normalize stored code for comparison (case-insensitive)
+                $normalizedStoredCode = strtoupper(trim($storedCode));
+                if (hash_equals($normalizedStoredCode, $normalizedCode)) {
                     $found = true;
                     $foundIndex = $index;
                     break;
@@ -833,9 +835,9 @@ class AuthController extends Controller
             unset($recoveryCodes[$foundIndex]);
             $recoveryCodes = array_values($recoveryCodes); // Re-index array
 
-            // Update user with remaining codes
+            // Update user with remaining codes (User model mutator handles JSON encoding)
             $user->update([
-                'two_factor_recovery_codes' => json_encode($recoveryCodes),
+                'two_factor_recovery_codes' => $recoveryCodes,
             ]);
 
             return true;
