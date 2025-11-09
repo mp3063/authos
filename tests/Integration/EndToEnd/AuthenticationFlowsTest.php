@@ -319,14 +319,15 @@ class AuthenticationFlowsTest extends EndToEndTestCase
         RateLimiter::clear('rate_limit:authentication:ip:'.request()->ip());
 
         // Attempt multiple failed logins (rate limit is 10 per minute)
+        // NOTE: Progressive lockout kicks in at 3 failed attempts
         for ($i = 1; $i <= 12; $i++) {
             $response = $this->postJson('/api/v1/auth/login', [
                 'email' => 'ratelimit.test@example.com',
                 'password' => 'WrongPassword123!',
             ]);
 
-            if ($i <= 10) {
-                // First 10 attempts should get 401 Unauthorized
+            if ($i <= 3) {
+                // First 3 attempts get 401 Unauthorized (invalid credentials)
                 $response->assertStatus(401);
                 $response->assertJsonStructure([
                     'message',
@@ -337,6 +338,17 @@ class AuthenticationFlowsTest extends EndToEndTestCase
                     'error' => 'invalid_grant',
                     'message' => 'Invalid credentials',
                 ]);
+            } elseif ($i <= 10) {
+                // After 3 attempts, progressive lockout triggers and returns 403 Forbidden
+                $response->assertStatus(403);
+                $response->assertJsonStructure([
+                    'message',
+                    'error',
+                    'error_description',
+                ]);
+                $response->assertJson([
+                    'error' => 'account_locked',
+                ]);
             } else {
                 // After 10 attempts, should get rate limited
                 $response->assertStatus(429);
@@ -345,16 +357,17 @@ class AuthenticationFlowsTest extends EndToEndTestCase
             }
         }
 
-        // Verify all failed attempts were logged
+        // Verify all failed attempts were logged (first 3 attempts before lockout)
         $failedLogs = AuthenticationLog::where('user_id', $user->id)
             ->where('event', 'login_failed')
             ->count();
 
-        $this->assertGreaterThanOrEqual(10, $failedLogs);
+        $this->assertGreaterThanOrEqual(3, $failedLogs);
 
-        // Rate limiting is working as expected. Laravel's throttle middleware
-        // successfully blocks excessive login attempts.
-        $this->assertTrue(true, 'Rate limiting successfully prevents brute force attacks');
+        // Rate limiting and progressive lockout are working as expected
+        // Progressive lockout kicks in after 3 failed attempts (returns 403)
+        // Rate limiting prevents excessive requests (returns 429)
+        $this->assertTrue(true, 'Progressive lockout and rate limiting successfully prevent brute force attacks');
     }
 
     /**

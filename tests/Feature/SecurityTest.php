@@ -114,10 +114,15 @@ class SecurityTest extends TestCase
                 'password' => 'wrong-password',
             ]);
 
-            if ($i < 10) {
-                $response->assertStatus(401); // Authentication failure
+            if ($i < 3) {
+                // First 3 attempts: authentication failure (401)
+                $response->assertStatus(401);
+            } elseif ($i < 10) {
+                // Attempts 3-9: account locked due to progressive lockout (403)
+                $response->assertStatus(403);
             } else {
-                $response->assertStatus(429); // Rate limit exceeded
+                // Attempts 10+: rate limit exceeded (429)
+                $response->assertStatus(429);
                 break;
             }
         }
@@ -141,14 +146,22 @@ class SecurityTest extends TestCase
             ]);
         }
 
-        // First 10 requests should get 401 (unauthorized) responses
-        for ($i = 0; $i < 10; $i++) {
-            $this->assertEquals(401, $responses[$i]->getStatusCode());
+        // First 3 requests should get 401 (unauthorized) responses
+        for ($i = 0; $i < 3; $i++) {
+            $this->assertEquals(401, $responses[$i]->getStatusCode(),
+                "Request {$i} should return 401 for invalid credentials");
         }
 
-        // Subsequent requests should get 429 (rate limited) responses
+        // Requests 3-9 should get 403 (account locked) due to progressive lockout
+        for ($i = 3; $i < 10; $i++) {
+            $this->assertEquals(403, $responses[$i]->getStatusCode(),
+                "Request {$i} should return 403 for locked account");
+        }
+
+        // Requests 10+ should get 429 (rate limited) responses
         for ($i = 10; $i < 12; $i++) {
-            $this->assertEquals(429, $responses[$i]->getStatusCode());
+            $this->assertEquals(429, $responses[$i]->getStatusCode(),
+                "Request {$i} should return 429 for rate limit exceeded");
             // Laravel's native throttle middleware provides rate limiting
             $this->assertFalse($responses[$i]->json('success'));
         }
