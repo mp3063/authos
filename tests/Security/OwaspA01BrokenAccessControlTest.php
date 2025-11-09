@@ -190,14 +190,41 @@ class OwaspA01BrokenAccessControlTest extends TestCase
         $response = $this->postJson('/api/v1/users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password123',
+            'password' => 'SecureP@ssw0rd!',
             'organization_id' => $this->org2->id, // Try to assign to different org
         ]);
 
+        // Security best practice: Request should be rejected (403 Forbidden or 422 Validation Error)
+        // because admin1 should not be able to create users in org2
         if ($response->status() === 201) {
+            // If the request somehow succeeded, verify the user was created in the
+            // authenticated admin's organization (org1), NOT the requested org (org2)
             $userId = $response->json('data.id');
             $user = User::find($userId);
-            $this->assertEquals($this->org1->id, $user->organization_id);
+
+            $this->assertNotNull($user, 'User should exist if request succeeded');
+            $this->assertEquals(
+                $this->org1->id,
+                $user->organization_id,
+                'User must be created in authenticated admin\'s organization, not the requested organization'
+            );
+            $this->assertNotEquals(
+                $this->org2->id,
+                $user->organization_id,
+                'User must not be created in a different organization'
+            );
+        } else {
+            // Preferred security behavior: Request should fail with 403 or 422
+            $this->assertContains(
+                $response->status(),
+                [403, 422],
+                'Request to create user in different organization should be rejected with 403 or 422'
+            );
+
+            // Verify no user was created
+            $this->assertDatabaseMissing('users', [
+                'email' => 'test@example.com',
+            ]);
         }
     }
 
