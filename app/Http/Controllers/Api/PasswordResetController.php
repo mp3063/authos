@@ -129,18 +129,24 @@ class PasswordResetController extends Controller
         $dummyToken = hash('sha256', 'dummy-token-for-timing-safety-' . config('app.key'));
         $tokenToCompare = $resetRecord ? $resetRecord->token : $dummyToken;
 
-        // Convert created_at string to Carbon instance for date comparison
-        $tokenCreatedAt = $resetRecord ? Carbon::parse($resetRecord->created_at) : null;
+        // SECURITY: Always parse timestamp even for non-existent records to maintain constant timing
+        // This ensures both code paths perform the same Carbon operations
+        $dummyTimestamp = now()->subMinutes(30)->toDateTimeString();
+        $timestampToParse = $resetRecord ? $resetRecord->created_at : $dummyTimestamp;
+        $tokenCreatedAt = Carbon::parse($timestampToParse);
 
-        // Calculate token expiration time
-        $tokenExpiresAt = $tokenCreatedAt ? $tokenCreatedAt->copy()->addMinutes(60) : null;
+        // Calculate token expiration time (always perform calculation for constant timing)
+        $tokenExpiresAt = $tokenCreatedAt->copy()->addMinutes(60);
 
-        // Combine all validation checks in a single operation to prevent timing leaks
-        // Check: 1) Record exists, 2) Token matches, 3) Not expired (within 60 minutes)
-        $isValid = $resetRecord
-            && hash_equals($tokenToCompare, $hashedToken)
-            && $tokenExpiresAt
-            && now()->lt($tokenExpiresAt);
+        // SECURITY: Compute all checks upfront to prevent timing leaks from short-circuit evaluation
+        // Both valid and invalid code paths must execute the same operations
+        $recordExists = (bool) $resetRecord;
+        $tokenMatches = hash_equals($tokenToCompare, $hashedToken);
+        $hasExpirationTime = true; // Always true since we always calculate expiration
+        $notExpired = now()->lt($tokenExpiresAt);
+
+        // Combine checks (all operations already executed, no short-circuit timing leak)
+        $isValid = $recordExists && $tokenMatches && $hasExpirationTime && $notExpired;
 
         // SECURITY: Add random delay (50-150ms) to normalize timing across all responses
         // This prevents attackers from distinguishing between different failure modes
@@ -148,11 +154,19 @@ class PasswordResetController extends Controller
 
         // Check if validation failed
         if (! $isValid) {
+            // SECURITY: Always perform DB operation to maintain constant time
             // Clean up expired tokens (if token exists and is expired)
-            if ($resetRecord && $tokenExpiresAt && now()->gte($tokenExpiresAt)) {
+            if ($resetRecord && now()->gte($tokenExpiresAt)) {
                 DB::table('password_reset_tokens')
                     ->where('email', $email)
                     ->delete();
+            } else {
+                // Dummy query to maintain constant time for timing attack protection
+                // Prevents attackers from distinguishing expired vs invalid tokens through timing
+                DB::table('password_reset_tokens')
+                    ->where('email', 'dummy-timing-protection-' . hash('sha256', $email))
+                    ->limit(1)
+                    ->get();
             }
 
             // SECURITY: Generic error message that doesn't reveal which check failed

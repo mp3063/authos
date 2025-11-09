@@ -31,6 +31,10 @@ class PasswordResetTimingAttackTest extends TestCase
     {
         parent::setUp();
 
+        // Disable rate limiting middleware to accurately measure timing
+        // Timing attack tests verify constant-time comparison logic, not rate limiting
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+
         $this->organization = Organization::factory()->create();
         $this->user = User::factory()->create([
             'organization_id' => $this->organization->id,
@@ -104,8 +108,8 @@ class PasswordResetTimingAttackTest extends TestCase
         $timingsExisting = [];
         $timingsNonExisting = [];
 
-        // Measure timing for existing email with wrong token
-        for ($i = 0; $i < 5; $i++) {
+        // Measure timing for existing email with wrong token (increased iterations for statistical stability)
+        for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
             $start = microtime(true);
 
@@ -119,8 +123,8 @@ class PasswordResetTimingAttackTest extends TestCase
             $timingsExisting[] = (microtime(true) - $start) * 1000;
         }
 
-        // Measure timing for non-existing email
-        for ($i = 0; $i < 5; $i++) {
+        // Measure timing for non-existing email (increased iterations for statistical stability)
+        for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
             $start = microtime(true);
 
@@ -154,8 +158,8 @@ class PasswordResetTimingAttackTest extends TestCase
         $timingsValid = [];
         $timingsExpired = [];
 
-        // Test with expired token
-        for ($i = 0; $i < 5; $i++) {
+        // Test with expired token (increased iterations for statistical stability)
+        for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
             $plainToken = \Illuminate\Support\Str::random(64);
             $hashedToken = hash('sha256', $plainToken);
@@ -181,8 +185,8 @@ class PasswordResetTimingAttackTest extends TestCase
             DB::table('password_reset_tokens')->where('email', $this->user->email)->delete();
         }
 
-        // Test with invalid token (wrong token)
-        for ($i = 0; $i < 5; $i++) {
+        // Test with invalid token (wrong token) - increased iterations for statistical stability
+        for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
             $plainToken = \Illuminate\Support\Str::random(64);
             $hashedToken = hash('sha256', $plainToken);
@@ -333,7 +337,8 @@ class PasswordResetTimingAttackTest extends TestCase
         // This is a behavioral test - we can't directly test that hash_equals is called,
         // but we can verify that the timing characteristics are consistent with constant-time comparison
 
-        $iterations = 10;
+        // Increased iterations for statistical stability (reduce variance in median calculation)
+        $iterations = 20;
         $nullRecordTimings = [];
         $existingRecordTimings = [];
 
