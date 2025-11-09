@@ -31,8 +31,11 @@ class TriggerIntrusionDetection
 
     /**
      * Handle the event
+     *
+     * Note: Event parameter is not type-hinted to prevent Laravel's auto-discovery.
+     * This listener is explicitly registered in EventServiceProvider with guaranteed order.
      */
-    public function handle(LoginFailed $event): void
+    public function handle($event): void
     {
         // Detect brute force attacks (multiple attempts on same email or IP)
         $bruteForceDetected = $this->intrusionService->detectBruteForce(

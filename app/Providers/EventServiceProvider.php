@@ -35,8 +35,8 @@ class EventServiceProvider extends ServiceProvider
             CheckAccountLockout::class,    // Second: Check if account is locked
         ],
         LoginFailed::class => [
-            // NOTE: Both RecordFailedLoginAttempt and TriggerIntrusionDetection are auto-discovered by Laravel
-            // based on type hints. Removed from here to prevent duplicate registration.
+            RecordFailedLoginAttempt::class,    // First: Record the failed attempt in database
+            TriggerIntrusionDetection::class,    // Second: Analyze attempts and apply countermeasures
         ],
         LoginSuccessful::class => [
             RegenerateSession::class,      // Clear failed attempts and security cleanup
@@ -92,5 +92,15 @@ class EventServiceProvider extends ServiceProvider
     public function shouldDiscoverEvents(): bool
     {
         return false;
+    }
+
+    /**
+     * Get the listener directories that should be used to discover events.
+     *
+     * Returning an empty array prevents auto-discovery of listeners.
+     */
+    protected function discoverEventsWithin(): array
+    {
+        return [];
     }
 }

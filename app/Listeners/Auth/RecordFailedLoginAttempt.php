@@ -16,8 +16,11 @@ class RecordFailedLoginAttempt
 {
     /**
      * Handle the event
+     *
+     * Note: Event parameter is not type-hinted to prevent Laravel's auto-discovery.
+     * This listener is explicitly registered in EventServiceProvider with guaranteed order.
      */
-    public function handle(LoginFailed $event): void
+    public function handle($event): void
     {
         FailedLoginAttempt::create([
             'email' => $event->email,
