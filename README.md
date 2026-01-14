@@ -2,10 +2,11 @@
 
 <p align="center">
   <strong>Enterprise Authentication Service</strong><br>
-  A production-ready Auth0/Okta alternative built with Laravel 12 and Filament 4
+  An Auth0/Okta alternative built with Laravel 12 and Filament 4
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Status-In%20Development-yellow" alt="In Development">
   <img src="https://img.shields.io/badge/PHP-8.4-blue" alt="PHP 8.4">
   <img src="https://img.shields.io/badge/Laravel-12-red" alt="Laravel 12">
   <img src="https://img.shields.io/badge/Filament-4.0-orange" alt="Filament 4">
@@ -15,9 +16,13 @@
 
 ---
 
+> **⚠️ Development Status**: This application is currently **in active development** and is **not production ready**. While core features are functional and many test categories are passing at 100%, some areas still require work. See the [Test Status](#testing) section for current coverage details.
+
+---
+
 ## Overview
 
-AuthOS is an enterprise-grade authentication and authorization service that provides:
+AuthOS is an authentication and authorization service that provides:
 
 - **OAuth 2.0 + PKCE** - Full RFC 6749 compliant authorization server
 - **OpenID Connect** - Identity layer with discovery and JWKS endpoints
@@ -188,7 +193,7 @@ The Filament-powered admin panel provides:
 
 ## Testing
 
-AuthOS includes a comprehensive test suite with 475+ test methods:
+AuthOS includes a comprehensive test suite with 475+ test methods across 83 integration test files (~46,500 lines of test code). The overall pass rate is approximately **85%**.
 
 ```bash
 # Run all tests
@@ -204,18 +209,29 @@ php artisan test tests/Integration/Webhooks/    # Webhooks (100% passing)
 composer test:coverage
 ```
 
-### Test Categories
+### Test Categories - Production Ready (100% Passing)
 
 | Category | Files | Tests | Status |
 |----------|-------|-------|--------|
-| Security | 5 | 99 | 100% |
-| SSO | 5 | 45 | 100% |
-| OAuth | 6 | 10 | 100% |
-| Webhooks | 4 | 62 | 100% |
-| Cache | 3 | 28 | 100% |
-| Bulk Operations | 2 | 39 | 100% |
-| Monitoring | 5 | 38 | 100% |
-| Model Lifecycle | 3 | 40 | 100% |
+| Security | 5 | 99 | ✅ 100% |
+| SSO | 5 | 45 | ✅ 100% |
+| OAuth | 6 | 10 | ✅ 100% |
+| Webhooks | 4 | 62 | ✅ 100% |
+| Cache | 3 | 28 | ✅ 100% |
+| Bulk Operations | 2 | 39 | ✅ 100% |
+| Monitoring | 5 | 38 | ✅ 100% |
+| Model Lifecycle | 3 | 40 | ✅ 100% |
+
+### Test Categories - In Progress
+
+| Category | Files | Tests | Status |
+|----------|-------|-------|--------|
+| Profile/MFA | 3 | 38 | 🔧 82% |
+| Applications | 4 | 27 | 🔧 67% |
+| Jobs | 8 | 50 | 🔧 38% |
+| Organizations | 8 | 102 | 🔧 27% |
+| Users | 4 | 53 | 🔧 19% |
+| Enterprise | 5 | - | 🔧 Early |
 
 ## Configuration
 
