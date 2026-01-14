@@ -1,61 +1,304 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# AuthOS
 
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <strong>Enterprise Authentication Service</strong><br>
+  A production-ready Auth0/Okta alternative built with Laravel 12 and Filament 4
 </p>
 
-## About Laravel
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-8.4-blue" alt="PHP 8.4">
+  <img src="https://img.shields.io/badge/Laravel-12-red" alt="Laravel 12">
+  <img src="https://img.shields.io/badge/Filament-4.0-orange" alt="Filament 4">
+  <img src="https://img.shields.io/badge/Tests-475+-green" alt="475+ Tests">
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Overview
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+AuthOS is an enterprise-grade authentication and authorization service that provides:
 
-## Learning Laravel
+- **OAuth 2.0 + PKCE** - Full RFC 6749 compliant authorization server
+- **OpenID Connect** - Identity layer with discovery and JWKS endpoints
+- **SAML 2.0** - Enterprise SSO integration
+- **Multi-Factor Authentication** - TOTP with recovery codes
+- **Social Login** - Google, GitHub, Facebook, Twitter, LinkedIn
+- **LDAP/Active Directory** - Enterprise directory integration
+- **Multi-Tenant** - Organization-based isolation with custom branding
+- **Webhooks** - 44 event types with retry logic and signatures
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Features
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Authentication
+- Password-based authentication with progressive lockout
+- Multi-factor authentication (TOTP)
+- Social authentication (5 providers)
+- Single Sign-On (OIDC, SAML 2.0)
+- LDAP/Active Directory integration
+- Session management with device tracking
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Authorization
+- OAuth 2.0 authorization server (all grant types)
+- PKCE support (S256 + plain)
+- Token introspection (RFC 7662)
+- Refresh token rotation
+- Scope-based permissions
+- Role-based access control (RBAC)
 
-## Laravel Sponsors
+### Enterprise Features
+- Multi-tenant organizations
+- Custom branding (logo, colors, CSS)
+- Custom domains with DNS verification
+- Webhook integrations (44 event types)
+- Audit logging and compliance reporting
+- Migration tools (Auth0, Okta)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Security
+- OWASP Top 10 (2021) compliant
+- Intrusion detection (brute force, credential stuffing, SQL injection, XSS)
+- Progressive account lockout
+- Automatic IP blocking
+- Enhanced security headers (CSP, HSTS, Permissions-Policy)
+- Comprehensive audit trail
 
-### Premium Partners
+## Quick Start
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### Requirements
 
-## Contributing
+- PHP 8.4+
+- Composer 2.x
+- PostgreSQL (recommended) or MySQL
+- Node.js & npm
+- [Laravel Herd](https://herd.laravel.com/) (recommended)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Installation
 
-## Code of Conduct
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/authos.git
+cd authos
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Install dependencies
+composer install
+npm install
 
-## Security Vulnerabilities
+# Configure environment
+cp .env.example .env
+php artisan key:generate
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Set up database
+php artisan migrate --seed
+php artisan passport:keys
+php artisan passport:install
+
+# Build frontend assets
+npm run build
+```
+
+### Using Laravel Herd (Recommended)
+
+```bash
+# Link the project
+herd link authos
+
+# Start services
+herd start
+
+# Access the application
+open https://authos.test
+```
+
+### Default Credentials
+
+- **Admin Panel**: https://authos.test/admin
+  - Email: `admin@authservice.com`
+  - Password: `password`
+
+- **API Base URL**: https://authos.test/api/v1
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| Backend | PHP 8.4, Laravel 12 |
+| Admin Panel | Filament 4 |
+| OAuth Server | Laravel Passport 13 |
+| Social Auth | Laravel Socialite |
+| RBAC | Spatie Laravel Permission |
+| Database | PostgreSQL |
+| Cache | Redis / Database |
+| Testing | PHPUnit 11 |
+| Frontend | Tailwind CSS 4 |
+
+## API Documentation
+
+### OAuth 2.0 Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /oauth/authorize` | Authorization endpoint |
+| `POST /oauth/token` | Token endpoint |
+| `POST /oauth/token/refresh` | Refresh tokens |
+| `POST /oauth/revoke` | Revoke tokens |
+| `POST /oauth/introspect` | Token introspection |
+
+### Well-Known Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /.well-known/openid-configuration` | OIDC Discovery |
+| `GET /.well-known/jwks.json` | JSON Web Key Set |
+
+### REST API
+
+AuthOS provides 154+ API endpoints across these categories:
+
+- **Authentication** - Login, register, MFA, social auth
+- **Users** - CRUD, sessions, roles, applications
+- **Organizations** - Multi-tenant management
+- **Applications** - OAuth client management
+- **Profile** - User settings and preferences
+- **Webhooks** - Event subscriptions
+- **Enterprise** - LDAP, branding, domains, audit
+
+See [API Documentation](docs/api/) for complete details.
+
+## Admin Panel
+
+The Filament-powered admin panel provides:
+
+### Resources (12)
+- Users, Organizations, Applications
+- Roles, Permissions
+- Authentication Logs
+- Social Accounts, Invitations
+- LDAP Configurations
+- Custom Domains
+- Webhooks, Webhook Deliveries
+
+### Dashboard Widgets (13)
+- System Health Monitor
+- Real-Time Metrics
+- OAuth Flow Monitor
+- Security Monitoring
+- Login Activity Chart
+- Error Trends Analysis
+- And more...
+
+## Testing
+
+AuthOS includes a comprehensive test suite with 475+ test methods:
+
+```bash
+# Run all tests
+./run-tests.sh
+
+# Run specific test categories
+php artisan test tests/Integration/Security/    # Security (100% passing)
+php artisan test tests/Integration/OAuth/       # OAuth (100% passing)
+php artisan test tests/Integration/SSO/         # SSO (100% passing)
+php artisan test tests/Integration/Webhooks/    # Webhooks (100% passing)
+
+# Run with coverage
+composer test:coverage
+```
+
+### Test Categories
+
+| Category | Files | Tests | Status |
+|----------|-------|-------|--------|
+| Security | 5 | 99 | 100% |
+| SSO | 5 | 45 | 100% |
+| OAuth | 6 | 10 | 100% |
+| Webhooks | 4 | 62 | 100% |
+| Cache | 3 | 28 | 100% |
+| Bulk Operations | 2 | 39 | 100% |
+| Monitoring | 5 | 38 | 100% |
+| Model Lifecycle | 3 | 40 | 100% |
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Application
+APP_NAME=AuthOS
+APP_URL=https://authos.test
+
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_DATABASE=authos
+DB_USERNAME=postgres
+DB_PASSWORD=secret
+
+# OAuth (auto-generated by passport:install)
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID=
+PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=
+
+# Social Providers (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+# ... other providers
+
+# Security
+MFA_ISSUER="${APP_NAME}"
+RATE_LIMIT_API=100
+RATE_LIMIT_AUTH=10
+```
+
+## Documentation
+
+Detailed documentation is available in the [docs/](docs/) directory:
+
+- [API Reference](docs/api/) - Complete API documentation
+- [Architecture](docs/architecture/) - System design and patterns
+- [Security](docs/security/) - Security implementation details
+- [Guides](docs/guides/) - How-to guides and tutorials
+- [Operations](docs/operations/) - Deployment and operations
+- [Testing](docs/testing/) - Test patterns and guidelines
+
+## Development
+
+### Code Quality
+
+```bash
+# Run all quality checks
+composer quality
+
+# Individual checks
+composer cs:fix      # Code style (Pint)
+composer analyse     # Static analysis (PHPStan)
+composer security    # Security audit
+```
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Code standards
+- Testing requirements
+- Pull request process
+- Commit message format
+
+## Security
+
+If you discover a security vulnerability, please review our security policy and report responsibly. See the [Security Documentation](docs/security/) for details on:
+
+- OWASP compliance
+- Security headers
+- Intrusion detection
+- Account protection
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+AuthOS is open-source software licensed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  Built with Laravel and Filament
+</p>
