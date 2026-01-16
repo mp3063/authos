@@ -1,5 +1,7 @@
 # AuthOS Monitoring & Observability Guide
 
+> **Note**: This monitoring documentation describes the intended production setup. AuthOS is currently in development. These configurations should be validated before production deployment.
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Health Check Endpoints](#health-check-endpoints)
@@ -12,7 +14,7 @@
 
 ## Overview
 
-AuthOS implements comprehensive monitoring and observability to ensure 99.9% uptime and sub-100ms API response times. The monitoring system includes:
+AuthOS implements comprehensive monitoring and observability with a 99.9% uptime target (production goal) and sub-100ms API response times. The monitoring system includes:
 
 - **Health Checks**: Kubernetes-style readiness and liveness probes
 - **Metrics Collection**: Business KPIs and performance metrics

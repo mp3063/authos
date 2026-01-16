@@ -10,13 +10,14 @@
   <img src="https://img.shields.io/badge/PHP-8.4-blue" alt="PHP 8.4">
   <img src="https://img.shields.io/badge/Laravel-12-red" alt="Laravel 12">
   <img src="https://img.shields.io/badge/Filament-4.0-orange" alt="Filament 4">
-  <img src="https://img.shields.io/badge/Tests-475+-green" alt="475+ Tests">
+  <img src="https://img.shields.io/badge/Tests-1268+-green" alt="1268+ Tests">
+  <img src="https://img.shields.io/badge/Pass%20Rate-85%25-brightgreen" alt="85% Pass Rate">
   <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
 </p>
 
 ---
 
-> **⚠️ Development Status**: This application is currently **in active development** and is **not production ready**. While core features are functional and many test categories are passing at 100%, some areas still require work. See the [Test Status](#testing) section for current coverage details.
+> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. While core features are functional and 8 test categories achieve 100% pass rate (Security, OAuth, SSO, Webhooks, Cache, Bulk Operations, Monitoring, Model Lifecycle), several areas still require work before production deployment. See the [Test Status](#testing) section for current coverage details.
 
 ---
 
@@ -157,7 +158,7 @@ open https://authos.test
 
 ### REST API
 
-AuthOS provides 154+ API endpoints across these categories:
+AuthOS provides 206 API endpoints across these categories:
 
 - **Authentication** - Login, register, MFA, social auth
 - **Users** - CRUD, sessions, roles, applications
@@ -193,7 +194,7 @@ The Filament-powered admin panel provides:
 
 ## Testing
 
-AuthOS includes a comprehensive test suite with 475+ test methods across 83 integration test files (~46,500 lines of test code). The overall pass rate is approximately **85%**.
+AuthOS includes a comprehensive test suite with **1,268 test methods** across **120 test files** (~46,500 lines of test code). The overall pass rate is **85%** with 8 categories achieving 100%.
 
 ```bash
 # Run all tests

@@ -1,5 +1,7 @@
 # AuthOS SDK Implementation Guide
 
+> **Note**: SDK implementations are complete for development use. The OpenAPI specification generation has a known Filament compatibility issue that blocks Python/PHP SDK generation. The overall AuthOS application is in development.
+
 Complete guide for the AuthOS SDK generation system and implementation.
 
 ## Overview
@@ -28,11 +30,11 @@ herd php artisan openapi:generate --validate
 
 **Output:** `public/openapi.json`
 
-### 2. TypeScript SDK (Production-Ready)
+### 2. TypeScript SDK (Development)
 
 **Location:** `/Users/sin/PhpstormProjects/MOJE/authos/sdk/typescript/`
 
-Complete, production-ready TypeScript SDK with full type safety.
+Complete TypeScript SDK for development use with full type safety.
 
 **Core Components:**
 
@@ -539,4 +541,10 @@ You now have a complete SDK generation system with:
 ✅ **Comprehensive Documentation** - README files for all SDKs
 ✅ **Usage Examples** - 10+ examples for TypeScript SDK
 
-The TypeScript SDK is production-ready and can be published immediately. Python and PHP SDKs can be generated once the OpenAPI spec is available.
+The TypeScript SDK is complete but not yet published to NPM. Python and PHP SDKs can be generated once the OpenAPI spec is available.
+
+### Known Issues
+
+1. **OpenAPI Spec Generation Blocked**: There's a Filament compatibility issue preventing `openapi.json` generation. This blocks Python and PHP SDK auto-generation.
+2. **TypeScript SDK Not Published**: The SDK is built but not published to NPM.
+3. **Python/PHP SDKs**: Cannot be generated until OpenAPI spec issue is resolved.

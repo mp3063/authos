@@ -1,5 +1,7 @@
 # AuthOS Incident Response Runbooks
 
+> **Note**: These runbooks are prepared for when AuthOS reaches production deployment. The application is currently in development with an 85% test pass rate. 8 test categories (Security, OAuth, SSO, Webhooks, Cache, Bulk Operations, Monitoring, Model Lifecycle) are at 100%.
+
 ## Table of Contents
 1. [High Error Rate](#high-error-rate)
 2. [Database Connection Failures](#database-connection-failures)

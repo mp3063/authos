@@ -24,7 +24,7 @@ Thank you for considering contributing to AuthOS! This document outlines the pro
 
 ### Prerequisites
 
-- PHP 8.4.13 or higher
+- PHP 8.4 or higher
 - Composer 2.x
 - Node.js & npm
 - PostgreSQL or MySQL
@@ -198,7 +198,7 @@ herd composer psalm
 
 ### Test Coverage
 
-- Minimum 80% code coverage
+- Overall pass rate: 85% (8 categories at 100%)
 - All new features must include tests
 - Bug fixes should include regression tests
 
@@ -208,6 +208,7 @@ herd composer psalm
    - Test individual classes/methods
    - Mock dependencies
    - Fast execution
+   - 18 files, 203 test methods
 
 2. **Feature Tests** (`tests/Feature/`)
    - Test HTTP endpoints
@@ -218,6 +219,21 @@ herd composer psalm
    - Test multiple components
    - External services
    - Complex workflows
+   - 89 files, 1,024 test methods
+   - Categories: Security, OAuth, SSO, Webhooks, Cache, Monitoring, etc.
+
+### Production-Ready Test Categories (100% Passing)
+
+| Category | Description |
+|----------|-------------|
+| Security | OWASP Top 10 compliance, intrusion detection |
+| OAuth | Authorization flows, token management |
+| SSO | OIDC and SAML 2.0 flows |
+| Webhooks | Event dispatching, delivery, retry logic |
+| Cache | Caching strategies, invalidation |
+| Bulk Operations | Import/export workflows |
+| Monitoring | Health checks, metrics |
+| Model Lifecycle | Model events and observers |
 
 ### Writing Tests
 

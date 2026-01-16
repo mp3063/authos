@@ -687,7 +687,7 @@ curl -X POST https://authos.test/api/v1/webhook-deliveries/123/retry \
 - Delivery Management: 3
 - Webhook Events: 3 (including grouped endpoint)
 
-**Updated Total:** 144 + 13 = **157 REST endpoints**
+**Updated Total:** 206 REST endpoints (as of January 2026)
 
 ---
 

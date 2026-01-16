@@ -1,5 +1,7 @@
 # AuthOS Documentation
 
+> **:warning: Development Status**: AuthOS is currently **in active development** and is **not production ready**. While individual components (Security, OAuth, SSO, Webhooks, etc.) have achieved 100% test pass rates, the overall application requires further work before production deployment.
+
 Welcome to the AuthOS comprehensive documentation. This folder contains all technical documentation, implementation guides, reports, and operational runbooks.
 
 ## 📚 Documentation Structure
@@ -7,7 +9,7 @@ Welcome to the AuthOS comprehensive documentation. This folder contains all tech
 ### 📁 [api/](./api/) - API Documentation
 Complete API documentation including REST endpoints, webhooks, and architecture.
 
-- **[API_DOCUMENTATION.md](./api/API_DOCUMENTATION.md)** - Complete REST API reference (195 endpoints)
+- **[API_DOCUMENTATION.md](./api/API_DOCUMENTATION.md)** - Complete REST API reference (206 endpoints)
 - **[WEBHOOK_API_DOCUMENTATION.md](./api/WEBHOOK_API_DOCUMENTATION.md)** - Webhook API endpoints and usage
 - **[WEBHOOK_ARCHITECTURE.md](./api/WEBHOOK_ARCHITECTURE.md)** - Webhook system architecture and design
 - **[WEBHOOK_FILAMENT_RESOURCES.md](./api/WEBHOOK_FILAMENT_RESOURCES.md)** - Admin panel webhook management
@@ -43,12 +45,23 @@ Comprehensive testing documentation and coverage reports.
 - **[TEST_COVERAGE_REPORT.md](./testing/TEST_COVERAGE_REPORT.md)** - Unit test coverage analysis
 - **[TEST_SUITE_SUMMARY.md](./testing/TEST_SUITE_SUMMARY.md)** - Complete test suite overview
 
+### 📁 [architecture/](./architecture/) - Architecture Documentation
+System design patterns and architectural decisions.
+
+- **[README.md](./architecture/README.md)** - Architecture overview and key decisions
+- **[event-driven-security.md](./architecture/event-driven-security.md)** - Event-driven security architecture overview
+- **[event-driven-security-implementation.md](./architecture/event-driven-security-implementation.md)** - Implementation details
+
 ### 📁 [security/](./security/) - Security Documentation
 Security audits, implementation details, and compliance reports.
 
 - **[SECURITY_AUDIT_REPORT.md](./security/SECURITY_AUDIT_REPORT.md)** - Comprehensive security audit
 - **[SECURITY_AUDIT_SUMMARY.md](./security/SECURITY_AUDIT_SUMMARY.md)** - Executive security summary
 - **[SECURITY_IMPLEMENTATION_SUMMARY.md](./security/SECURITY_IMPLEMENTATION_SUMMARY.md)** - Security implementation details
+- **[OWASP_TEST_ANALYSIS.md](./security/OWASP_TEST_ANALYSIS.md)** - OWASP Top 10 (2021) compliance analysis
+- **[event-driven-security-quickstart.md](./security/event-driven-security-quickstart.md)** - Quick start guide for security events
+- **[SECURITY_FIX_MFA_ENCRYPTION.md](./security/SECURITY_FIX_MFA_ENCRYPTION.md)** - MFA encryption implementation
+- **[SECURITY_FIX_TIMING_ATTACK.md](./security/SECURITY_FIX_TIMING_ATTACK.md)** - Timing attack prevention
 
 ### 📁 [phases/](./phases/) - Phase Completion Reports
 Detailed completion reports for each development phase.
@@ -57,6 +70,16 @@ Detailed completion reports for each development phase.
 - **[PHASE_6_COMPLETE.md](./phases/PHASE_6_COMPLETE.md)** - Webhook & Integration phase report
 - **[PHASE_7.1_PERFORMANCE_REPORT.md](./phases/PHASE_7.1_PERFORMANCE_REPORT.md)** - Performance optimization report
 - **[PHASE_7_COMPLETE.md](./phases/PHASE_7_COMPLETE.md)** - Performance & Security phase report
+
+### 📁 Root Level Documentation
+Additional documentation files in the docs/ directory.
+
+- **[PASSWORD_RESET_IMPLEMENTATION.md](./PASSWORD_RESET_IMPLEMENTATION.md)** - Password reset flow implementation
+- **[testing-patterns.md](./testing-patterns.md)** - Test patterns and best practices (~30k lines)
+- **[test-quick-reference.md](./test-quick-reference.md)** - Quick reference for running tests
+- **[test-optimization-guide.md](./test-optimization-guide.md)** - Test suite optimization guide
+- **[test-performance-analysis.md](./test-performance-analysis.md)** - Performance analysis of test suite
+- **[test-refactoring-inventory.md](./test-refactoring-inventory.md)** - Test refactoring inventory
 
 ---
 
@@ -93,13 +116,14 @@ Detailed completion reports for each development phase.
 
 ## 📊 Project Statistics
 
-- **Total Documentation Files**: 27 files
+- **Total Documentation Files**: 42+ files
 - **Total Lines of Documentation**: 50,000+ lines
-- **Test Coverage**: 1,729+ test methods
-- **API Endpoints**: 195 REST endpoints
+- **Test Coverage**: 1,268 test methods across 120 files
+- **Pass Rate**: 85% overall (8 categories at 100%)
+- **API Endpoints**: 206 REST endpoints
+- **Filament Resources**: 12 resources, 13 widgets
 - **CI/CD Workflows**: 7 GitHub Actions workflows
-- **Security Tests**: 191+ security test methods
-- **Performance Tests**: 56+ performance benchmarks
+- **Security Tests**: 99+ security test methods (100% passing)
 
 ---
 
@@ -134,5 +158,5 @@ See [../CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on:
 
 ---
 
-**Last Updated**: Phase 8 - Testing & Quality Assurance Complete (October 2025)
+**Last Updated**: January 2026 - In Development (85% test pass rate, 8 categories at 100%)
 **Maintained By**: AuthOS Development Team
