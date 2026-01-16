@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Security\IntrusionDetectionService;
 use Illuminate\Http\Request;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
@@ -47,7 +48,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->idsService = app(IntrusionDetectionService::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_sql_injection_attempts()
     {
         $sqlPayloads = [
@@ -85,7 +86,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertStringContainsString('SQL injection', $incident->description);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_xss_attempts()
     {
         $xssPayloads = [
@@ -124,7 +125,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertStringContainsString('XSS', $incident->description);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_brute_force_attacks_and_creates_incidents()
     {
         // Simulate brute force
@@ -151,7 +152,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertContains($incident->severity, ['high', 'critical']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_credential_stuffing_attacks()
     {
         // Create multiple failed attempts with different emails from same IP
@@ -178,7 +179,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertEquals('critical', $incident->severity);
     }
 
-    /** @test */
+    #[Test]
     public function it_automatically_blocks_ip_on_severe_attacks()
     {
         // Create excessive failed attempts to trigger auto-block
@@ -204,7 +205,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertStringContainsString('credential stuffing', strtolower($ipBlock->reason));
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_anomalous_api_activity()
     {
         $request = Request::create('/api/v1/users', 'GET');
@@ -223,7 +224,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertEquals('high', $incident->severity);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_unusual_login_patterns()
     {
         // Create successful login
@@ -250,7 +251,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertNotNull($incident, 'Security incident should be created for unusual login pattern');
     }
 
-    /** @test */
+    #[Test]
     public function it_records_failed_login_attempts_with_metadata()
     {
         $request = Request::create('/api/auth/login', 'POST');
@@ -268,7 +269,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertEquals('invalid_credentials', $attempt->failure_reason);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_ip_security_score_correctly()
     {
         // Clean IP should have high score
@@ -319,7 +320,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $score3);
     }
 
-    /** @test */
+    #[Test]
     public function it_checks_if_ip_is_blocked()
     {
         // Unblocked IP
@@ -352,7 +353,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertFalse($this->idsService->isIpBlocked('10.0.0.3'));
     }
 
-    /** @test */
+    #[Test]
     public function it_blocks_requests_from_blocked_ips()
     {
         // Block IP
@@ -376,7 +377,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertEquals('temporary', $block->block_type);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_distributed_attacks_across_multiple_ips()
     {
         // Simulate distributed attack
@@ -403,7 +404,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertGreaterThanOrEqual(15, $totalAttempts);
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_security_incidents_with_proper_severity()
     {
         $request = Request::create('/api/v1/users?id=1\' OR \'1\'=\'1', 'GET');
@@ -418,7 +419,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertArrayHasKey('pattern', $incident->metadata);
     }
 
-    /** @test */
+    #[Test]
     public function it_cleans_up_old_failed_attempts()
     {
         // Create old attempts
@@ -437,7 +438,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertFalse($detected);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_security_incident_metadata_structure()
     {
         $request = Request::create('/api/test', 'POST');
@@ -455,7 +456,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertArrayHasKey('user_agent', $incident->metadata);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_false_positives_in_legitimate_queries()
     {
         Passport::actingAs($this->user);
@@ -476,7 +477,7 @@ class IntrusionDetectionSystemTest extends TestCase
         $this->assertFalse($sqlInjectionIncident, 'Legitimate apostrophe should not trigger SQL injection detection');
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_rate_limiting_bypass_attempts()
     {
         // Try to bypass rate limiting with different user agents

@@ -5,6 +5,7 @@ namespace Tests\Security;
 use App\Models\Organization;
 use App\Models\User;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
@@ -37,7 +38,7 @@ class InputValidationSecurityTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_stored_xss_in_user_profiles()
     {
         Passport::actingAs($this->user);
@@ -69,7 +70,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_reflected_xss_in_search_results()
     {
         Passport::actingAs($this->user);
@@ -82,7 +83,7 @@ class InputValidationSecurityTest extends TestCase
         $this->assertStringNotContainsString('<script>alert(1)</script>', $content);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_dom_based_xss()
     {
         Passport::actingAs($this->user);
@@ -112,7 +113,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_sanitizes_html_input()
     {
         Passport::actingAs($this->user);
@@ -144,7 +145,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_email_format_strictly()
     {
         $invalidEmails = [
@@ -182,7 +183,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_url_format_in_redirect_uris()
     {
         Passport::actingAs($this->user);
@@ -213,7 +214,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_csv_injection_in_exports()
     {
         Passport::actingAs($this->user);
@@ -249,7 +250,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_file_upload_extensions()
     {
         Passport::actingAs($this->user);
@@ -279,7 +280,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_path_traversal_in_file_operations()
     {
         Passport::actingAs($this->user);
@@ -311,7 +312,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_xml_entity_injection()
     {
         Passport::actingAs($this->user);
@@ -336,7 +337,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_numeric_input_ranges()
     {
         Passport::actingAs($this->user);
@@ -363,7 +364,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_regex_dos_attacks()
     {
         Passport::actingAs($this->user);
@@ -385,7 +386,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_sanitizes_special_characters_in_json()
     {
         Passport::actingAs($this->user);
@@ -409,7 +410,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_json_depth_to_prevent_dos()
     {
         Passport::actingAs($this->user);
@@ -433,7 +434,7 @@ class InputValidationSecurityTest extends TestCase
         $this->assertContains($response->status(), [403, 413, 422]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_prototype_pollution_in_json()
     {
         Passport::actingAs($this->user);
@@ -457,7 +458,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_unicode_normalization()
     {
         Passport::actingAs($this->user);
@@ -485,7 +486,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_ldap_special_characters_injection()
     {
         $ldapSpecialChars = [
@@ -508,7 +509,7 @@ class InputValidationSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_sanitizes_output_in_error_messages()
     {
         Passport::actingAs($this->user);
@@ -523,7 +524,7 @@ class InputValidationSecurityTest extends TestCase
         $this->assertStringNotContainsString('<script>', $content);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_content_length_header()
     {
         Passport::actingAs($this->user);
