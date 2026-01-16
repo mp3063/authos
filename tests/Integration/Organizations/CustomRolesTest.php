@@ -273,8 +273,6 @@ class CustomRolesTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function test_role_permissions_are_enforced(): void
     {
-        $this->markTestSkipped('Custom role permission enforcement not yet fully implemented in UserController');
-
         // ARRANGE: Create role with limited permissions
         $role = CustomRole::factory()->create([
             'organization_id' => $this->organization->id,
@@ -512,8 +510,6 @@ class CustomRolesTest extends IntegrationTestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function test_can_clone_existing_role(): void
     {
-        $this->markTestSkipped('Clone endpoint not yet implemented - requires POST /custom-roles/{id}/clone');
-
         // ARRANGE: Create source role
         $sourceRole = CustomRole::factory()->create([
             'organization_id' => $this->organization->id,
