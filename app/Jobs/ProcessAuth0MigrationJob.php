@@ -54,17 +54,11 @@ class ProcessAuth0MigrationJob implements ShouldQueue
                 throw new \RuntimeException('Missing Auth0 tenant domain or API token in migration configuration');
             }
 
-            // Initialize Auth0 client
-            $auth0Client = new Auth0Client(
-                domain: $tenantDomain,
-                token: $apiToken
-            );
+            // Initialize Auth0 client (via container for testability)
+            $auth0Client = $this->makeAuth0Client($tenantDomain, $apiToken);
 
-            // Initialize migration service
-            $migrationService = new Auth0MigrationService(
-                client: $auth0Client,
-                targetOrganization: $this->migrationJob->organization
-            );
+            // Initialize migration service (via container for testability)
+            $migrationService = $this->makeMigrationService($auth0Client);
 
             // Discover resources
             $plan = $migrationService->discover();
@@ -178,6 +172,28 @@ class ProcessAuth0MigrationJob implements ShouldQueue
         $this->migrationJob->update([
             'status' => 'failed',
             'completed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Create Auth0Client instance via container for testability.
+     */
+    protected function makeAuth0Client(string $domain, string $token): Auth0Client
+    {
+        return app()->make(Auth0Client::class, [
+            'domain' => $domain,
+            'token' => $token,
+        ]);
+    }
+
+    /**
+     * Create Auth0MigrationService instance via container for testability.
+     */
+    protected function makeMigrationService(Auth0Client $client): Auth0MigrationService
+    {
+        return app()->make(Auth0MigrationService::class, [
+            'client' => $client,
+            'targetOrganization' => $this->migrationJob->organization,
         ]);
     }
 }

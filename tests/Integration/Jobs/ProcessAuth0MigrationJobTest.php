@@ -55,12 +55,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_imports_users_from_auth0_export(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $mockPlan = new MigrationPlan(
             users: [
                 new Auth0UserDTO(
@@ -114,12 +108,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_maps_auth0_fields_to_local_schema(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $mockPlan = new MigrationPlan(
             users: [
                 new Auth0UserDTO(
@@ -167,12 +155,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_preserves_password_hashes(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $this->migrationJob->update([
             'config' => array_merge($this->migrationJob->config, [
                 'password_strategy' => UserImporter::STRATEGY_LAZY,
@@ -227,12 +209,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_links_social_accounts(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $mockPlan = new MigrationPlan(
             users: [
                 new Auth0UserDTO(
@@ -281,12 +257,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_assigns_roles_and_permissions(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $mockPlan = new MigrationPlan(
             users: [],
             applications: [],
@@ -324,12 +294,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_handles_duplicate_users(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         // Create existing user
         User::factory()->create([
             'organization_id' => $this->organization->id,
@@ -378,12 +342,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_validates_auth0_export_format(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         Log::shouldReceive('error')
             ->once()
             ->with(
@@ -413,12 +371,6 @@ class ProcessAuth0MigrationJobTest extends TestCase
     #[Test]
     public function job_provides_detailed_migration_report(): void
     {
-        $this->markTestIncomplete(
-            'Auth0 migration tests require ProcessAuth0MigrationJob refactoring to support dependency injection. '.
-            'Currently, the job instantiates Auth0Client and Auth0MigrationService directly with "new", '.
-            'making them impossible to mock. Refactor to use constructor injection or app()->make() before enabling these tests.'
-        );
-
         $mockPlan = new MigrationPlan(
             users: [
                 new Auth0UserDTO(
@@ -449,7 +401,12 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     clientId: 'client123',
                     name: 'Test App',
                     appType: 'spa',
-                    callbacks: []
+                    callbacks: [],
+                    allowedLogoutUrls: [],
+                    allowedOrigins: [],
+                    webOrigins: [],
+                    grantTypes: ['authorization_code'],
+                    clientMetadata: []
                 ),
             ],
             roles: []
