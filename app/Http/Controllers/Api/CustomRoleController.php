@@ -319,6 +319,58 @@ class CustomRoleController extends Controller
     }
 
     /**
+     * Clone an existing custom role
+     */
+    public function clone(Request $request, string $organizationId, string $id): JsonResponse
+    {
+        $this->authorize('roles.create');
+
+        $validator = Validator::make($request->all(), [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[a-zA-Z0-9_\-\s]+$/',
+                Rule::unique('custom_roles')->where('organization_id', $organizationId),
+            ],
+            'display_name' => 'sometimes|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors()->toArray());
+        }
+
+        $organization = Organization::findOrFail($organizationId);
+        $currentUser = auth()->user();
+
+        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
+            return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
+        }
+
+        $sourceRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
+        $clonedRole = $sourceRole->cloneRole($request->name, $request->input('display_name'));
+        $clonedRole->update(['created_by' => $currentUser->id]);
+
+        $this->authLogService->logAuthenticationEvent(
+            $currentUser,
+            'custom_role_cloned',
+            [
+                'organization_id' => $organization->id,
+                'source_role_id' => $sourceRole->id,
+                'cloned_role_id' => $clonedRole->id,
+                'role_name' => $clonedRole->name,
+            ],
+            $request
+        );
+
+        return $this->successResponse(
+            $this->formatCustomRoleResponse($clonedRole->load('creator')),
+            'Custom role cloned successfully',
+            201
+        );
+    }
+
+    /**
      * Get available permissions for custom roles
      */
     public function permissions(): JsonResponse

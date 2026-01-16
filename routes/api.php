@@ -251,6 +251,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::delete('/{id}/custom-roles/{roleId}', [CustomRoleController::class, 'destroy']);
         Route::post('/{id}/custom-roles/{roleId}/assign-users', [CustomRoleController::class, 'assignUsers']);
         Route::post('/{id}/custom-roles/{roleId}/remove-users', [CustomRoleController::class, 'removeUsers']);
+        Route::post('/{id}/custom-roles/{roleId}/clone', [CustomRoleController::class, 'clone']);
 
         // Organization Reports
         Route::get('/{id}/reports', [OrganizationReportController::class, 'index']);
