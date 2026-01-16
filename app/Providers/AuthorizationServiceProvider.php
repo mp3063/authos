@@ -59,6 +59,16 @@ class AuthorizationServiceProvider extends ServiceProvider
                 }
             }
 
+            // Check CustomRole permissions (organization-specific roles)
+            if ($user->hasCustomPermission($ability)) {
+                return true;
+            }
+
+            // Deny if user has CustomRoles but lacks the required permission
+            if ($user->customRoles()->where('is_active', true)->exists()) {
+                return false;
+            }
+
             // Let normal authorization proceed (may deny)
             return null;
         });

@@ -129,6 +129,17 @@ class User extends Authenticatable implements FilamentUser
             ->withTimestamps();
     }
 
+    /**
+     * Check if user has a permission via CustomRole
+     */
+    public function hasCustomPermission(string $permission): bool
+    {
+        return $this->customRoles()
+            ->where('is_active', true)
+            ->get()
+            ->contains(fn (CustomRole $role) => $role->hasPermission($permission));
+    }
+
     public function authenticationLogs(): HasMany
     {
         return $this->hasMany(AuthenticationLog::class);
