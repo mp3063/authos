@@ -60,19 +60,20 @@ class MetricsCollectionService
                 ? round(($successfulLogins / $totalAttempts) * 100, 2)
                 : 0;
 
-            // Login methods breakdown
+            // Login methods breakdown (by event type)
             $methodsBreakdown = DB::table('authentication_logs')
-                ->select('method', DB::raw('COUNT(*) as count'))
+                ->select('event', DB::raw('COUNT(*) as count'))
                 ->where('created_at', '>=', $today)
-                ->groupBy('method')
+                ->groupBy('event')
                 ->get()
-                ->pluck('count', 'method')
+                ->pluck('count', 'event')
                 ->toArray();
 
-            // MFA usage
+            // MFA usage (events containing 'mfa')
             $mfaLogins = DB::table('authentication_logs')
                 ->where('created_at', '>=', $today)
-                ->where('mfa_used', true)
+                ->where('event', 'like', '%mfa%')
+                ->where('success', true)
                 ->count();
 
             // Failed login attempts by IP (security monitoring)
@@ -81,8 +82,8 @@ class MetricsCollectionService
                 ->where('created_at', '>=', $last24Hours)
                 ->where('success', false)
                 ->groupBy('ip_address')
-                ->having('attempts', '>', 5)
-                ->orderByDesc('attempts')
+                ->havingRaw('COUNT(*) > 5')
+                ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
                 ->toArray();
@@ -92,8 +93,8 @@ class MetricsCollectionService
                 ->select(
                     DB::raw('DATE(created_at) as date'),
                     DB::raw('COUNT(*) as total'),
-                    DB::raw('SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful'),
-                    DB::raw('SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed')
+                    DB::raw('SUM(CASE WHEN success = true THEN 1 ELSE 0 END) as successful'),
+                    DB::raw('SUM(CASE WHEN success = false THEN 1 ELSE 0 END) as failed')
                 )
                 ->where('created_at', '>=', $last7Days)
                 ->groupBy('date')
@@ -248,7 +249,7 @@ class MetricsCollectionService
 
             // Active webhooks
             $activeWebhooks = DB::table('webhooks')
-                ->where('enabled', true)
+                ->where('is_active', true)
                 ->count();
 
             // Deliveries today
@@ -276,8 +277,8 @@ class MetricsCollectionService
             // Average response time
             $avgResponseTime = DB::table('webhook_deliveries')
                 ->where('created_at', '>=', $today)
-                ->where('response_time', '>', 0)
-                ->avg('response_time');
+                ->where('request_duration_ms', '>', 0)
+                ->avg('request_duration_ms');
 
             // Failed webhooks (multiple failures)
             $problematicWebhooks = DB::table('webhook_deliveries')
@@ -285,7 +286,8 @@ class MetricsCollectionService
                 ->where('created_at', '>=', $last24Hours)
                 ->where('status', 'failed')
                 ->groupBy('webhook_id')
-                ->having('failures', '>', 3)
+                ->havingRaw('COUNT(*) > 3')
+                ->get()
                 ->count();
 
             // Event type breakdown
@@ -340,19 +342,19 @@ class MetricsCollectionService
             // Active users (logged in recently)
             $activeUsers24h = DB::table('authentication_logs')
                 ->where('created_at', '>=', now()->subDay())
-                ->where('status', 'success')
+                ->where('success', true)
                 ->distinct('user_id')
                 ->count('user_id');
 
             $activeUsers7Days = DB::table('authentication_logs')
                 ->where('created_at', '>=', $last7Days)
-                ->where('status', 'success')
+                ->where('success', true)
                 ->distinct('user_id')
                 ->count('user_id');
 
             // MFA enabled users
             $mfaEnabledUsers = DB::table('users')
-                ->where('mfa_enabled', true)
+                ->whereNotNull('two_factor_confirmed_at')
                 ->count();
 
             $mfaAdoptionRate = $totalUsers > 0
@@ -412,31 +414,35 @@ class MetricsCollectionService
                 ->where('created_at', '>=', $last7Days)
                 ->count();
 
-            // Organizations by security policy
+            // Organizations by active status
             $securityPolicies = DB::table('organizations')
-                ->select('security_policy', DB::raw('COUNT(*) as count'))
-                ->groupBy('security_policy')
+                ->select('is_active', DB::raw('COUNT(*) as count'))
+                ->groupBy('is_active')
                 ->get()
-                ->pluck('count', 'security_policy')
+                ->mapWithKeys(fn ($row) => [$row->is_active ? 'active' : 'inactive' => $row->count])
                 ->toArray();
 
-            // Organizations requiring MFA
+            // Organizations requiring MFA (stored in settings JSON)
             $mfaRequiredOrgs = DB::table('organizations')
-                ->where('require_mfa', true)
+                ->whereNotNull('settings')
+                ->whereRaw("settings::text LIKE '%require_mfa%'")
                 ->count();
 
             // Average users per organization
-            $avgUsersPerOrg = DB::table('users')
-                ->select('organization_id', DB::raw('COUNT(*) as user_count'))
-                ->groupBy('organization_id')
-                ->avg('user_count');
+            $avgUsersPerOrg = DB::table(
+                DB::table('users')
+                    ->select('organization_id', DB::raw('COUNT(*) as user_count'))
+                    ->whereNotNull('organization_id')
+                    ->groupBy('organization_id'),
+                'org_counts'
+            )->avg('user_count');
 
             // Top organizations by user count
             $topOrgs = DB::table('users')
                 ->join('organizations', 'users.organization_id', '=', 'organizations.id')
                 ->select('organizations.name', DB::raw('COUNT(*) as user_count'))
                 ->groupBy('users.organization_id', 'organizations.name')
-                ->orderByDesc('user_count')
+                ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
                 ->toArray();
@@ -466,30 +472,30 @@ class MetricsCollectionService
 
             // Total MFA-enabled users
             $mfaEnabledUsers = DB::table('users')
-                ->where('mfa_enabled', true)
+                ->whereNotNull('two_factor_confirmed_at')
                 ->count();
 
             // New MFA setups
             $newMfaToday = DB::table('users')
-                ->where('mfa_enabled', true)
-                ->where('updated_at', '>=', $today)
+                ->whereNotNull('two_factor_confirmed_at')
+                ->where('two_factor_confirmed_at', '>=', $today)
                 ->count();
 
             $newMfa7Days = DB::table('users')
-                ->where('mfa_enabled', true)
-                ->where('updated_at', '>=', $last7Days)
+                ->whereNotNull('two_factor_confirmed_at')
+                ->where('two_factor_confirmed_at', '>=', $last7Days)
                 ->count();
 
             // MFA usage in logins
             $totalLogins = DB::table('authentication_logs')
                 ->where('created_at', '>=', $today)
-                ->where('status', 'success')
+                ->where('success', true)
                 ->count();
 
             $mfaLogins = DB::table('authentication_logs')
                 ->where('created_at', '>=', $today)
-                ->where('status', 'success')
-                ->where('mfa_used', true)
+                ->where('success', true)
+                ->where('event', 'like', '%mfa%')
                 ->count();
 
             $mfaUsageRate = $totalLogins > 0
@@ -499,11 +505,11 @@ class MetricsCollectionService
             // MFA setup trend
             $setupTrend = DB::table('users')
                 ->select(
-                    DB::raw('DATE(updated_at) as date'),
+                    DB::raw('DATE(two_factor_confirmed_at) as date'),
                     DB::raw('COUNT(*) as count')
                 )
-                ->where('mfa_enabled', true)
-                ->where('updated_at', '>=', $last7Days)
+                ->whereNotNull('two_factor_confirmed_at')
+                ->where('two_factor_confirmed_at', '>=', $last7Days)
                 ->groupBy('date')
                 ->orderBy('date')
                 ->get()
