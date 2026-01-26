@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Invitations;
 use App\Filament\Resources\Invitations\Pages\CreateInvitation;
 use App\Filament\Resources\Invitations\Pages\EditInvitation;
 use App\Filament\Resources\Invitations\Pages\ListInvitations;
+use App\Filament\Resources\Invitations\Pages\ViewInvitation;
 use App\Filament\Resources\Invitations\Schemas\InvitationForm;
 use App\Filament\Resources\Invitations\Tables\InvitationsTable;
 use App\Models\Invitation;
@@ -50,6 +51,7 @@ class InvitationResource extends Resource
         return [
             'index' => ListInvitations::route('/'),
             'create' => CreateInvitation::route('/create'),
+            'view' => ViewInvitation::route('/{record}'),
             'edit' => EditInvitation::route('/{record}/edit'),
         ];
     }
