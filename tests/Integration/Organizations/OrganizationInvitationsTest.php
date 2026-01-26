@@ -5,7 +5,6 @@ namespace Tests\Integration\Organizations;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Support\Facades\Notification;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -443,7 +442,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
 
         // Verify expires_at is in the future
         $expiresAt = new \DateTime($targetInvitation['expires_at']);
-        $this->assertGreaterThan(new \DateTime(), $expiresAt);
+        $this->assertGreaterThan(new \DateTime, $expiresAt);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

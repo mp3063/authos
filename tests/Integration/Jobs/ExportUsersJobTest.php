@@ -9,10 +9,8 @@ use App\Models\BulkImportJob;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
-use App\Services\BulkImport\DTOs\ExportOptions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
@@ -227,7 +225,7 @@ class ExportUsersJobTest extends TestCase
                 // ALSO create the file in real filesystem for filesize() check
                 $fullPath = storage_path('app/'.$filePath);
                 $directory = dirname($fullPath);
-                if (!is_dir($directory)) {
+                if (! is_dir($directory)) {
                     mkdir($directory, 0755, true);
                 }
                 file_put_contents($fullPath, 'mock csv content');

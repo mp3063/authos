@@ -503,7 +503,7 @@ class CustomRoleController extends Controller
         foreach ($customRole->permissions ?? [] as $permission) {
             $parts = explode('.', $permission);
             $category = $parts[0] ?? 'other';
-            if (!isset($permissionsGrouped[$category])) {
+            if (! isset($permissionsGrouped[$category])) {
                 $permissionsGrouped[$category] = [];
             }
             $permissionsGrouped[$category][] = $permission;

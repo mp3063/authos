@@ -55,7 +55,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $csvContent = "email,name,password\n"
             ."user1@example.com,User One,Password123!\n"
             ."user2@example.com,User Two,Password456!\n"
-            ."user3@example.com,User Three,Password789!";
+            .'user3@example.com,User Three,Password789!';
 
         $file = UploadedFile::fake()->createWithContent(
             'users.csv',
@@ -118,7 +118,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $file = UploadedFile::fake()->create('users.xlsx', 500, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         // ACT: Upload Excel file for import
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'xlsx',
@@ -164,7 +164,7 @@ class BulkUserImportTest extends IntegrationTestCase
         );
 
         // ACT: Upload JSON file for import
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'json',
@@ -198,7 +198,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $file = UploadedFile::fake()->create('users.pdf', 100);
 
         // ACT: Attempt to upload invalid file
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'pdf',
@@ -227,12 +227,12 @@ class BulkUserImportTest extends IntegrationTestCase
 
         // Create CSV with duplicate email
         $csvContent = "email,name,password\n"
-            ."duplicate@example.com,Updated Name,NewPassword123!";
+            .'duplicate@example.com,Updated Name,NewPassword123!';
 
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
         // ACT: Import with update_existing = true
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'csv',
@@ -254,12 +254,12 @@ class BulkUserImportTest extends IntegrationTestCase
         $csvContent = "email,name,password\n"
             ."valid@example.com,Valid User,Password123!\n"
             ."invalid-email,Invalid User,Pass\n"  // Invalid email
-            ."another@example.com,Another User,Password456!";
+            .'another@example.com,Another User,Password456!';
 
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvContent);
 
         // ACT: Import with skip_invalid = true
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'csv',
@@ -294,7 +294,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Get job status
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Response contains complete job status
@@ -361,7 +361,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Storage::disk('local')->put($job->file_path, 'test content');
 
         // ACT: Retry the failed job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/imports/{$job->id}/retry");
 
         // ASSERT: Response indicates successful retry
@@ -404,7 +404,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Cancel the running job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/imports/{$job->id}/cancel");
 
         // ASSERT: Response indicates successful cancellation
@@ -435,7 +435,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to cancel completed job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/imports/{$job->id}/cancel");
 
         // ASSERT: Request is rejected
@@ -479,7 +479,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Storage::disk('local')->put($job->error_file_path, "row,email,name,errors\n2,invalid,Test User,Email validation failed");
 
         // ACT: Download error report
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports/{$job->id}/errors");
 
         // ASSERT: File download response
@@ -497,7 +497,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $file = UploadedFile::fake()->create('large-users.csv', 15000); // 15MB
 
         // ACT: Attempt to upload oversized file
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/import", [
                 'file' => $file,
                 'format' => 'csv',
@@ -543,7 +543,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to access another organization's job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports/{$otherJob->id}");
 
         // ASSERT: Access denied
@@ -580,7 +580,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: List all import jobs
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports");
 
         // ASSERT: Returns all organization's jobs
@@ -606,14 +606,14 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertEquals(6, $response->json('pagination.total'));
 
         // ACT: Filter by status
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports?status=failed");
 
         // ASSERT: Returns only failed jobs
         $this->assertEquals(2, count($response->json('data')));
 
         // ACT: Filter by type
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports?type=import");
 
         // ASSERT: Returns only import jobs
@@ -638,7 +638,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Storage::disk('local')->put($job->file_path, 'test data');
 
         // ACT: Delete the job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->deleteJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Job deleted successfully
@@ -669,7 +669,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to delete processing job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->deleteJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Request rejected

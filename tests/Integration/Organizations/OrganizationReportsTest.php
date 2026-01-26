@@ -53,7 +53,7 @@ class OrganizationReportsTest extends IntegrationTestCase
 
         // Get one of the organization's applications
         $app = $this->organization->applications()->first();
-        if (!$app) {
+        if (! $app) {
             $app = Application::factory()->create([
                 'organization_id' => $this->organization->id,
             ]);
@@ -363,7 +363,7 @@ class OrganizationReportsTest extends IntegrationTestCase
 
         // Get one of the organization's applications
         $app = $this->organization->applications()->first();
-        if (!$app) {
+        if (! $app) {
             $app = Application::factory()->create([
                 'organization_id' => $this->organization->id,
             ]);
@@ -397,9 +397,9 @@ class OrganizationReportsTest extends IntegrationTestCase
 
         // ACT: Generate report for last 30 days
         $response = $this->actingAs($this->admin, 'api')
-            ->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?start_date=" .
-                now()->subDays(30)->format('Y-m-d') .
-                "&end_date=" . now()->format('Y-m-d'));
+            ->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?start_date=".
+                now()->subDays(30)->format('Y-m-d').
+                '&end_date='.now()->format('Y-m-d'));
 
         // ASSERT: Verify only recent activity included
         $response->assertOk();
@@ -408,9 +408,9 @@ class OrganizationReportsTest extends IntegrationTestCase
 
         // ACT: Generate report for last 90 days
         $allResponse = $this->actingAs($this->admin, 'api')
-            ->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?start_date=" .
-                now()->subDays(90)->format('Y-m-d') .
-                "&end_date=" . now()->format('Y-m-d'));
+            ->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity?start_date=".
+                now()->subDays(90)->format('Y-m-d').
+                '&end_date='.now()->format('Y-m-d'));
 
         // ASSERT: Verify all activity included
         $allSummary = $allResponse->json('data.summary');

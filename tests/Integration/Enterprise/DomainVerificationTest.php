@@ -5,7 +5,6 @@ namespace Tests\Integration\Enterprise;
 use App\Models\CustomDomain;
 use App\Models\Organization;
 use App\Services\DomainVerificationService;
-use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -523,7 +522,7 @@ class DomainVerificationTest extends IntegrationTestCase
                     'verified_at' => now(),
                     'is_active' => true,
                     'dns_records' => [
-                        'txt_records' => ['authos-verify=' . $domain->verification_code],
+                        'txt_records' => ['authos-verify='.$domain->verification_code],
                         'verified_at' => now()->toISOString(),
                     ],
                 ]);

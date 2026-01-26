@@ -970,4 +970,3 @@ class WebhookDeliveryFlowTest extends IntegrationTestCase
         $this->assertLessThanOrEqual(10000, strlen($delivery->response_body));
     }
 }
-

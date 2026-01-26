@@ -166,7 +166,7 @@ class CustomMetricsTest extends IntegrationTestCase
         } else {
             $yesterdayData = $yesterdayResponse->json();
             $this->assertTrue(
-                !isset($yesterdayData['value']) ||
+                ! isset($yesterdayData['value']) ||
                 $yesterdayData['value'] === 0 ||
                 empty($yesterdayData)
             );

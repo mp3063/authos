@@ -126,7 +126,7 @@ class PasswordResetController extends Controller
 
         // SECURITY: Constant-time token validation to prevent timing attacks
         // Always perform hash_equals() even when record doesn't exist to maintain constant time
-        $dummyToken = hash('sha256', 'dummy-token-for-timing-safety-' . config('app.key'));
+        $dummyToken = hash('sha256', 'dummy-token-for-timing-safety-'.config('app.key'));
         $tokenToCompare = $resetRecord ? $resetRecord->token : $dummyToken;
 
         // SECURITY: Always parse timestamp even for non-existent records to maintain constant timing
@@ -164,7 +164,7 @@ class PasswordResetController extends Controller
                 // Dummy query to maintain constant time for timing attack protection
                 // Prevents attackers from distinguishing expired vs invalid tokens through timing
                 DB::table('password_reset_tokens')
-                    ->where('email', 'dummy-timing-protection-' . hash('sha256', $email))
+                    ->where('email', 'dummy-timing-protection-'.hash('sha256', $email))
                     ->limit(1)
                     ->get();
             }

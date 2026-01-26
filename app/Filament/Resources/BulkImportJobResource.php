@@ -116,7 +116,7 @@ class BulkImportJobResource extends Resource
 
             TextColumn::make('progress')
                 ->label('Progress')
-                ->state(fn (BulkImportJob $record): string => $record->getProgressPercentage() . '%')
+                ->state(fn (BulkImportJob $record): string => $record->getProgressPercentage().'%')
                 ->color(fn (BulkImportJob $record): string => match (true) {
                     $record->getProgressPercentage() >= 100 => 'success',
                     $record->getProgressPercentage() >= 50 => 'info',

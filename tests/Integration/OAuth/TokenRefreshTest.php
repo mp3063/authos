@@ -29,8 +29,6 @@ use Tests\Integration\IntegrationTestCase;
  *
  * RFC 6749 Section 6: Refreshing an Access Token
  * https://datatracker.ietf.org/doc/html/rfc6749#section-6
- *
- * @package Tests\Integration\OAuth
  */
 class TokenRefreshTest extends IntegrationTestCase
 {
@@ -397,7 +395,7 @@ class TokenRefreshTest extends IntegrationTestCase
 
         $this->assertTrue(
             $response2->getStatusCode() === 400 || $response2->getStatusCode() === 401,
-            "Expected status 400 or 401 for empty token"
+            'Expected status 400 or 401 for empty token'
         );
 
         // ACT & ASSERT: Test null token (validation error)
@@ -543,11 +541,11 @@ class TokenRefreshTest extends IntegrationTestCase
         // ASSERT: Verify at least one non-revoked refresh token exists with future expiration
         $activeRefreshTokens = RefreshToken::whereHas('accessToken', function ($query) {
             $query->where('user_id', $this->user->id)
-                  ->where('revoked', false);
+                ->where('revoked', false);
         })
-        ->where('revoked', false)
-        ->where('expires_at', '>', Carbon::now())
-        ->get();
+            ->where('revoked', false)
+            ->where('expires_at', '>', Carbon::now())
+            ->get();
 
         $this->assertGreaterThan(0, $activeRefreshTokens->count(),
             'Expected at least one active refresh token with future expiration');

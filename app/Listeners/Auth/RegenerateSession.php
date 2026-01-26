@@ -21,8 +21,7 @@ class RegenerateSession
      */
     public function __construct(
         protected AccountLockoutService $lockoutService
-    ) {
-    }
+    ) {}
 
     /**
      * Handle the event

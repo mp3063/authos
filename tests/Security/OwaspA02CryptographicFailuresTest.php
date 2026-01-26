@@ -286,7 +286,7 @@ class OwaspA02CryptographicFailuresTest extends TestCase
         Passport::actingAs($this->user);
 
         // Enable MFA properly by setting up the user with confirmed TOTP
-        $google2fa = new \PragmaRX\Google2FA\Google2FA();
+        $google2fa = new \PragmaRX\Google2FA\Google2FA;
         $secret = $google2fa->generateSecretKey();
 
         $this->user->update([

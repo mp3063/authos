@@ -40,7 +40,7 @@ class MfaManagementTest extends IntegrationTestCase
             'email_verified_at' => now(),
         ]);
 
-        $this->google2fa = new Google2FA();
+        $this->google2fa = new Google2FA;
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

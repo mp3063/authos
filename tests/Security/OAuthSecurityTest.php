@@ -365,8 +365,9 @@ class OAuthSecurityTest extends TestCase
             // Properly tamper with the payload (URL-safe base64)
             $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
 
-            if (!$payload) {
+            if (! $payload) {
                 $this->markTestSkipped('Unable to decode token payload');
+
                 return;
             }
 
@@ -448,6 +449,7 @@ class OAuthSecurityTest extends TestCase
 
         if ($preLogoutResponse->getStatusCode() !== 200) {
             $this->markTestSkipped('Token authentication not working');
+
             return;
         }
 

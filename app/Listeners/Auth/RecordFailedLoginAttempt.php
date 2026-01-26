@@ -2,7 +2,6 @@
 
 namespace App\Listeners\Auth;
 
-use App\Events\Auth\LoginFailed;
 use App\Models\FailedLoginAttempt;
 use Illuminate\Support\Facades\Log;
 

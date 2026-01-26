@@ -511,7 +511,7 @@ admin,admin@test.com,login');
 
         // If failed, log the error for debugging
         if ($export->status === 'failed') {
-            $this->markTestSkipped('Excel export failed: ' . $export->error_message . '. This may be due to missing Excel dependencies.');
+            $this->markTestSkipped('Excel export failed: '.$export->error_message.'. This may be due to missing Excel dependencies.');
         }
 
         $this->assertEquals('completed', $export->status);

@@ -27,8 +27,11 @@ class UserApplicationsTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $adminUser;
+
     private User $regularUser;
+
     private Application $application;
 
     protected function setUp(): void

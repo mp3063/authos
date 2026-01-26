@@ -20,8 +20,7 @@ class CheckIpBlocklist
      */
     public function __construct(
         protected IpBlocklistService $ipBlocklistService
-    ) {
-    }
+    ) {}
 
     /**
      * Handle the event

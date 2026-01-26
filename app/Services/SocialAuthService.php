@@ -320,7 +320,7 @@ class SocialAuthService
             ->first();
 
         if ($userExistingAccount) {
-            throw new \Exception('You already have a ' . ucfirst($provider) . ' account linked.');
+            throw new \Exception('You already have a '.ucfirst($provider).' account linked.');
         }
 
         // Create new social account record

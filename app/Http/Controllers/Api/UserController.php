@@ -208,12 +208,12 @@ class UserController extends BaseApiController
         $currentUser = auth()->user();
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return $this->notFoundResponse('User not found');
         }
 
         // Users can only view their own applications unless they're admins
-        if ($user->id !== $currentUser->id && !$currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
             return $this->errorResponse('Unauthorized to view other users\' applications', 403);
         }
 
@@ -225,7 +225,7 @@ class UserController extends BaseApiController
         if ($request->has('permission')) {
             $permission = $request->input('permission');
             // Use LIKE for SQLite/PostgreSQL compatibility
-            $query->where('user_applications.permissions', 'LIKE', '%"' . $permission . '"%');
+            $query->where('user_applications.permissions', 'LIKE', '%"'.$permission.'"%');
         }
 
         // Handle pagination
@@ -242,6 +242,7 @@ class UserController extends BaseApiController
                 if (isset($data['pivot']['permissions']) && is_string($data['pivot']['permissions'])) {
                     $data['pivot']['permissions'] = json_decode($data['pivot']['permissions'], true) ?? [];
                 }
+
                 return $data;
             })->toArray();
 
@@ -268,6 +269,7 @@ class UserController extends BaseApiController
             if (isset($data['pivot']['permissions']) && is_string($data['pivot']['permissions'])) {
                 $data['pivot']['permissions'] = json_decode($data['pivot']['permissions'], true) ?? [];
             }
+
             return $data;
         });
 
@@ -510,7 +512,7 @@ class UserController extends BaseApiController
 
         // Check authorization - users can view their own sessions, admins can view any
         $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && !$currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
             return $this->errorResponse('Forbidden', 403);
         }
 
@@ -557,14 +559,14 @@ class UserController extends BaseApiController
 
         // Check authorization - users can view their own sessions, admins can view any
         $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && !$currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
             return $this->errorResponse('Forbidden', 403);
         }
 
         // Find the specific token
         $token = $user->tokens()->where('id', $sessionId)->first();
 
-        if (!$token) {
+        if (! $token) {
             return $this->notFoundResponse('Session not found');
         }
 

@@ -125,7 +125,7 @@ class BulkDataController extends BaseApiController
                 $filePath = $request->get('file_path');
                 $format = $request->get('format', 'csv');
                 // Create a fake UploadedFile from the path with proper extension
-                $filename = 'import.' . $format;
+                $filename = 'import.'.$format;
                 $file = new \Illuminate\Http\UploadedFile($filePath, $filename, null, null, true);
             } else {
                 $file = $request->file('file');

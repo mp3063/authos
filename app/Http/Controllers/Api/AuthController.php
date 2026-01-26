@@ -88,7 +88,7 @@ class AuthController extends Controller
 
             // Attach the role with organization context in pivot
             $user->roles()->syncWithoutDetaching([
-                $userRole->id => ['organization_id' => $organizationId]
+                $userRole->id => ['organization_id' => $organizationId],
             ]);
         }
 

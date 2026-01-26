@@ -3,7 +3,6 @@
 namespace Tests\Integration\Enterprise;
 
 use App\Jobs\SyncLdapUsersJob;
-use App\Models\AuthenticationLog;
 use App\Models\LdapConfiguration;
 use App\Models\Organization;
 use App\Models\User;

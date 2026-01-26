@@ -64,7 +64,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_to_csv_successfully(): void
     {
         // ACT: Request CSV export
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
             ]);
@@ -106,7 +106,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_to_json_successfully(): void
     {
         // ACT: Request JSON export
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'json',
                 'fields' => ['id', 'email', 'name', 'created_at'],
@@ -137,7 +137,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_to_excel_successfully(): void
     {
         // ACT: Request Excel export
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'xlsx',
                 'fields' => ['email', 'name', 'organization_name', 'roles'],
@@ -178,7 +178,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Export with date range filter
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'date_from' => now()->subDays(30)->format('Y-m-d'),
@@ -208,7 +208,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Export users (should only include current organization)
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'json',
             ]);
@@ -236,7 +236,7 @@ class BulkUserExportTest extends IntegrationTestCase
         }
 
         // ACT: Export users with specific role
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'roles' => ['Manager'],
@@ -253,7 +253,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_with_active_only_filter(): void
     {
         // ACT: Export only active users
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'json',
                 'active_only' => true,
@@ -270,7 +270,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_with_email_verified_only_filter(): void
     {
         // ACT: Export only verified users
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'email_verified_only' => true,
@@ -287,7 +287,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_users_with_limit(): void
     {
         // ACT: Export with record limit
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'limit' => 100,
@@ -316,7 +316,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Get export job status
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Response contains job status and progress
@@ -355,7 +355,7 @@ class BulkUserExportTest extends IntegrationTestCase
         // ARRANGE: Create completed export job with file
         $exportData = "email,name,created_at\n"
             ."user1@example.com,User One,2024-01-01\n"
-            ."user2@example.com,User Two,2024-01-02";
+            .'user2@example.com,User Two,2024-01-02';
 
         $filePath = 'exports/users_export_'.time().'.csv';
         Storage::disk('local')->put($filePath, $exportData);
@@ -373,7 +373,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Download export file
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/exports/{$job->id}/download");
 
         // ASSERT: File download response
@@ -397,7 +397,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to download incomplete export
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/exports/{$job->id}/download");
 
         // ASSERT: Request rejected
@@ -420,7 +420,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to download import job via export endpoint
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/exports/{$job->id}/download");
 
         // ASSERT: Request rejected
@@ -435,7 +435,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_validates_required_format(): void
     {
         // ACT: Attempt export without format
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 // Missing format field
             ]);
@@ -452,7 +452,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_validates_invalid_format(): void
     {
         // ACT: Attempt export with invalid format
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'pdf',
             ]);
@@ -466,7 +466,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_validates_date_range(): void
     {
         // ACT: Attempt export with invalid date range (end before start)
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'date_from' => now()->format('Y-m-d'),
@@ -482,7 +482,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_validates_limit_maximum(): void
     {
         // ACT: Attempt export with limit exceeding maximum
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'limit' => 50000, // Exceeds 10,000 max
@@ -525,7 +525,7 @@ class BulkUserExportTest extends IntegrationTestCase
         Storage::disk('local')->put($otherJob->file_path, 'private data');
 
         // ACT: Attempt to download another organization's export
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/exports/{$otherJob->id}/download");
 
         // ASSERT: Access denied
@@ -551,7 +551,7 @@ class BulkUserExportTest extends IntegrationTestCase
         ]);
 
         // ACT: List only export jobs
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->getJson("{$this->apiBase}/imports?type=export");
 
         // ASSERT: Returns only export jobs
@@ -568,7 +568,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_with_custom_field_selection(): void
     {
         // ACT: Export with specific fields
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'json',
                 'fields' => ['email', 'name', 'is_active', 'mfa_enabled'],
@@ -589,7 +589,7 @@ class BulkUserExportTest extends IntegrationTestCase
     public function export_validates_invalid_field_names(): void
     {
         // ACT: Attempt export with invalid field
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ["users.manage"])
+        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
             ->postJson("{$this->apiBase}/users/export", [
                 'format' => 'csv',
                 'fields' => ['email', 'invalid_field', 'secret_data'],

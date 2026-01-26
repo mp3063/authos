@@ -85,7 +85,7 @@ class RoleResource extends Resource
 
             Section::make('Permissions')->schema([
                 CheckboxList::make('permissions')
-                    ->relationship('permissions', 'name', function ($query, $get, $record) use ($user) {
+                    ->relationship('permissions', 'name', function ($query, $get, $record) {
                         // Get the role's guard_name (from form data or existing record)
                         $guardName = $get('guard_name') ?? $record?->guard_name ?? 'web';
 

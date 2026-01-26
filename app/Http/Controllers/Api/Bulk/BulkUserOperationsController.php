@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Bulk;
 
 use App\Http\Controllers\Api\BaseApiController;
-use App\Http\Requests\BulkInviteUsersRequest;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
@@ -152,8 +151,8 @@ class BulkUserOperationsController extends BaseApiController
                     'failed_count' => count($userIds),
                     'job_id' => (string) Str::uuid(),
                     'successful' => [],
-                    'failed' => array_map(fn($id) => ['user_id' => $id, 'reason' => 'User not found or not in organization'], $invalidUserIds),
-                    'errors' => array_map(fn($id) => ['user_id' => $id, 'reason' => 'User not found or not in organization'], $invalidUserIds),
+                    'failed' => array_map(fn ($id) => ['user_id' => $id, 'reason' => 'User not found or not in organization'], $invalidUserIds),
+                    'errors' => array_map(fn ($id) => ['user_id' => $id, 'reason' => 'User not found or not in organization'], $invalidUserIds),
                     'summary' => [
                         'total_assignments' => count($userIds),
                         'successful' => 0,

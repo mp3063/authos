@@ -107,7 +107,7 @@ class MetricsCollectionTest extends IntegrationTestCase
 
         // Create active tokens manually (Token doesn't have factory)
         for ($i = 0; $i < 3; $i++) {
-            $token = new Token();
+            $token = new Token;
             $token->id = \Illuminate\Support\Str::random(100);
             $token->user_id = $this->user->id;
             $token->client_id = $app->client_id;
@@ -119,7 +119,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         }
 
         // Create revoked token
-        $revokedToken = new Token();
+        $revokedToken = new Token;
         $revokedToken->id = \Illuminate\Support\Str::random(100);
         $revokedToken->user_id = $this->user->id;
         $revokedToken->client_id = $app->client_id;

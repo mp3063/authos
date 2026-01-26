@@ -49,7 +49,7 @@ class PasswordResetTimingAttackTest extends TestCase
      */
     protected function generateUniquePassword(): string
     {
-        return 'TestPass' . time() . mt_rand(1000, 9999) . '!Zx@9';
+        return 'TestPass'.time().mt_rand(1000, 9999).'!Zx@9';
     }
 
     #[Test]

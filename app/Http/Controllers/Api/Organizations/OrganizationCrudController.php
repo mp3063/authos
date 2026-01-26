@@ -244,7 +244,7 @@ class OrganizationCrudController extends BaseApiController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (!auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->hasRole('Super Admin')) {
             $query->where('id', auth()->user()->organization_id);
         }
 
@@ -255,7 +255,7 @@ class OrganizationCrudController extends BaseApiController
         // Return flat data structure for test compatibility
         return response()->json([
             'message' => 'Organization settings retrieved successfully',
-            'data' => $settings
+            'data' => $settings,
         ]);
     }
 
@@ -268,7 +268,7 @@ class OrganizationCrudController extends BaseApiController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (!auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->hasRole('Super Admin')) {
             $query->where('id', auth()->user()->organization_id);
         }
 
@@ -291,7 +291,7 @@ class OrganizationCrudController extends BaseApiController
             'require_mfa', 'session_timeout', 'allowed_ip_ranges', 'password_expiry_days',
             'enforce_2fa_for_admins', 'session_absolute_timeout', 'session_idle_timeout',
             'require_reauth_for_sensitive', 'allowed_domains', 'sso_enabled',
-            'mfa_grace_period', 'mfa_methods'
+            'mfa_grace_period', 'mfa_methods',
         ];
 
         foreach ($topLevelFields as $field) {
@@ -320,8 +320,8 @@ class OrganizationCrudController extends BaseApiController
         return response()->json([
             'message' => 'Settings updated successfully',
             'data' => [
-                'settings' => $newSettings
-            ]
+                'settings' => $newSettings,
+            ],
         ]);
     }
 
@@ -336,7 +336,7 @@ class OrganizationCrudController extends BaseApiController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (!auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->hasRole('Super Admin')) {
             $query->where('id', auth()->user()->organization_id);
         }
 
@@ -363,8 +363,8 @@ class OrganizationCrudController extends BaseApiController
         return response()->json([
             'message' => 'Settings reset to defaults successfully',
             'data' => [
-                'settings' => $defaultSettings
-            ]
+                'settings' => $defaultSettings,
+            ],
         ]);
     }
 }

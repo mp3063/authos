@@ -25,7 +25,9 @@ class UserCrudTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $adminUser;
+
     private User $regularUser;
 
     protected function setUp(): void
@@ -61,7 +63,7 @@ class UserCrudTest extends TestCase
         $userData = [
             'name' => 'New Test User',
             'email' => 'newuser@test.com',
-            'password' => 'TestP@ssw0rd!2024_' . uniqid(),
+            'password' => 'TestP@ssw0rd!2024_'.uniqid(),
             'organization_id' => $this->organization->id,
             'roles' => ['User'],
         ];
@@ -408,7 +410,7 @@ class UserCrudTest extends TestCase
         $userData = [
             'name' => 'Duplicate User',
             'email' => 'existing@test.com', // Same email
-            'password' => 'TestP@ssw0rd!2024_' . uniqid(),
+            'password' => 'TestP@ssw0rd!2024_'.uniqid(),
             'organization_id' => $this->organization->id,
         ];
 
@@ -435,7 +437,7 @@ class UserCrudTest extends TestCase
         $userData = [
             'name' => 'Unauthorized User',
             'email' => 'unauthorized@test.com',
-            'password' => 'TestP@ssw0rd!2024_' . uniqid(),
+            'password' => 'TestP@ssw0rd!2024_'.uniqid(),
             'organization_id' => $this->organization->id,
         ];
 

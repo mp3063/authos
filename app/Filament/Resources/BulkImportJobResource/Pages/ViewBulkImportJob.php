@@ -129,7 +129,7 @@ class ViewBulkImportJob extends ViewRecord
                 ->schema([
                     TextEntry::make('progress_percentage')
                         ->label('Progress')
-                        ->state(fn (BulkImportJob $record): string => $record->getProgressPercentage() . '%')
+                        ->state(fn (BulkImportJob $record): string => $record->getProgressPercentage().'%')
                         ->badge()
                         ->color(fn (BulkImportJob $record): string => match (true) {
                             $record->getProgressPercentage() >= 100 => 'success',

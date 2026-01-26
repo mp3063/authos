@@ -69,7 +69,7 @@ class OrganizationReportController extends Controller
             $report = $this->reportingService->generateUserActivityReport($organizationId, $dateRange);
 
             // Add required fields for test compatibility
-            $reportId = 'report_' . uniqid();
+            $reportId = 'report_'.uniqid();
             $report['report_id'] = $reportId;
             $report['report_type'] = 'user_activity';
             $report['organization_name'] = $organization->name;
@@ -202,7 +202,7 @@ class OrganizationReportController extends Controller
             $report = $this->reportingService->generateApplicationUsageReport($organizationId);
 
             // Format for test compatibility
-            $reportId = 'report_' . uniqid();
+            $reportId = 'report_'.uniqid();
             $formattedReport = [
                 'report_id' => $reportId,
                 'generated_at' => $report['generated_at'],
@@ -297,7 +297,7 @@ class OrganizationReportController extends Controller
             $report = $this->reportingService->generateSecurityAuditReport($organizationId);
 
             // Format for test compatibility
-            $reportId = 'report_' . uniqid();
+            $reportId = 'report_'.uniqid();
             $formattedReport = [
                 'report_id' => $reportId,
                 'generated_at' => $report['generated_at'],
@@ -430,8 +430,8 @@ class OrganizationReportController extends Controller
         }
 
         try {
-            $scheduleId = 'schedule_' . uniqid();
-            $nextRunAt = match($request->frequency) {
+            $scheduleId = 'schedule_'.uniqid();
+            $nextRunAt = match ($request->frequency) {
                 'daily' => now()->addDay(),
                 'weekly' => now()->addWeek(),
                 'monthly' => now()->addMonth(),

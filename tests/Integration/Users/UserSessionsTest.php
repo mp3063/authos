@@ -26,7 +26,9 @@ class UserSessionsTest extends TestCase
     use RefreshDatabase;
 
     private Organization $organization;
+
     private User $user;
+
     private User $adminUser;
 
     protected function setUp(): void

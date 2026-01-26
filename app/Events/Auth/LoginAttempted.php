@@ -19,11 +19,11 @@ class LoginAttempted
     /**
      * Create a new event instance
      *
-     * @param string $email The email address attempting to login
-     * @param string $ipAddress The IP address of the request
-     * @param string|null $userAgent The user agent string
-     * @param string|null $clientId The OAuth client ID (if applicable)
-     * @param array<string, mixed> $metadata Additional metadata (scopes, etc.)
+     * @param  string  $email  The email address attempting to login
+     * @param  string  $ipAddress  The IP address of the request
+     * @param  string|null  $userAgent  The user agent string
+     * @param  string|null  $clientId  The OAuth client ID (if applicable)
+     * @param  array<string, mixed>  $metadata  Additional metadata (scopes, etc.)
      */
     public function __construct(
         public readonly string $email,
@@ -31,8 +31,7 @@ class LoginAttempted
         public readonly ?string $userAgent,
         public readonly ?string $clientId = null,
         public readonly array $metadata = []
-    ) {
-    }
+    ) {}
 
     /**
      * Create event from HTTP request

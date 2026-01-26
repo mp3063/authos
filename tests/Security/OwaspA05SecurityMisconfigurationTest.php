@@ -241,7 +241,7 @@ class OwaspA05SecurityMisconfigurationTest extends TestCase
         }
 
         // Ensure at least one assertion is made
-        if (!$assertionsMade) {
+        if (! $assertionsMade) {
             // OAuth endpoint should at minimum require authentication (401/302)
             $this->assertContains($response->status(), [302, 401, 404], 'OAuth endpoint should be protected');
         }
@@ -410,7 +410,7 @@ class OwaspA05SecurityMisconfigurationTest extends TestCase
         // Make rapid authentication attempts (should trigger rate limiting after 10 requests)
         for ($i = 0; $i < 12; $i++) {
             $responses[] = $this->postJson('/api/v1/auth/login', [
-                'email' => 'test' . $i . '@example.com',
+                'email' => 'test'.$i.'@example.com',
                 'password' => 'wrongpassword',
             ]);
         }

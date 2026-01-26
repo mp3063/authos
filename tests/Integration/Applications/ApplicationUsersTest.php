@@ -162,7 +162,7 @@ class ApplicationUsersTest extends IntegrationTestCase
             'name' => 'New User',
             'email' => 'newuser@example.com',
             'organization_id' => $this->organization->id,
-        ])  ;
+        ]);
 
         // Verify no access initially
         $this->assertFalse($this->application->users()->where('user_id', $user->id)->exists());
@@ -171,20 +171,20 @@ class ApplicationUsersTest extends IntegrationTestCase
         $response = $this->actingAsApiUserWithToken($this->adminUser)
             ->postJson("/api/v1/applications/{$this->application->id}/users", [
                 'user_id' => $user->id,
-            ])  ;
+            ]);
 
         // ASSERT: Response confirms grant
         $response->assertStatus(201)
             ->assertJson([
                 'message' => 'User access granted successfully',
-            ])  ;
+            ]);
 
         // ASSERT: Database updated with pivot data
         $this->assertDatabaseHas('user_applications', [
             'user_id' => $user->id,
             'application_id' => $this->application->id,
             'login_count' => 0,
-        ])  ;
+        ]);
 
         // ASSERT: Access relationship exists
         $this->assertTrue($this->application->users()->where('user_id', $user->id)->exists());
@@ -202,29 +202,29 @@ class ApplicationUsersTest extends IntegrationTestCase
         // ARRANGE: Create user with existing access
         $user = $this->createApiUser([
             'organization_id' => $this->organization->id,
-        ])  ;
+        ]);
 
         $this->application->users()->attach($user->id, [
             'granted_at' => Carbon::now()->subDays(10),
             'login_count' => 5,
-        ])  ;
+        ]);
 
         // ACT: Attempt to grant access again
         $response = $this->actingAsApiUserWithToken($this->adminUser)
             ->postJson("/api/v1/applications/{$this->application->id}/users", [
                 'user_id' => $user->id,
-            ])  ;
+            ]);
 
         // ASSERT: Conflict error returned
         $response->assertStatus(409)
             ->assertJsonStructure([
                 'error',
                 'error_description',
-            ])  
+            ])
             ->assertJson([
                 'error' => 'resource_conflict',
                 'error_description' => 'User already has access to this application.',
-            ])  ;
+            ]);
 
         // ASSERT: Original access unchanged
         $pivot = $this->application->users()->where('user_id', $user->id)->first()->pivot;
@@ -237,12 +237,12 @@ class ApplicationUsersTest extends IntegrationTestCase
         // ARRANGE: Create user with access and active tokens
         $user = $this->createApiUser([
             'organization_id' => $this->organization->id,
-        ])  ;
+        ]);
 
         $this->application->users()->attach($user->id, [
             'granted_at' => Carbon::now()->subDays(10),
             'login_count' => 5,
-        ])  ;
+        ]);
 
         // Create active tokens
         $token1 = Token::create([
@@ -253,7 +253,7 @@ class ApplicationUsersTest extends IntegrationTestCase
             'scopes' => ['openid'],
             'revoked' => false,
             'expires_at' => Carbon::now()->addHour(),
-        ])  ;
+        ]);
 
         $token2 = Token::create([
             'id' => Str::random(80),
@@ -263,7 +263,7 @@ class ApplicationUsersTest extends IntegrationTestCase
             'scopes' => ['profile'],
             'revoked' => false,
             'expires_at' => Carbon::now()->addHours(2),
-        ])  ;
+        ]);
 
         // Verify access exists
         $this->assertTrue($this->application->users()->where('user_id', $user->id)->exists());
@@ -280,11 +280,11 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertDatabaseMissing('user_applications', [
             'user_id' => $user->id,
             'application_id' => $this->application->id,
-        ])  ;
+        ]);
 
         // ASSERT: All user tokens for this application deleted
-        $this->assertDatabaseMissing('oauth_access_tokens', ['id' => $token1->id])  ;
-        $this->assertDatabaseMissing('oauth_access_tokens', ['id' => $token2->id])  ;
+        $this->assertDatabaseMissing('oauth_access_tokens', ['id' => $token1->id]);
+        $this->assertDatabaseMissing('oauth_access_tokens', ['id' => $token2->id]);
 
         // ASSERT: Access relationship removed
         $this->assertFalse($this->application->users()->where('user_id', $user->id)->exists());
@@ -296,7 +296,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         // ARRANGE: Create user without access
         $user = $this->createApiUser([
             'organization_id' => $this->organization->id,
-        ])  ;
+        ]);
 
         // Verify no access
         $this->assertFalse($this->application->users()->where('user_id', $user->id)->exists());
@@ -310,11 +310,11 @@ class ApplicationUsersTest extends IntegrationTestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-            ])  
+            ])
             ->assertJson([
                 'error' => 'resource_not_found',
                 'error_description' => 'User does not have access to this application.',
-            ])  ;
+            ]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -322,7 +322,7 @@ class ApplicationUsersTest extends IntegrationTestCase
     {
         // ACT: Attempt to grant access without user_id
         $response = $this->actingAsApiUserWithToken($this->adminUser)
-            ->postJson("/api/v1/applications/{$this->application->id}/users", [])  ;
+            ->postJson("/api/v1/applications/{$this->application->id}/users", []);
 
         // ASSERT: Validation error
         $response->assertStatus(422)
@@ -330,16 +330,16 @@ class ApplicationUsersTest extends IntegrationTestCase
                 'error',
                 'error_description',
                 'details',
-            ])  
+            ])
             ->assertJson([
                 'error' => 'validation_failed',
-            ])  ;
+            ]);
 
         // ACT: Attempt to grant access with invalid user_id
         $invalidResponse = $this->actingAsApiUserWithToken($this->adminUser)
             ->postJson("/api/v1/applications/{$this->application->id}/users", [
                 'user_id' => 99999, // Non-existent user
-            ])  ;
+            ]);
 
         // ASSERT: Validation catches invalid user
         $invalidResponse->assertStatus(422)
@@ -349,7 +349,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $typeResponse = $this->actingAsApiUserWithToken($this->adminUser)
             ->postJson("/api/v1/applications/{$this->application->id}/users", [
                 'user_id' => 'not-an-integer',
-            ])  ;
+            ]);
 
         // ASSERT: Type validation
         $typeResponse->assertStatus(422);
@@ -362,24 +362,22 @@ class ApplicationUsersTest extends IntegrationTestCase
         $org1 = $this->createOrganization(['name' => 'Organization 1']);
         $org2 = $this->createOrganization(['name' => 'Organization 2']);
 
-        $user1 = $this->createApiUser(['organization_id' => $org1->id])  ;
-        $user2 = $this->createApiUser(['organization_id' => $org2->id])  ;
-
-        
+        $user1 = $this->createApiUser(['organization_id' => $org1->id]);
+        $user2 = $this->createApiUser(['organization_id' => $org2->id]);
 
         $app1 = $this->createOAuthApplication([
             'organization_id' => $org1->id,
-        ])  ;
+        ]);
 
         $app2 = $this->createOAuthApplication([
             'organization_id' => $org2->id,
-        ])  ;
-        $permissions = Permission::where('guard_name')  
+        ]);
+        $permissions = Permission::where('guard_name')
             ->whereIn('name', ['applications.read', 'applications.update'])
             ->get();
         $user1->givePermissionTo($permissions);
-        $app1->users()->attach($user1->id, ['granted_at' => now()])  ;
-        $app2->users()->attach($user2->id, ['granted_at' => now()])  ;
+        $app1->users()->attach($user1->id, ['granted_at' => now()]);
+        $app2->users()->attach($user2->id, ['granted_at' => now()]);
 
         // ACT & ASSERT: User 1 cannot list users for Org 2's application
         $listResponse = $this->actingAsApiUserWithToken($user1)
@@ -391,7 +389,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $grantResponse = $this->actingAsApiUserWithToken($user1)
             ->postJson("/api/v1/applications/{$app2->id}/users", [
                 'user_id' => $user1->id,
-            ])  ;
+            ]);
 
         $grantResponse->assertNotFound();
 
@@ -411,13 +409,13 @@ class ApplicationUsersTest extends IntegrationTestCase
         // ARRANGE: Create user with access
         $user = $this->createApiUser([
             'organization_id' => $this->organization->id,
-        ])  ;
+        ]);
 
         $this->application->users()->attach($user->id, [
             'granted_at' => Carbon::now()->subDays(30),
             'last_login_at' => Carbon::now()->subDays(10),
             'login_count' => 25,
-        ])  ;
+        ]);
 
         // ACT: List users
         $response = $this->actingAsApiUserWithToken($this->adminUser)
@@ -429,13 +427,13 @@ class ApplicationUsersTest extends IntegrationTestCase
         $users = $response->json('data');
         $userData = collect($users)->firstWhere('id', $user->id);
 
-        $this->assertNotNull($userData['granted_at'])  ;
-        $this->assertNotNull($userData['last_login_at'])  ;
-        $this->assertEquals(25, $userData['login_count'])  ;
+        $this->assertNotNull($userData['granted_at']);
+        $this->assertNotNull($userData['last_login_at']);
+        $this->assertEquals(25, $userData['login_count']);
 
         // ASSERT: Timestamps are properly formatted
-        $grantedAt = Carbon::parse($userData['granted_at'])  ;
-        $lastLoginAt = Carbon::parse($userData['last_login_at'])  ;
+        $grantedAt = Carbon::parse($userData['granted_at']);
+        $lastLoginAt = Carbon::parse($userData['last_login_at']);
 
         $this->assertTrue($grantedAt->isBefore($lastLoginAt));
         $this->assertTrue($lastLoginAt->isPast());

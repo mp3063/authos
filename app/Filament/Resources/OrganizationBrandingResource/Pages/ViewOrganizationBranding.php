@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\OrganizationBrandingResource\Pages;
 
 use App\Filament\Resources\OrganizationBrandingResource;
-use App\Models\OrganizationBranding;
 use Filament\Actions;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\KeyValueEntry;

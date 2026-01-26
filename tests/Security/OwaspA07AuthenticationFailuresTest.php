@@ -202,8 +202,8 @@ class OwaspA07AuthenticationFailuresTest extends TestCase
 
         if (! $ipBlock) {
             $this->markTestSkipped(
-                "IP blocking mechanism not implemented. " .
-                "Debug: Failed attempts: {$failedAttempts}, " .
+                'IP blocking mechanism not implemented. '.
+                "Debug: Failed attempts: {$failedAttempts}, ".
                 "Unique emails: {$uniqueEmails}"
             );
 

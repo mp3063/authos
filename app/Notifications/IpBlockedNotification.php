@@ -27,7 +27,7 @@ class IpBlockedNotification extends Notification implements ShouldQueue
             ->subject('IP Address Blocked - '.config('app.name'))
             ->error()
             ->greeting('Security Alert')
-            ->line("An IP address has been blocked due to suspicious activity.")
+            ->line('An IP address has been blocked due to suspicious activity.')
             ->line("IP Address: {$this->block->ip_address}")
             ->line("Block Type: {$this->block->block_type}")
             ->line("Reason: {$this->block->reason}");

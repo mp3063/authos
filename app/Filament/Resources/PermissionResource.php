@@ -86,7 +86,7 @@ class PermissionResource extends Resource
                 Section::make('Assignment')
                     ->schema([
                         Select::make('roles')
-                            ->relationship('roles', 'name', function ($query, $get, $record) use ($user) {
+                            ->relationship('roles', 'name', function ($query, $get, $record) {
                                 // Get the permission's guard_name (from form data or existing record)
                                 $guardName = $get('guard_name') ?? $record?->guard_name ?? 'web';
 

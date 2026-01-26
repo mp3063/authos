@@ -176,7 +176,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         $this->assertIsInt($data['total']);
 
         // Verify type breakdown structure (if has types)
-        if (!empty($data['by_type'])) {
+        if (! empty($data['by_type'])) {
             foreach ($data['by_type'] as $type => $count) {
                 $this->assertIsString($type);
                 $this->assertIsInt($count);

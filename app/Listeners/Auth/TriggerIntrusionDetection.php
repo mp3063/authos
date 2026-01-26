@@ -2,7 +2,6 @@
 
 namespace App\Listeners\Auth;
 
-use App\Events\Auth\LoginFailed;
 use App\Services\Security\AccountLockoutService;
 use App\Services\Security\IntrusionDetectionService;
 use Illuminate\Support\Facades\Log;
@@ -26,8 +25,7 @@ class TriggerIntrusionDetection
     public function __construct(
         protected IntrusionDetectionService $intrusionService,
         protected AccountLockoutService $lockoutService
-    ) {
-    }
+    ) {}
 
     /**
      * Handle the event

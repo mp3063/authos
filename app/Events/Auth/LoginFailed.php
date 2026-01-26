@@ -20,13 +20,13 @@ class LoginFailed
     /**
      * Create a new event instance
      *
-     * @param string $email The email address that failed to login
-     * @param string $ipAddress The IP address of the request
-     * @param string|null $userAgent The user agent string
-     * @param string $reason The reason for failure (invalid_credentials, account_inactive, etc.)
-     * @param User|null $user The user model if found, null if email doesn't exist
-     * @param string|null $clientId The OAuth client ID (if applicable)
-     * @param array<string, mixed> $metadata Additional metadata
+     * @param  string  $email  The email address that failed to login
+     * @param  string  $ipAddress  The IP address of the request
+     * @param  string|null  $userAgent  The user agent string
+     * @param  string  $reason  The reason for failure (invalid_credentials, account_inactive, etc.)
+     * @param  User|null  $user  The user model if found, null if email doesn't exist
+     * @param  string|null  $clientId  The OAuth client ID (if applicable)
+     * @param  array<string, mixed>  $metadata  Additional metadata
      */
     public function __construct(
         public readonly string $email,
@@ -36,8 +36,7 @@ class LoginFailed
         public readonly ?User $user = null,
         public readonly ?string $clientId = null,
         public readonly array $metadata = []
-    ) {
-    }
+    ) {}
 
     /**
      * Create event from HTTP request

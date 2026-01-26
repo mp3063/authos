@@ -67,7 +67,7 @@ class BulkAccessController extends BaseApiController
 
                 return $this->successResponse([
                     'revoked_count' => $successfulCount,
-                    'successful' => $users->map(fn($u) => ['user_id' => $u->id, 'name' => $u->name])->toArray(),
+                    'successful' => $users->map(fn ($u) => ['user_id' => $u->id, 'name' => $u->name])->toArray(),
                     'failed' => [],
                     'summary' => [
                         'total_revocations' => count($userIds),

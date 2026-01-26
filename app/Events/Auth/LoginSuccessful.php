@@ -20,12 +20,12 @@ class LoginSuccessful
     /**
      * Create a new event instance
      *
-     * @param User $user The authenticated user
-     * @param string $ipAddress The IP address of the request
-     * @param string|null $userAgent The user agent string
-     * @param string|null $clientId The OAuth client ID (if applicable)
-     * @param array<string> $scopes The granted OAuth scopes
-     * @param array<string, mixed> $metadata Additional metadata
+     * @param  User  $user  The authenticated user
+     * @param  string  $ipAddress  The IP address of the request
+     * @param  string|null  $userAgent  The user agent string
+     * @param  string|null  $clientId  The OAuth client ID (if applicable)
+     * @param  array<string>  $scopes  The granted OAuth scopes
+     * @param  array<string, mixed>  $metadata  Additional metadata
      */
     public function __construct(
         public readonly User $user,
@@ -34,13 +34,12 @@ class LoginSuccessful
         public readonly ?string $clientId = null,
         public readonly array $scopes = [],
         public readonly array $metadata = []
-    ) {
-    }
+    ) {}
 
     /**
      * Create event from HTTP request
      *
-     * @param array<string> $scopes
+     * @param  array<string>  $scopes
      */
     public static function fromRequest(
         User $user,

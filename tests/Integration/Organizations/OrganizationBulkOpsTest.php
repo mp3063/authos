@@ -4,7 +4,6 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Support\Facades\Queue;
 use Tests\Integration\IntegrationTestCase;
 
 /**

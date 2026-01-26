@@ -77,6 +77,7 @@ class DeliverWebhookJobTest extends TestCase
                     'response_body' => json_encode(['success' => true]),
                     'completed_at' => now(),
                 ]);
+
                 return true;
             });
 
@@ -102,6 +103,7 @@ class DeliverWebhookJobTest extends TestCase
                     'response_body' => json_encode(['success' => true, 'message' => 'Received']),
                     'completed_at' => now(),
                 ]);
+
                 return true;
             });
 
@@ -201,6 +203,7 @@ class DeliverWebhookJobTest extends TestCase
                     'completed_at' => now(),
                     'attempt_number' => 1,
                 ]);
+
                 return true;
             });
 
