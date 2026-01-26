@@ -20,7 +20,7 @@ class LdapConfigurationResource extends Resource
 {
     protected static ?string $model = LdapConfiguration::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = null;
 
     protected static string|UnitEnum|null $navigationGroup = 'Enterprise';
 

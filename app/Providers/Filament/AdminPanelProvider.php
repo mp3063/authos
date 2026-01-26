@@ -70,6 +70,16 @@ class AdminPanelProvider extends PanelProvider
                         ->collapsible()
                         ->collapsed(),
                     NavigationGroup::make()
+                        ->label('Integration')
+                        ->icon('heroicon-o-puzzle-piece')
+                        ->collapsible()
+                        ->collapsed(),
+                    NavigationGroup::make()
+                        ->label('Enterprise')
+                        ->icon('heroicon-o-building-office')
+                        ->collapsible()
+                        ->collapsed(),
+                    NavigationGroup::make()
                         ->label('System')
                         ->icon('heroicon-o-cog-6-tooth')
                         ->collapsible()

@@ -20,7 +20,7 @@ class CustomDomainResource extends Resource
 {
     protected static ?string $model = CustomDomain::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGlobeAlt;
+    protected static string|BackedEnum|null $navigationIcon = null;
 
     protected static string|UnitEnum|null $navigationGroup = 'Enterprise';
 
