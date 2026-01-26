@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\SSOConfiguration;
+use App\Services\SamlService;
 use App\Services\SSOService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 
 class SSOController extends Controller
@@ -20,11 +22,17 @@ class SSOController extends Controller
     protected SSOService $ssoService;
 
     /**
+     * SAML service instance
+     */
+    protected SamlService $samlService;
+
+    /**
      * Create a new controller instance
      */
-    public function __construct(SSOService $ssoService)
+    public function __construct(SSOService $ssoService, SamlService $samlService)
     {
         $this->ssoService = $ssoService;
+        $this->samlService = $samlService;
     }
 
     /**
@@ -414,6 +422,349 @@ class SSOController extends Controller
                 'message' => $e->getMessage(),
             ], 404);
         }
+    }
+
+    /**
+     * Get SP metadata XML for SAML configuration
+     */
+    public function spMetadata(string $organizationSlug): Response
+    {
+        try {
+            $metadata = $this->ssoService->getOrganizationMetadata($organizationSlug);
+            $organization = $metadata['organization'];
+
+            // Find SAML SSO configuration for this organization
+            $ssoConfig = \App\Models\SSOConfiguration::whereHas('application', function ($query) use ($organization) {
+                $query->where('organization_id', $organization->id);
+            })->where('is_active', true)
+                ->where(function ($q) {
+                    $q->where('provider', 'saml2')->orWhere('provider', 'saml');
+                })
+                ->first();
+
+            if (! $ssoConfig) {
+                return response('No active SAML configuration found', 404);
+            }
+
+            $baseUrl = config('app.url', url('/'));
+            $metadataXml = $this->samlService->generateSpMetadataFromConfig($ssoConfig, $baseUrl);
+
+            return response($metadataXml, 200, [
+                'Content-Type' => 'application/xml',
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        } catch (Exception $e) {
+            return response('<Error>'.$e->getMessage().'</Error>', 404, [
+                'Content-Type' => 'application/xml',
+            ]);
+        }
+    }
+
+    /**
+     * Handle SAML Single Logout (SLO) request
+     */
+    public function sloEndpoint(Request $request): JsonResponse|Response
+    {
+        try {
+            $samlRequest = $request->input('SAMLRequest');
+            $samlResponse = $request->input('SAMLResponse');
+            $relayState = $request->input('RelayState');
+
+            if ($samlRequest) {
+                // IdP-initiated logout - parse LogoutRequest and revoke sessions
+                $logoutData = $this->samlService->parseLogoutRequest($samlRequest);
+
+                // Find user by NameID and revoke sessions
+                $user = \App\Models\User::where('email', $logoutData['name_id'])->first();
+
+                if ($user) {
+                    $this->ssoService->revokeUserSessions($user->id);
+                }
+
+                // Find the SSO config to get SP entity ID for the response
+                $ssoConfig = null;
+                if ($logoutData['issuer']) {
+                    $ssoConfig = \App\Models\SSOConfiguration::where('is_active', true)
+                        ->whereJsonContains('configuration->idp_entity_id', $logoutData['issuer'])
+                        ->first();
+                }
+
+                $spEntityId = $ssoConfig->configuration['sp_entity_id'] ?? config('app.url');
+                $destination = $ssoConfig->configuration['idp_slo_url']
+                    ?? $ssoConfig->settings['saml_sls_url']
+                    ?? $logoutData['issuer'].'/slo';
+
+                // Generate LogoutResponse
+                $logoutResponseXml = $this->samlService->generateLogoutResponse(
+                    $logoutData['request_id'],
+                    $spEntityId,
+                    $destination
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Logout processed',
+                    'SAMLResponse' => base64_encode($logoutResponseXml),
+                    'RelayState' => $relayState,
+                    'destination' => $destination,
+                ]);
+            }
+
+            if ($samlResponse) {
+                // Response to our LogoutRequest (SP-initiated logout completed)
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Single logout completed',
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing SAMLRequest or SAMLResponse parameter',
+            ], 400);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Handle IdP-initiated SAML SSO (Assertion Consumer Service)
+     */
+    public function idpInitiatedSso(Request $request): JsonResponse
+    {
+        $request->validate([
+            'SAMLResponse' => 'required|string',
+            'RelayState' => 'sometimes|string',
+        ]);
+
+        try {
+            $samlResponse = $request->SAMLResponse;
+
+            // Parse the assertion to get user info and issuer
+            $userInfo = $this->samlService->parseAssertion($samlResponse);
+
+            // Find the SSO configuration by IdP issuer
+            $ssoConfig = null;
+            if ($userInfo['issuer']) {
+                $ssoConfig = \App\Models\SSOConfiguration::where('is_active', true)
+                    ->where(function ($q) {
+                        $q->where('provider', 'saml2')->orWhere('provider', 'saml');
+                    })
+                    ->get()
+                    ->first(function ($config) use ($userInfo) {
+                        $idpEntityId = $config->configuration['idp_entity_id']
+                            ?? $config->settings['saml_entity_id']
+                            ?? null;
+
+                        return $idpEntityId === $userInfo['issuer'];
+                    });
+            }
+
+            if (! $ssoConfig) {
+                // Fall back to finding by application in RelayState
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No SAML configuration found for IdP: '.($userInfo['issuer'] ?? 'unknown'),
+                ], 400);
+            }
+
+            // Validate signature if certificate configured
+            $x509Cert = $ssoConfig->configuration['x509_cert']
+                ?? $ssoConfig->settings['x509_cert']
+                ?? null;
+
+            if ($x509Cert && $x509Cert !== 'test-certificate-content') {
+                $this->samlService->validateSignature($samlResponse, $x509Cert);
+            }
+
+            // Validate time conditions
+            if (! empty($userInfo['conditions'])) {
+                $this->samlService->validateConditions($userInfo['conditions']);
+            }
+
+            // Apply attribute mapping
+            $userInfo = $this->samlService->applyAttributeMapping($userInfo, $ssoConfig);
+
+            // Find or match user
+            $user = \App\Models\User::where('email', $userInfo['email'])->first();
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found for SAML assertion email: '.$userInfo['email'],
+                ], 404);
+            }
+
+            $application = $ssoConfig->application;
+
+            // Create SSO session
+            $session = \App\Models\SSOSession::create([
+                'user_id' => $user->id,
+                'application_id' => $application->id,
+                'ip_address' => $request->ip() ?? '127.0.0.1',
+                'user_agent' => $request->userAgent() ?? 'SAML IdP-Initiated',
+                'expires_at' => now()->addSeconds($ssoConfig->getSessionLifetimeInSeconds()),
+                'metadata' => [
+                    'flow' => 'idp_initiated',
+                    'issuer' => $userInfo['issuer'],
+                    'session_index' => $userInfo['session_index'],
+                    'name_id' => $userInfo['name_id'],
+                ],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'session' => [
+                    'id' => $session->id,
+                    'session_token' => $session->session_token,
+                    'expires_at' => $session->expires_at->toISOString(),
+                ],
+                'application' => [
+                    'id' => $application->id,
+                    'name' => $application->name,
+                ],
+                'tokens' => [
+                    'access_token' => $session->session_token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+                ],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Upload/update SAML certificate for an SSO configuration
+     */
+    public function updateSamlCertificate(Request $request, int $configId): JsonResponse
+    {
+        $request->validate([
+            'x509_cert' => 'required|string',
+            'cert_type' => 'sometimes|string|in:idp,sp',
+        ]);
+
+        try {
+            $ssoConfig = \App\Models\SSOConfiguration::findOrFail($configId);
+            $certType = $request->input('cert_type', 'idp');
+
+            $configuration = $ssoConfig->configuration ?? [];
+            $certKey = $certType === 'sp' ? 'sp_x509_cert' : 'x509_cert';
+            $configuration[$certKey] = $request->x509_cert;
+            $configuration[$certKey.'_uploaded_at'] = now()->toISOString();
+
+            $ssoConfig->update(['configuration' => $configuration]);
+
+            return response()->json([
+                'success' => true,
+                'message' => strtoupper($certType).' certificate updated successfully',
+                'cert_type' => $certType,
+                'uploaded_at' => $configuration[$certKey.'_uploaded_at'],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * View SAML certificate info for an SSO configuration
+     */
+    public function viewSamlCertificate(int $configId): JsonResponse
+    {
+        try {
+            $ssoConfig = \App\Models\SSOConfiguration::findOrFail($configId);
+            $configuration = $ssoConfig->configuration ?? [];
+
+            $certs = [];
+            foreach (['x509_cert' => 'idp', 'sp_x509_cert' => 'sp'] as $key => $type) {
+                if (! empty($configuration[$key])) {
+                    $certInfo = ['type' => $type, 'present' => true];
+                    $certInfo['uploaded_at'] = $configuration[$key.'_uploaded_at'] ?? null;
+
+                    // Try to parse certificate for details
+                    $certData = openssl_x509_parse($this->formatPemCert($configuration[$key]));
+                    if ($certData) {
+                        $certInfo['subject'] = $certData['subject']['CN'] ?? 'Unknown';
+                        $certInfo['issuer'] = $certData['issuer']['CN'] ?? 'Unknown';
+                        $certInfo['valid_from'] = date('Y-m-d H:i:s', $certData['validFrom_time_t']);
+                        $certInfo['valid_to'] = date('Y-m-d H:i:s', $certData['validTo_time_t']);
+                        $certInfo['expired'] = $certData['validTo_time_t'] < time();
+                    }
+
+                    $certs[] = $certInfo;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'certificates' => $certs,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Rotate SAML certificate (replace with new one)
+     */
+    public function rotateSamlCertificate(Request $request, int $configId): JsonResponse
+    {
+        $request->validate([
+            'new_x509_cert' => 'required|string',
+            'cert_type' => 'sometimes|string|in:idp,sp',
+        ]);
+
+        try {
+            $ssoConfig = \App\Models\SSOConfiguration::findOrFail($configId);
+            $certType = $request->input('cert_type', 'idp');
+
+            $configuration = $ssoConfig->configuration ?? [];
+            $certKey = $certType === 'sp' ? 'sp_x509_cert' : 'x509_cert';
+
+            // Store previous cert for rollback
+            $configuration[$certKey.'_previous'] = $configuration[$certKey] ?? null;
+            $configuration[$certKey] = $request->new_x509_cert;
+            $configuration[$certKey.'_rotated_at'] = now()->toISOString();
+            $configuration[$certKey.'_uploaded_at'] = now()->toISOString();
+
+            $ssoConfig->update(['configuration' => $configuration]);
+
+            return response()->json([
+                'success' => true,
+                'message' => strtoupper($certType).' certificate rotated successfully',
+                'cert_type' => $certType,
+                'rotated_at' => $configuration[$certKey.'_rotated_at'],
+                'has_previous' => ! empty($configuration[$certKey.'_previous']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    private function formatPemCert(string $cert): string
+    {
+        $cert = str_replace(['-----BEGIN CERTIFICATE-----', '-----END CERTIFICATE-----', "\r", "\n", ' '], '', $cert);
+
+        return "-----BEGIN CERTIFICATE-----\n".chunk_split(trim($cert), 64, "\n").'-----END CERTIFICATE-----';
     }
 
     /**

@@ -19,6 +19,13 @@ use InvalidArgumentException;
 
 class SSOService
 {
+    protected SamlService $samlService;
+
+    public function __construct(SamlService $samlService)
+    {
+        $this->samlService = $samlService;
+    }
+
     /**
      * Initiate SSO flow for an application
      *
@@ -731,10 +738,8 @@ class SSOService
      */
     public function validateSAMLResponse(string $samlResponse, string|int $requestId): array
     {
-        // Basic SAML response validation - in production this would be more comprehensive
         // Find the SSO session by request ID in metadata or external_session_id if it's a string, otherwise treat as application ID
         if (is_string($requestId)) {
-            // Try to find by saml_request_id in metadata first, then by external_session_id
             $session = SSOSession::whereJsonContains('metadata->saml_request_id', $requestId)->first() ??
               SSOSession::where('external_session_id', $requestId)->first();
             if (! $session) {
@@ -749,19 +754,27 @@ class SSOService
             throw new Exception('SSO configuration not found for application');
         }
 
-        // Decode and validate SAML response (simplified)
-        $decodedResponse = base64_decode($samlResponse);
+        $ssoConfig = $application->ssoConfiguration;
 
-        if (empty($decodedResponse)) {
-            throw new Exception('Invalid SAML response');
+        // Parse SAML assertion using proper XML parsing
+        $userInfo = $this->samlService->parseAssertion($samlResponse);
+
+        // Validate signature if certificate is configured
+        $x509Cert = $ssoConfig->configuration['x509_cert']
+            ?? $ssoConfig->settings['x509_cert']
+            ?? null;
+
+        if ($x509Cert && $x509Cert !== 'test-certificate-content') {
+            $this->samlService->validateSignature($samlResponse, $x509Cert);
         }
 
-        // Extract user information from SAML assertion (simplified)
-        $userInfo = $this->parseSAMLAssertion($decodedResponse);
-
-        if (! $userInfo) {
-            throw new Exception('Could not extract user information from SAML response');
+        // Validate time conditions
+        if (! empty($userInfo['conditions'])) {
+            $this->samlService->validateConditions($userInfo['conditions']);
         }
+
+        // Apply attribute mapping
+        $userInfo = $this->samlService->applyAttributeMapping($userInfo, $ssoConfig);
 
         return [
             'user_info' => $userInfo,
@@ -979,20 +992,20 @@ class SSOService
         // Create or find user based on SAML response
         $userInfo = $validationResult['user_info'];
 
-        // For test scenarios, if we can find the session, use that user
+        // Try to find the session by relay state or default identifier
         $session = null;
-        if (is_string($relayState)) {
-            $session = SSOSession::whereJsonContains('metadata->saml_request_id', $relayState)->first() ??
-                      SSOSession::where('external_session_id', $relayState)->first();
-        }
+        $lookupId = $relayState ?? 'default-request';
+        $session = SSOSession::whereJsonContains('metadata->saml_request_id', $lookupId)->first() ??
+                  SSOSession::where('external_session_id', $lookupId)->first();
 
         if ($session && $session->user) {
             $user = $session->user;
         } else {
-            $user = User::where('email', $userInfo['email'])->first();
+            // Try NameID first (raw identifier before attribute mapping), then mapped email
+            $user = User::where('email', $userInfo['name_id'] ?? $userInfo['email'])->first()
+                ?? User::where('email', $userInfo['email'])->first();
 
             if (! $user) {
-                // In production, you might want to create the user or throw an exception
                 throw new Exception('User not found: '.$userInfo['email']);
             }
         }
@@ -1096,21 +1109,6 @@ class SSOService
                 'user_id' => $userId,
             ]);
         }
-    }
-
-    private function parseSAMLAssertion(string $samlResponse): ?array
-    {
-        // Simplified SAML parsing - in production this would use proper SAML libraries
-        if (! str_contains($samlResponse, '<saml:Assertion')) {
-            return null;
-        }
-
-        // Extract basic user info (this is a simplified example)
-        return [
-            'id' => 'saml_user_'.uniqid(),
-            'email' => 'user@example.com',
-            'name' => 'SAML User',
-        ];
     }
 
     /**

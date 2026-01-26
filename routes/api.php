@@ -306,6 +306,18 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/configuration/{applicationId}', [\App\Http\Controllers\Api\SSOController::class, 'configuration']);
         Route::get('/metadata/{organizationSlug}', [\App\Http\Controllers\Api\SSOController::class, 'metadata']);
         Route::post('/cleanup', [\App\Http\Controllers\Api\SSOController::class, 'cleanup']);
+
+        // SAML 2.0 endpoints
+        Route::get('/saml/{organizationSlug}/metadata', [\App\Http\Controllers\Api\SSOController::class, 'spMetadata']);
+        Route::post('/saml/slo', [\App\Http\Controllers\Api\SSOController::class, 'sloEndpoint']);
+        Route::post('/saml/acs', [\App\Http\Controllers\Api\SSOController::class, 'idpInitiatedSso']);
+
+        // SAML certificate management (authenticated)
+        Route::middleware('auth:api')->group(function () {
+            Route::post('/saml/certificates/{configId}', [\App\Http\Controllers\Api\SSOController::class, 'updateSamlCertificate'])->middleware('scopes:sso');
+            Route::get('/saml/certificates/{configId}', [\App\Http\Controllers\Api\SSOController::class, 'viewSamlCertificate'])->middleware('scopes:sso');
+            Route::post('/saml/certificates/{configId}/rotate', [\App\Http\Controllers\Api\SSOController::class, 'rotateSamlCertificate'])->middleware('scopes:sso');
+        });
     });
 
     // API Monitoring and Metrics (Admin only)
