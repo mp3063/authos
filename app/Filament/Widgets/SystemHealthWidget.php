@@ -13,15 +13,9 @@ class SystemHealthWidget extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
-    public function __construct(
-        private readonly HealthCheckService $healthCheckService
-    ) {
-        parent::__construct();
-    }
-
     public function getViewData(): array
     {
-        $health = $this->healthCheckService->checkHealth(detailed: false);
+        $health = app(HealthCheckService::class)->checkHealth(detailed: false);
 
         return [
             'status' => $health['status'],

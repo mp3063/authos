@@ -15,15 +15,9 @@ class ErrorTrendsWidget extends ChartWidget
 
     protected ?string $pollingInterval = '60s';
 
-    public function __construct(
-        private readonly ErrorTrackingService $errorTrackingService
-    ) {
-        parent::__construct();
-    }
-
     protected function getData(): array
     {
-        $trends = $this->errorTrackingService->getErrorTrends(7);
+        $trends = app(ErrorTrackingService::class)->getErrorTrends(7);
 
         $labels = [];
         $criticalData = [];

@@ -15,15 +15,9 @@ class OAuthFlowMonitorWidget extends ChartWidget
 
     protected ?string $pollingInterval = '60s';
 
-    public function __construct(
-        private readonly MetricsCollectionService $metricsService
-    ) {
-        parent::__construct();
-    }
-
     protected function getData(): array
     {
-        $oauthMetrics = $this->metricsService->getOAuthMetrics();
+        $oauthMetrics = app(MetricsCollectionService::class)->getOAuthMetrics();
         $trend = $oauthMetrics['trend_7_days'];
 
         $labels = [];

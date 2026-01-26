@@ -15,18 +15,14 @@ class RealTimeMetricsWidget extends BaseWidget
     // Auto-refresh every 30 seconds
     protected ?string $pollingInterval = '30s';
 
-    public function __construct(
-        private readonly MetricsCollectionService $metricsService
-    ) {
-        parent::__construct();
-    }
-
     protected function getStats(): array
     {
-        $apiMetrics = $this->metricsService->getApiMetrics();
-        $authMetrics = $this->metricsService->getAuthenticationMetrics();
-        $webhookMetrics = $this->metricsService->getWebhookMetrics();
-        $performanceMetrics = $this->metricsService->getPerformanceMetrics();
+        $metricsService = app(MetricsCollectionService::class);
+
+        $apiMetrics = $metricsService->getApiMetrics();
+        $authMetrics = $metricsService->getAuthenticationMetrics();
+        $webhookMetrics = $metricsService->getWebhookMetrics();
+        $performanceMetrics = $metricsService->getPerformanceMetrics();
 
         return [
             Stat::make('API Requests (Today)', number_format($apiMetrics['total_requests']))

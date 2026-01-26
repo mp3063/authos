@@ -16,23 +16,19 @@ class SecurityMonitoringWidget extends Widget
 
     protected ?string $pollingInterval = '30s';
 
-    public function __construct(
-        private readonly MetricsCollectionService $metricsService,
-        private readonly ErrorTrackingService $errorTrackingService
-    ) {
-        parent::__construct();
-    }
-
     public function getViewData(): array
     {
-        $authMetrics = $this->metricsService->getAuthenticationMetrics();
-        $errorStats = $this->errorTrackingService->getErrorStatistics();
+        $metricsService = app(MetricsCollectionService::class);
+        $errorTrackingService = app(ErrorTrackingService::class);
+
+        $authMetrics = $metricsService->getAuthenticationMetrics();
+        $errorStats = $errorTrackingService->getErrorStatistics();
 
         return [
             'suspicious_ips' => $authMetrics['suspicious_ips'] ?? [],
             'failed_logins' => $authMetrics['today']['failed'] ?? 0,
             'critical_errors' => $errorStats['critical'] ?? 0,
-            'error_rate' => $this->errorTrackingService->getErrorRate(),
+            'error_rate' => $errorTrackingService->getErrorRate(),
         ];
     }
 }
