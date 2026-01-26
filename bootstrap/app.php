@@ -50,7 +50,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
             'org.boundary' => \App\Http\Middleware\EnforceOrganizationBoundary::class,
             'permission.context' => \App\Http\Middleware\SetPermissionContext::class,
-            'pkce.validate' => \App\Http\Middleware\ValidatePKCE::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
