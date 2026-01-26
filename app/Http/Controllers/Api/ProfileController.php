@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Profile\ChangePasswordRequest;
 use App\Http\Requests\Profile\UpdateProfileRequest;
+use App\Mail\MfaSetupConfirmation;
+use App\Notifications\PasswordChangedNotification;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use PragmaRX\Google2FA\Google2FA;
@@ -294,6 +297,9 @@ class ProfileController extends Controller
             [],
             $request
         );
+
+        // Notify user about password change
+        $user->notify(new PasswordChangedNotification($request->ip()));
 
         return response()->json([
             'message' => 'Password changed successfully',
@@ -638,6 +644,9 @@ class ProfileController extends Controller
             [],
             $request
         );
+
+        // Send MFA setup confirmation email
+        Mail::to($user)->send(new MfaSetupConfirmation($user, ['totp']));
 
         return response()->json([
             'success' => true,
