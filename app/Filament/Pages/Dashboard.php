@@ -2,9 +2,19 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\ApplicationAccessMatrix;
 use App\Filament\Widgets\AuthStatsOverview;
+use App\Filament\Widgets\ErrorTrendsWidget;
 use App\Filament\Widgets\LoginActivityChart;
+use App\Filament\Widgets\OAuthFlowMonitorWidget;
+use App\Filament\Widgets\OrganizationOverviewWidget;
+use App\Filament\Widgets\PendingInvitationsWidget;
+use App\Filament\Widgets\RealTimeMetricsWidget;
 use App\Filament\Widgets\RecentAuthenticationLogs;
+use App\Filament\Widgets\SecurityMonitoringWidget;
+use App\Filament\Widgets\SystemHealthWidget;
+use App\Filament\Widgets\UserActivityWidget;
+use App\Filament\Widgets\WebhookActivityChart;
 use BackedEnum;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -17,8 +27,25 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            // System Health
+            SystemHealthWidget::class,
             AuthStatsOverview::class,
+            RealTimeMetricsWidget::class,
+
+            // Security Monitoring
+            SecurityMonitoringWidget::class,
+            ErrorTrendsWidget::class,
+
+            // Operational Metrics
             LoginActivityChart::class,
+            OAuthFlowMonitorWidget::class,
+            WebhookActivityChart::class,
+
+            // Organization & Access
+            OrganizationOverviewWidget::class,
+            UserActivityWidget::class,
+            PendingInvitationsWidget::class,
+            ApplicationAccessMatrix::class,
             RecentAuthenticationLogs::class,
         ];
     }
