@@ -7,10 +7,12 @@ namespace App\Services\Auth0\Migration\Importers;
 use App\Models\Organization;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Notifications\PasswordResetNotification;
 use App\Services\Auth0\DTOs\Auth0UserDTO;
 use App\Services\Auth0\Migration\ImportResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -179,8 +181,9 @@ class UserImporter
             ),
         ]);
 
-        // TODO: Send password reset email
-        // This should trigger a password reset email to the user
+        // Send password reset email to migrated user
+        $token = Password::broker()->createToken($user);
+        $user->notify(new PasswordResetNotification($token));
     }
 
     /**
