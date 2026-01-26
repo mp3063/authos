@@ -415,7 +415,7 @@ public function it_describes_expected_behavior(): void
 
 ## Admin Panel (Filament 4)
 
-### Resources (12)
+### Resources (16)
 1. **Users** - MFA controls, bulk operations, session management
 2. **Organizations** - Settings, security policies, branding
 3. **Applications** - OAuth client management, credentials
@@ -428,6 +428,10 @@ public function it_describes_expected_behavior(): void
 10. **Custom Domains** - Domain verification, DNS records
 11. **Webhooks** - Event subscriptions, configuration
 12. **Webhook Deliveries** - Delivery logs, retry management
+13. **Security Incidents** - Read-only incident list with severity/type filters, resolve/dismiss actions
+14. **Account Lockouts** - Read-only lockout list with unlock action, bulk unlock
+15. **IP Blocklist** - Create/delete blocked IPs, unblock/reblock actions, bulk unblock
+16. **Failed Login Attempts** - Read-only audit log with time-based tabs
 
 ### Dashboard Widgets (13)
 - **System Health** - Real-time health status
