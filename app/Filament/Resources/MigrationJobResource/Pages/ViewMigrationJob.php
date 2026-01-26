@@ -17,6 +17,11 @@ class ViewMigrationJob extends ViewRecord
 {
     protected static string $resource = MigrationJobResource::class;
 
+    public function getMaxContentWidth(): string
+    {
+        return 'full';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -110,6 +115,100 @@ class ViewMigrationJob extends ViewRecord
                         ->columnSpanFull(),
                 ])
                 ->columns(3),
+
+            Section::make('Migration Progress')
+                ->schema([
+                    TextEntry::make('progress')
+                        ->label('Progress')
+                        ->state(function (MigrationJob $record): string {
+                            if ($record->status === 'pending') {
+                                return 'Waiting to start...';
+                            }
+                            if ($record->status === 'running') {
+                                $stats = $record->stats ?? [];
+                                $processed = 0;
+                                foreach (['users', 'applications', 'roles'] as $type) {
+                                    if (isset($stats[$type]) && is_array($stats[$type])) {
+                                        $processed += ($stats[$type]['successful'] ?? 0) + ($stats[$type]['failed'] ?? 0) + ($stats[$type]['skipped'] ?? 0);
+                                    }
+                                }
+                                $total = $record->total_items ?: 1;
+                                $pct = min(100, round(($processed / $total) * 100));
+
+                                return "{$processed}/{$total} items processed ({$pct}%)";
+                            }
+                            if ($record->status === 'completed') {
+                                return 'Migration completed successfully';
+                            }
+                            if ($record->status === 'failed') {
+                                return 'Migration failed';
+                            }
+                            if ($record->status === 'rolled_back') {
+                                return 'Migration was rolled back';
+                            }
+
+                            return $record->status;
+                        })
+                        ->badge()
+                        ->color(fn (MigrationJob $record): string => match ($record->status) {
+                            'pending' => 'warning',
+                            'running' => 'info',
+                            'completed' => 'success',
+                            'failed' => 'danger',
+                            'rolled_back' => 'gray',
+                            default => 'gray',
+                        }),
+
+                    TextEntry::make('users_progress')
+                        ->label('Users')
+                        ->state(function (MigrationJob $record): string {
+                            $stats = $record->stats['users'] ?? null;
+                            if (! $stats) {
+                                return 'N/A';
+                            }
+
+                            $successful = $stats['successful'] ?? 0;
+                            $failed = $stats['failed'] ?? 0;
+                            $skipped = $stats['skipped'] ?? 0;
+
+                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                        })
+                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['users'])),
+
+                    TextEntry::make('apps_progress')
+                        ->label('Applications')
+                        ->state(function (MigrationJob $record): string {
+                            $stats = $record->stats['applications'] ?? null;
+                            if (! $stats) {
+                                return 'N/A';
+                            }
+
+                            $successful = $stats['successful'] ?? 0;
+                            $failed = $stats['failed'] ?? 0;
+                            $skipped = $stats['skipped'] ?? 0;
+
+                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                        })
+                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['applications'])),
+
+                    TextEntry::make('roles_progress')
+                        ->label('Roles')
+                        ->state(function (MigrationJob $record): string {
+                            $stats = $record->stats['roles'] ?? null;
+                            if (! $stats) {
+                                return 'N/A';
+                            }
+
+                            $successful = $stats['successful'] ?? 0;
+                            $failed = $stats['failed'] ?? 0;
+                            $skipped = $stats['skipped'] ?? 0;
+
+                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                        })
+                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['roles'])),
+                ])
+                ->columns(2)
+                ->visible(fn (MigrationJob $record): bool => in_array($record->status, ['running', 'completed', 'failed'])),
 
             Section::make('Timing')
                 ->schema([
