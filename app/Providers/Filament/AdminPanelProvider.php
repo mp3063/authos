@@ -40,6 +40,7 @@ class AdminPanelProvider extends PanelProvider
                     'info' => Color::Sky,
                 ])
                 ->brandName('AuthOS')
+                ->viteTheme('resources/css/filament/admin/theme.css')
                 ->pages([
                     \App\Filament\Pages\Dashboard::class,
                 ])
