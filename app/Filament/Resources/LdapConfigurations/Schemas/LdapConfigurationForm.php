@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LdapConfigurations\Schemas;
 
+use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -115,6 +116,71 @@ class LdapConfigurationForm
                             ->visible(fn ($context) => $context === 'edit'),
                     ]),
                 ]),
+
+                Section::make('Attribute Mapping')
+                    ->description('Map LDAP attributes to user fields. These control how LDAP data maps to local user records.')
+                    ->schema([
+                        KeyValue::make('sync_settings.attribute_mapping')
+                            ->label('LDAP Attribute → User Field')
+                            ->keyLabel('LDAP Attribute')
+                            ->valueLabel('User Field')
+                            ->default([
+                                'mail' => 'email',
+                                'displayName' => 'name',
+                                'cn' => 'name_fallback',
+                                'givenName' => 'first_name',
+                                'sn' => 'last_name',
+                                'userPrincipalName' => 'email_fallback',
+                            ])
+                            ->helperText('Map LDAP attributes to application user fields')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+
+                Section::make('Group-to-Role Mapping')
+                    ->description('Map LDAP groups to application roles. Users in these LDAP groups will automatically receive the corresponding role.')
+                    ->schema([
+                        KeyValue::make('sync_settings.group_role_mapping')
+                            ->label('LDAP Group DN → Application Role')
+                            ->keyLabel('LDAP Group DN')
+                            ->valueLabel('Role Name')
+                            ->default([])
+                            ->helperText('Example: cn=admins,ou=groups,dc=example,dc=com → Organization Admin')
+                            ->columnSpanFull(),
+                        TextInput::make('sync_settings.group_attribute')
+                            ->label('Group Membership Attribute')
+                            ->default('memberOf')
+                            ->helperText('LDAP attribute that contains group membership'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+
+                Section::make('Sync Schedule')
+                    ->description('Configure automatic LDAP synchronization schedule.')
+                    ->schema([
+                        Grid::make()->schema([
+                            Toggle::make('sync_settings.auto_sync_enabled')
+                                ->label('Enable Automatic Sync')
+                                ->default(false)
+                                ->live()
+                                ->helperText('When enabled, users will be synced from LDAP on a schedule'),
+                            Select::make('sync_settings.sync_frequency')
+                                ->label('Sync Frequency')
+                                ->options([
+                                    'hourly' => 'Every Hour',
+                                    'every_6_hours' => 'Every 6 Hours',
+                                    'every_12_hours' => 'Every 12 Hours',
+                                    'daily' => 'Daily',
+                                    'weekly' => 'Weekly',
+                                ])
+                                ->default('daily')
+                                ->visible(fn ($get) => $get('sync_settings.auto_sync_enabled'))
+                                ->helperText('How often to synchronize users from LDAP'),
+                        ]),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 }

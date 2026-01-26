@@ -123,11 +123,19 @@ class LdapAuthService
             $ldapConnection = $this->connectToLdap($config);
             $ldapUsers = $this->getUsersFromLdapConnection($ldapConnection, $config);
 
+            $attributeMapping = $config->sync_settings['attribute_mapping'] ?? null;
+            $groupRoleMapping = $config->sync_settings['group_role_mapping'] ?? [];
+            $groupAttribute = $config->sync_settings['group_attribute'] ?? 'memberOf';
+
             foreach ($ldapUsers as $ldapUser) {
                 $stats['total']++;
 
                 try {
-                    $user = $this->mapLdapUser($ldapUser, $organization);
+                    $user = $this->mapLdapUser($ldapUser, $organization, $attributeMapping);
+
+                    if (! empty($groupRoleMapping)) {
+                        $this->assignRolesFromLdapGroups($user, $ldapUser, $groupRoleMapping, $groupAttribute);
+                    }
 
                     if ($user->wasRecentlyCreated) {
                         $stats['created']++;
@@ -212,13 +220,17 @@ class LdapAuthService
         try {
             $ldapConnection = $this->connectToLdap($config);
 
+            // Determine attributes to fetch, including group attribute
+            $groupAttribute = $config->sync_settings['group_attribute'] ?? 'memberOf';
+            $searchAttributes = ['dn', 'cn', 'mail', 'displayName', 'givenName', 'sn', 'userPrincipalName', strtolower($groupAttribute)];
+
             // Search for user
             $searchFilter = "(&({$config->user_attribute}={$username})".($config->user_filter ?: '(objectClass=person)').')';
             $searchResult = @ldap_search(
                 $ldapConnection,
                 $config->base_dn,
                 $searchFilter,
-                ['dn', 'cn', 'mail', 'displayName', 'givenName', 'sn']
+                $searchAttributes
             );
 
             if (! $searchResult) {
@@ -260,7 +272,14 @@ class LdapAuthService
             }
 
             // Authentication successful - find or create user
-            $user = $this->mapLdapUser($userEntry, $config->organization);
+            $attributeMapping = $config->sync_settings['attribute_mapping'] ?? null;
+            $user = $this->mapLdapUser($userEntry, $config->organization, $attributeMapping);
+
+            // Assign roles based on LDAP group membership
+            $groupRoleMapping = $config->sync_settings['group_role_mapping'] ?? [];
+            if (! empty($groupRoleMapping)) {
+                $this->assignRolesFromLdapGroups($user, $userEntry, $groupRoleMapping, $groupAttribute);
+            }
 
             $this->logAuthenticationEvent($config->organization_id, $user->id, 'ldap_auth_success', true, [
                 'username' => $username,
@@ -329,12 +348,15 @@ class LdapAuthService
      */
     private function getUsersFromLdapConnection($ldapConnection, LdapConfiguration $config, int $limit = 100): array
     {
+        $groupAttribute = $config->sync_settings['group_attribute'] ?? 'memberOf';
+        $attributes = ['dn', 'cn', 'mail', 'displayName', 'givenName', 'sn', 'userPrincipalName', strtolower($groupAttribute)];
+
         $searchFilter = $config->user_filter ?: '(objectClass=person)';
         $searchResult = @ldap_search(
             $ldapConnection,
             $config->base_dn,
             $searchFilter,
-            ['dn', 'cn', 'mail', 'displayName', 'givenName', 'sn', 'userPrincipalName'],
+            $attributes,
             0,
             $limit
         );
@@ -357,21 +379,57 @@ class LdapAuthService
     /**
      * Map LDAP user to User model
      */
-    private function mapLdapUser(array $ldapUser, Organization $organization): User
+    private function mapLdapUser(array $ldapUser, Organization $organization, ?array $attributeMapping = null): User
     {
-        // Extract email from various LDAP attributes
-        $email = $ldapUser['mail'][0] ?? $ldapUser['userprincipalname'][0] ?? null;
+        $mapping = $attributeMapping ?? [
+            'mail' => 'email',
+            'displayName' => 'name',
+            'cn' => 'name_fallback',
+            'givenName' => 'first_name',
+            'sn' => 'last_name',
+            'userPrincipalName' => 'email_fallback',
+        ];
+
+        // Extract email from mapped attributes
+        $email = null;
+        foreach ($mapping as $ldapAttr => $userField) {
+            if (in_array($userField, ['email', 'email_fallback']) && ! empty($ldapUser[strtolower($ldapAttr)][0])) {
+                $email = $ldapUser[strtolower($ldapAttr)][0];
+                if ($userField === 'email') {
+                    break;
+                }
+            }
+        }
 
         if (! $email) {
             throw new Exception('No email found in LDAP user data');
         }
 
-        // Extract name from various LDAP attributes
-        $name = $ldapUser['displayname'][0] ??
-            $ldapUser['cn'][0] ??
-            ($ldapUser['givenname'][0] ?? '').' '.($ldapUser['sn'][0] ?? '');
+        // Extract name from mapped attributes
+        $name = null;
+        foreach ($mapping as $ldapAttr => $userField) {
+            if (in_array($userField, ['name', 'name_fallback']) && ! empty($ldapUser[strtolower($ldapAttr)][0])) {
+                $name = $ldapUser[strtolower($ldapAttr)][0];
+                if ($userField === 'name') {
+                    break;
+                }
+            }
+        }
 
-        $name = trim($name);
+        // Fallback: combine first_name + last_name
+        if (! $name) {
+            $firstName = '';
+            $lastName = '';
+            foreach ($mapping as $ldapAttr => $userField) {
+                if ($userField === 'first_name' && ! empty($ldapUser[strtolower($ldapAttr)][0])) {
+                    $firstName = $ldapUser[strtolower($ldapAttr)][0];
+                }
+                if ($userField === 'last_name' && ! empty($ldapUser[strtolower($ldapAttr)][0])) {
+                    $lastName = $ldapUser[strtolower($ldapAttr)][0];
+                }
+            }
+            $name = trim("$firstName $lastName");
+        }
 
         if (! $name) {
             $name = explode('@', $email)[0];
@@ -391,6 +449,31 @@ class LdapAuthService
         );
 
         return $user;
+    }
+
+    /**
+     * Assign application roles to a user based on their LDAP group memberships
+     */
+    private function assignRolesFromLdapGroups(User $user, array $ldapUser, array $groupRoleMapping, string $groupAttribute = 'memberof'): void
+    {
+        if (empty($groupRoleMapping)) {
+            return;
+        }
+
+        $userGroups = $ldapUser[strtolower($groupAttribute)] ?? [];
+        if (isset($userGroups['count'])) {
+            unset($userGroups['count']);
+        }
+
+        foreach ($groupRoleMapping as $ldapGroupDn => $roleName) {
+            if (in_array($ldapGroupDn, $userGroups, true)) {
+                try {
+                    $user->assignRole($roleName);
+                } catch (\Exception $e) {
+                    Log::warning("Failed to assign role '{$roleName}' to user {$user->email}: {$e->getMessage()}");
+                }
+            }
+        }
     }
 
     /**

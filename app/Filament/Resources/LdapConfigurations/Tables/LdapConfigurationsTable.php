@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\LdapConfigurations\Tables;
 
+use App\Jobs\SyncLdapUsersJob;
+use App\Services\LdapAuthService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -57,6 +60,26 @@ class LdapConfigurationsTable
                     ->sortable()
                     ->placeholder('Never'),
 
+                TextColumn::make('sync_status')
+                    ->label('Sync Status')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'processing' => 'info',
+                        'completed' => 'success',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn (?string $state): ?string => match ($state) {
+                        'pending' => 'heroicon-o-clock',
+                        'processing' => 'heroicon-o-arrow-path',
+                        'completed' => 'heroicon-o-check-circle',
+                        'failed' => 'heroicon-o-x-circle',
+                        default => null,
+                    })
+                    ->placeholder('Never synced')
+                    ->sortable(),
+
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -100,6 +123,8 @@ class LdapConfigurationsTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    ViewAction::make(),
+
                     EditAction::make(),
 
                     Action::make('test_connection')
@@ -107,18 +132,19 @@ class LdapConfigurationsTable
                         ->icon('heroicon-o-signal')
                         ->color('info')
                         ->action(function ($record) {
-                            // This would integrate with LdapAuthService
-                            if ($record->isTestable()) {
+                            try {
+                                $result = app(LdapAuthService::class)->testConnection($record);
+
                                 Notification::make()
                                     ->success()
-                                    ->title('Connection Test')
-                                    ->body('Connection successful! (Mock test)')
+                                    ->title('Connection Successful')
+                                    ->body("Found {$result['user_count']} users")
                                     ->send();
-                            } else {
+                            } catch (\Exception $e) {
                                 Notification::make()
                                     ->danger()
-                                    ->title('Connection Test Failed')
-                                    ->body('Missing required connection details')
+                                    ->title('Connection Failed')
+                                    ->body($e->getMessage())
                                     ->send();
                             }
                         })
@@ -132,8 +158,8 @@ class LdapConfigurationsTable
                         ->icon('heroicon-o-arrow-path')
                         ->color('success')
                         ->action(function ($record) {
-                            // Update last sync timestamp
-                            $record->update(['last_sync_at' => now()]);
+                            $record->update(['sync_status' => 'pending']);
+                            SyncLdapUsersJob::dispatch($record);
 
                             Notification::make()
                                 ->success()

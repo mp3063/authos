@@ -5,13 +5,13 @@ namespace App\Filament\Resources\LdapConfigurations;
 use App\Filament\Resources\LdapConfigurations\Pages\CreateLdapConfiguration;
 use App\Filament\Resources\LdapConfigurations\Pages\EditLdapConfiguration;
 use App\Filament\Resources\LdapConfigurations\Pages\ListLdapConfigurations;
+use App\Filament\Resources\LdapConfigurations\Pages\ViewLdapConfiguration;
 use App\Filament\Resources\LdapConfigurations\Schemas\LdapConfigurationForm;
 use App\Filament\Resources\LdapConfigurations\Tables\LdapConfigurationsTable;
 use App\Models\LdapConfiguration;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
@@ -56,6 +56,7 @@ class LdapConfigurationResource extends Resource
         return [
             'index' => ListLdapConfigurations::route('/'),
             'create' => CreateLdapConfiguration::route('/create'),
+            'view' => ViewLdapConfiguration::route('/{record}'),
             'edit' => EditLdapConfiguration::route('/{record}/edit'),
         ];
     }
