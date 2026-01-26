@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api\Organizations;
 
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
+use App\Models\AuditExport;
 use App\Models\Organization;
 use App\Services\OrganizationAnalyticsService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrganizationAnalyticsController extends BaseApiController
 {
@@ -202,6 +206,22 @@ class OrganizationAnalyticsController extends BaseApiController
         $dateTo = $request->get('date_to');
 
         try {
+            // Create AuditExport record with pending status
+            $user = $this->getAuthenticatedUser();
+
+            $auditExport = AuditExport::create([
+                'organization_id' => $organization->id,
+                'user_id' => $user->id,
+                'type' => $format,
+                'status' => 'pending',
+                'filters' => array_filter([
+                    'data_type' => $dataType,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                ]),
+                'started_at' => now(),
+            ]);
+
             // Build export data based on data type
             $exportData = match ($dataType) {
                 'users' => $this->exportUsers($organization, $dateFrom, $dateTo),
@@ -211,27 +231,149 @@ class OrganizationAnalyticsController extends BaseApiController
                 default => throw new Exception('Invalid data type'),
             };
 
-            // Generate a unique export ID
-            $exportId = uniqid('export_', true);
+            // Generate file content based on format
+            $fileExtension = $format === 'xlsx' ? 'csv' : $format;
+            $content = match ($format) {
+                'csv', 'xlsx' => $this->arrayToCsv($exportData),
+                'json' => json_encode($exportData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+                default => json_encode($exportData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            };
 
-            // In a real implementation, this would save the export to storage
-            // and return a signed URL. For now, we'll return a placeholder URL.
-            $downloadUrl = url("/api/v1/organizations/{$organization->id}/exports/{$exportId}/download");
+            // Store file
+            $timestamp = now()->format('Y-m-d_His');
+            $filePath = "exports/org-{$organization->id}-{$dataType}-{$timestamp}.{$fileExtension}";
+
+            Storage::disk('public')->put($filePath, $content);
+
+            // Update AuditExport record
+            $recordsCount = is_array($exportData) ? count($exportData) : 0;
+
+            $auditExport->update([
+                'file_path' => $filePath,
+                'status' => 'completed',
+                'records_count' => $recordsCount,
+                'completed_at' => now(),
+            ]);
+
+            // Generate signed temporary URL (valid for 1 hour)
+            $downloadUrl = URL::temporarySignedRoute(
+                'api.organizations.exports.download',
+                now()->addHour(),
+                [
+                    'id' => $organization->id,
+                    'exportId' => $auditExport->id,
+                ]
+            );
 
             return $this->successResponse(
                 [
-                    'export_id' => $exportId,
+                    'export_id' => $auditExport->id,
                     'status' => 'completed',
                     'download_url' => $downloadUrl,
                     'format' => $format,
                     'data_type' => $dataType,
-                    'exported_at' => now()->toIso8601String(),
+                    'records_count' => $recordsCount,
+                    'file_path' => $filePath,
+                    'exported_at' => $auditExport->completed_at->toIso8601String(),
                 ],
                 'Organization data exported successfully'
             );
         } catch (Exception $e) {
+            // Mark export as failed if record was created
+            if (isset($auditExport)) {
+                $auditExport->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'completed_at' => now(),
+                ]);
+            }
+
             return $this->errorResponse('Failed to export data: '.$e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Download an export file
+     */
+    public function downloadExport(Request $request, string $id, string $exportId): StreamedResponse|JsonResponse
+    {
+        // Validate signed URL
+        if (! $request->hasValidSignature()) {
+            return $this->errorResponse('Invalid or expired download link', 403);
+        }
+
+        $export = AuditExport::find($exportId);
+
+        if (! $export || ! $export->isCompleted()) {
+            return $this->notFoundResponse('Export not found or not yet completed');
+        }
+
+        // Check organization access
+        $user = $this->getAuthenticatedUser();
+        if (! $user) {
+            return $this->unauthorizedResponse();
+        }
+
+        $isSuperAdmin = $this->isSuperAdmin();
+        if (! $isSuperAdmin && $user->organization_id != $export->organization_id) {
+            return $this->forbiddenResponse('You do not have access to this export');
+        }
+
+        // Verify the export belongs to the requested organization
+        if ($export->organization_id != $id) {
+            return $this->notFoundResponse('Export not found');
+        }
+
+        if (! Storage::disk('public')->exists($export->file_path)) {
+            return $this->notFoundResponse('Export file not found');
+        }
+
+        $filename = basename($export->file_path);
+
+        return Storage::disk('public')->download($export->file_path, $filename);
+    }
+
+    /**
+     * Get export status
+     */
+    public function exportStatus(Request $request, string $id, string $exportId): JsonResponse
+    {
+        $this->authorize('organizations.read');
+
+        $organization = Organization::findOrFail($id);
+
+        $export = AuditExport::where('id', $exportId)
+            ->where('organization_id', $organization->id)
+            ->first();
+
+        if (! $export) {
+            return $this->notFoundResponse('Export not found');
+        }
+
+        $data = [
+            'export_id' => $export->id,
+            'status' => $export->status,
+            'type' => $export->type,
+            'filters' => $export->filters,
+            'records_count' => $export->records_count,
+            'started_at' => $export->started_at?->toIso8601String(),
+            'completed_at' => $export->completed_at?->toIso8601String(),
+            'error_message' => $export->error_message,
+        ];
+
+        // Include download URL for completed exports
+        if ($export->isCompleted() && $export->file_path) {
+            $data['download_url'] = URL::temporarySignedRoute(
+                'api.organizations.exports.download',
+                now()->addHour(),
+                [
+                    'id' => $organization->id,
+                    'exportId' => $export->id,
+                ]
+            );
+        }
+
+        return $this->successResponse($data, 'Export status retrieved successfully');
     }
 
     /**
@@ -315,5 +457,65 @@ class OrganizationAnalyticsController extends BaseApiController
             '30days' => '30d',
             default => $period,
         };
+    }
+
+    /**
+     * Convert array data to CSV string
+     */
+    private function arrayToCsv(array $data): string
+    {
+        if (empty($data)) {
+            return '';
+        }
+
+        $output = fopen('php://temp', 'r+');
+
+        // If the data is an associative array (not a list of rows), wrap it
+        if (! array_is_list($data)) {
+            $data = [$this->flattenArray($data)];
+        } else {
+            $data = array_map(fn ($row) => is_array($row) ? $this->flattenArray($row) : [$row], $data);
+        }
+
+        // Write header row from first element keys
+        $firstRow = reset($data);
+        if (is_array($firstRow)) {
+            fputcsv($output, array_keys($firstRow));
+        }
+
+        // Write data rows
+        foreach ($data as $row) {
+            if (is_array($row)) {
+                fputcsv($output, array_map(fn ($value) => is_array($value) ? json_encode($value) : $value, $row));
+            } else {
+                fputcsv($output, [$row]);
+            }
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return $csv;
+    }
+
+    /**
+     * Flatten nested array with dot notation keys
+     */
+    private function flattenArray(array $array, string $prefix = ''): array
+    {
+        $result = [];
+
+        foreach ($array as $key => $value) {
+            $newKey = $prefix === '' ? $key : $prefix.'.'.$key;
+
+            if (is_array($value) && ! empty($value) && ! array_is_list($value)) {
+                $result = array_merge($result, $this->flattenArray($value, $newKey));
+            } else {
+                $result[$newKey] = is_array($value) ? json_encode($value) : $value;
+            }
+        }
+
+        return $result;
     }
 }

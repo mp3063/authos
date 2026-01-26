@@ -63,14 +63,17 @@ class CacheStatsTest extends IntegrationTestCase
         $response->assertOk();
 
         $response->assertJsonStructure([
-            'total_keys',
-            'memory_usage',
-            'hit_rate',
-            'timestamp',
+            'success',
+            'data' => [
+                'total_keys',
+                'memory_usage',
+                'hit_rate',
+                'timestamp',
+            ],
         ]);
 
         // Verify data types
-        $data = $response->json();
+        $data = $response->json('data');
         $this->assertIsInt($data['total_keys']);
         $this->assertIsString($data['memory_usage']);
         $this->assertIsString($data['hit_rate']);
@@ -110,7 +113,7 @@ class CacheStatsTest extends IntegrationTestCase
         // ASSERT: Verify hit rate is calculated
         $response->assertOk();
 
-        $data = $response->json();
+        $data = $response->json('data');
         $this->assertArrayHasKey('hit_rate', $data);
 
         // Hit rate format should be either "0%" or contain percentage
@@ -136,10 +139,10 @@ class CacheStatsTest extends IntegrationTestCase
         // ASSERT: Verify memory usage is reported
         $response->assertOk();
 
-        $data = $response->json();
+        $data = $response->json('data');
         $this->assertArrayHasKey('memory_usage', $data);
 
-        // Memory usage should be in format like "0MB", "1.5KB", etc.
+        // Memory usage should be in format like "0B", "1.5KB", etc.
         $this->assertMatchesRegularExpression(
             '/^\d+(\.\d+)?(B|KB|MB|GB)$/',
             $data['memory_usage']
@@ -167,11 +170,11 @@ class CacheStatsTest extends IntegrationTestCase
         // ASSERT: Verify key count
         $response->assertOk();
 
-        $data = $response->json();
+        $data = $response->json('data');
         $this->assertArrayHasKey('total_keys', $data);
         $this->assertIsInt($data['total_keys']);
 
-        // For database cache driver, total_keys might be 0 (requires Redis for accurate count)
+        // For database cache driver, total_keys reflects actual cache table rows
         // Just verify it's a non-negative integer
         $this->assertGreaterThanOrEqual(0, $data['total_keys']);
     }
@@ -191,10 +194,13 @@ class CacheStatsTest extends IntegrationTestCase
         // TODO: Add role-based authorization middleware to restrict to admins only
         $response->assertOk();
         $response->assertJsonStructure([
-            'total_keys',
-            'memory_usage',
-            'hit_rate',
-            'timestamp',
+            'success',
+            'data' => [
+                'total_keys',
+                'memory_usage',
+                'hit_rate',
+                'timestamp',
+            ],
         ]);
     }
 
@@ -255,8 +261,8 @@ class CacheStatsTest extends IntegrationTestCase
         $response1->assertOk();
         $response2->assertOk();
 
-        $data1 = $response1->json();
-        $data2 = $response2->json();
+        $data1 = $response1->json('data');
+        $data2 = $response2->json('data');
 
         // Same keys should exist
         $this->assertEquals(array_keys($data1), array_keys($data2));

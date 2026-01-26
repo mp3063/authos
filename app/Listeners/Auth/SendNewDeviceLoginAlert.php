@@ -19,7 +19,7 @@ class SendNewDeviceLoginAlert
         $knownDevice = AuthenticationLog::where('user_id', $user->id)
             ->where('ip_address', $ipAddress)
             ->where('user_agent', $userAgent)
-            ->where('event_type', 'login_success')
+            ->where('event', 'login_success')
             ->exists();
 
         if (! $knownDevice) {

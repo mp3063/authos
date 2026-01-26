@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Bulk\BulkAccessController;
 use App\Http\Controllers\Api\Bulk\BulkDataController;
 use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
 use App\Http\Controllers\Api\BulkUserController;
+use App\Http\Controllers\Api\CacheManagementController;
 use App\Http\Controllers\Api\CustomRoleController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\Monitoring\HealthCheckController;
@@ -223,6 +224,9 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/{id}/metrics/applications', [OrganizationAnalyticsController::class, 'applicationMetrics'])->middleware('api.cache:300');
         Route::get('/{id}/metrics/security', [OrganizationAnalyticsController::class, 'securityMetrics'])->middleware('api.cache:300');
         Route::post('/{id}/export', [OrganizationAnalyticsController::class, 'export']);
+        Route::get('/{id}/exports/{exportId}', [OrganizationAnalyticsController::class, 'exportStatus']);
+        Route::get('/{id}/exports/{exportId}/download', [OrganizationAnalyticsController::class, 'downloadExport'])
+            ->name('api.organizations.exports.download');
 
         // Organization invitations
         Route::get('/{id}/invitations', [InvitationController::class, 'index']);
@@ -332,25 +336,9 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // Cache Management Endpoints (Admin only)
     Route::middleware(['auth:api', 'throttle:api'])->prefix('cache')->group(function () {
-        Route::get('/stats', function () {
-            return response()->json([
-                'total_keys' => 0, // Would need Redis connection to get actual stats
-                'memory_usage' => '0MB',
-                'hit_rate' => '0%',
-                'timestamp' => now(),
-            ]);
-        });
-
-        Route::delete('/clear-all', function () {
-            cache()->flush();
-
-            return response()->json(['message' => 'All caches cleared successfully']);
-        });
-
-        Route::delete('/clear-user', function () {
-            // Clear user-specific caches (would implement cache tag clearing)
-            return response()->json(['message' => 'User caches cleared successfully']);
-        });
+        Route::get('/stats', [CacheManagementController::class, 'stats']);
+        Route::delete('/clear-all', [CacheManagementController::class, 'clearAll']);
+        Route::delete('/clear-user', [CacheManagementController::class, 'clearUser']);
     });
 
     // Global Configuration Endpoints
