@@ -281,7 +281,16 @@ class WebhookDeliveryService extends BaseService
             'attempt_number' => $delivery->attempt_number,
         ]);
 
-        // TODO: Send notification to organization admins
+        // Notify organization admins about dead letter delivery
+        $webhook = $delivery->webhook;
+        if ($webhook && $webhook->organization) {
+            $admins = $webhook->organization->users()
+                ->role(['Organization Owner', 'Organization Admin'])
+                ->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\WebhookAutoDisabledNotification($webhook, 'dead_letter'));
+            }
+        }
     }
 
     /**
