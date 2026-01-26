@@ -4,6 +4,7 @@ namespace App\Services\Security;
 
 use App\Models\SecurityIncident;
 use App\Models\User;
+use App\Notifications\SecurityIncidentAlert;
 use Illuminate\Support\Facades\Log;
 
 class SecurityIncidentService
@@ -113,12 +114,13 @@ class SecurityIncidentService
     protected function notifyAdmins(SecurityIncident $incident): void
     {
         try {
-            // Get all super admins
             $admins = User::role('Super Admin')->get();
 
-            // In production, send actual notifications
-            // For now, just log
-            Log::channel('security')->critical('CRITICAL SECURITY INCIDENT - Admin notification required', [
+            foreach ($admins as $admin) {
+                $admin->notify(new SecurityIncidentAlert($incident));
+            }
+
+            Log::channel('security')->critical('CRITICAL SECURITY INCIDENT - Admin notifications sent', [
                 'incident_id' => $incident->id,
                 'type' => $incident->type,
                 'ip_address' => $incident->ip_address,
@@ -126,7 +128,6 @@ class SecurityIncidentService
                 'admin_count' => $admins->count(),
             ]);
         } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
-            // Role may not exist in test environment, just log the incident
             Log::channel('security')->critical('CRITICAL SECURITY INCIDENT - Unable to notify admins (role not found)', [
                 'incident_id' => $incident->id,
                 'type' => $incident->type,

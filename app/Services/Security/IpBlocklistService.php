@@ -4,6 +4,7 @@ namespace App\Services\Security;
 
 use App\Models\IpBlocklist;
 use App\Models\User;
+use App\Notifications\IpBlockedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -74,6 +75,16 @@ class IpBlocklistService
             'reason' => $reason,
             'expires_at' => $expiresAt,
         ]);
+
+        // Notify admins about IP blocking
+        try {
+            $admins = User::role('Super Admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new IpBlockedNotification($block));
+            }
+        } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
+            // Role may not exist in test environment
+        }
 
         $this->clearCache();
 

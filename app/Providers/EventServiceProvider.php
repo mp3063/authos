@@ -17,6 +17,7 @@ use App\Listeners\Auth\CheckAccountLockout;
 use App\Listeners\Auth\CheckIpBlocklist;
 use App\Listeners\Auth\RecordFailedLoginAttempt;
 use App\Listeners\Auth\RegenerateSession;
+use App\Listeners\Auth\SendNewDeviceLoginAlert;
 use App\Listeners\Auth\TriggerIntrusionDetection;
 use App\Listeners\WebhookEventSubscriber;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -39,7 +40,8 @@ class EventServiceProvider extends ServiceProvider
             TriggerIntrusionDetection::class,    // Second: Analyze attempts and apply countermeasures
         ],
         LoginSuccessful::class => [
-            RegenerateSession::class,      // Clear failed attempts and security cleanup
+            RegenerateSession::class,          // Clear failed attempts and security cleanup
+            SendNewDeviceLoginAlert::class,    // Alert user about new device login
         ],
 
         // Webhook Events
