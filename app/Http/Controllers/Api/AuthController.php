@@ -7,6 +7,7 @@ use App\Events\Auth\LoginFailed;
 use App\Events\Auth\LoginSuccessful;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Mail\WelcomeEmail;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Passport\Token;
 use Spatie\Permission\Models\Role;
@@ -97,6 +99,9 @@ class AuthController extends Controller
             [],
             $request
         );
+
+        // Send welcome email
+        Mail::to($user)->send(new WelcomeEmail($user));
 
         // Generate access token using Laravel Passport
         $tokenResult = $user->createToken('API Access Token', ['openid', 'profile', 'email']);
