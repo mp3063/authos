@@ -216,8 +216,9 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
         ]);
 
         // ASSERT: Total delivery count matches event count
+        // 5 manually dispatched + 1 from ApplicationObserver auto-dispatching ApplicationCreatedEvent
         $deliveryCount = WebhookDelivery::where('webhook_id', $webhook->id)->count();
-        $this->assertEquals(5, $deliveryCount, 'Wildcard should match all 5 dispatched events');
+        $this->assertEquals(6, $deliveryCount, 'Wildcard should match all dispatched events (5 manual + 1 observer)');
     }
 
     // ============================================================
