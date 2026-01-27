@@ -76,6 +76,16 @@ class Application extends Model
         return $this->hasMany(SSOSession::class);
     }
 
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(ApplicationGroup::class, 'application_group_applications');
+    }
+
+    public function authenticationLogs(): HasMany
+    {
+        return $this->hasMany(AuthenticationLog::class);
+    }
+
     public function regenerateSecret(): void
     {
         $this->update(['client_secret' => Str::random(64)]);

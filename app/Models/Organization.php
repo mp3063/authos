@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
@@ -85,6 +86,26 @@ class Organization extends Model
     public function webhooks(): HasMany
     {
         return $this->hasMany(Webhook::class);
+    }
+
+    public function migrationJobs(): HasMany
+    {
+        return $this->hasMany(MigrationJob::class);
+    }
+
+    public function applicationGroups(): HasMany
+    {
+        return $this->hasMany(ApplicationGroup::class);
+    }
+
+    public function securityIncidents(): HasManyThrough
+    {
+        return $this->hasManyThrough(SecurityIncident::class, User::class);
+    }
+
+    public function authenticationLogs(): HasManyThrough
+    {
+        return $this->hasManyThrough(AuthenticationLog::class, User::class);
     }
 
     /**
