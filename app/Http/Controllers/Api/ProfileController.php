@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\MfaDisabledEvent;
+use App\Events\MfaEnabledEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Profile\ChangePasswordRequest;
 use App\Http\Requests\Profile\UpdateProfileRequest;
@@ -413,6 +415,8 @@ class ProfileController extends Controller
             'two_factor_confirmed_at' => now(),
         ]);
 
+        MfaEnabledEvent::dispatch($user);
+
         // Log MFA enabled event
         $this->authLogService->logAuthenticationEvent(
             $user,
@@ -477,6 +481,8 @@ class ProfileController extends Controller
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
         ]);
+
+        MfaDisabledEvent::dispatch($user);
 
         // Log MFA disabled event
         $this->authLogService->logAuthenticationEvent(
@@ -637,6 +643,8 @@ class ProfileController extends Controller
             'two_factor_confirmed_at' => now(),
         ]);
 
+        MfaEnabledEvent::dispatch($user);
+
         // Log MFA enabled event
         $this->authLogService->logAuthenticationEvent(
             $user,
@@ -677,6 +685,8 @@ class ProfileController extends Controller
             'two_factor_confirmed_at' => null,
             'mfa_methods' => null,
         ]);
+
+        MfaDisabledEvent::dispatch($user);
 
         // Log MFA disabled event
         $this->authLogService->logAuthenticationEvent(

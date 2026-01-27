@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Events\OrganizationUpdatedEvent;
 use App\Models\Organization;
 use App\Services\CacheInvalidationService;
 
@@ -29,6 +30,8 @@ class OrganizationObserver
     {
         $this->cacheInvalidationService->invalidateOrganizationCaches($organization->id);
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/organizations');
+
+        OrganizationUpdatedEvent::dispatch($organization);
     }
 
     /**

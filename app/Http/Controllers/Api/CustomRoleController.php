@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\RoleCreatedEvent;
+use App\Events\RoleDeletedEvent;
+use App\Events\RoleUpdatedEvent;
 use App\Http\Controllers\Api\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\CustomRole;
@@ -158,6 +161,8 @@ class CustomRoleController extends Controller
             'is_active' => $request->input('is_active', true),
         ]);
 
+        RoleCreatedEvent::dispatch($customRole);
+
         // Log role creation
         $this->authLogService->logAuthenticationEvent(
             $currentUser,
@@ -252,6 +257,8 @@ class CustomRoleController extends Controller
         $updateData = $request->only(['name', 'display_name', 'description', 'permissions', 'is_active']);
         $customRole->update($updateData);
 
+        RoleUpdatedEvent::dispatch($customRole);
+
         // Log role update
         $this->authLogService->logAuthenticationEvent(
             $currentUser,
@@ -300,6 +307,8 @@ class CustomRoleController extends Controller
 
             return $this->errorResponse($reason, 409);
         }
+
+        RoleDeletedEvent::dispatch($customRole);
 
         // Log role deletion
         $this->authLogService->logAuthenticationEvent(

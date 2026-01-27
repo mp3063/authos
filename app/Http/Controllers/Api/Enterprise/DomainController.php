@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Enterprise;
 
+use App\Events\DomainVerifiedEvent;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Enterprise\CustomDomainRequest;
 use App\Models\CustomDomain;
@@ -72,6 +73,11 @@ class DomainController extends BaseApiController
                 ->firstOrFail();
 
             $result = $this->domainService->verifyDomain($domainId);
+
+            $domain = $domain->fresh();
+            if ($domain && $domain->isVerified()) {
+                DomainVerifiedEvent::dispatch($domain);
+            }
 
             return $this->successResponse($result, $result['message'] ?? 'Domain verification completed');
         } catch (ModelNotFoundException $e) {

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Events\Auth\LoginAttempted;
 use App\Events\Auth\LoginFailed;
 use App\Events\Auth\LoginSuccessful;
+use App\Events\AuthFailedEvent;
+use App\Events\AuthLoginEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Mail\WelcomeEmail;
@@ -170,6 +172,8 @@ class AuthController extends Controller
                 ]
             );
 
+            AuthFailedEvent::dispatch($request->input('email'), $request->ip(), $user?->organization_id);
+
             $this->authLogService->logAuthenticationEvent(
                 $user ?? new User(['email' => $request->input('email')]),
                 'login_failed',
@@ -199,6 +203,8 @@ class AuthController extends Controller
                     'method' => $request->method(),
                 ]
             );
+
+            AuthFailedEvent::dispatch($request->input('email'), $request->ip(), $user->organization_id);
 
             $this->authLogService->logAuthenticationEvent(
                 $user,
@@ -248,6 +254,8 @@ class AuthController extends Controller
                 'method' => $request->method(),
             ]
         );
+
+        AuthLoginEvent::dispatch($user, $request->ip());
 
         $this->authLogService->logAuthenticationEvent(
             $user,
@@ -734,6 +742,8 @@ class AuthController extends Controller
                 'endpoint' => $request->path(),
             ]
         );
+
+        AuthLoginEvent::dispatch($user, $request->ip());
 
         $this->authLogService->logAuthenticationEvent(
             $user,

@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\WebhookCreatedEvent;
+use App\Events\WebhookDeletedEvent;
+use App\Events\WebhookUpdatedEvent;
 use App\Models\Organization;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
@@ -31,6 +34,8 @@ class WebhookService extends BaseService
 
             $webhook = Webhook::create($data);
 
+            WebhookCreatedEvent::dispatch($webhook);
+
             $this->logAction('webhook_created', [
                 'webhook_id' => $webhook->id,
                 'organization_id' => $organization->id,
@@ -53,6 +58,8 @@ class WebhookService extends BaseService
 
             $webhook->update($data);
 
+            WebhookUpdatedEvent::dispatch($webhook);
+
             $this->logAction('webhook_updated', [
                 'webhook_id' => $webhook->id,
                 'organization_id' => $webhook->organization_id,
@@ -70,6 +77,8 @@ class WebhookService extends BaseService
         return $this->executeInTransaction(function () use ($webhook) {
             $webhookId = $webhook->id;
             $organizationId = $webhook->organization_id;
+
+            WebhookDeletedEvent::dispatch($webhook);
 
             $deleted = $webhook->delete();
 

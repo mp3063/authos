@@ -2,6 +2,9 @@
 
 namespace App\Observers;
 
+use App\Events\ApplicationCreatedEvent;
+use App\Events\ApplicationDeletedEvent;
+use App\Events\ApplicationUpdatedEvent;
 use App\Models\Application;
 use App\Services\CacheInvalidationService;
 
@@ -24,6 +27,8 @@ class ApplicationObserver
         if ($application->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($application->organization_id);
         }
+
+        ApplicationCreatedEvent::dispatch($application);
     }
 
     /**
@@ -45,6 +50,8 @@ class ApplicationObserver
                 );
             }
         }
+
+        ApplicationUpdatedEvent::dispatch($application);
     }
 
     /**
@@ -61,5 +68,7 @@ class ApplicationObserver
         if ($application->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($application->organization_id);
         }
+
+        ApplicationDeletedEvent::dispatch($application);
     }
 }

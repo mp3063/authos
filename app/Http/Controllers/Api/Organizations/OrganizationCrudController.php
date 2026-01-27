@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Organizations;
 
+use App\Events\OrganizationSettingsChangedEvent;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use App\Http\Requests\Organization\StoreOrganizationRequest;
@@ -313,6 +314,8 @@ class OrganizationCrudController extends BaseApiController
         }
 
         $organization->update(['settings' => $newSettings]);
+
+        OrganizationSettingsChangedEvent::dispatch($organization, array_keys($request->validated()));
 
         // Invalidate organization cache after settings update
         $this->invalidateOrganizationCache($organization->id);

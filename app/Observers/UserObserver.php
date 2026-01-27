@@ -2,6 +2,9 @@
 
 namespace App\Observers;
 
+use App\Events\UserCreatedEvent;
+use App\Events\UserDeletedEvent;
+use App\Events\UserUpdatedEvent;
 use App\Models\User;
 use App\Services\CacheInvalidationService;
 
@@ -24,6 +27,8 @@ class UserObserver
         if ($user->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
         }
+
+        UserCreatedEvent::dispatch($user);
     }
 
     /**
@@ -50,6 +55,8 @@ class UserObserver
         if ($user->wasChanged(['mfa_methods', 'is_active'])) {
             $this->cacheInvalidationService->invalidateUserPermissionCaches($user->id);
         }
+
+        UserUpdatedEvent::dispatch($user);
     }
 
     /**
@@ -63,6 +70,8 @@ class UserObserver
         if ($user->organization_id) {
             $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
         }
+
+        UserDeletedEvent::dispatch($user);
     }
 
     /**
