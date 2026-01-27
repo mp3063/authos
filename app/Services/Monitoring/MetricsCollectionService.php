@@ -425,7 +425,7 @@ class MetricsCollectionService
             // Organizations requiring MFA (stored in settings JSON)
             $mfaRequiredOrgs = DB::table('organizations')
                 ->whereNotNull('settings')
-                ->whereRaw("settings::text LIKE '%require_mfa%'")
+                ->where('settings', 'LIKE', '%require_mfa%')
                 ->count();
 
             // Average users per organization
