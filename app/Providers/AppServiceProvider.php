@@ -15,9 +15,6 @@ use App\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\OrganizationRepository;
 use App\Repositories\UserRepository;
-use App\Services\Database\AnalyticsQueryService;
-use App\Services\Database\OptimizedQueryService;
-use App\Services\Database\UserQueryService;
 use App\Services\PerformanceMonitoringService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -42,9 +39,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AuthorizationViewResponse::class, CustomAuthorizationViewResponse::class);
 
         // Performance optimization services
-        $this->app->singleton(OptimizedQueryService::class);
-        $this->app->singleton(UserQueryService::class);
-        $this->app->singleton(AnalyticsQueryService::class);
         $this->app->singleton(PerformanceMonitoringService::class);
 
         // Note: Passport routes are automatically registered
