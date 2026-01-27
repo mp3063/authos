@@ -30,8 +30,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/version",
-							"host": ["{{baseUrl}}"],
-							"path": ["version"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"version"
+							]
 						}
 					},
 					"response": []
@@ -46,8 +50,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/health",
-							"host": ["{{baseUrl}}"],
-							"path": ["health"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
 						}
 					},
 					"response": []
@@ -62,8 +70,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/health/detailed",
-							"host": ["{{baseUrl}}"],
-							"path": ["health", "detailed"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"detailed"
+							]
 						}
 					},
 					"response": []
@@ -75,8 +88,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/monitoring/metrics",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "monitoring", "metrics"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics"
+							]
 						}
 					},
 					"response": []
@@ -88,9 +107,81 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/monitoring/health",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "monitoring", "health"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"health"
+							]
 						}
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Probe",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/readiness",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"readiness"
+							]
+						},
+						"description": "Kubernetes-style readiness probe - checks if the service is ready to accept traffic"
+					},
+					"response": []
+				},
+				{
+					"name": "Liveness Probe",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/liveness",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"liveness"
+							]
+						},
+						"description": "Kubernetes-style liveness probe - checks if the service is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Component Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/{{component}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"{{component}}"
+							]
+						},
+						"description": "Check health of a specific component (database, cache, queue, storage)"
 					},
 					"response": []
 				}
@@ -108,8 +199,8 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.environment.set('accessToken', jsonData.data.access_token);",
-									"    pm.environment.set('userId', jsonData.data.user.id);",
+									"    pm.collectionVariables.set('accessToken', jsonData.access_token);",
+									"    pm.collectionVariables.set('userId', jsonData.user.id);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -133,8 +224,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/register",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "register"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"register"
+							]
 						},
 						"description": "Register a new user account with organization"
 					},
@@ -149,9 +246,9 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.environment.set('accessToken', jsonData.data.access_token);",
-									"    pm.environment.set('refreshToken', jsonData.data.refresh_token);",
-									"    pm.environment.set('userId', jsonData.data.user.id);",
+									"    pm.collectionVariables.set('accessToken', jsonData.access_token);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+									"    pm.collectionVariables.set('userId', jsonData.user.id);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -171,12 +268,18 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"admin@authservice.com\",\n    \"password\": \"password123\"\n}"
+							"raw": "{\n    \"email\": \"admin@authservice.com\",\n    \"password\": \"password\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/login",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "login"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"login"
+							]
 						},
 						"description": "Authenticate user and receive access token"
 					},
@@ -189,8 +292,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/user",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "user"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"user"
+							]
 						},
 						"description": "Get authenticated user information"
 					},
@@ -205,7 +314,7 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.environment.set('accessToken', jsonData.data.access_token);",
+									"    pm.collectionVariables.set('accessToken', jsonData.access_token);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -229,8 +338,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/refresh",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "refresh"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"refresh"
+							]
 						},
 						"description": "Refresh access token using refresh token"
 					},
@@ -243,8 +358,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"logout"
+							]
 						},
 						"description": "Logout and revoke current access token"
 					},
@@ -257,8 +378,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/revoke",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "revoke"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"revoke"
+							]
 						},
 						"description": "Revoke all tokens for authenticated user"
 					},
@@ -283,10 +410,83 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/mfa/verify",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "mfa", "verify"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"mfa",
+								"verify"
+							]
 						},
 						"description": "Verify MFA token during login"
+					},
+					"response": []
+				},
+				{
+					"name": "Request Password Reset",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@authservice.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/auth/password/email",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"password",
+								"email"
+							]
+						},
+						"description": "Request a password reset email"
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"RESET_TOKEN\",\n    \"email\": \"admin@authservice.com\",\n    \"password\": \"NewPassword123!\",\n    \"password_confirmation\": \"NewPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/auth/password/reset",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"password",
+								"reset"
+							]
+						},
+						"description": "Reset password using token from email"
 					},
 					"response": []
 				}
@@ -305,8 +505,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/providers",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "providers"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"providers"
+							]
 						},
 						"description": "Get list of configured social authentication providers"
 					},
@@ -322,8 +529,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/google",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "google"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"google"
+							]
 						},
 						"description": "Initiate Google OAuth authentication (returns redirect URL)"
 					},
@@ -339,8 +553,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/google/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "google", "callback"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"google",
+								"callback"
+							],
 							"query": [
 								{
 									"key": "code",
@@ -366,8 +588,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/github",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "github"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"github"
+							]
 						},
 						"description": "Initiate GitHub OAuth authentication"
 					},
@@ -383,8 +612,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/github/callback?code=AUTHORIZATION_CODE",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "github", "callback"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"github",
+								"callback"
+							],
 							"query": [
 								{
 									"key": "code",
@@ -406,8 +643,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/facebook",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "facebook"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"facebook"
+							]
 						},
 						"description": "Initiate Facebook OAuth authentication"
 					},
@@ -423,8 +667,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/twitter",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "twitter"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"twitter"
+							]
 						},
 						"description": "Initiate Twitter OAuth authentication"
 					},
@@ -440,8 +691,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/linkedin",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "linkedin"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"linkedin"
+							]
 						},
 						"description": "Initiate LinkedIn OAuth authentication"
 					},
@@ -463,8 +721,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/link",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "link"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"link"
+							]
 						},
 						"description": "Link a social account to existing user"
 					},
@@ -486,8 +751,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/auth/social/unlink",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "auth", "social", "unlink"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"unlink"
+							]
 						},
 						"description": "Unlink a social account from user"
 					},
@@ -508,8 +780,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{oauthBaseUrl}}/.well-known/openid-configuration",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": [".well-known", "openid-configuration"]
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								".well-known",
+								"openid-configuration"
+							]
 						},
 						"description": "OIDC Discovery endpoint - provides OAuth/OIDC server configuration"
 					},
@@ -525,8 +802,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{oauthBaseUrl}}/oauth/authorize?client_id={{clientId}}&redirect_uri={{redirectUri}}&response_type=code&scope=openid profile email&state=random_state_string&code_challenge=CODE_CHALLENGE&code_challenge_method=S256",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": ["oauth", "authorize"],
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"authorize"
+							],
 							"query": [
 								{
 									"key": "client_id",
@@ -620,8 +902,13 @@
 						},
 						"url": {
 							"raw": "{{oauthBaseUrl}}/oauth/token",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": ["oauth", "token"]
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"token"
+							]
 						},
 						"description": "Exchange authorization code for access token (with PKCE)"
 					},
@@ -667,8 +954,13 @@
 						},
 						"url": {
 							"raw": "{{oauthBaseUrl}}/oauth/token",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": ["oauth", "token"]
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"token"
+							]
 						},
 						"description": "Client credentials grant for machine-to-machine authentication"
 					},
@@ -714,8 +1006,13 @@
 						},
 						"url": {
 							"raw": "{{oauthBaseUrl}}/oauth/token",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": ["oauth", "token"]
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"token"
+							]
 						},
 						"description": "Refresh access token using refresh token"
 					},
@@ -758,8 +1055,13 @@
 						},
 						"url": {
 							"raw": "{{oauthBaseUrl}}/oauth/introspect",
-							"host": ["{{oauthBaseUrl}}"],
-							"path": ["oauth", "introspect"]
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"introspect"
+							]
 						},
 						"description": "RFC 7662 - Introspect access token validity and metadata"
 					},
@@ -772,8 +1074,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/oauth/userinfo",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "oauth", "userinfo"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"oauth",
+								"userinfo"
+							]
 						},
 						"description": "OIDC UserInfo endpoint - get user claims"
 					},
@@ -789,8 +1097,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/oauth/jwks",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "oauth", "jwks"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"oauth",
+								"jwks"
+							]
 						},
 						"description": "JSON Web Key Set for token verification"
 					},
@@ -808,8 +1122,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users?page=1&per_page=15&search=john",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users"
+							],
 							"query": [
 								{
 									"key": "page",
@@ -846,8 +1165,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users"
+							]
 						},
 						"description": "Create a new user"
 					},
@@ -860,8 +1184,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Get specific user details"
 					},
@@ -883,8 +1213,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Update user information"
 					},
@@ -897,8 +1233,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Delete a user"
 					},
@@ -920,8 +1262,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/bulk",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "bulk"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"bulk"
+							]
 						},
 						"description": "Bulk operations on users (activate, deactivate, delete)"
 					},
@@ -934,8 +1282,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"applications"
+							]
 						},
 						"description": "List applications user has access to"
 					},
@@ -957,8 +1312,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"applications"
+							]
 						},
 						"description": "Grant user access to an application"
 					},
@@ -971,8 +1333,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/applications/{{applicationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "applications", "{{applicationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"applications",
+								"{{applicationId}}"
+							]
 						},
 						"description": "Revoke user access from an application"
 					},
@@ -985,8 +1355,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "roles"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"roles"
+							]
 						},
 						"description": "List user roles"
 					},
@@ -1008,8 +1385,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "roles"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"roles"
+							]
 						},
 						"description": "Assign role to user"
 					},
@@ -1022,8 +1406,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/roles/{{roleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "roles", "{{roleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"roles",
+								"{{roleId}}"
+							]
 						},
 						"description": "Remove role from user"
 					},
@@ -1036,8 +1428,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/sessions",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "sessions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"sessions"
+							]
 						},
 						"description": "List active user sessions"
 					},
@@ -1050,8 +1449,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/sessions",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "sessions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"sessions"
+							]
 						},
 						"description": "Revoke all sessions for user"
 					},
@@ -1064,10 +1470,70 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/users/{{userId}}/sessions/{{sessionId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "users", "{{userId}}", "sessions", "{{sessionId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"sessions",
+								"{{sessionId}}"
+							]
 						},
 						"description": "Revoke specific user session"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific User Session",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/users/{{userId}}/sessions/{{sessionId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"sessions",
+								"{{sessionId}}"
+							]
+						},
+						"description": "Get details of a specific user session"
+					},
+					"response": []
+				},
+				{
+					"name": "Sync User Roles",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"role_ids\": [\n        1,\n        2\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/users/{{userId}}/roles",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"users",
+								"{{userId}}",
+								"roles"
+							]
+						},
+						"description": "Replace all user roles (sync)"
 					},
 					"response": []
 				}
@@ -1083,8 +1549,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications"
+							]
 						},
 						"description": "List all applications (OAuth clients)"
 					},
@@ -1099,9 +1570,9 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.environment.set('applicationId', jsonData.data.id);",
-									"    pm.environment.set('clientId', jsonData.data.client_id);",
-									"    pm.environment.set('clientSecret', jsonData.data.client_secret);",
+									"    pm.collectionVariables.set('applicationId', jsonData.data.id);",
+									"    pm.collectionVariables.set('clientId', jsonData.data.client_id);",
+									"    pm.collectionVariables.set('clientSecret', jsonData.data.client_secret);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1122,8 +1593,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications"
+							]
 						},
 						"description": "Create new OAuth client application"
 					},
@@ -1136,8 +1612,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}"
+							]
 						},
 						"description": "Get application details"
 					},
@@ -1159,8 +1641,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}"
+							]
 						},
 						"description": "Update application settings"
 					},
@@ -1173,8 +1661,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}"
+							]
 						},
 						"description": "Delete an application"
 					},
@@ -1187,8 +1681,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/credentials/regenerate",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "credentials", "regenerate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"credentials",
+								"regenerate"
+							]
 						},
 						"description": "Regenerate client secret"
 					},
@@ -1201,8 +1703,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"users"
+							]
 						},
 						"description": "List users with access to application"
 					},
@@ -1224,8 +1733,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"users"
+							]
 						},
 						"description": "Grant user access to application"
 					},
@@ -1238,8 +1754,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Revoke user access from application"
 					},
@@ -1252,8 +1776,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/tokens",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "tokens"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"tokens"
+							]
 						},
 						"description": "List active tokens for application"
 					},
@@ -1266,8 +1797,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/tokens",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "tokens"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"tokens"
+							]
 						},
 						"description": "Revoke all tokens for application"
 					},
@@ -1280,8 +1818,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/tokens/{{tokenId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "tokens", "{{tokenId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"tokens",
+								"{{tokenId}}"
+							]
 						},
 						"description": "Revoke specific token"
 					},
@@ -1293,17 +1839,24 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/analytics?start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "applications", "{{applicationId}}", "analytics"],
+							"raw": "{{baseUrl}}/v1/applications/{{applicationId}}/analytics?start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"applications",
+								"{{applicationId}}",
+								"analytics"
+							],
 							"query": [
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -1323,8 +1876,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile"
+							]
 						},
 						"description": "Get current user profile"
 					},
@@ -1346,8 +1904,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile"
+							]
 						},
 						"description": "Update user profile"
 					},
@@ -1370,8 +1933,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/avatar",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "avatar"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"avatar"
+							]
 						},
 						"description": "Upload user avatar image"
 					},
@@ -1384,8 +1953,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/avatar",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "avatar"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"avatar"
+							]
 						},
 						"description": "Remove user avatar"
 					},
@@ -1398,8 +1973,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/preferences",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "preferences"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"preferences"
+							]
 						},
 						"description": "Get user preferences"
 					},
@@ -1421,8 +2002,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/preferences",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "preferences"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"preferences"
+							]
 						},
 						"description": "Update user preferences"
 					},
@@ -1435,8 +2022,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/security",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "security"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"security"
+							]
 						},
 						"description": "Get security settings and status"
 					},
@@ -1458,8 +2051,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/change-password",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "change-password"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"change-password"
+							]
 						},
 						"description": "Change user password"
 					},
@@ -1472,10 +2071,37 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/profile/social-accounts",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "profile", "social-accounts"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"social-accounts"
+							]
 						},
 						"description": "List linked social accounts"
+					},
+					"response": []
+				},
+				{
+					"name": "Unlink Social Account",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/profile/social-accounts/{{provider}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"social-accounts",
+								"{{provider}}"
+							]
+						},
+						"description": "Unlink a specific social account from profile"
 					},
 					"response": []
 				}
@@ -1491,8 +2117,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/status",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "status"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"status"
+							]
 						},
 						"description": "Check if MFA is enabled"
 					},
@@ -1505,8 +2137,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/setup/totp",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "setup", "totp"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"setup",
+								"totp"
+							]
 						},
 						"description": "Generate TOTP secret and QR code"
 					},
@@ -1528,8 +2167,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/verify/totp",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "verify", "totp"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"verify",
+								"totp"
+							]
 						},
 						"description": "Verify TOTP code"
 					},
@@ -1551,8 +2197,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/enable",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "enable"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"enable"
+							]
 						},
 						"description": "Enable MFA after verification"
 					},
@@ -1574,8 +2226,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/disable",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "disable"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"disable"
+							]
 						},
 						"description": "Disable MFA"
 					},
@@ -1588,8 +2246,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/recovery-codes",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "recovery-codes"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"recovery-codes"
+							]
 						},
 						"description": "Get MFA recovery codes"
 					},
@@ -1602,10 +2266,88 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/mfa/recovery-codes/regenerate",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "mfa", "recovery-codes", "regenerate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"recovery-codes",
+								"regenerate"
+							]
 						},
 						"description": "Regenerate MFA recovery codes"
+					},
+					"response": []
+				},
+				{
+					"name": "Setup MFA (Generic)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/mfa/setup",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"setup"
+							]
+						},
+						"description": "Initialize MFA setup (generic)"
+					},
+					"response": []
+				},
+				{
+					"name": "Disable TOTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"UserPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/mfa/disable/totp",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"disable",
+								"totp"
+							]
+						},
+						"description": "Disable TOTP specifically"
+					},
+					"response": []
+				},
+				{
+					"name": "Regenerate Backup Codes",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/mfa/backup-codes/regenerate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"mfa",
+								"backup-codes",
+								"regenerate"
+							]
+						},
+						"description": "Regenerate MFA backup codes"
 					},
 					"response": []
 				}
@@ -1621,8 +2363,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations"
+							]
 						},
 						"description": "List all organizations (filtered by permissions)"
 					},
@@ -1637,7 +2384,7 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.environment.set('organizationId', jsonData.data.id);",
+									"    pm.collectionVariables.set('organizationId', jsonData.data.id);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1658,8 +2405,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations"
+							]
 						},
 						"description": "Create new organization"
 					},
@@ -1672,8 +2424,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}"
+							]
 						},
 						"description": "Get organization details"
 					},
@@ -1695,8 +2453,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}"
+							]
 						},
 						"description": "Update organization"
 					},
@@ -1709,8 +2473,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}"
+							]
 						},
 						"description": "Delete organization"
 					},
@@ -1723,8 +2493,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/settings",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "settings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"settings"
+							]
 						},
 						"description": "Get organization settings"
 					},
@@ -1746,8 +2523,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/settings",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "settings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"settings"
+							]
 						},
 						"description": "Update organization settings"
 					},
@@ -1760,8 +2544,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"users"
+							]
 						},
 						"description": "List organization users"
 					},
@@ -1783,8 +2574,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"users"
+							]
 						},
 						"description": "Grant user access to organization application"
 					},
@@ -1797,8 +2595,18 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/users/{{userId}}/applications/{{applicationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "users", "{{userId}}", "applications", "{{applicationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"users",
+								"{{userId}}",
+								"applications",
+								"{{applicationId}}"
+							]
 						},
 						"description": "Revoke user access from application"
 					},
@@ -1811,8 +2619,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"applications"
+							]
 						},
 						"description": "List organization applications"
 					},
@@ -1825,8 +2640,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/analytics",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "analytics"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"analytics"
+							]
 						},
 						"description": "Get organization analytics"
 					},
@@ -1839,8 +2661,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/metrics/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "metrics", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"metrics",
+								"users"
+							]
 						},
 						"description": "Get user metrics for organization"
 					},
@@ -1853,8 +2683,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/metrics/applications",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "metrics", "applications"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"metrics",
+								"applications"
+							]
 						},
 						"description": "Get application metrics for organization"
 					},
@@ -1867,8 +2705,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/metrics/security",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "metrics", "security"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"metrics",
+								"security"
+							]
 						},
 						"description": "Get security metrics for organization"
 					},
@@ -1890,10 +2736,84 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/export",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "export"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"export"
+							]
 						},
 						"description": "Export organization data"
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Organization Settings",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/settings/reset",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"settings",
+								"reset"
+							]
+						},
+						"description": "Reset organization settings to defaults"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Export Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/exports/{{exportId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"exports",
+								"{{exportId}}"
+							]
+						},
+						"description": "Get status of an organization data export"
+					},
+					"response": []
+				},
+				{
+					"name": "Download Organization Export",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/exports/{{exportId}}/download",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"exports",
+								"{{exportId}}",
+								"download"
+							]
+						},
+						"description": "Download an organization data export file"
 					},
 					"response": []
 				}
@@ -1909,8 +2829,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/invitations",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "invitations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"invitations"
+							]
 						},
 						"description": "List organization invitations"
 					},
@@ -1932,8 +2859,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/invitations",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "invitations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"invitations"
+							]
 						},
 						"description": "Create invitation for new user"
 					},
@@ -1949,8 +2883,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/invitations/{{invitationToken}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "invitations", "{{invitationToken}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"invitations",
+								"{{invitationToken}}"
+							]
 						},
 						"description": "Get invitation details by token (public)"
 					},
@@ -1972,8 +2912,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/invitations/{{invitationToken}}/accept",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "invitations", "{{invitationToken}}", "accept"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"invitations",
+								"{{invitationToken}}",
+								"accept"
+							]
 						},
 						"description": "Accept invitation and create account"
 					},
@@ -1986,8 +2933,17 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/invitations/{{invitationId}}/resend",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "invitations", "{{invitationId}}", "resend"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"invitations",
+								"{{invitationId}}",
+								"resend"
+							]
 						},
 						"description": "Resend invitation email"
 					},
@@ -2000,8 +2956,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/invitations/{{invitationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "invitations", "{{invitationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"invitations",
+								"{{invitationId}}"
+							]
 						},
 						"description": "Cancel/delete invitation"
 					},
@@ -2023,10 +2987,42 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/invitations/bulk",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "invitations", "bulk"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"invitations",
+								"bulk"
+							]
 						},
 						"description": "Send bulk invitations"
+					},
+					"response": []
+				},
+				{
+					"name": "Decline Invitation",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/invitations/{{invitationToken}}/decline",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"invitations",
+								"{{invitationToken}}",
+								"decline"
+							]
+						},
+						"description": "Decline an invitation"
 					},
 					"response": []
 				}
@@ -2042,8 +3038,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles"
+							]
 						},
 						"description": "List organization custom roles"
 					},
@@ -2065,8 +3068,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles"
+							]
 						},
 						"description": "Create custom role with permissions"
 					},
@@ -2079,8 +3089,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles", "{{roleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}"
+							]
 						},
 						"description": "Get custom role details"
 					},
@@ -2102,8 +3120,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles", "{{roleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}"
+							]
 						},
 						"description": "Update custom role"
 					},
@@ -2116,8 +3142,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles", "{{roleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}"
+							]
 						},
 						"description": "Delete custom role"
 					},
@@ -2139,8 +3173,17 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}/assign-users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles", "{{roleId}}", "assign-users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}",
+								"assign-users"
+							]
 						},
 						"description": "Assign multiple users to role"
 					},
@@ -2162,8 +3205,17 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}/remove-users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "custom-roles", "{{roleId}}", "remove-users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}",
+								"remove-users"
+							]
 						},
 						"description": "Remove users from role"
 					},
@@ -2176,10 +3228,48 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/config/permissions",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "config", "permissions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"config",
+								"permissions"
+							]
 						},
 						"description": "Get list of available permissions"
+					},
+					"response": []
+				},
+				{
+					"name": "Clone Custom Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Cloned Role Name\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/custom-roles/{{roleId}}/clone",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"custom-roles",
+								"{{roleId}}",
+								"clone"
+							]
+						},
+						"description": "Clone an existing custom role"
 					},
 					"response": []
 				}
@@ -2189,22 +3279,51 @@
 			"name": "Reports",
 			"item": [
 				{
+					"name": "List Reports",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports"
+							]
+						},
+						"description": "List available reports for the organization"
+					},
+					"response": []
+				},
+				{
 					"name": "User Activity Report",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/user-activity?start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "reports", "user-activity"],
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/user-activity?start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"user-activity"
+							],
 							"query": [
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -2218,17 +3337,25 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/application-usage?start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "reports", "application-usage"],
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/application-usage?start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"application-usage"
+							],
 							"query": [
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -2242,17 +3369,25 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/security-audit?start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "reports", "security-audit"],
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/security-audit?start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"security-audit"
+							],
 							"query": [
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -2267,10 +3402,102 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/config/report-types",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "config", "report-types"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"config",
+								"report-types"
+							]
 						},
 						"description": "Get available report types"
+					},
+					"response": []
+				},
+				{
+					"name": "Schedule Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"report_type\": \"user-activity\",\n    \"frequency\": \"weekly\",\n    \"recipients\": [\n        \"admin@example.com\"\n    ],\n    \"format\": \"csv\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/schedule",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"schedule"
+							]
+						},
+						"description": "Schedule an automated report"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Report Schedule",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"frequency\": \"monthly\",\n    \"recipients\": [\n        \"admin@example.com\",\n        \"manager@example.com\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/schedule/{{scheduleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"schedule",
+								"{{scheduleId}}"
+							]
+						},
+						"description": "Update a scheduled report"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Report Schedule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/schedule/{{scheduleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"reports",
+								"schedule",
+								"{{scheduleId}}"
+							]
+						},
+						"description": "Delete a scheduled report"
 					},
 					"response": []
 				}
@@ -2295,8 +3522,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/invite-users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "bulk", "invite-users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"invite-users"
+							]
 						},
 						"description": "Bulk invite users to organization"
 					},
@@ -2318,8 +3553,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/assign-roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "bulk", "assign-roles"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"assign-roles"
+							]
 						},
 						"description": "Assign role to multiple users"
 					},
@@ -2341,8 +3584,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/revoke-access",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "bulk", "revoke-access"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"revoke-access"
+							]
 						},
 						"description": "Revoke application access for multiple users"
 					},
@@ -2364,8 +3615,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/export-users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "bulk", "export-users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"export-users"
+							]
 						},
 						"description": "Export users data (CSV/JSON/Excel)"
 					},
@@ -2393,10 +3652,110 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/import-users",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "organizations", "{{organizationId}}", "bulk", "import-users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"import-users"
+							]
 						},
 						"description": "Import users from file (CSV/Excel)"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Users",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_ids\": [\n        1,\n        2,\n        3\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/delete-users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"delete-users"
+							]
+						},
+						"description": "Delete multiple users from organization"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Enable MFA",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_ids\": [\n        1,\n        2,\n        3\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/enable-mfa",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"{{organizationId}}",
+								"bulk",
+								"enable-mfa"
+							]
+						},
+						"description": "Enable MFA for multiple users"
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Update Settings (Super Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"organization_ids\": [\n        1,\n        2,\n        3\n    ],\n    \"settings\": {\n        \"mfa_required\": true,\n        \"session_timeout\": 3600\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/organizations/bulk/update-settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"organizations",
+								"bulk",
+								"update-settings"
+							]
+						},
+						"description": "Bulk update settings across multiple organizations (Super Admin only)"
 					},
 					"response": []
 				}
@@ -2417,12 +3776,18 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"application_id\": \"{{applicationId}}\",\n    \"redirect_uri\": \"https://myapp.com/callback\"\n}"
+							"raw": "{\n    \"application_id\": \"{{applicationId}}\",\n    \"redirect_uri\": \"https://myapp.com/callback\",\n    \"sso_configuration_id\": \"{{ssoConfigId}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/initiate",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "initiate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"initiate"
+							]
 						},
 						"description": "Initiate SSO session"
 					},
@@ -2435,8 +3800,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/sessions",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "sessions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"sessions"
+							]
 						},
 						"description": "List active SSO sessions"
 					},
@@ -2461,8 +3832,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/validate",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "validate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"validate"
+							]
 						},
 						"description": "Validate SSO session token"
 					},
@@ -2487,8 +3864,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/refresh",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "refresh"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"refresh"
+							]
 						},
 						"description": "Refresh SSO session"
 					},
@@ -2513,8 +3896,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"logout"
+							]
 						},
 						"description": "Logout from SSO session"
 					},
@@ -2536,8 +3925,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/sessions/revoke",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "sessions", "revoke"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"sessions",
+								"revoke"
+							]
 						},
 						"description": "Revoke multiple SSO sessions"
 					},
@@ -2559,8 +3955,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/logout/synchronized",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "logout", "synchronized"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"logout",
+								"synchronized"
+							]
 						},
 						"description": "Logout from all SSO applications simultaneously"
 					},
@@ -2573,8 +3976,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/configurations/{{organizationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "configurations", "{{organizationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"configurations",
+								"{{organizationId}}"
+							]
 						},
 						"description": "Get SSO configuration for organization"
 					},
@@ -2596,8 +4006,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/configurations",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "configurations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"configurations"
+							]
 						},
 						"description": "Create SSO configuration"
 					},
@@ -2619,8 +4035,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/configurations/{{ssoConfigId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "configurations", "{{ssoConfigId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"configurations",
+								"{{ssoConfigId}}"
+							]
 						},
 						"description": "Update SSO configuration"
 					},
@@ -2633,8 +4056,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/configurations/{{ssoConfigId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "configurations", "{{ssoConfigId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"configurations",
+								"{{ssoConfigId}}"
+							]
 						},
 						"description": "Delete SSO configuration"
 					},
@@ -2650,8 +4080,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/metadata/{{organizationSlug}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "metadata", "{{organizationSlug}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"metadata",
+								"{{organizationSlug}}"
+							]
 						},
 						"description": "Get SAML metadata for organization"
 					},
@@ -2682,10 +4119,352 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/sso/saml/callback",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "sso", "saml", "callback"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"callback"
+							]
 						},
 						"description": "Handle SAML assertion callback"
+					},
+					"response": []
+				},
+				{
+					"name": "OIDC Callback",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"AUTHORIZATION_CODE\",\n    \"state\": \"STATE_TOKEN\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/callback",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"callback"
+							]
+						},
+						"description": "Handle OIDC authentication callback"
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Session Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/sessions/{{ssoSessionToken}}/validate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"sessions",
+								"{{ssoSessionToken}}",
+								"validate"
+							]
+						},
+						"description": "Validate a specific SSO session token"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Session Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/sessions/{{ssoSessionToken}}/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"sessions",
+								"{{ssoSessionToken}}",
+								"refresh"
+							]
+						},
+						"description": "Refresh a specific SSO session"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout Session Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/sessions/{{ssoSessionToken}}/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"sessions",
+								"{{ssoSessionToken}}",
+								"logout"
+							]
+						},
+						"description": "Logout a specific SSO session"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Public SSO Configuration",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/configuration/{{applicationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"configuration",
+								"{{applicationId}}"
+							]
+						},
+						"description": "Get public SSO configuration for an application (no auth required)"
+					},
+					"response": []
+				},
+				{
+					"name": "SSO Session Cleanup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/cleanup",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"cleanup"
+							]
+						},
+						"description": "Clean up expired SSO sessions"
+					},
+					"response": []
+				},
+				{
+					"name": "SAML SP Metadata (XML)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/{{organizationSlug}}/metadata",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"{{organizationSlug}}",
+								"metadata"
+							]
+						},
+						"description": "Get SAML Service Provider metadata in XML format for the organization"
+					},
+					"response": []
+				},
+				{
+					"name": "SAML Assertion Consumer Service",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "SAMLResponse",
+									"value": "BASE64_ENCODED_SAML_RESPONSE",
+									"type": "text"
+								},
+								{
+									"key": "RelayState",
+									"value": "RELAY_STATE",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/acs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"acs"
+							]
+						},
+						"description": "SAML Assertion Consumer Service endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "SAML Single Logout",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "SAMLRequest",
+									"value": "BASE64_ENCODED_LOGOUT_REQUEST",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/slo",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"slo"
+							]
+						},
+						"description": "SAML Single Logout endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload SAML Certificate",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"certificate\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\",\n    \"type\": \"signing\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/certificates/{{configId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"certificates",
+								"{{configId}}"
+							]
+						},
+						"description": "Upload a new SAML certificate for the SSO configuration"
+					},
+					"response": []
+				},
+				{
+					"name": "Get SAML Certificate",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/certificates/{{configId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"certificates",
+								"{{configId}}"
+							]
+						},
+						"description": "Get current SAML certificate for the SSO configuration"
+					},
+					"response": []
+				},
+				{
+					"name": "Rotate SAML Certificate",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/sso/saml/certificates/{{configId}}/rotate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"sso",
+								"saml",
+								"certificates",
+								"{{configId}}",
+								"rotate"
+							]
+						},
+						"description": "Rotate the SAML certificate for the SSO configuration"
 					},
 					"response": []
 				}
@@ -2710,8 +4489,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/ldap/test",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "ldap", "test"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"ldap",
+								"test"
+							]
 						},
 						"description": "Test LDAP/AD connection settings"
 					},
@@ -2733,8 +4519,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/ldap/configure",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "ldap", "configure"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"ldap",
+								"configure"
+							]
 						},
 						"description": "Configure LDAP/AD integration"
 					},
@@ -2747,8 +4540,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/ldap/users?page=1&per_page=50",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "ldap", "users"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"ldap",
+								"users"
+							],
 							"query": [
 								{
 									"key": "page",
@@ -2780,8 +4580,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/ldap/sync",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "ldap", "sync"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"ldap",
+								"sync"
+							]
 						},
 						"description": "Synchronize users from LDAP to AuthOS"
 					},
@@ -2799,8 +4606,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/organizations/{{organizationId}}/branding",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "organizations", "{{organizationId}}", "branding"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"organizations",
+								"{{organizationId}}",
+								"branding"
+							]
 						},
 						"description": "Get organization branding settings"
 					},
@@ -2822,8 +4637,16 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/organizations/{{organizationId}}/branding",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "organizations", "{{organizationId}}", "branding"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"organizations",
+								"{{organizationId}}",
+								"branding"
+							]
 						},
 						"description": "Update organization branding"
 					},
@@ -2846,8 +4669,17 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/organizations/{{organizationId}}/branding/logo",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "organizations", "{{organizationId}}", "branding", "logo"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"organizations",
+								"{{organizationId}}",
+								"branding",
+								"logo"
+							]
 						},
 						"description": "Upload organization logo"
 					},
@@ -2870,8 +4702,17 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/organizations/{{organizationId}}/branding/background",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "organizations", "{{organizationId}}", "branding", "background"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"organizations",
+								"{{organizationId}}",
+								"branding",
+								"background"
+							]
 						},
 						"description": "Upload login page background image"
 					},
@@ -2889,8 +4730,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/domains",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "domains"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"domains"
+							]
 						},
 						"description": "List custom domains for organization"
 					},
@@ -2912,8 +4759,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/domains",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "domains"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"domains"
+							]
 						},
 						"description": "Add custom domain for organization"
 					},
@@ -2926,8 +4779,16 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/domains/{{domainId}}/verify",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "domains", "{{domainId}}", "verify"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"domains",
+								"{{domainId}}",
+								"verify"
+							]
 						},
 						"description": "Verify DNS records for custom domain"
 					},
@@ -2940,8 +4801,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/domains/{{domainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "domains", "{{domainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"domains",
+								"{{domainId}}"
+							]
 						},
 						"description": "Remove custom domain"
 					},
@@ -2964,12 +4832,19 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"organization_id\": \"{{organizationId}}\",\n    \"format\": \"csv\",\n    \"start_date\": \"2025-01-01\",\n    \"end_date\": \"2025-12-31\",\n    \"event_types\": [\"login\", \"logout\", \"user_created\", \"permission_changed\"]\n}"
+							"raw": "{\n    \"organization_id\": \"{{organizationId}}\",\n    \"format\": \"csv\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-12-31\",\n    \"event_types\": [\"login\", \"logout\", \"user_created\", \"permission_changed\"]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/audit/export",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "audit", "export"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"audit",
+								"export"
+							]
 						},
 						"description": "Export audit logs (CSV, JSON, Excel)"
 					},
@@ -2982,8 +4857,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/audit/exports",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "audit", "exports"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"audit",
+								"exports"
+							]
 						},
 						"description": "List generated audit export files"
 					},
@@ -2996,8 +4878,17 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/audit/exports/{{exportId}}/download",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "audit", "exports", "{{exportId}}", "download"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"audit",
+								"exports",
+								"{{exportId}}",
+								"download"
+							]
 						},
 						"description": "Download audit export file"
 					},
@@ -3009,9 +4900,16 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/enterprise/compliance/soc2?organization_id={{organizationId}}&start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "compliance", "soc2"],
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/soc2?organization_id={{organizationId}}&start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"soc2"
+							],
 							"query": [
 								{
 									"key": "organization_id",
@@ -3019,11 +4917,11 @@
 								},
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -3037,9 +4935,16 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/enterprise/compliance/iso27001?organization_id={{organizationId}}&start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "compliance", "iso27001"],
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/iso27001?organization_id={{organizationId}}&start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"iso27001"
+							],
 							"query": [
 								{
 									"key": "organization_id",
@@ -3047,11 +4952,11 @@
 								},
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -3065,9 +4970,16 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/v1/enterprise/compliance/gdpr?organization_id={{organizationId}}&start_date=2025-01-01&end_date=2025-12-31",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "compliance", "gdpr"],
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/gdpr?organization_id={{organizationId}}&start_date=2026-01-01&end_date=2026-12-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"gdpr"
+							],
 							"query": [
 								{
 									"key": "organization_id",
@@ -3075,11 +4987,11 @@
 								},
 								{
 									"key": "start_date",
-									"value": "2025-01-01"
+									"value": "2026-01-01"
 								},
 								{
 									"key": "end_date",
-									"value": "2025-12-31"
+									"value": "2026-12-31"
 								}
 							]
 						},
@@ -3103,8 +5015,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/enterprise/compliance/schedule",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "enterprise", "compliance", "schedule"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"schedule"
+							]
 						},
 						"description": "Schedule automated compliance reports"
 					},
@@ -3122,8 +5041,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/cache/stats",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "cache", "stats"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"cache",
+								"stats"
+							]
 						},
 						"description": "Get cache statistics"
 					},
@@ -3136,8 +5061,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/cache/clear-all",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "cache", "clear-all"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"cache",
+								"clear-all"
+							]
 						},
 						"description": "Clear all application caches"
 					},
@@ -3150,10 +5081,985 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/v1/cache/clear-user",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1", "cache", "clear-user"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"cache",
+								"clear-user"
+							]
 						},
 						"description": "Clear user-specific caches"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Webhooks",
+			"item": [
+				{
+					"name": "List Webhooks",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks"
+							]
+						},
+						"description": "List all webhooks for the organization"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://myapp.com/webhooks\",\n    \"events\": [\n        \"user.created\",\n        \"user.updated\",\n        \"user.deleted\"\n    ],\n    \"secret\": \"webhook_secret_key\",\n    \"description\": \"User lifecycle events\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks"
+							]
+						},
+						"description": "Create a new webhook subscription"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Webhook",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}"
+							]
+						},
+						"description": "Get webhook details"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Webhook",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://myapp.com/webhooks/v2\",\n    \"events\": [\n        \"user.created\",\n        \"user.updated\"\n    ],\n    \"description\": \"Updated webhook\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}"
+							]
+						},
+						"description": "Update webhook configuration"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Webhook",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}"
+							]
+						},
+						"description": "Delete a webhook"
+					},
+					"response": []
+				},
+				{
+					"name": "Test Webhook",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/test",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"test"
+							]
+						},
+						"description": "Send a test event to the webhook endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Rotate Webhook Secret",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/rotate-secret",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"rotate-secret"
+							]
+						},
+						"description": "Rotate the webhook signing secret"
+					},
+					"response": []
+				},
+				{
+					"name": "Enable Webhook",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/enable",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"enable"
+							]
+						},
+						"description": "Enable a disabled webhook"
+					},
+					"response": []
+				},
+				{
+					"name": "Disable Webhook",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/disable",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"disable"
+							]
+						},
+						"description": "Disable a webhook without deleting it"
+					},
+					"response": []
+				},
+				{
+					"name": "List Webhook Deliveries",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/deliveries",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"deliveries"
+							]
+						},
+						"description": "List delivery attempts for a webhook"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Delivery Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/deliveries/{{deliveryId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"deliveries",
+								"{{deliveryId}}"
+							]
+						},
+						"description": "Get details of a specific webhook delivery"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Webhook Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/stats",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"{{webhookId}}",
+								"stats"
+							]
+						},
+						"description": "Get delivery statistics for a webhook"
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Delivery (via webhook)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/deliveries/{{deliveryId}}/retry",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"deliveries",
+								"{{deliveryId}}",
+								"retry"
+							]
+						},
+						"description": "Retry a failed webhook delivery"
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Delivery (direct)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhook-deliveries/{{deliveryId}}/retry",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhook-deliveries",
+								"{{deliveryId}}",
+								"retry"
+							]
+						},
+						"description": "Retry a failed webhook delivery by delivery ID"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Webhook Events",
+			"item": [
+				{
+					"name": "List All Events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhook-events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhook-events"
+							]
+						},
+						"description": "List all available webhook event types"
+					},
+					"response": []
+				},
+				{
+					"name": "List Grouped Events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhook-events/grouped",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhook-events",
+								"grouped"
+							]
+						},
+						"description": "List webhook events grouped by category"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Event Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhook-events/{{eventId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhook-events",
+								"{{eventId}}"
+							]
+						},
+						"description": "Get details of a specific webhook event type"
+					},
+					"response": []
+				},
+				{
+					"name": "List Events (via webhooks path)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/webhooks/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"webhooks",
+								"events"
+							]
+						},
+						"description": "List available webhook events (alternative path)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Monitoring",
+			"item": [
+				{
+					"name": "Monitoring Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"health"
+							]
+						},
+						"description": "Monitoring health overview"
+					},
+					"response": []
+				},
+				{
+					"name": "All Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics"
+							]
+						},
+						"description": "Get all system metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Authentication Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/authentication",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"authentication"
+							]
+						},
+						"description": "Get authentication-specific metrics (logins, failures, MFA usage)"
+					},
+					"response": []
+				},
+				{
+					"name": "OAuth Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/oauth",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"oauth"
+							]
+						},
+						"description": "Get OAuth-specific metrics (token grants, introspections)"
+					},
+					"response": []
+				},
+				{
+					"name": "API Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/api",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"api"
+							]
+						},
+						"description": "Get API usage metrics (request rates, response times)"
+					},
+					"response": []
+				},
+				{
+					"name": "Webhook Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/webhooks",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"webhooks"
+							]
+						},
+						"description": "Get webhook delivery metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "User Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"users"
+							]
+						},
+						"description": "Get user-related metrics (registrations, active users)"
+					},
+					"response": []
+				},
+				{
+					"name": "Organization Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/organizations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"organizations"
+							]
+						},
+						"description": "Get organization-related metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "MFA Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/mfa",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"mfa"
+							]
+						},
+						"description": "Get MFA usage metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Performance Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/performance",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"performance"
+							]
+						},
+						"description": "Get system performance metrics (latency, throughput)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Custom Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/{{metricName}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"{{metricName}}"
+							]
+						},
+						"description": "Get a specific named metric"
+					},
+					"response": []
+				},
+				{
+					"name": "Record Custom Metric",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"custom_metric\",\n    \"value\": 42,\n    \"tags\": {\n        \"environment\": \"production\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/metrics/record",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"metrics",
+								"record"
+							]
+						},
+						"description": "Record a custom metric value"
+					},
+					"response": []
+				},
+				{
+					"name": "List Errors",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/errors",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"errors"
+							]
+						},
+						"description": "List tracked errors"
+					},
+					"response": []
+				},
+				{
+					"name": "Error Trends",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/errors/trends",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"errors",
+								"trends"
+							]
+						},
+						"description": "Get error trend data over time"
+					},
+					"response": []
+				},
+				{
+					"name": "Recent Errors",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/monitoring/errors/recent",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"monitoring",
+								"errors",
+								"recent"
+							]
+						},
+						"description": "Get most recent errors"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bulk Import/Export",
+			"item": [
+				{
+					"name": "Import Users",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "format",
+									"value": "csv",
+									"type": "text"
+								},
+								{
+									"key": "organization_id",
+									"value": "{{organizationId}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/users/import",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"users",
+								"import"
+							]
+						},
+						"description": "Import users from a CSV/Excel/JSON file"
+					},
+					"response": []
+				},
+				{
+					"name": "Export Users",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"format\": \"csv\",\n    \"filters\": {\n        \"organization_id\": \"{{organizationId}}\",\n        \"active\": true\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/users/export",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"users",
+								"export"
+							]
+						},
+						"description": "Export users to CSV/Excel/JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "List Import Jobs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports"
+							]
+						},
+						"description": "List all bulk import jobs"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Import Job",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports/{{jobId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports",
+								"{{jobId}}"
+							]
+						},
+						"description": "Get details of a specific import job"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Import Job Errors",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports/{{jobId}}/errors",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports",
+								"{{jobId}}",
+								"errors"
+							]
+						},
+						"description": "Get errors from a bulk import job"
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Import Job",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports/{{jobId}}/cancel",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports",
+								"{{jobId}}",
+								"cancel"
+							]
+						},
+						"description": "Cancel a running import job"
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Import Job",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports/{{jobId}}/retry",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports",
+								"{{jobId}}",
+								"retry"
+							]
+						},
+						"description": "Retry a failed import job"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Import Job",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/imports/{{jobId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"imports",
+								"{{jobId}}"
+							]
+						},
+						"description": "Delete an import job and its data"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Job Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/jobs/{{jobId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"jobs",
+								"{{jobId}}"
+							]
+						},
+						"description": "Get status of any bulk job (import or export)"
+					},
+					"response": []
+				},
+				{
+					"name": "Download Export",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/bulk/exports/{{jobId}}/download",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"bulk",
+								"exports",
+								"{{jobId}}",
+								"download"
+							]
+						},
+						"description": "Download the exported file"
 					},
 					"response": []
 				}
@@ -3254,6 +6160,56 @@
 		{
 			"key": "tokenId",
 			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhookId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "deliveryId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "jobId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "configId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "scheduleId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ssoSessionToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "eventId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "metricName",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "component",
+			"value": "database",
+			"type": "string"
+		},
+		{
+			"key": "provider",
+			"value": "google",
 			"type": "string"
 		}
 	]

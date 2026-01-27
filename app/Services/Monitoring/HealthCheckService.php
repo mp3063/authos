@@ -305,7 +305,7 @@ class HealthCheckService
 
         try {
             $ldapConfigCount = DB::table('ldap_configurations')
-                ->where('enabled', true)
+                ->where('is_active', true)
                 ->count();
 
             if ($ldapConfigCount === 0) {
