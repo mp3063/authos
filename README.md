@@ -10,14 +10,14 @@
   <img src="https://img.shields.io/badge/PHP-8.4-blue" alt="PHP 8.4">
   <img src="https://img.shields.io/badge/Laravel-12-red" alt="Laravel 12">
   <img src="https://img.shields.io/badge/Filament-4.0-orange" alt="Filament 4">
-  <img src="https://img.shields.io/badge/Tests-1268+-green" alt="1268+ Tests">
-  <img src="https://img.shields.io/badge/Pass%20Rate-85%25-brightgreen" alt="85% Pass Rate">
+  <img src="https://img.shields.io/badge/Tests-1210+-green" alt="1210+ Tests">
+  <img src="https://img.shields.io/badge/Pass%20Rate-99%25+-brightgreen" alt="99%+ Pass Rate">
   <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
 </p>
 
 ---
 
-> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. While core features are functional and 8 test categories achieve 100% pass rate (Security, OAuth, SSO, Webhooks, Cache, Bulk Operations, Monitoring, Model Lifecycle), several areas still require work before production deployment. See the [Test Status](#testing) section for current coverage details.
+> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. Core features are functional with **14 test categories at 100% pass rate** and **99%+ overall pass rate** (1210+ tests). See the [Test Status](#testing) section for current coverage details.
 
 ---
 
@@ -174,7 +174,7 @@ See [API Documentation](docs/api/) for complete details.
 
 The Filament-powered admin panel provides:
 
-### Resources (12)
+### Resources (16)
 - Users, Organizations, Applications
 - Roles, Permissions
 - Authentication Logs
@@ -182,6 +182,8 @@ The Filament-powered admin panel provides:
 - LDAP Configurations
 - Custom Domains
 - Webhooks, Webhook Deliveries
+- Security Incidents, Account Lockouts
+- IP Blocklist, Failed Login Attempts
 
 ### Dashboard Widgets (13)
 - System Health Monitor
@@ -194,7 +196,7 @@ The Filament-powered admin panel provides:
 
 ## Testing
 
-AuthOS includes a comprehensive test suite with **1,268 test methods** across **120 test files** (~46,500 lines of test code). The overall pass rate is **85%** with 8 categories achieving 100%.
+AuthOS includes a comprehensive test suite with **1,210+ test methods** across **83+ integration test files** (~46,500 lines of test code). The overall pass rate is **99%+** with 14 categories achieving 100%.
 
 ```bash
 # Run all tests
@@ -223,16 +225,16 @@ composer test:coverage
 | Monitoring | 5 | 38 | ✅ 100% |
 | Model Lifecycle | 3 | 40 | ✅ 100% |
 
-### Test Categories - In Progress
+### Additional Production-Ready Categories
 
 | Category | Files | Tests | Status |
 |----------|-------|-------|--------|
-| Profile/MFA | 3 | 38 | 🔧 82% |
-| Applications | 4 | 27 | 🔧 67% |
-| Jobs | 8 | 50 | 🔧 38% |
-| Organizations | 8 | 102 | 🔧 27% |
-| Users | 4 | 53 | 🔧 19% |
-| Enterprise | 5 | - | 🔧 Early |
+| Organizations | 8 | 102 | ✅ 100% |
+| Enterprise | 5 | 88 | ✅ 100% |
+| Users | 4 | 53 | ✅ 100% |
+| Jobs | 8 | 50 | ✅ 100% |
+| Profile/MFA | 3 | 38 | ✅ 100% |
+| Applications | 4 | 27 | ✅ 100% |
 
 ## Configuration
 
