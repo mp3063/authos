@@ -28,7 +28,9 @@ class RoleCreatedEvent
                 'id' => $this->role->id,
                 'name' => $this->role->name,
                 'organization_id' => $this->role->organization_id,
-                'created_at' => $this->role->created_at?->toIso8601String(),
+                'created_at' => $this->role->created_at instanceof \DateTimeInterface
+                    ? $this->role->created_at->toIso8601String()
+                    : $this->role->created_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->role->organization_id,

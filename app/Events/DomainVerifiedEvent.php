@@ -28,7 +28,9 @@ class DomainVerifiedEvent
                 'id' => $this->domain->id,
                 'domain' => $this->domain->domain,
                 'organization_id' => $this->domain->organization_id,
-                'verified_at' => $this->domain->verified_at?->toIso8601String(),
+                'verified_at' => $this->domain->verified_at instanceof \DateTimeInterface
+                    ? $this->domain->verified_at->toIso8601String()
+                    : $this->domain->verified_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->domain->organization_id,

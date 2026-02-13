@@ -240,7 +240,7 @@ trait ApiResponse
      */
     protected function deletedResponse(string $message = 'Resource deleted successfully'): JsonResponse
     {
-        return $this->successResponse(null, $message);
+        return $this->successResponse(['deleted' => true], $message);
     }
 
     /**

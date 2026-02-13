@@ -28,7 +28,9 @@ class RoleUpdatedEvent
                 'id' => $this->role->id,
                 'name' => $this->role->name,
                 'organization_id' => $this->role->organization_id,
-                'updated_at' => $this->role->updated_at?->toIso8601String(),
+                'updated_at' => $this->role->updated_at instanceof \DateTimeInterface
+                    ? $this->role->updated_at->toIso8601String()
+                    : $this->role->updated_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->role->organization_id,

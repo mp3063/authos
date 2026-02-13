@@ -29,7 +29,9 @@ class ApplicationCreatedEvent
                 'name' => $this->application->name,
                 'organization_id' => $this->application->organization_id,
                 'type' => $this->application->type,
-                'created_at' => $this->application->created_at?->toIso8601String(),
+                'created_at' => $this->application->created_at instanceof \DateTimeInterface
+                    ? $this->application->created_at->toIso8601String()
+                    : $this->application->created_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->application->organization_id,

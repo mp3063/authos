@@ -30,7 +30,9 @@ class UserUpdatedEvent
                 'name' => $this->user->name,
                 'organization_id' => $this->user->organization_id,
                 'email_verified' => $this->user->email_verified_at !== null,
-                'updated_at' => $this->user->updated_at?->toIso8601String(),
+                'updated_at' => $this->user->updated_at instanceof \DateTimeInterface
+                    ? $this->user->updated_at->toIso8601String()
+                    : $this->user->updated_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->user->organization_id,

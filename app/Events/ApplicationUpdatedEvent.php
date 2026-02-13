@@ -29,7 +29,9 @@ class ApplicationUpdatedEvent
                 'name' => $this->application->name,
                 'organization_id' => $this->application->organization_id,
                 'type' => $this->application->type,
-                'updated_at' => $this->application->updated_at?->toIso8601String(),
+                'updated_at' => $this->application->updated_at instanceof \DateTimeInterface
+                    ? $this->application->updated_at->toIso8601String()
+                    : $this->application->updated_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->application->organization_id,

@@ -30,7 +30,9 @@ class UserCreatedEvent
                 'name' => $this->user->name,
                 'organization_id' => $this->user->organization_id,
                 'email_verified' => $this->user->email_verified_at !== null,
-                'created_at' => $this->user->created_at?->toIso8601String(),
+                'created_at' => $this->user->created_at instanceof \DateTimeInterface
+                    ? $this->user->created_at->toIso8601String()
+                    : $this->user->created_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->user->organization_id,

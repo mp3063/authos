@@ -130,7 +130,7 @@ class CacheManagementController extends BaseApiController
         try {
             cache()->flush();
 
-            return $this->successResponse(null, 'All caches cleared successfully');
+            return $this->successResponse(['cleared' => true], 'All caches cleared successfully');
         } catch (Exception $e) {
             logger()->error('Failed to clear all caches: '.$e->getMessage());
 

@@ -28,7 +28,9 @@ class OrganizationUpdatedEvent
                 'id' => $this->organization->id,
                 'name' => $this->organization->name,
                 'slug' => $this->organization->slug,
-                'updated_at' => $this->organization->updated_at?->toIso8601String(),
+                'updated_at' => $this->organization->updated_at instanceof \DateTimeInterface
+                    ? $this->organization->updated_at->toIso8601String()
+                    : $this->organization->updated_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->organization->id,

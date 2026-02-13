@@ -30,7 +30,9 @@ class WebhookCreatedEvent
                 'url' => $this->webhook->url,
                 'organization_id' => $this->webhook->organization_id,
                 'events' => $this->webhook->events,
-                'created_at' => $this->webhook->created_at?->toIso8601String(),
+                'created_at' => $this->webhook->created_at instanceof \DateTimeInterface
+                    ? $this->webhook->created_at->toIso8601String()
+                    : $this->webhook->created_at,
             ],
             'timestamp' => now()->toIso8601String(),
             'organization_id' => $this->webhook->organization_id,
