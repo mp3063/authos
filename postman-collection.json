@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "authos-api-collection-v1",
 		"name": "AuthOS - Laravel 12 Authentication Service API",
-		"description": "Comprehensive API collection for AuthOS - A production-ready Laravel 12 authentication service built as Auth0 alternative.\n\n**Features:**\n- OAuth 2.0 & OpenID Connect (OIDC)\n- Social Authentication (Google, GitHub, Facebook, Twitter, LinkedIn)\n- Multi-Factor Authentication (MFA/TOTP)\n- Single Sign-On (SSO - OIDC + SAML 2.0)\n- Multi-tenant Organization Management\n- Enterprise Features (LDAP, Branding, Custom Domains, Audit, Compliance)\n- User & Application Management\n- Role-Based Access Control (RBAC)\n\n**Authentication:**\nMost endpoints require Bearer token authentication. Use the login endpoint to obtain an access token.\n\n**Base URL:**\n- Local (HERD): http://authos.test/api/v1\n- OAuth endpoints: http://authos.test/oauth\n- OIDC Discovery: http://authos.test/.well-known/openid-configuration",
+		"description": "Comprehensive API collection for AuthOS - A production-ready Laravel 12 authentication service built as Auth0 alternative.\n\n**Features:**\n- OAuth 2.0 & OpenID Connect (OIDC)\n- Social Authentication (Google, GitHub, Facebook, Twitter, LinkedIn)\n- Multi-Factor Authentication (MFA/TOTP)\n- Single Sign-On (SSO - OIDC + SAML 2.0)\n- Multi-tenant Organization Management\n- Enterprise Features (LDAP, Branding, Custom Domains, Audit, Compliance)\n- User & Application Management\n- Role-Based Access Control (RBAC)\n\n**Authentication:**\nMost endpoints require Bearer token authentication. Use the login endpoint to obtain an access token.\n\n**Base URL:**\n- Local (HERD): http://authos.test/api/v1\n- OAuth endpoints: http://authos.test/oauth\n- OIDC Discovery: http://authos.test/api/.well-known/openid-configuration",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "authos-v1"
 	},
@@ -76,44 +76,6 @@
 							"path": [
 								"health",
 								"detailed"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Monitoring Metrics",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/v1/monitoring/metrics",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"v1",
-								"monitoring",
-								"metrics"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Monitoring Health",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/v1/monitoring/health",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"v1",
-								"monitoring",
-								"health"
 							]
 						}
 					},
@@ -658,6 +620,41 @@
 					"response": []
 				},
 				{
+					"name": "Facebook - Callback",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/auth/social/facebook/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"facebook",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "AUTHORIZATION_CODE"
+								},
+								{
+									"key": "state",
+									"value": "STATE_TOKEN"
+								}
+							]
+						},
+						"description": "Handle Facebook OAuth callback"
+					},
+					"response": []
+				},
+				{
 					"name": "Twitter - Redirect",
 					"request": {
 						"auth": {
@@ -682,6 +679,41 @@
 					"response": []
 				},
 				{
+					"name": "Twitter - Callback",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/auth/social/twitter/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"twitter",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "AUTHORIZATION_CODE"
+								},
+								{
+									"key": "state",
+									"value": "STATE_TOKEN"
+								}
+							]
+						},
+						"description": "Handle Twitter OAuth callback"
+					},
+					"response": []
+				},
+				{
 					"name": "LinkedIn - Redirect",
 					"request": {
 						"auth": {
@@ -702,6 +734,41 @@
 							]
 						},
 						"description": "Initiate LinkedIn OAuth authentication"
+					},
+					"response": []
+				},
+				{
+					"name": "LinkedIn - Callback",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/auth/social/linkedin/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"auth",
+								"social",
+								"linkedin",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "AUTHORIZATION_CODE"
+								},
+								{
+									"key": "state",
+									"value": "STATE_TOKEN"
+								}
+							]
+						},
+						"description": "Handle LinkedIn OAuth callback"
 					},
 					"response": []
 				},
@@ -779,9 +846,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{oauthBaseUrl}}/.well-known/openid-configuration",
+							"raw": "{{baseUrl}}/.well-known/openid-configuration",
 							"host": [
-								"{{oauthBaseUrl}}"
+								"{{baseUrl}}"
 							],
 							"path": [
 								".well-known",
@@ -1019,55 +1086,6 @@
 					"response": []
 				},
 				{
-					"name": "Token Introspection",
-					"request": {
-						"auth": {
-							"type": "basic",
-							"basic": [
-								{
-									"key": "username",
-									"value": "{{clientId}}",
-									"type": "string"
-								},
-								{
-									"key": "password",
-									"value": "{{clientSecret}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/x-www-form-urlencoded"
-							}
-						],
-						"body": {
-							"mode": "urlencoded",
-							"urlencoded": [
-								{
-									"key": "token",
-									"value": "{{accessToken}}",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{oauthBaseUrl}}/oauth/introspect",
-							"host": [
-								"{{oauthBaseUrl}}"
-							],
-							"path": [
-								"oauth",
-								"introspect"
-							]
-						},
-						"description": "RFC 7662 - Introspect access token validity and metadata"
-					},
-					"response": []
-				},
-				{
 					"name": "UserInfo Endpoint",
 					"request": {
 						"method": "GET",
@@ -1107,6 +1125,297 @@
 							]
 						},
 						"description": "JSON Web Key Set for token verification"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Authorization Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "state",
+									"value": "STATE_TOKEN",
+									"type": "text",
+									"description": "Authorization request state"
+								},
+								{
+									"key": "client_id",
+									"value": "{{clientId}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/authorize",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"authorize"
+							]
+						},
+						"description": "Approve an OAuth 2.0 authorization request"
+					},
+					"response": []
+				},
+				{
+					"name": "Deny Authorization Request",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "state",
+									"value": "STATE_TOKEN",
+									"type": "text",
+									"description": "Authorization request state"
+								},
+								{
+									"key": "client_id",
+									"value": "{{clientId}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/authorize",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"authorize"
+							]
+						},
+						"description": "Deny an OAuth 2.0 authorization request"
+					},
+					"response": []
+				},
+				{
+					"name": "Token Refresh",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "refresh_token",
+									"value": "{{refreshToken}}",
+									"type": "text",
+									"description": "The refresh token to exchange for a new access token"
+								},
+								{
+									"key": "client_id",
+									"value": "{{clientId}}",
+									"type": "text"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{clientSecret}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/token/refresh",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"token",
+								"refresh"
+							]
+						},
+						"description": "Refresh an access token using a refresh token"
+					},
+					"response": []
+				},
+				{
+					"name": "Request Device Code",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "client_id",
+									"value": "{{clientId}}",
+									"type": "text",
+									"description": "OAuth Client ID"
+								},
+								{
+									"key": "scope",
+									"value": "openid profile email",
+									"type": "text",
+									"description": "Requested scopes"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/device/code",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"device",
+								"code"
+							]
+						},
+						"description": "Request a device code for the OAuth 2.0 Device Authorization Grant"
+					},
+					"response": []
+				},
+				{
+					"name": "Device Authorization Page",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/device",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"device"
+							]
+						},
+						"description": "Device authorization page where user enters the device code"
+					},
+					"response": []
+				},
+				{
+					"name": "Device Authorization Approval Page",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/device/authorize",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"device",
+								"authorize"
+							]
+						},
+						"description": "Device authorization approval page"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Device Authorization",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_code",
+									"value": "USER_CODE",
+									"type": "text",
+									"description": "The user code displayed on the device"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/device/authorize",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"device",
+								"authorize"
+							]
+						},
+						"description": "Approve a device authorization request"
+					},
+					"response": []
+				},
+				{
+					"name": "Deny Device Authorization",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_code",
+									"value": "USER_CODE",
+									"type": "text",
+									"description": "The user code displayed on the device"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{oauthBaseUrl}}/oauth/device/authorize",
+							"host": [
+								"{{oauthBaseUrl}}"
+							],
+							"path": [
+								"oauth",
+								"device",
+								"authorize"
+							]
+						},
+						"description": "Deny a device authorization request"
 					},
 					"response": []
 				}
@@ -2358,6 +2667,22 @@
 			"item": [
 				{
 					"name": "List Organizations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.length > 0) {",
+									"        pm.collectionVariables.set('organizationId', jsonData.data[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -2419,6 +2744,22 @@
 				},
 				{
 					"name": "Get Organization",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.id) {",
+									"        pm.collectionVariables.set('organizationId', jsonData.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -3427,7 +3768,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"report_type\": \"user-activity\",\n    \"frequency\": \"weekly\",\n    \"recipients\": [\n        \"admin@example.com\"\n    ],\n    \"format\": \"csv\"\n}"
+							"raw": "{\n    \"report_type\": \"user_activity\",\n    \"frequency\": \"weekly\",\n    \"delivery_method\": \"email\",\n    \"recipients\": [\n        \"admin@example.com\"\n    ],\n    \"format\": \"csv\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/reports/schedule",

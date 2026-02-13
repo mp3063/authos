@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\CustomRole;
 use App\Models\Organization;
@@ -40,7 +39,7 @@ class OrganizationReportingService
 
         $activeUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
             $q->whereIn('application_id', $applicationIds)
-                ->wherePivot('last_login_at', '>=', $startDate);
+                ->where('user_applications.last_login_at', '>=', $startDate);
         })->distinct()->count();
 
         $newUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
@@ -69,7 +68,7 @@ class OrganizationReportingService
         // Top active users
         $topUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
             $q->whereIn('application_id', $applicationIds)
-                ->wherePivot('last_login_at', '>=', $startDate);
+                ->where('user_applications.last_login_at', '>=', $startDate);
         })
             ->with(['applications' => function ($q) use ($applicationIds) {
                 $q->whereIn('application_id', $applicationIds)
@@ -217,7 +216,7 @@ class OrganizationReportingService
         // Token usage statistics
         $tokenStats = DB::table('oauth_access_tokens')
             ->join('oauth_clients', 'oauth_access_tokens.client_id', '=', 'oauth_clients.id')
-            ->join('applications', 'oauth_clients.id', '=', 'applications.client_id')
+            ->join('applications', DB::raw('oauth_clients.id::text'), '=', 'applications.client_id')
             ->where('applications.organization_id', $organizationId)
             ->select(
                 'applications.id as application_id',
@@ -269,6 +268,7 @@ class OrganizationReportingService
      */
     public function generateSecurityAuditReport(int $organizationId): array
     {
+        /** @var Organization $organization */
         $organization = Organization::findOrFail($organizationId);
         $applicationIds = $organization->applications()->pluck('id');
 
@@ -304,8 +304,8 @@ class OrganizationReportingService
                 DB::raw('MAX(created_at) as last_attempt')
             )
             ->groupBy('ip_address')
-            ->having('failed_attempts', '>=', 10)
-            ->orderByDesc('failed_attempts')
+            ->having(DB::raw('COUNT(*)'), '>=', 10)
+            ->orderByDesc(DB::raw('COUNT(*)'))
             ->get();
 
         // Users without MFA
@@ -313,7 +313,7 @@ class OrganizationReportingService
             $q->whereIn('application_id', $applicationIds);
         })
             ->where(function ($q) {
-                $q->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
+                $q->whereNull('mfa_methods')->orWhereRaw("mfa_methods::text = '[]'");
             })
             ->select('id', 'name', 'email', 'created_at')
             ->get();
@@ -443,8 +443,8 @@ class OrganizationReportingService
         );
 
         // Generate PDF using DOMPDF
-        $pdf = Pdf::loadView("reports.{$reportType}", compact('report'));
-        $pdf->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView("reports.$reportType", compact('report'));
+        $pdf->setPaper('a4');
 
         $exportPath = 'reports/'.$filename;
         Storage::put($exportPath, $pdf->output());
@@ -464,7 +464,7 @@ class OrganizationReportingService
                 'priority' => 'high',
                 'category' => 'mfa',
                 'title' => 'Enable Multi-Factor Authentication',
-                'description' => "There are {$usersWithoutMFA} users without MFA enabled. Consider enforcing MFA organization-wide.",
+                'description' => "There are $usersWithoutMFA users without MFA enabled. Consider enforcing MFA organization-wide.",
                 'action' => 'Enable organization-wide MFA requirement in settings.',
             ];
         }
@@ -474,7 +474,7 @@ class OrganizationReportingService
                 'priority' => 'high',
                 'category' => 'security',
                 'title' => 'Investigate Suspicious IP Addresses',
-                'description' => "Detected {$suspiciousIPs} IP addresses with multiple failed login attempts.",
+                'description' => "Detected $suspiciousIPs IP addresses with multiple failed login attempts.",
                 'action' => 'Review suspicious IPs and consider implementing IP allowlists.',
             ];
         }
@@ -484,7 +484,7 @@ class OrganizationReportingService
                 'priority' => 'medium',
                 'category' => 'compliance',
                 'title' => 'Improve Security Compliance',
-                'description' => "Current compliance score is {$complianceScore}%. Review security settings.",
+                'description' => "Current compliance score is $complianceScore%. Review security settings.",
                 'action' => 'Configure password policies, session timeouts, and domain restrictions.',
             ];
         }
@@ -511,44 +511,5 @@ class OrganizationReportingService
         }
 
         return $recommendations;
-    }
-
-    /**
-     * Schedule a recurring report
-     */
-    public function scheduleRecurringReport(array $config): string
-    {
-        // For now, return a dummy schedule ID
-        // In a real implementation, this would integrate with a job scheduler
-        $scheduleId = 'schedule_'.uniqid();
-
-        // Store configuration for the scheduled report
-        // This could be stored in a database table or cache
-        $scheduledReport = [
-            'id' => $scheduleId,
-            'organization_id' => $config['organization_id'],
-            'report_type' => $config['report_type'],
-            'frequency' => $config['frequency'],
-            'recipients' => $config['recipients'],
-            'next_run' => $this->calculateNextRunTime($config['frequency']),
-            'created_at' => Carbon::now(),
-        ];
-
-        // In a real implementation, you'd store this in a database
-        // For testing purposes, we'll just return the ID
-        return $scheduleId;
-    }
-
-    /**
-     * Calculate next run time based on frequency
-     */
-    private function calculateNextRunTime(string $frequency): Carbon
-    {
-        return match ($frequency) {
-            'daily' => Carbon::now()->addDay(),
-            'weekly' => Carbon::now()->addWeek(),
-            'monthly' => Carbon::now()->addMonth(),
-            default => Carbon::now()->addWeek(),
-        };
     }
 }
