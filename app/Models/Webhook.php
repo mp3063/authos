@@ -35,21 +35,24 @@ class Webhook extends Model
         'metadata',
     ];
 
-    protected $casts = [
-        'events' => 'array',
-        'is_active' => 'boolean',
-        'headers' => 'array',
-        'ip_whitelist' => 'array',
-        'metadata' => 'array',
-        'delivery_stats' => 'array',
-        'secret' => 'encrypted',
-        'last_delivered_at' => 'datetime',
-        'last_failed_at' => 'datetime',
-        'disabled_at' => 'datetime',
-        'timeout_seconds' => 'integer',
-        'failure_count' => 'integer',
-        'consecutive_failures' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'events' => 'array',
+            'is_active' => 'boolean',
+            'headers' => 'array',
+            'ip_whitelist' => 'array',
+            'metadata' => 'array',
+            'delivery_stats' => 'array',
+            'secret' => 'encrypted',
+            'last_delivered_at' => 'datetime',
+            'last_failed_at' => 'datetime',
+            'disabled_at' => 'datetime',
+            'timeout_seconds' => 'integer',
+            'failure_count' => 'integer',
+            'consecutive_failures' => 'integer',
+        ];
+    }
 
     protected $hidden = [
         // Secret is handled manually in WebhookResource

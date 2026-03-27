@@ -31,14 +31,17 @@ class Application extends Model
         'is_active',
     ];
 
-    protected $casts = [
-        'redirect_uris' => 'array',
-        'allowed_origins' => 'array',
-        'allowed_grant_types' => 'array',
-        'scopes' => 'array',
-        'settings' => 'array',
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'redirect_uris' => 'array',
+            'allowed_origins' => 'array',
+            'allowed_grant_types' => 'array',
+            'scopes' => 'array',
+            'settings' => 'array',
+            'is_active' => 'boolean',
+        ];
+    }
 
     protected static function boot(): void
     {

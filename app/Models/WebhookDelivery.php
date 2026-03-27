@@ -29,18 +29,21 @@ class WebhookDelivery extends Model
         'completed_at',
     ];
 
-    protected $casts = [
-        'payload' => 'array',
-        'response_headers' => 'array',
-        'http_status_code' => 'integer',
-        'attempt_number' => 'integer',
-        'max_attempts' => 'integer',
-        'request_duration_ms' => 'integer',
-        'next_retry_at' => 'datetime',
-        'sent_at' => 'datetime',
-        'completed_at' => 'datetime',
-        'status' => WebhookDeliveryStatus::class,
-    ];
+    protected function casts(): array
+    {
+        return [
+            'payload' => 'array',
+            'response_headers' => 'array',
+            'http_status_code' => 'integer',
+            'attempt_number' => 'integer',
+            'max_attempts' => 'integer',
+            'request_duration_ms' => 'integer',
+            'next_retry_at' => 'datetime',
+            'sent_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'status' => WebhookDeliveryStatus::class,
+        ];
+    }
 
     /**
      * Relationships

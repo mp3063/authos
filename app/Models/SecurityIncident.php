@@ -26,11 +26,14 @@ class SecurityIncident extends Model
         'action_taken',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-        'detected_at' => 'datetime',
-        'resolved_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+            'detected_at' => 'datetime',
+            'resolved_at' => 'datetime',
+        ];
+    }
 
     public function user(): BelongsTo
     {

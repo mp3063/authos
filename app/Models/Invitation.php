@@ -30,13 +30,16 @@ class Invitation extends Model
         'cancelled_at',
     ];
 
-    protected $casts = [
-        'expires_at' => 'datetime',
-        'accepted_at' => 'datetime',
-        'declined_at' => 'datetime',
-        'cancelled_at' => 'datetime',
-        'metadata' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'expires_at' => 'datetime',
+            'accepted_at' => 'datetime',
+            'declined_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'metadata' => 'array',
+        ];
+    }
 
     protected static function boot()
     {

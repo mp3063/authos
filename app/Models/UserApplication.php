@@ -19,10 +19,13 @@ class UserApplication extends Pivot
         'granted_by',
     ];
 
-    protected $casts = [
-        'permissions' => 'array',
-        'metadata' => 'array',
-        'last_login_at' => 'datetime',
-        'granted_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'permissions' => 'array',
+            'metadata' => 'array',
+            'last_login_at' => 'datetime',
+            'granted_at' => 'datetime',
+        ];
+    }
 }

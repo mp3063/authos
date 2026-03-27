@@ -25,13 +25,16 @@ class IpBlocklist extends Model
         'is_active',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-        'blocked_at' => 'datetime',
-        'expires_at' => 'datetime',
-        'is_active' => 'boolean',
-        'incident_count' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+            'blocked_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'is_active' => 'boolean',
+            'incident_count' => 'integer',
+        ];
+    }
 
     public function blockedBy(): BelongsTo
     {

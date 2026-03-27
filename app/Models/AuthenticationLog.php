@@ -23,13 +23,16 @@ class AuthenticationLog extends Model
         'metadata',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-        'details' => 'array',
-        'success' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+            'details' => 'array',
+            'success' => 'boolean',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
+    }
 
     protected $appends = ['action'];
 

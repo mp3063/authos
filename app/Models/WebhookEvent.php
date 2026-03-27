@@ -18,10 +18,13 @@ class WebhookEvent extends Model
         'version',
     ];
 
-    protected $casts = [
-        'payload_schema' => 'array',
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'payload_schema' => 'array',
+            'is_active' => 'boolean',
+        ];
+    }
 
     /**
      * Scope to get only active events

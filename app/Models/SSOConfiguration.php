@@ -25,12 +25,15 @@ class SSOConfiguration extends Model
         'is_active',
     ];
 
-    protected $casts = [
-        'allowed_domains' => 'array',
-        'settings' => 'array',
-        'configuration' => 'array',
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'allowed_domains' => 'array',
+            'settings' => 'array',
+            'configuration' => 'array',
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function application(): BelongsTo
     {

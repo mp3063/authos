@@ -29,12 +29,15 @@ class SSOSession extends Model
         'metadata',
     ];
 
-    protected $casts = [
-        'expires_at' => 'datetime',
-        'last_activity_at' => 'datetime',
-        'logged_out_at' => 'datetime',
-        'metadata' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'expires_at' => 'datetime',
+            'last_activity_at' => 'datetime',
+            'logged_out_at' => 'datetime',
+            'metadata' => 'array',
+        ];
+    }
 
     protected static function boot(): void
     {

@@ -23,14 +23,17 @@ class MigrationJob extends Model
         'completed_at',
     ];
 
-    protected $casts = [
-        'config' => 'array',
-        'stats' => 'array',
-        'migrated_data' => 'array',
-        'error_log' => 'array',
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'config' => 'array',
+            'stats' => 'array',
+            'migrated_data' => 'array',
+            'error_log' => 'array',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+        ];
+    }
 
     /**
      * Get the organization that owns the migration job.

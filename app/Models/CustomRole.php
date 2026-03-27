@@ -25,12 +25,15 @@ class CustomRole extends Model
         'is_default',
     ];
 
-    protected $casts = [
-        'permissions' => 'array',
-        'is_system' => 'boolean',
-        'is_active' => 'boolean',
-        'is_default' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'permissions' => 'array',
+            'is_system' => 'boolean',
+            'is_active' => 'boolean',
+            'is_default' => 'boolean',
+        ];
+    }
 
     /**
      * Get the organization that owns the custom role

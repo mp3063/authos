@@ -61,16 +61,19 @@ class BulkImportJob extends Model
         'processing_time',
     ];
 
-    protected $casts = [
-        'options' => 'array',
-        'validation_report' => 'array',
-        'errors' => 'array',
-        'records' => 'array',
-        'filters' => 'array',
-        'columns' => 'array',
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'options' => 'array',
+            'validation_report' => 'array',
+            'errors' => 'array',
+            'records' => 'array',
+            'filters' => 'array',
+            'columns' => 'array',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+        ];
+    }
 
     /**
      * Get the organization that owns this job

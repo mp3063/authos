@@ -19,10 +19,13 @@ class FailedLoginAttempt extends Model
         'attempted_at',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-        'attempted_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+            'attempted_at' => 'datetime',
+        ];
+    }
 
     public function scopeRecentAttempts($query, string $identifier, int $minutes = 15)
     {

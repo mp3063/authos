@@ -24,13 +24,16 @@ class AccountLockout extends Model
         'metadata',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-        'locked_at' => 'datetime',
-        'unlock_at' => 'datetime',
-        'unlocked_at' => 'datetime',
-        'attempt_count' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+            'locked_at' => 'datetime',
+            'unlock_at' => 'datetime',
+            'unlocked_at' => 'datetime',
+            'attempt_count' => 'integer',
+        ];
+    }
 
     public function user(): BelongsTo
     {

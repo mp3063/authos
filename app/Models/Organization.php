@@ -28,10 +28,13 @@ class Organization extends Model
         'logo',
     ];
 
-    protected $casts = [
-        'settings' => 'array',
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'settings' => 'array',
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function applications(): HasMany
     {

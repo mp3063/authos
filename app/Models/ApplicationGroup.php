@@ -24,10 +24,13 @@ class ApplicationGroup extends Model
         'settings',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'settings' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'settings' => 'array',
+        ];
+    }
 
     /**
      * Get the parent group
