@@ -2,12 +2,17 @@
 
 namespace App\Filament\Pages\Auth;
 
-use Filament\Actions\Action;
+use App\Filament\Pages\Auth\Concerns\HasSocialLoginButtons;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Schemas\Components\Html;
+use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Schema;
+use Filament\View\PanelsRenderHook;
 
 class Login extends BaseLogin
 {
+    use HasSocialLoginButtons;
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -18,13 +23,15 @@ class Login extends BaseLogin
             ]);
     }
 
-    public function getFormActions(): array
+    public function content(Schema $schema): Schema
     {
-        $actions = parent::getFormActions();
-        $actions[] = Action::make('Sign in with Google')
-            ->url('/auth/social/google')
-            ->icon('heroicon-m-arrow-top-right-on-square');
-
-        return $actions;
+        return $schema
+            ->components([
+                RenderHook::make(PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE),
+                $this->getFormContentComponent(),
+                $this->getMultiFactorChallengeFormContentComponent(),
+                RenderHook::make(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER),
+                Html::make($this->renderSocialButtons('Sign in with')),
+            ]);
     }
 }
