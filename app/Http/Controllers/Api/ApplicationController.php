@@ -437,10 +437,12 @@ class ApplicationController extends BaseApiController
             ->where('expires_at', '>', now())
             ->get();
 
+        $userIds = $tokens->pluck('user_id')->filter()->unique()->values();
+        $users = User::whereIn('id', $userIds)->get()->keyBy('id');
+
         return response()->json([
-            'data' => $tokens->map(function ($token) {
-                // Load user manually to avoid relationship issues
-                $user = User::find($token->user_id);
+            'data' => $tokens->map(function ($token) use ($users) {
+                $user = $users->get($token->user_id);
 
                 return [
                     'id' => $token->id,
@@ -553,13 +555,12 @@ class ApplicationController extends BaseApiController
             ->where('expires_at', '>', now())
             ->count();
 
-        $authLogs = AuthenticationLog::where('application_id', $application->id)
-            ->where('created_at', '>=', $startDate)
-            ->get();
+        $baseQuery = AuthenticationLog::where('application_id', $application->id)
+            ->where('created_at', '>=', $startDate);
 
-        $successfulLogins = $authLogs->where('event', 'login_success')->count();
-        $failedLogins = $authLogs->where('event', 'login_failed')->count();
-        $uniqueUsers = $authLogs->pluck('user_id')->unique()->count();
+        $successfulLogins = (clone $baseQuery)->where('event', 'login_success')->count();
+        $failedLogins = (clone $baseQuery)->where('event', 'login_failed')->count();
+        $uniqueUsers = (clone $baseQuery)->distinct('user_id')->count('user_id');
 
         return response()->json([
             'data' => [
