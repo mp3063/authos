@@ -9,7 +9,6 @@ use App\Http\Requests\Organization\StoreOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationSettingsRequest;
 use App\Http\Resources\OrganizationResource;
-use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
@@ -151,11 +150,8 @@ class OrganizationCrudController extends BaseApiController
     {
         $this->authorize('organizations.read');
 
-        $organization = Organization::findOrFail($id);
-
-        // Set manual counts for resource compatibility (using separate queries)
-        $organization->setAttribute('users_count', User::where('organization_id', $organization->id)->count());
-        $organization->setAttribute('applications_count', Application::where('organization_id', $organization->id)->count());
+        $organization = Organization::withCount(['organizationUsers as users_count', 'applications as applications_count'])
+            ->findOrFail($id);
 
         // Return flat response structure for test compatibility
         $resource = new OrganizationResource($organization);
