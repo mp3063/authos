@@ -98,12 +98,19 @@ trait CacheableResponse
      */
     protected function invalidateCache(string $pattern): void
     {
-        // This would require a more sophisticated cache invalidation system
-        // For now, we'll use cache tags if available
         try {
-            Cache::flush(); // In production, this should be more targeted
-        } catch (Exception $e) {
-            // Log error but don't fail the request
+            $store = Cache::getStore();
+            $prefix = config('cache.prefix') ? config('cache.prefix').':' : '';
+
+            if (method_exists($store, 'keys')) {
+                $keys = $store->keys($prefix.$pattern);
+
+                foreach ($keys as $key) {
+                    $unprefixedKey = $prefix ? str_replace($prefix, '', $key) : $key;
+                    Cache::forget($unprefixedKey);
+                }
+            }
+        } catch (\Exception $e) {
             logger()->warning('Failed to invalidate cache: '.$e->getMessage());
         }
     }
