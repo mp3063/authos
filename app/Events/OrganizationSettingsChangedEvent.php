@@ -4,10 +4,11 @@ namespace App\Events;
 
 use App\Models\Organization;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class OrganizationSettingsChangedEvent
+class OrganizationSettingsChangedEvent implements ShouldDispatchAfterCommit
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
