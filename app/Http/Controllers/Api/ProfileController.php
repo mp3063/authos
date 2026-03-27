@@ -229,7 +229,8 @@ class ProfileController extends Controller
 
         $user = Auth::user();
         $profile = $user->profile ?? [];
-        $preferences = array_merge($profile['preferences'] ?? [], $request->all());
+        $validatedKeys = ['timezone', 'language', 'theme', 'date_format', 'time_format', 'email_notifications', 'security_alerts', 'marketing_emails'];
+        $preferences = array_merge($profile['preferences'] ?? [], $request->only($validatedKeys));
 
         $profile['preferences'] = $preferences;
         $user->update(['profile' => $profile]);
