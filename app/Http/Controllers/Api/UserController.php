@@ -346,14 +346,11 @@ class UserController extends BaseApiController
         $currentUser = auth()->user();
         $application = \App\Models\Application::findOrFail($request->application_id);
 
-        foreach ($request->user_ids as $userId) {
-            $user = User::findOrFail($userId);
+        $users = User::whereIn('id', $request->user_ids)
+            ->where('organization_id', $application->organization_id)
+            ->get();
 
-            // Verify user belongs to same organization as application
-            if ($user->organization_id !== $application->organization_id) {
-                continue;
-            }
-
+        foreach ($users as $user) {
             $this->userManagementService->grantApplicationAccess(
                 $user,
                 $request->application_id,
@@ -409,8 +406,9 @@ class UserController extends BaseApiController
 
         $currentUser = auth()->user();
 
-        foreach ($request->user_ids as $userId) {
-            $user = User::findOrFail($userId);
+        $users = User::whereIn('id', $request->user_ids)->get();
+
+        foreach ($users as $user) {
             $this->userManagementService->revokeApplicationAccess(
                 $user,
                 (int) $applicationId,
