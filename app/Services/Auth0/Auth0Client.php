@@ -10,7 +10,6 @@ use App\Services\Auth0\Api\OrganizationsApi;
 use App\Services\Auth0\Api\RolesApi;
 use App\Services\Auth0\Api\UsersApi;
 use App\Services\Auth0\Exceptions\Auth0ApiException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class Auth0Client
@@ -68,10 +67,12 @@ class Auth0Client
             ])
                 ->connectTimeout(10)
                 ->timeout(60)
-                ->retry(3, 500, throw: false)
+                ->retry(3, 500)
                 ->get("https://{$this->domain}/api/v2/{$endpoint}", $query);
 
-            return $this->handleResponse($response);
+            $response->throw();
+
+            return $response->json() ?? [];
         } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 API request failed: {$e->getMessage()}", 0, $e);
         }
@@ -95,10 +96,12 @@ class Auth0Client
             ])
                 ->connectTimeout(10)
                 ->timeout(60)
-                ->retry(3, 500, throw: false)
+                ->retry(3, 500)
                 ->post("https://{$this->domain}/api/v2/{$endpoint}", $data);
 
-            return $this->handleResponse($response);
+            $response->throw();
+
+            return $response->json() ?? [];
         } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 API request failed: {$e->getMessage()}", 0, $e);
         }
@@ -119,10 +122,12 @@ class Auth0Client
             ])
                 ->connectTimeout(10)
                 ->timeout(60)
-                ->retry(2, 1000, throw: false)
+                ->retry(2, 1000)
                 ->get("https://{$this->domain}/api/v2/users", ['per_page' => 1]);
 
-            return $response->successful();
+            $response->throw();
+
+            return true;
         } catch (\Exception $e) {
             throw new Auth0ApiException("Auth0 connection test failed: {$e->getMessage()}", 0, $e);
         }
@@ -158,30 +163,5 @@ class Auth0Client
             // Auth0 returns less than per_page when we've reached the end
             $hasMore = count($results) === $perPage;
         } while ($hasMore);
-    }
-
-    /**
-     * Handle API response
-     *
-     * @return array<string, mixed>
-     *
-     * @throws Auth0ApiException
-     */
-    private function handleResponse(Response $response): array
-    {
-        $statusCode = $response->status();
-
-        if ($statusCode >= 400) {
-            $data = $response->json() ?? [];
-            $message = $data['message'] ?? $data['error_description'] ?? 'Unknown error';
-            $errorCode = $data['error'] ?? $data['errorCode'] ?? 'unknown_error';
-
-            throw new Auth0ApiException(
-                "Auth0 API error ({$errorCode}): {$message}",
-                $statusCode
-            );
-        }
-
-        return $response->json() ?? [];
     }
 }
