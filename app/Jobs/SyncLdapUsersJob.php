@@ -22,7 +22,8 @@ class SyncLdapUsersJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $backoff = 60; // Retry after 60 seconds
+    /** @var array<int, int> */
+    public array $backoff = [60, 180, 300];
 
     public function __construct(
         public LdapConfiguration $ldapConfig

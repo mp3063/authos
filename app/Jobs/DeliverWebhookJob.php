@@ -33,6 +33,9 @@ class DeliverWebhookJob implements ShouldQueue
      */
     public int $timeout = 60;
 
+    /** @var array<int, int> */
+    public array $backoff = [10, 30, 60];
+
     /**
      * Create a new job instance.
      */

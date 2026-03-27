@@ -25,6 +25,14 @@ class ProcessDeadLetterWebhookJob implements ShouldQueue
     public int $tries = 1;
 
     /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 120;
+
+    /** @var array<int, int> */
+    public array $backoff = [30, 60];
+
+    /**
      * Create a new job instance.
      */
     public function __construct(

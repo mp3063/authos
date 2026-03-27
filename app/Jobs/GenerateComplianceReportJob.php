@@ -25,6 +25,9 @@ class GenerateComplianceReportJob implements ShouldQueue
 
     public int $tries = 2;
 
+    /** @var array<int, int> */
+    public array $backoff = [60, 300];
+
     public function __construct(
         public Organization $organization,
         public string $reportType, // 'soc2', 'iso27001', 'gdpr'

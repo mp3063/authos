@@ -58,7 +58,7 @@ class SyncLdapUsersJobTest extends TestCase
 
         $this->assertEquals(300, $job->timeout);
         $this->assertEquals(3, $job->tries);
-        $this->assertEquals(60, $job->backoff);
+        $this->assertEquals([60, 180, 300], $job->backoff);
     }
 
     #[Test]

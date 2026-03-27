@@ -26,6 +26,9 @@ class ProcessBulkImportJob implements ShouldQueue
 
     public int $tries = 3;
 
+    /** @var array<int, int> */
+    public array $backoff = [30, 120, 300];
+
     /**
      * Create a new job instance.
      */
