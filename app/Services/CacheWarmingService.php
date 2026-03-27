@@ -37,37 +37,49 @@ class CacheWarmingService
      */
     public function warmOrganizationCaches(): int
     {
-        $count = 0;
-        $ttl = config('performance.cache.ttl.organization_settings', 1800);
+        $lock = Cache::lock('cache-warming:organizations', 120);
 
-        Organization::chunk(100, function ($organizations) use (&$count, $ttl) {
-            foreach ($organizations as $org) {
-                // Cache organization settings
-                Cache::remember(
-                    "org:settings:{$org->id}",
-                    $ttl,
-                    fn () => $org->settings ?? []
-                );
+        if (! $lock->get()) {
+            Log::info('Organization cache warming already in progress, skipping');
 
-                // Cache organization user count
-                Cache::remember(
-                    "org:user_count:{$org->id}",
-                    $ttl,
-                    fn () => $org->organizationUsers()->count()
-                );
+            return 0;
+        }
 
-                // Cache organization application count
-                Cache::remember(
-                    "org:app_count:{$org->id}",
-                    $ttl,
-                    fn () => $org->applications()->count()
-                );
+        try {
+            $count = 0;
+            $ttl = config('performance.cache.ttl.organization_settings', 1800);
 
-                $count++;
-            }
-        });
+            Organization::chunk(100, function ($organizations) use (&$count, $ttl) {
+                foreach ($organizations as $org) {
+                    // Cache organization settings
+                    Cache::remember(
+                        "org:settings:{$org->id}",
+                        $ttl,
+                        fn () => $org->settings ?? []
+                    );
 
-        return $count;
+                    // Cache organization user count
+                    Cache::remember(
+                        "org:user_count:{$org->id}",
+                        $ttl,
+                        fn () => $org->organizationUsers()->count()
+                    );
+
+                    // Cache organization application count
+                    Cache::remember(
+                        "org:app_count:{$org->id}",
+                        $ttl,
+                        fn () => $org->applications()->count()
+                    );
+
+                    $count++;
+                }
+            });
+
+            return $count;
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
