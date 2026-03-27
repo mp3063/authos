@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvitationStatus;
 use App\Http\Resources\InvitationResource;
 use App\Models\Invitation;
 use App\Services\InvitationService;
@@ -99,7 +100,7 @@ class InvitationController extends BaseApiController
         }
 
         if (! $invitation->isPending()) {
-            $status = $invitation->isExpired() ? 'expired' : 'accepted';
+            $status = $invitation->isExpired() ? InvitationStatus::Expired->value : InvitationStatus::Accepted->value;
 
             return response()->json([
                 'message' => "This invitation has {$status}",

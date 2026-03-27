@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
@@ -46,7 +47,7 @@ class UserController extends BaseApiController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+        if (! $currentUser->hasRole(UserRole::SuperAdmin->label()) && ! $currentUser->hasRole(UserRole::SuperAdmin->value)) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 
@@ -61,7 +62,7 @@ class UserController extends BaseApiController
 
         if ($request->has('organization_id')) {
             // Only allow filtering by organization_id if user is super admin or it's their own organization
-            if ($currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin') ||
+            if ($currentUser->hasRole(UserRole::SuperAdmin->label()) || $currentUser->hasRole(UserRole::SuperAdmin->value) ||
                 $request->organization_id == $currentUser->organization_id) {
                 $query->where('organization_id', $request->organization_id);
             }
@@ -143,7 +144,7 @@ class UserController extends BaseApiController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+        if (! $currentUser->hasRole(UserRole::SuperAdmin->label()) && ! $currentUser->hasRole(UserRole::SuperAdmin->value)) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 
