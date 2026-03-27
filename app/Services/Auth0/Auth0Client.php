@@ -65,7 +65,11 @@ class Auth0Client
                 'Authorization' => "Bearer {$this->token}",
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->timeout(60)->get("https://{$this->domain}/api/v2/{$endpoint}", $query);
+            ])
+                ->connectTimeout(10)
+                ->timeout(60)
+                ->retry(3, 500, throw: false)
+                ->get("https://{$this->domain}/api/v2/{$endpoint}", $query);
 
             return $this->handleResponse($response);
         } catch (\Exception $e) {
@@ -88,7 +92,11 @@ class Auth0Client
                 'Authorization' => "Bearer {$this->token}",
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->timeout(60)->post("https://{$this->domain}/api/v2/{$endpoint}", $data);
+            ])
+                ->connectTimeout(10)
+                ->timeout(60)
+                ->retry(3, 500, throw: false)
+                ->post("https://{$this->domain}/api/v2/{$endpoint}", $data);
 
             return $this->handleResponse($response);
         } catch (\Exception $e) {
@@ -108,7 +116,11 @@ class Auth0Client
                 'Authorization' => "Bearer {$this->token}",
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->timeout(60)->get("https://{$this->domain}/api/v2/users", ['per_page' => 1]);
+            ])
+                ->connectTimeout(10)
+                ->timeout(60)
+                ->retry(2, 1000, throw: false)
+                ->get("https://{$this->domain}/api/v2/users", ['per_page' => 1]);
 
             return $response->successful();
         } catch (\Exception $e) {

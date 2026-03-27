@@ -21,7 +21,9 @@ class OktaClient
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
             ])
-            ->timeout(30);
+            ->connectTimeout(10)
+            ->timeout(30)
+            ->retry(3, 500, throw: false);
     }
 
     /**

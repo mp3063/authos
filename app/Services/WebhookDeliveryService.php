@@ -88,7 +88,8 @@ class WebhookDeliveryService extends BaseService
             // Send HTTP request with timeout
             $startTime = microtime(true);
 
-            $response = Http::timeout($webhook->timeout_seconds)
+            $response = Http::connectTimeout(5)
+                ->timeout($webhook->timeout_seconds)
                 ->withHeaders($headers)
                 ->post($webhook->url, $delivery->payload);
 
