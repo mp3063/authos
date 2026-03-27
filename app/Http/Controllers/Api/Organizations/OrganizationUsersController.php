@@ -68,7 +68,7 @@ class OrganizationUsersController extends BaseApiController
             return $this->validationErrorResponse($validator->errors());
         }
 
-        $query = User::with(['roles', 'organization'])
+        $query = User::with(['roles.permissions', 'organization'])
             ->where('organization_id', $organization->id);
 
         if ($request->has('search')) {

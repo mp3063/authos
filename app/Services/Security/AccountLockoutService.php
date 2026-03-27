@@ -119,7 +119,8 @@ class AccountLockoutService
      */
     public function getActiveLockout(string $email): ?AccountLockout
     {
-        return AccountLockout::where('email', $email)
+        return AccountLockout::with('user')
+            ->where('email', $email)
             ->whereNull('unlocked_at')
             ->where(function ($query) {
                 $query->whereNull('unlock_at')
@@ -187,7 +188,8 @@ class AccountLockoutService
      */
     public function unlockExpiredAccounts(): int
     {
-        $expiredLockouts = AccountLockout::whereNull('unlocked_at')
+        $expiredLockouts = AccountLockout::with('user')
+            ->whereNull('unlocked_at')
             ->whereNotNull('unlock_at')
             ->where('unlock_at', '<=', now())
             ->get();
