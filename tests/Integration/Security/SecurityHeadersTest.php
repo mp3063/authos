@@ -78,7 +78,11 @@ class SecurityHeadersTest extends IntegrationTestCase
         $this->assertStringContainsString("frame-ancestors 'none'", $csp);
         $this->assertStringContainsString("base-uri 'self'", $csp);
         $this->assertStringContainsString("form-action 'self'", $csp);
-        $this->assertStringContainsString('upgrade-insecure-requests', $csp);
+
+        // upgrade-insecure-requests only applies in production
+        if (app()->isProduction()) {
+            $this->assertStringContainsString('upgrade-insecure-requests', $csp);
+        }
     }
 
     #[Test]
@@ -139,7 +143,11 @@ class SecurityHeadersTest extends IntegrationTestCase
         $this->assertStringContainsString("script-src 'self'", $csp);
         $this->assertStringContainsString("style-src 'self'", $csp);
         $this->assertStringContainsString("frame-ancestors 'none'", $csp);
-        $this->assertStringContainsString('upgrade-insecure-requests', $csp);
+
+        // upgrade-insecure-requests only applies in production
+        if (app()->isProduction()) {
+            $this->assertStringContainsString('upgrade-insecure-requests', $csp);
+        }
     }
 
     #[Test]

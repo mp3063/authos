@@ -69,15 +69,19 @@ class SecurityHeaders
         $csp = [
             "default-src 'self'",
             "script-src 'self'",
-            "style-src 'self'",
+            "style-src 'self' https://fonts.bunny.net",
             "img-src 'self' data: https:",
-            "font-src 'self' data:",
+            "font-src 'self' data: https://fonts.bunny.net",
             "connect-src 'self'",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
-            'upgrade-insecure-requests',
         ];
+
+        // Only upgrade insecure requests in production (breaks local HTTP dev)
+        if (app()->isProduction()) {
+            $csp[] = 'upgrade-insecure-requests';
+        }
 
         // For admin panel (Filament), allow specific inline styles and scripts
         // In production, use nonces instead of unsafe-inline
