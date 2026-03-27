@@ -292,7 +292,7 @@ class LdapAuthenticationTest extends IntegrationTestCase
         // ASSERT: Job configuration
         $this->assertEquals(300, $job->timeout); // 5 minutes
         $this->assertEquals(3, $job->tries);
-        $this->assertEquals(60, $job->backoff); // 60 seconds
+        $this->assertEquals([60, 180, 300], $job->backoff); // progressive backoff
     }
 
     #[Test]

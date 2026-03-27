@@ -216,7 +216,7 @@ class OrganizationReportingService
         // Token usage statistics
         $tokenStats = DB::table('oauth_access_tokens')
             ->join('oauth_clients', 'oauth_access_tokens.client_id', '=', 'oauth_clients.id')
-            ->join('applications', DB::raw('oauth_clients.id::text'), '=', 'applications.client_id')
+            ->join('applications', DB::raw('CAST(oauth_clients.id AS TEXT)'), '=', 'applications.client_id')
             ->where('applications.organization_id', $organizationId)
             ->select(
                 'applications.id as application_id',
@@ -313,7 +313,7 @@ class OrganizationReportingService
             $q->whereIn('application_id', $applicationIds);
         })
             ->where(function ($q) {
-                $q->whereNull('mfa_methods')->orWhereRaw("mfa_methods::text = '[]'");
+                $q->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
             })
             ->select('id', 'name', 'email', 'created_at')
             ->get();
@@ -325,7 +325,7 @@ class OrganizationReportingService
             ->whereHas('roles', function ($q) {
                 $q->whereIn('name', ['Super Admin', 'Organization Admin', 'Organization Owner']);
             })
-            ->with('roles')
+            ->with('roles.permissions')
             ->select('id', 'name', 'email', 'created_at')
             ->get()
             ->map(function ($user) {
