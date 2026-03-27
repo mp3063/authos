@@ -17,6 +17,7 @@ use App\Repositories\OrganizationRepository;
 use App\Repositories\UserRepository;
 use App\Services\PerformanceMonitoringService;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -50,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Model::preventLazyLoading(! app()->isProduction());
+
         // Register model observers for cache invalidation
         User::observe(UserObserver::class);
         Organization::observe(OrganizationObserver::class);
