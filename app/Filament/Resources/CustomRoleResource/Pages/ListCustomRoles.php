@@ -26,17 +26,17 @@ class ListCustomRoles extends ListRecords
                 ->badge(fn () => static::getResource()::getEloquentQuery()->count()),
 
             'active' => Tab::make('Active')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_active', true))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', true)->count())
                 ->badgeColor('success'),
 
             'system' => Tab::make('System')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_system', true))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_system', true))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_system', true)->count())
                 ->badgeColor('warning'),
 
             'user-defined' => Tab::make('User-Defined')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_system', false))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_system', false))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_system', false)->count())
                 ->badgeColor('info'),
         ];

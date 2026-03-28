@@ -73,11 +73,11 @@ class ViewAuthenticationLog extends ViewRecord
                         ]),
                 ])
                 ->schema([
-                    ViewEntry::make('details')
+                    ViewEntry::make('metadata')
                         ->label('')
                         ->view('components.json-display-simple')
                         ->viewData(function ($record) {
-                            $state = $record->details;
+                            $state = $record->metadata;
                             if (! $state) {
                                 return ['json' => 'None'];
                             }

@@ -26,7 +26,7 @@ class ListIpBlocklist extends ListRecords
                 ->badge(fn () => static::getResource()::getEloquentQuery()->count()),
 
             'active' => Tab::make('Active')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_active', true)->where(function ($q) {
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true)->where(function ($q) {
                     $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
                 }))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', true)->where(function ($q) {
@@ -35,12 +35,12 @@ class ListIpBlocklist extends ListRecords
                 ->badgeColor('success'),
 
             'expired' => Tab::make('Expired')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereNotNull('expires_at')->where('expires_at', '<', now()))
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotNull('expires_at')->where('expires_at', '<', now()))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->whereNotNull('expires_at')->where('expires_at', '<', now())->count())
                 ->badgeColor('warning'),
 
             'inactive' => Tab::make('Inactive')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_active', false))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', false))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', false)->count())
                 ->badgeColor('gray'),
         ];

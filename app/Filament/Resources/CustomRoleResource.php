@@ -108,7 +108,7 @@ class CustomRoleResource extends Resource
 
                             foreach ($categories as $category => $permissions) {
                                 foreach ($permissions as $permission) {
-                                    $options[$category][$permission] = self::formatPermissionLabel($permission);
+                                    $options[$permission] = self::formatPermissionLabel($permission);
                                 }
                             }
 

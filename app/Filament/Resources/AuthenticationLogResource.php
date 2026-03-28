@@ -100,9 +100,9 @@ class AuthenticationLogResource extends Resource
                 ->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('metadata')->label('Details')->formatStateUsing(fn ($state) => $state ? collect($state)
-                ->map(fn ($v, $k) => "$k: $v")
+                ->map(fn ($v, $k) => "$k: ".(is_scalar($v) ? $v : json_encode($v)))
                 ->join(', ') : 'None')->limit(50)->tooltip(fn ($record) => $record->metadata ? collect($record->metadata)
-                ->map(fn ($v, $k) => "$k: $v")
+                ->map(fn ($v, $k) => "$k: ".(is_scalar($v) ? $v : json_encode($v)))
                 ->join("\n") : null)->toggleable(),
         ])->filters([
             SelectFilter::make('event')->options([

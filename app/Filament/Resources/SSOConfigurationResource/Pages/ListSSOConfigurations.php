@@ -26,22 +26,22 @@ class ListSSOConfigurations extends ListRecords
                 ->badge(fn () => static::getResource()::getEloquentQuery()->count()),
 
             'oidc' => Tab::make('OIDC')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('provider', 'oidc'))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('provider', 'oidc'))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('provider', 'oidc')->count())
                 ->badgeColor('info'),
 
             'saml' => Tab::make('SAML')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('provider', 'saml'))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('provider', 'saml'))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('provider', 'saml')->count())
                 ->badgeColor('warning'),
 
             'active' => Tab::make('Active')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_active', true))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', true)->count())
                 ->badgeColor('success'),
 
             'inactive' => Tab::make('Inactive')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('is_active', false))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', false))
                 ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', false)->count())
                 ->badgeColor('gray'),
         ];
