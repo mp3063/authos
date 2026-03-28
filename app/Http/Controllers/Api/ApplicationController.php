@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
@@ -30,7 +29,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -39,14 +38,6 @@ class ApplicationController extends BaseApiController
             'organization_id' => 'sometimes|integer|exists:organizations,id',
             'is_active' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $query = Application::query()->with(['organization']);
 
@@ -113,7 +104,7 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.create');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'organization_id' => 'required|exists:organizations,id',
             'name' => 'required|string|max:255',
             'redirect_uris' => 'required|array|min:1|max:10',
@@ -131,14 +122,6 @@ class ApplicationController extends BaseApiController
             'settings.auto_approve' => 'sometimes|boolean',
             'description' => 'sometimes|string|max:1000',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         // Generate OAuth client credentials
         $clientId = Str::uuid()->toString();
@@ -217,7 +200,7 @@ class ApplicationController extends BaseApiController
 
         $application = $this->findApplicationWithOrgScope($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => 'sometimes|string|max:255',
             'description' => 'sometimes|string|max:1000',
             'redirect_uris' => 'sometimes|array|min:1|max:10',
@@ -235,14 +218,6 @@ class ApplicationController extends BaseApiController
             'settings.auto_approve' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $updateData = $request->only([
             'name', 'redirect_uris', 'allowed_origins',
@@ -364,17 +339,9 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.update');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_id' => 'required|integer|exists:users,id',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $application = $this->findApplicationWithOrgScope($id);
         $user = User::findOrFail($request->user_id);
@@ -524,17 +491,9 @@ class ApplicationController extends BaseApiController
     {
         $this->authorize('applications.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $application = $this->findApplicationWithOrgScope($id);
         $period = $request->input('period', '7d');

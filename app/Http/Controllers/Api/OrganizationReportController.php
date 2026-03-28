@@ -9,7 +9,6 @@ use App\Services\OrganizationReportingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 
 class OrganizationReportController extends Controller
 {
@@ -31,20 +30,12 @@ class OrganizationReportController extends Controller
     {
         $this->authorize('organizations.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'start_date' => 'sometimes|date|before_or_equal:end_date',
             'end_date' => 'sometimes|date|after_or_equal:start_date',
             'format' => 'sometimes|string|in:json,csv,xlsx,pdf',
             'period' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -174,18 +165,10 @@ class OrganizationReportController extends Controller
     {
         $this->authorize('organizations.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'format' => 'sometimes|string|in:json,pdf',
             'period' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -269,18 +252,10 @@ class OrganizationReportController extends Controller
     {
         $this->authorize('organizations.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'format' => 'sometimes|string|in:json,pdf',
             'period' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -400,7 +375,7 @@ class OrganizationReportController extends Controller
     {
         $this->authorize('organizations.update');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'report_type' => 'required|string|in:user_activity,application_usage,security_audit',
             'frequency' => 'required|string|in:daily,weekly,monthly',
             'delivery_method' => 'required|string|in:email,webhook',
@@ -409,14 +384,6 @@ class OrganizationReportController extends Controller
             'format' => 'sometimes|string|in:pdf,csv,xlsx',
             'include_attachments' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -469,20 +436,12 @@ class OrganizationReportController extends Controller
     {
         $this->authorize('organizations.update');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'frequency' => 'sometimes|string|in:daily,weekly,monthly',
             'status' => 'sometimes|string|in:active,paused,cancelled',
             'recipients' => 'sometimes|array',
             'recipients.*' => 'email',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();

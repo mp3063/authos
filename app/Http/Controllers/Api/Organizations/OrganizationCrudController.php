@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -37,7 +36,7 @@ class OrganizationCrudController extends BaseApiController
     {
         $this->authorize('organizations.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -46,10 +45,6 @@ class OrganizationCrudController extends BaseApiController
             'filter' => 'sometimes|array',
             'filter.is_active' => 'sometimes|in:true,false,1,0',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $organizations = $this->organizationService->getFilteredOrganizations(
             $request->get('search'),
@@ -73,7 +68,7 @@ class OrganizationCrudController extends BaseApiController
     {
         $this->authorize('organizations.create');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => [
                 'sometimes',
@@ -96,10 +91,6 @@ class OrganizationCrudController extends BaseApiController
             'settings.password_policy.require_symbols' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $data = $request->validated();
 
@@ -172,7 +163,7 @@ class OrganizationCrudController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => [
                 'sometimes',
@@ -185,10 +176,6 @@ class OrganizationCrudController extends BaseApiController
             'website' => ['sometimes', 'url', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $organization->update($request->only([
             'name', 'slug', 'description', 'website', 'is_active',
@@ -277,8 +264,8 @@ class OrganizationCrudController extends BaseApiController
 
         $currentSettings = $organization->settings ?? [];
 
-        // Extract settings from request (tests send data wrapped in 'settings' key)
-        $inputData = $request->input('settings', $request->all());
+        // Extract settings from request - support both wrapped ('settings' key) and unwrapped formats
+        $inputData = $request->has('settings') ? $request->input('settings') : $request->except(['_token', '_method']);
 
         // Deep merge all settings fields
         $newSettings = $currentSettings;

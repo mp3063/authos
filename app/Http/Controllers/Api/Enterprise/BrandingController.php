@@ -53,7 +53,7 @@ class BrandingController extends BaseApiController
 
     public function update(Request $request, int $organizationId): JsonResponse
     {
-        $validator = validator($request->all(), [
+        $validated = $request->validate([
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'accent_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -61,10 +61,6 @@ class BrandingController extends BaseApiController
             'custom_html' => ['nullable', 'string', 'max:50000'],
             'settings' => ['nullable', 'array'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             if (! $this->validateOrganizationAccess($organizationId)) {
@@ -87,7 +83,7 @@ class BrandingController extends BaseApiController
                 ], 403);
             }
 
-            $branding = $this->brandingService->updateBranding($organization, $request->all());
+            $branding = $this->brandingService->updateBranding($organization, $validated);
 
             $brandingData = array_merge($branding->toArray(), [
                 'accent_color' => $request->input('accent_color'),
@@ -102,13 +98,9 @@ class BrandingController extends BaseApiController
 
     public function uploadLogo(Request $request, int $organizationId): JsonResponse
     {
-        $validator = validator($request->all(), [
+        $request->validate([
             'logo' => ['required', 'image', 'max:2048', 'mimes:png,jpg,jpeg,svg', 'dimensions:min_width=200,min_height=200'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             if (! $this->validateOrganizationAccess($organizationId)) {
@@ -131,13 +123,9 @@ class BrandingController extends BaseApiController
 
     public function uploadBackground(Request $request, int $organizationId): JsonResponse
     {
-        $validator = validator($request->all(), [
+        $request->validate([
             'background' => ['required', 'image', 'max:5120', 'mimes:png,jpg,jpeg'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             if (! $this->validateOrganizationAccess($organizationId)) {

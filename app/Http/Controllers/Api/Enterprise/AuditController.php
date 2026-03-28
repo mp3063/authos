@@ -22,8 +22,7 @@ class AuditController extends BaseApiController
 
     public function export(Request $request): JsonResponse
     {
-        // Manual validation for consistent error format
-        $validator = validator($request->all(), [
+        $request->validate([
             'format' => ['required', 'string', 'in:csv,json,xlsx'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
@@ -31,10 +30,6 @@ class AuditController extends BaseApiController
             'event_types.*' => ['string'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             $user = $this->getAuthenticatedUser();

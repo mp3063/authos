@@ -200,7 +200,7 @@ class ApplicationFlowsTest extends EndToEndTestCase
         $response->assertStatus(422);
 
         $responseData = $response->json();
-        $this->assertArrayHasKey('details', $responseData);
+        $this->assertArrayHasKey('errors', $responseData);
 
         // Test validation for invalid redirect URIs
         $response = $this->postJson('/api/v1/applications', [

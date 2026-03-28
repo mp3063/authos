@@ -12,7 +12,6 @@ use App\Models\Organization;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class CustomRoleController extends Controller
@@ -34,7 +33,7 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -43,10 +42,6 @@ class CustomRoleController extends Controller
             'is_active' => 'sometimes|boolean',
             'is_system' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -119,7 +114,7 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.create');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => [
                 'required',
                 'string',
@@ -137,10 +132,6 @@ class CustomRoleController extends Controller
             ],
             'is_active' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -216,7 +207,7 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.update');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => [
                 'sometimes',
                 'string',
@@ -234,10 +225,6 @@ class CustomRoleController extends Controller
             ],
             'is_active' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -334,7 +321,7 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.create');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => [
                 'required',
                 'string',
@@ -344,10 +331,6 @@ class CustomRoleController extends Controller
             ],
             'display_name' => 'sometimes|string|max:255',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -399,14 +382,10 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.assign');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:1000',
             'user_ids.*' => 'required|integer|exists:users,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -456,14 +435,10 @@ class CustomRoleController extends Controller
     {
         $this->authorize('roles.assign');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:1000',
             'user_ids.*' => 'required|integer|exists:users,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors()->toArray());
-        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();

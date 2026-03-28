@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use PragmaRX\Google2FA\Google2FA;
 
 class ProfileController extends Controller
@@ -112,17 +111,9 @@ class ProfileController extends Controller
      */
     public function uploadAvatar(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
 
@@ -208,7 +199,7 @@ class ProfileController extends Controller
      */
     public function updatePreferences(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'timezone' => 'sometimes|string|timezone',
             'language' => 'sometimes|string|in:en,es,fr,de,it,pt,nl,ru,ja,zh',
             'theme' => 'sometimes|string|in:light,dark,auto',
@@ -218,14 +209,6 @@ class ProfileController extends Controller
             'security_alerts' => 'sometimes|boolean',
             'marketing_emails' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
         $profile = $user->profile ?? [];
@@ -372,17 +355,9 @@ class ProfileController extends Controller
      */
     public function verifyTotp(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'code' => 'required|string|size:6',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
 
@@ -439,18 +414,10 @@ class ProfileController extends Controller
      */
     public function disableTotp(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'password' => 'required|string',
             'code' => 'sometimes|string|size:6',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
 
@@ -503,17 +470,9 @@ class ProfileController extends Controller
      */
     public function getRecoveryCodes(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'password' => 'required|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
 
@@ -547,17 +506,9 @@ class ProfileController extends Controller
         // In testing environment with authenticated user, password is optional
         $passwordRequired = ! (app()->environment('testing') && Auth::check());
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'password' => $passwordRequired ? 'required|string' : 'nullable|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'error_description' => 'The given data was invalid.',
-                'details' => $validator->errors(),
-            ], 422);
-        }
 
         $user = Auth::user();
 

@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class UserController extends BaseApiController
 {
@@ -31,15 +30,11 @@ class UserController extends BaseApiController
         $this->authorize('users.read');
 
         // Additional validation for user-specific filters
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'organization_id' => 'sometimes|integer|exists:organizations,id',
             'role' => 'sometimes|string|exists:roles,name',
             'mfa_enabled' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $params = $request->getPaginationParams();
 
@@ -294,15 +289,11 @@ class UserController extends BaseApiController
             return $this->bulkGrantApplicationAccess($request);
         }
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'application_id' => 'required|integer|exists:applications,id',
             'permissions' => 'required|array',
             'permissions.*' => 'string',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $user = User::findOrFail($id);
         $currentUser = auth()->user();
@@ -332,17 +323,13 @@ class UserController extends BaseApiController
      */
     private function bulkGrantApplicationAccess(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'application_id' => 'required|integer|exists:applications,id',
             'user_ids' => 'required|array',
             'user_ids.*' => 'integer|exists:users,id',
             'permissions' => 'required|array',
             'permissions.*' => 'string',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $currentUser = auth()->user();
         $application = \App\Models\Application::findOrFail($request->application_id);
@@ -396,14 +383,10 @@ class UserController extends BaseApiController
      */
     private function bulkRevokeApplicationAccess(Request $request, string $applicationId): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array',
             'user_ids.*' => 'integer|exists:users,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $currentUser = auth()->user();
 
@@ -441,13 +424,9 @@ class UserController extends BaseApiController
     {
         $this->authorize('roles.assign');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'role_id' => 'required|integer|exists:roles,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $user = User::findOrFail($id);
         $assigned = $this->userManagementService->assignRole($user, (string) $request->role_id);
@@ -466,14 +445,10 @@ class UserController extends BaseApiController
     {
         $this->authorize('roles.assign');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'roles' => 'required|array',
             'roles.*' => 'required|string|exists:roles,name',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $user = User::findOrFail($id);
 
@@ -625,15 +600,11 @@ class UserController extends BaseApiController
     {
         $this->authorize('users.update');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'integer|exists:users,id',
             'action' => 'required|string|in:activate,deactivate,delete',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             $result = $this->userManagementService->performBulkOperation(

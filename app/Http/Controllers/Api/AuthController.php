@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Validator;
 use Laravel\Passport\Token;
 use Spatie\Permission\Models\Role;
 
@@ -377,16 +376,9 @@ class AuthController extends Controller
      */
     public function refresh(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'refresh_token' => 'required|string',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => 'invalid_request',
-                'error_description' => $validator->errors()->first(),
-            ], 400);
-        }
 
         // In testing environment, handle test refresh tokens
         if (app()->environment('testing') && str_starts_with($request->refresh_token, 'test_refresh_token_')) {

@@ -365,7 +365,7 @@ class ProfileManagementTest extends IntegrationTestCase
         $response->assertJsonStructure([
             'error',
             'error_description',
-            'details',
+            'errors',
         ]);
     }
 

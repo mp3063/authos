@@ -329,7 +329,7 @@ class ApplicationUsersTest extends IntegrationTestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details',
+                'errors',
             ])
             ->assertJson([
                 'error' => 'validation_failed',
@@ -343,7 +343,7 @@ class ApplicationUsersTest extends IntegrationTestCase
 
         // ASSERT: Validation catches invalid user
         $invalidResponse->assertStatus(422)
-            ->assertJsonPath('details.user_id.0', 'The selected user id is invalid.');
+            ->assertJsonPath('errors.user_id.0', 'The selected user id is invalid.');
 
         // ACT: Attempt to grant access with non-integer user_id
         $typeResponse = $this->actingAsApiUserWithToken($this->adminUser)

@@ -470,7 +470,7 @@ class ApplicationCrudTest extends IntegrationTestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'organization_id',
                     'name',
                     'redirect_uris',
@@ -495,7 +495,7 @@ class ApplicationCrudTest extends IntegrationTestCase
 
         // ASSERT: Validation catches invalid URLs
         $invalidResponse->assertStatus(422);
-        $errors = $invalidResponse->json('details');
+        $errors = $invalidResponse->json('errors');
         $this->assertArrayHasKey('redirect_uris.0', $errors);
         $this->assertEquals('The redirect_uris.0 field must be a valid URL.', $errors['redirect_uris.0'][0]);
 
@@ -512,6 +512,6 @@ class ApplicationCrudTest extends IntegrationTestCase
 
         // ASSERT: Validation enforces maximum
         $tooManyResponse->assertStatus(422)
-            ->assertJsonPath('details.redirect_uris.0', 'The redirect uris field must not have more than 10 items.');
+            ->assertJsonPath('errors.redirect_uris.0', 'The redirect uris field must not have more than 10 items.');
     }
 }

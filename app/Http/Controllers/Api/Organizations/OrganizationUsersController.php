@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class OrganizationUsersController extends BaseApiController
 {
@@ -52,7 +51,7 @@ class OrganizationUsersController extends BaseApiController
             // Org admins/managers can view other orgs (e.g., to verify user transfers)
         }
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -63,10 +62,6 @@ class OrganizationUsersController extends BaseApiController
             'filter.has_mfa' => 'sometimes|in:true,false,1,0',
             'filter.role' => 'sometimes|string|max:255',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $query = User::with(['roles.permissions', 'organization'])
             ->where('organization_id', $organization->id);
@@ -124,7 +119,7 @@ class OrganizationUsersController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -133,10 +128,6 @@ class OrganizationUsersController extends BaseApiController
             'filter' => 'sometimes|array',
             'filter.is_active' => 'sometimes|in:true,false,1,0',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $query = Application::where('organization_id', $organization->id)
             ->with(['organization', 'users']);
@@ -176,14 +167,10 @@ class OrganizationUsersController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_id' => 'required|exists:users,id',
             'application_id' => 'required|exists:applications,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         /** @var User $user */
         $user = User::findOrFail($request->input('user_id'));

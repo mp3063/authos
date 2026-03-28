@@ -120,17 +120,12 @@ class ComplianceController extends BaseApiController
 
     public function schedule(Request $request): JsonResponse
     {
-        // Manual validation for consistent error format
-        $validator = validator($request->all(), [
+        $request->validate([
             'report_type' => ['required', 'string', 'in:soc2,iso27001,gdpr'],
             'frequency' => ['required', 'string', 'in:daily,weekly,monthly,quarterly'],
             'recipients' => ['required', 'array', 'min:1'],
             'recipients.*' => ['required', 'email'],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             $user = $this->getAuthenticatedUser();

@@ -10,7 +10,6 @@ use App\Services\BulkOperationService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class BulkUserOperationsController extends BaseApiController
@@ -31,7 +30,7 @@ class BulkUserOperationsController extends BaseApiController
         $organization = Organization::findOrFail($organizationId);
 
         // Support both 'invitations' format and simple 'emails' format
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'invitations' => 'required_without:emails|array|min:1|max:100',
             'invitations.*.email' => 'required_with:invitations|email|max:255',
             'invitations.*.role' => 'sometimes|string|max:255',
@@ -40,10 +39,6 @@ class BulkUserOperationsController extends BaseApiController
             'role' => 'sometimes|string|max:255',
             'message' => 'sometimes|string|max:500',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             // Convert simple emails format to invitations format if needed
@@ -118,7 +113,7 @@ class BulkUserOperationsController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer', // Allow non-existent IDs for error handling
             'custom_roles' => 'sometimes|array|min:1',
@@ -126,10 +121,6 @@ class BulkUserOperationsController extends BaseApiController
             'role' => 'sometimes|string',
             'action' => 'sometimes|string|in:assign,revoke,remove',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $userIds = $request->input('user_ids');
         $customRoleIds = $request->input('custom_roles', []);
@@ -247,15 +238,11 @@ class BulkUserOperationsController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer',
             'reason' => 'sometimes|string|max:500',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $userIds = $request->input('user_ids');
 
@@ -301,15 +288,11 @@ class BulkUserOperationsController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer',
             'grace_period_days' => 'sometimes|integer|min:0|max:90',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $userIds = $request->input('user_ids');
         $gracePeriodDays = $request->input('grace_period_days', 7);
@@ -365,7 +348,7 @@ class BulkUserOperationsController extends BaseApiController
             ], 403);
         }
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'organization_ids' => 'required|array|min:1',
             'organization_ids.*' => 'required|exists:organizations,id',
             'settings' => 'required|array',
@@ -375,10 +358,6 @@ class BulkUserOperationsController extends BaseApiController
             'settings.enforce_password_policy' => 'sometimes|boolean',
             'settings.password_min_length' => 'sometimes|integer|min:8|max:128',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $organizationIds = $request->input('organization_ids');
         $settings = $request->input('settings');

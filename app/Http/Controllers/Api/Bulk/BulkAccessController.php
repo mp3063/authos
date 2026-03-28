@@ -8,7 +8,6 @@ use App\Services\BulkOperationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 
 class BulkAccessController extends BaseApiController
 {
@@ -32,7 +31,7 @@ class BulkAccessController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer',
             'application_id' => 'sometimes|exists:applications,id',
@@ -40,10 +39,6 @@ class BulkAccessController extends BaseApiController
             'application_ids.*' => 'exists:applications,id',
             'reason' => 'sometimes|string|max:500',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $userIds = $request->input('user_ids');
         $applicationId = $request->input('application_id') ?: ($request->input('application_ids')[0] ?? null);

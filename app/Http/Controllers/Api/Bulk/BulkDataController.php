@@ -7,7 +7,6 @@ use App\Models\Organization;
 use App\Services\BulkOperationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BulkDataController extends BaseApiController
@@ -29,7 +28,7 @@ class BulkDataController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'format' => 'sometimes|string|in:csv,xlsx,json',
             'filters' => 'sometimes|array',
             'filters.is_active' => 'sometimes|in:true,false,1,0',
@@ -42,10 +41,6 @@ class BulkDataController extends BaseApiController
             'include_roles' => 'sometimes|boolean',
             'include_applications' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             $format = $request->get('format', 'csv');
@@ -94,7 +89,7 @@ class BulkDataController extends BaseApiController
 
         $organization = Organization::findOrFail($organizationId);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'file' => 'required_without:file_path|file|mimes:csv,xlsx,json|max:10240',
             'file_path' => 'required_without:file|string', // Allow file_path for test compatibility
             'format' => 'sometimes|string|in:csv,xlsx,json',
@@ -113,11 +108,6 @@ class BulkDataController extends BaseApiController
             'mapping.email' => 'sometimes|string',
             'mapping.role' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            // Use flat format to match test expectations
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         try {
             // Handle both file uploads and file_path (for testing)

@@ -9,7 +9,6 @@ use App\Models\Webhook;
 use App\Services\WebhookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends BaseApiController
@@ -29,7 +28,7 @@ class WebhookController extends BaseApiController
     {
         $this->authorize('webhooks.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'search' => 'sometimes|string|max:255',
@@ -38,10 +37,6 @@ class WebhookController extends BaseApiController
             'is_active' => 'sometimes|boolean',
             'event' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $query = Webhook::query()->with(['organization']);
 
@@ -416,16 +411,12 @@ class WebhookController extends BaseApiController
     {
         $this->authorize('webhooks.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'status' => 'sometimes|string|in:pending,sending,success,failed,retrying',
             'event_type' => 'sometimes|string',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $query = Webhook::query();
 
@@ -474,13 +465,9 @@ class WebhookController extends BaseApiController
     {
         $this->authorize('webhooks.read');
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'days' => 'sometimes|integer|min:1|max:90',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $query = Webhook::query();
 

@@ -824,7 +824,7 @@ class SSOController extends Controller
      */
     public function createSSOConfiguration(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'application_id' => 'required|integer|exists:applications,id',
             'logout_url' => 'required|url',
             'callback_url' => 'required|url',
@@ -834,7 +834,7 @@ class SSOController extends Controller
         ]);
 
         try {
-            $ssoConfig = SSOConfiguration::create($request->all());
+            $ssoConfig = SSOConfiguration::create($validated);
 
             return response()->json([
                 'id' => $ssoConfig->id,
@@ -861,7 +861,7 @@ class SSOController extends Controller
      */
     public function updateSSOConfiguration(Request $request, int $id): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'logout_url' => 'sometimes|url',
             'callback_url' => 'sometimes|url',
             'allowed_domains' => 'sometimes|array',
@@ -872,7 +872,7 @@ class SSOController extends Controller
 
         try {
             $ssoConfig = SSOConfiguration::findOrFail($id);
-            $ssoConfig->update($request->all());
+            $ssoConfig->update($validated);
 
             return response()->json([
                 'id' => $ssoConfig->id,

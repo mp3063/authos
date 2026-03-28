@@ -13,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrganizationAnalyticsController extends BaseApiController
@@ -37,16 +36,12 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'period' => 'sometimes|string|in:24h,7d,7days,30d,30days,90d,1y',
             'metrics' => 'sometimes|array',
             'metrics.*' => 'string|in:users,applications,authentication_logs,active_sessions',
             'timezone' => 'sometimes|string|timezone',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $period = $this->normalizePeriod($request->get('period', '30d'));
         $metrics = $request->get('metrics', ['users', 'applications', 'authentication_logs']);
@@ -81,14 +76,10 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
             'type' => 'sometimes|string|in:registrations,logins,active_users',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $period = $request->get('period', '30d');
         $type = $request->get('type', 'active_users');
@@ -117,14 +108,10 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
             'application_id' => 'sometimes|exists:applications,id',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $period = $request->get('period', '30d');
         $applicationId = $request->get('application_id');
@@ -153,14 +140,10 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
             'include_failed_attempts' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $period = $request->get('period', '30d');
         $includeFailedAttempts = $request->boolean('include_failed_attempts', true);
@@ -189,16 +172,12 @@ class OrganizationAnalyticsController extends BaseApiController
 
         $organization = Organization::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'format' => 'sometimes|string|in:json,csv,xlsx',
             'data_type' => 'required|string|in:users,applications,analytics,security_logs',
             'date_from' => 'sometimes|date|before_or_equal:date_to',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         $format = $request->get('format', 'json');
         $dataType = $request->get('data_type');

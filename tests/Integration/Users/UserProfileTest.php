@@ -332,7 +332,7 @@ class UserProfileTest extends TestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'avatar',
                 ],
             ]);
@@ -361,7 +361,7 @@ class UserProfileTest extends TestCase
             ->assertJsonStructure([
                 'error',
                 'error_description',
-                'details' => [
+                'errors' => [
                     'avatar',
                 ],
             ]);

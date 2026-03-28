@@ -7,7 +7,6 @@ use App\Models\WebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Validator;
 
 class WebhookEventController extends BaseApiController
 {
@@ -23,15 +22,11 @@ class WebhookEventController extends BaseApiController
      */
     public function index(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'category' => 'sometimes|string|in:user,organization,application,auth,sso,system',
             'is_active' => 'sometimes|boolean',
             'include_schema' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         // Cache the webhook events list for 1 hour
         $cacheKey = 'webhook_events:'
@@ -96,13 +91,9 @@ class WebhookEventController extends BaseApiController
      */
     public function groupedByCategory(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'is_active' => 'sometimes|boolean',
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
 
         // Cache the grouped events for 1 hour
         $cacheKey = 'webhook_events:grouped:'.$request->boolean('is_active', true);
