@@ -118,7 +118,7 @@ class IntrusionDetectionServiceTest extends TestCase
 
         $this->ipBlocklistService->expects($this->once())
             ->method('blockIp')
-            ->with($ipAddress, 'brute_force', $this->isType('string'));
+            ->with($ipAddress, 'brute_force', $this->callback(fn ($value) => is_string($value)));
 
         $this->service->detectBruteForce($email, $ipAddress);
     }

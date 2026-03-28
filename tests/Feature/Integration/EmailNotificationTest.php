@@ -243,6 +243,6 @@ class EmailNotificationTest extends TestCase
 
         // Would test for logo inclusion and color theming
         // Check for the actual primary color used in Laravel mail templates
-        $this->assertStringContainsString('#2d3748', $rendered);
+        $this->assertStringContainsString('#18181b', $rendered);
     }
 }

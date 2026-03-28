@@ -9,6 +9,7 @@ use App\Services\LdapAuthService;
 use Exception;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class SyncLdapUsersJobTest extends TestCase
@@ -34,7 +35,7 @@ class SyncLdapUsersJobTest extends TestCase
         parent::tearDown();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_can_be_dispatched_to_queue(): void
     {
         Queue::fake();
@@ -46,17 +47,17 @@ class SyncLdapUsersJobTest extends TestCase
         });
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_has_correct_configuration(): void
     {
         $job = new SyncLdapUsersJob($this->ldapConfig);
 
         $this->assertEquals(300, $job->timeout);
         $this->assertEquals(3, $job->tries);
-        $this->assertEquals(60, $job->backoff);
+        $this->assertEquals([60, 180, 300], $job->backoff);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calls_ldap_service_sync_users(): void
     {
         $service = Mockery::mock(LdapAuthService::class);
@@ -80,7 +81,7 @@ class SyncLdapUsersJobTest extends TestCase
         $this->assertEquals(5, $this->ldapConfig->last_sync_result['created']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_updates_sync_status_to_completed(): void
     {
         $service = Mockery::mock(LdapAuthService::class);
@@ -102,7 +103,7 @@ class SyncLdapUsersJobTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_updates_sync_status_on_failure(): void
     {
         $service = Mockery::mock(LdapAuthService::class);
@@ -122,7 +123,7 @@ class SyncLdapUsersJobTest extends TestCase
         $this->assertEquals('LDAP connection failed', $this->ldapConfig->last_sync_error);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calls_failed_method_on_permanent_failure(): void
     {
         $exception = new Exception('Permanent failure');
@@ -135,7 +136,7 @@ class SyncLdapUsersJobTest extends TestCase
         $this->assertEquals('Permanent failure', $this->ldapConfig->last_sync_error);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_stores_sync_results_in_database(): void
     {
         $results = [

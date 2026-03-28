@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Session;
 use Laravel\Passport\Client;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Comprehensive AdminPanelFlowsTest for Laravel authentication service.
@@ -99,6 +100,15 @@ class AdminPanelFlowsTest extends EndToEndTestCase
 
         // Test admin login page access
         Auth::logout();
+
+        // The login page renders social login buttons which calls getAvailableProviders()
+        $this->mockSocialAuthService
+            ->shouldReceive('getAvailableProviders')
+            ->andReturn([
+                'google' => ['name' => 'Google', 'enabled' => true, 'icon' => 'google'],
+                'github' => ['name' => 'GitHub', 'enabled' => true, 'icon' => 'github'],
+            ]);
+
         $loginPageResponse = $this->get('/admin/login');
         $loginPageResponse->assertOk();
 
@@ -315,7 +325,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
 
         // Set organization context for role assignment
         $newUser->setPermissionsTeamId($this->testOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
 
         $newUser->assignRole($userRole);
         $this->assertTrue($newUser->hasRole('Organization Admin'));
@@ -696,7 +706,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         foreach ($testUsers as $user) {
             // Set organization context for each user
             $user->setPermissionsTeamId($this->testOrganization->id);
-            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
             $user->assignRole($userRole);
         }
 
@@ -757,7 +767,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         // Test bulk role assignment with proper context
         foreach ($testUsers as $user) {
             $user->setPermissionsTeamId($this->testOrganization->id);
-            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
             $user->assignRole($userRole);
         }
 
@@ -769,7 +779,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         // Test role changing with proper context
         $firstUser = $testUsers->first();
         $firstUser->setPermissionsTeamId($this->testOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
 
         $firstUser->removeRole($userRole);
         $firstUser->assignRole($adminRole);
@@ -780,7 +790,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         // Test multiple role assignment
         $secondUser = $testUsers->get(1);
         $secondUser->setPermissionsTeamId($this->testOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->testOrganization->id);
         $secondUser->assignRole($adminRole);
 
         $this->assertTrue($secondUser->hasRole('User'));
