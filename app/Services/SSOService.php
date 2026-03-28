@@ -588,7 +588,7 @@ class SSOService
         // Exchange auth code for tokens
         $authenticationSuccessful = true;
         try {
-            $tokenResponse = Http::timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
+            $tokenResponse = Http::connectTimeout(10)->timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
                 'grant_type' => 'authorization_code',
                 'code' => $authCode,
                 'redirect_uri' => $ssoConfig->callback_url,
@@ -620,7 +620,7 @@ class SSOService
             // Get user info from provider
             if ($tokenResponse->successful()) {
                 try {
-                    $userInfoResponse = Http::timeout(20)->withToken($accessToken)
+                    $userInfoResponse = Http::connectTimeout(10)->timeout(30)->withToken($accessToken)
                         ->get($ssoConfig->configuration['userinfo_endpoint'] ?? '');
 
                     $userInfo = $userInfoResponse->successful() ? $userInfoResponse->json() : [
@@ -819,7 +819,7 @@ class SSOService
                     throw new Exception('Token endpoint not configured');
                 }
 
-                $response = Http::post($ssoConfig->configuration['token_endpoint'], [
+                $response = Http::connectTimeout(10)->timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
                     'grant_type' => 'refresh_token',
                     'refresh_token' => $session->refresh_token,
                     'client_id' => $ssoConfig->configuration['client_id'] ?? '',

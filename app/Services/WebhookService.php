@@ -14,7 +14,8 @@ use Illuminate\Validation\ValidationException;
 class WebhookService extends BaseService
 {
     public function __construct(
-        protected WebhookSignatureService $signatureService
+        protected WebhookSignatureService $signatureService,
+        protected WebhookDeliveryService $deliveryService
     ) {}
 
     /**
@@ -231,7 +232,7 @@ class WebhookService extends BaseService
         ]);
 
         // Dispatch the delivery job
-        app(WebhookDeliveryService::class)->deliver($delivery);
+        $this->deliveryService->deliver($delivery);
 
         $this->logAction('webhook_tested', [
             'webhook_id' => $webhook->id,

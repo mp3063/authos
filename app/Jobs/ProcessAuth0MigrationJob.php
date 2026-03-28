@@ -14,6 +14,7 @@ use App\Services\Auth0\Migration\Importers\UserImporter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -138,15 +139,25 @@ class ProcessAuth0MigrationJob implements ShouldQueue
                 'migration_job_id' => $this->migrationJob->id,
                 'stats' => $stats,
             ]);
+        } catch (ConnectionException $e) {
+            // Transient network error — allow Laravel to retry
+            Log::warning('Auth0 migration transient failure, will retry', [
+                'migration_job_id' => $this->migrationJob->id,
+                'attempt' => $this->attempts(),
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->migrationJob->update(['status' => 'retrying']);
+
+            throw $e;
         } catch (Throwable $e) {
-            // Log error
+            // Permanent failure (bad config, validation, etc.)
             Log::error('Auth0 migration failed', [
                 'migration_job_id' => $this->migrationJob->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Update job with failure
             $errorLog = $this->migrationJob->error_log ?? [];
             $errorLog[] = [
                 'message' => $e->getMessage(),
@@ -160,8 +171,7 @@ class ProcessAuth0MigrationJob implements ShouldQueue
                 'completed_at' => now(),
             ]);
 
-            // Don't re-throw - job should complete gracefully with failed status
-            // The error is already logged and stored in the migration job
+            $this->fail($e);
         }
     }
 

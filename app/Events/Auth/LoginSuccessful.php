@@ -3,6 +3,7 @@
 namespace App\Events\Auth;
 
 use App\Models\User;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Http\Request;
 use Illuminate\Queue\SerializesModels;
@@ -13,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
  * This event triggers post-login actions like session regeneration,
  * clearing failed attempts, and logging successful authentication.
  */
-class LoginSuccessful
+class LoginSuccessful implements ShouldDispatchAfterCommit
 {
     use Dispatchable, SerializesModels;
 

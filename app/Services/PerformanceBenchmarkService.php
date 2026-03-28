@@ -107,11 +107,12 @@ class PerformanceBenchmarkService
         $this->start($name);
 
         try {
+            $http = Http::connectTimeout(10)->timeout(60);
             $response = match (strtoupper($method)) {
-                'GET' => Http::get($url, $options),
-                'POST' => Http::post($url, $options),
-                'PUT' => Http::put($url, $options),
-                'DELETE' => Http::delete($url, $options),
+                'GET' => $http->get($url, $options),
+                'POST' => $http->post($url, $options),
+                'PUT' => $http->put($url, $options),
+                'DELETE' => $http->delete($url, $options),
                 default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
             };
 

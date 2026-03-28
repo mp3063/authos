@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Configure trusted proxies for proper IP address detection
         // In production, specify actual proxy IPs instead of '*'
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES', '*'), // Environment configurable
+            at: env('TRUSTED_PROXIES', '*'),
             headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR |
                     \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST |
                     \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT |

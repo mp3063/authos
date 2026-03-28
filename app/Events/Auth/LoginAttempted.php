@@ -2,6 +2,7 @@
 
 namespace App\Events\Auth;
 
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Http\Request;
 use Illuminate\Queue\SerializesModels;
@@ -12,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
  * This event is dispatched BEFORE credential verification to allow
  * security checks like IP blocking and account lockout to abort the login.
  */
-class LoginAttempted
+class LoginAttempted implements ShouldDispatchAfterCommit
 {
     use Dispatchable, SerializesModels;
 

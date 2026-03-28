@@ -12,18 +12,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role as SpatieRole;
+use Spatie\Permission\PermissionRegistrar;
 
 class UserManagementService extends BaseService implements UserManagementServiceInterface
 {
-    protected AuthenticationLogService $authLogService;
-
-    protected UserRepositoryInterface $userRepository;
-
-    public function __construct(AuthenticationLogService $authLogService, UserRepositoryInterface $userRepository)
-    {
-        $this->authLogService = $authLogService;
-        $this->userRepository = $userRepository;
-    }
+    public function __construct(
+        protected AuthenticationLogService $authLogService,
+        protected UserRepositoryInterface $userRepository,
+        protected PermissionRegistrar $permissionRegistrar
+    ) {}
 
     /**
      * Create a new user
@@ -43,7 +40,7 @@ class UserManagementService extends BaseService implements UserManagementService
 
         // Set permissions team context for the organization
         $user->setPermissionsTeamId($organization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($organization->id);
+        $this->permissionRegistrar->setPermissionsTeamId($organization->id);
 
         // Assign roles if provided
         // Guard is handled by User model's getDefaultGuardName() method

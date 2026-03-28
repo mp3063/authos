@@ -3,6 +3,7 @@
 namespace App\Events\Auth;
 
 use App\Models\User;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Http\Request;
 use Illuminate\Queue\SerializesModels;
@@ -13,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
  * This event triggers security responses like failed login recording,
  * intrusion detection, and progressive account lockout.
  */
-class LoginFailed
+class LoginFailed implements ShouldDispatchAfterCommit
 {
     use Dispatchable, SerializesModels;
 
