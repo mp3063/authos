@@ -145,11 +145,20 @@ class GenerateComplianceReportJob implements ShouldQueue
         ]);
     }
 
+    /**
+     * Flat scalar key-value pairs only — consumed by ComplianceReport.summary,
+     * which is rendered by Filament KeyValueEntry-style widgets that cannot
+     * format nested arrays.
+     */
     private function extractSummary(array $reportData): array
     {
+        $period = $reportData['period'] ?? [];
+
         return [
             'report_type' => $reportData['report_type'] ?? null,
-            'period' => $reportData['period'] ?? null,
+            'period_from' => $period['from'] ?? null,
+            'period_to' => $period['to'] ?? null,
+            'period_days' => isset($period['days']) ? (int) round((float) $period['days']) : null,
             'total_users' => $reportData['access_controls']['total_users']
                 ?? $reportData['data_subjects_count']
                 ?? null,

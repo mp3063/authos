@@ -5,8 +5,8 @@ namespace App\Filament\Resources\ComplianceReportResource\Pages;
 use App\Filament\Resources\ComplianceReportResource;
 use App\Models\ComplianceReport;
 use Filament\Actions\Action;
-use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -101,10 +101,15 @@ class ViewComplianceReport extends ViewRecord
 
             Section::make('Top-line Metrics')
                 ->schema([
-                    KeyValueEntry::make('summary')
-                        ->keyLabel('Metric')
-                        ->valueLabel('Value')
-                        ->columnSpanFull(),
+                    ViewEntry::make('summary')
+                        ->label('')
+                        ->view('components.json-display-simple')
+                        ->viewData(fn (ComplianceReport $record): array => [
+                            'json' => json_encode(
+                                $record->summary ?? [],
+                                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+                            ),
+                        ]),
                 ])
                 ->collapsible()
                 ->visible(fn (ComplianceReport $record): bool => ! empty($record->summary))
