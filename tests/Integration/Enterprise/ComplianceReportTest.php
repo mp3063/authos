@@ -2,10 +2,13 @@
 
 namespace Tests\Integration\Enterprise;
 
+use App\Http\Controllers\Api\Enterprise\ComplianceController;
 use App\Jobs\GenerateComplianceReportJob;
 use App\Mail\ComplianceReportGenerated;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\ComplianceReportService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -38,10 +41,10 @@ use Tests\Integration\IntegrationTestCase;
  * asynchronously via background jobs and can be automatically scheduled
  * for recurring delivery to compliance teams.
  *
- * @see \App\Http\Controllers\Api\Enterprise\ComplianceController
- * @see \App\Services\ComplianceReportService
- * @see \App\Jobs\GenerateComplianceReportJob
- * @see \App\Mail\ComplianceReportGenerated
+ * @see ComplianceController
+ * @see ComplianceReportService
+ * @see GenerateComplianceReportJob
+ * @see ComplianceReportGenerated
  */
 class ComplianceReportTest extends IntegrationTestCase
 {
@@ -286,7 +289,7 @@ class ComplianceReportTest extends IntegrationTestCase
 
         // ACT: Execute report generation job
         $job = new GenerateComplianceReportJob($organization, 'soc2', $recipients);
-        $job->handle(app(\App\Services\ComplianceReportService::class));
+        $job->handle(app(ComplianceReportService::class));
 
         // ASSERT: Email sent to all recipients
         Mail::assertSent(ComplianceReportGenerated::class, function ($mail) use ($recipients) {
@@ -304,10 +307,10 @@ class ComplianceReportTest extends IntegrationTestCase
                 && ! empty($mail->downloadUrl);
         });
 
-        // ASSERT: Report file stored
-        $files = Storage::disk('local')->files('compliance_reports');
+        // ASSERT: Report files stored (now in per-org subdirs)
+        $files = Storage::disk('local')->allFiles('compliance_reports');
         $this->assertNotEmpty($files);
-        $this->assertStringContainsString('soc2_report', $files[0]);
+        $this->assertContains(true, array_map(fn ($f) => str_contains($f, '/soc2_'), $files));
     }
 
     /**
@@ -421,13 +424,13 @@ class ComplianceReportTest extends IntegrationTestCase
 
         // ACT: Generate report via job (creates JSON file)
         $job = new GenerateComplianceReportJob($organization, 'gdpr', []);
-        $job->handle(app(\App\Services\ComplianceReportService::class));
+        $job->handle(app(ComplianceReportService::class));
 
-        // ASSERT: JSON format stored
-        $files = Storage::disk('local')->files('compliance_reports');
+        // ASSERT: JSON format stored (now in per-org subdirs alongside PDF)
+        $files = Storage::disk('local')->allFiles('compliance_reports');
         $this->assertNotEmpty($files);
 
-        $jsonFile = collect($files)->first(fn ($file) => str_contains($file, 'gdpr_report'));
+        $jsonFile = collect($files)->first(fn ($file) => str_contains($file, '/gdpr_') && str_ends_with($file, '.json'));
         $this->assertNotNull($jsonFile);
 
         // ASSERT: JSON content valid
@@ -488,8 +491,8 @@ class ComplianceReportTest extends IntegrationTestCase
         $this->assertArrayHasKey('to', $report['period']);
 
         // ASSERT: Period approximately 30 days
-        $from = \Carbon\Carbon::parse($report['period']['from']);
-        $to = \Carbon\Carbon::parse($report['period']['to']);
+        $from = Carbon::parse($report['period']['from']);
+        $to = Carbon::parse($report['period']['to']);
         $this->assertEqualsWithDelta(30, $from->diffInDays($to), 1);
 
         // TODO: Future enhancement
@@ -518,29 +521,30 @@ class ComplianceReportTest extends IntegrationTestCase
 
         // ACT: Generate report
         $job = new GenerateComplianceReportJob($organization, 'soc2', []);
-        $job->handle(app(\App\Services\ComplianceReportService::class));
+        $job->handle(app(ComplianceReportService::class));
 
-        // ASSERT: Report file created
-        $files = Storage::disk('local')->files('compliance_reports');
+        // ASSERT: Report files created (now in per-org subdirs)
+        $files = Storage::disk('local')->allFiles('compliance_reports');
         $this->assertNotEmpty($files);
 
-        $reportFile = $files[0];
+        $jsonFile = collect($files)->first(fn ($f) => str_contains($f, '/soc2_') && str_ends_with($f, '.json'));
+        $this->assertNotNull($jsonFile);
 
         // ASSERT: File is accessible
-        $this->assertTrue(Storage::disk('local')->exists($reportFile));
+        $this->assertTrue(Storage::disk('local')->exists($jsonFile));
 
         // ASSERT: File contains valid report data
-        $content = Storage::disk('local')->get($reportFile);
+        $content = Storage::disk('local')->get($jsonFile);
         $report = json_decode($content, true);
 
         $this->assertIsArray($report);
         $this->assertEquals('SOC2', $report['report_type']);
         $this->assertArrayHasKey('generated_at', $report);
 
-        // ASSERT: File has proper naming convention
+        // ASSERT: File naming convention {type}_{Ymd}_{uuid}.json
         $this->assertMatchesRegularExpression(
-            '/soc2_report_\d+_\d{4}-\d{2}-\d{2}\.json/',
-            basename($reportFile)
+            '/^soc2_\d{8}_[0-9a-f-]{36}\.json$/',
+            basename($jsonFile)
         );
 
         // TODO: Future download endpoint

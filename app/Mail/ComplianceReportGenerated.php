@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\Organization;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Queue\SerializesModels;
 
 class ComplianceReportGenerated extends Mailable
@@ -16,12 +17,14 @@ class ComplianceReportGenerated extends Mailable
         public Organization $organization,
         public string $reportType,
         public array $reportData,
-        public string $downloadUrl
+        public string $downloadUrl,
+        public ?string $pdfFilesystemPath = null,
+        public ?string $jsonFilesystemPath = null,
     ) {}
 
     public function build(): self
     {
-        return $this->subject("Compliance Report Generated - {$this->reportType}")
+        $mail = $this->subject("Compliance Report Generated - {$this->reportType}")
             ->markdown('emails.compliance-report')
             ->with([
                 'organization' => $this->organization,
@@ -30,5 +33,19 @@ class ComplianceReportGenerated extends Mailable
                 'downloadUrl' => $this->downloadUrl,
                 'generatedAt' => now()->format('M d, Y H:i'),
             ]);
+
+        if ($this->pdfFilesystemPath !== null && is_file($this->pdfFilesystemPath)) {
+            $mail->attach(Attachment::fromPath($this->pdfFilesystemPath)
+                ->as("{$this->reportType}_report.pdf")
+                ->withMime('application/pdf'));
+        }
+
+        if ($this->jsonFilesystemPath !== null && is_file($this->jsonFilesystemPath)) {
+            $mail->attach(Attachment::fromPath($this->jsonFilesystemPath)
+                ->as("{$this->reportType}_report.json")
+                ->withMime('application/json'));
+        }
+
+        return $mail;
     }
 }

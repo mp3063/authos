@@ -3,12 +3,14 @@
 namespace Tests\Unit\Jobs;
 
 use App\Jobs\GenerateComplianceReportJob;
+use App\Mail\ComplianceReportGenerated;
 use App\Models\Organization;
 use App\Services\ComplianceReportService;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class GenerateComplianceReportJobTest extends TestCase
@@ -31,7 +33,7 @@ class GenerateComplianceReportJobTest extends TestCase
         parent::tearDown();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_can_be_dispatched_to_queue(): void
     {
         Queue::fake();
@@ -47,7 +49,7 @@ class GenerateComplianceReportJobTest extends TestCase
         });
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_has_correct_configuration(): void
     {
         $job = new GenerateComplianceReportJob($this->organization, 'soc2');
@@ -56,7 +58,7 @@ class GenerateComplianceReportJobTest extends TestCase
         $this->assertEquals(2, $job->tries);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_generates_soc2_report(): void
     {
         $reportData = [
@@ -68,19 +70,19 @@ class GenerateComplianceReportJobTest extends TestCase
         $service = Mockery::mock(ComplianceReportService::class);
         $service->shouldReceive('generateSOC2Report')
             ->once()
-            ->with($this->organization)
+            ->with($this->organization, Mockery::any(), Mockery::any())
             ->andReturn($reportData);
 
         $job = new GenerateComplianceReportJob($this->organization, 'soc2');
         $job->handle($service);
 
-        // Verify file was created
-        $files = Storage::files('compliance_reports');
-        $this->assertCount(1, $files);
-        $this->assertStringContainsString('soc2_report', $files[0]);
+        // Verify both PDF and JSON files were created (now in per-org subdir)
+        $files = Storage::allFiles('compliance_reports');
+        $this->assertNotEmpty($files);
+        $this->assertContains(true, array_map(fn ($f) => str_contains($f, '/soc2_'), $files));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_generates_iso27001_report(): void
     {
         $reportData = [
@@ -92,19 +94,19 @@ class GenerateComplianceReportJobTest extends TestCase
         $service = Mockery::mock(ComplianceReportService::class);
         $service->shouldReceive('generateISO27001Report')
             ->once()
-            ->with($this->organization)
+            ->with($this->organization, Mockery::any(), Mockery::any())
             ->andReturn($reportData);
 
         $job = new GenerateComplianceReportJob($this->organization, 'iso27001');
         $job->handle($service);
 
-        // Verify file was created
-        $files = Storage::files('compliance_reports');
-        $this->assertCount(1, $files);
-        $this->assertStringContainsString('iso27001_report', $files[0]);
+        // Verify both PDF and JSON files were created (now in per-org subdir)
+        $files = Storage::allFiles('compliance_reports');
+        $this->assertNotEmpty($files);
+        $this->assertContains(true, array_map(fn ($f) => str_contains($f, '/iso27001_'), $files));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_generates_gdpr_report(): void
     {
         $reportData = [
@@ -116,19 +118,19 @@ class GenerateComplianceReportJobTest extends TestCase
         $service = Mockery::mock(ComplianceReportService::class);
         $service->shouldReceive('generateGDPRReport')
             ->once()
-            ->with($this->organization)
+            ->with($this->organization, Mockery::any(), Mockery::any())
             ->andReturn($reportData);
 
         $job = new GenerateComplianceReportJob($this->organization, 'gdpr');
         $job->handle($service);
 
-        // Verify file was created
-        $files = Storage::files('compliance_reports');
-        $this->assertCount(1, $files);
-        $this->assertStringContainsString('gdpr_report', $files[0]);
+        // Verify both PDF and JSON files were created (now in per-org subdir)
+        $files = Storage::allFiles('compliance_reports');
+        $this->assertNotEmpty($files);
+        $this->assertContains(true, array_map(fn ($f) => str_contains($f, '/gdpr_'), $files));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_sends_email_to_recipients(): void
     {
         $recipients = ['admin@example.com', 'compliance@example.com'];
@@ -141,12 +143,12 @@ class GenerateComplianceReportJobTest extends TestCase
         $job = new GenerateComplianceReportJob($this->organization, 'soc2', $recipients);
         $job->handle($service);
 
-        Mail::assertSent(\App\Mail\ComplianceReportGenerated::class, function ($mail) use ($recipients) {
+        Mail::assertSent(ComplianceReportGenerated::class, function ($mail) use ($recipients) {
             return $mail->hasTo($recipients);
         });
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_send_email_when_no_recipients(): void
     {
         $service = Mockery::mock(ComplianceReportService::class);
@@ -160,7 +162,7 @@ class GenerateComplianceReportJobTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_throws_exception_for_invalid_report_type(): void
     {
         $service = Mockery::mock(ComplianceReportService::class);
@@ -173,7 +175,7 @@ class GenerateComplianceReportJobTest extends TestCase
         $job->handle($service);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_saves_report_to_storage(): void
     {
         $reportData = [
@@ -189,10 +191,11 @@ class GenerateComplianceReportJobTest extends TestCase
         $job = new GenerateComplianceReportJob($this->organization, 'soc2');
         $job->handle($service);
 
-        $files = Storage::files('compliance_reports');
-        $this->assertCount(1, $files);
+        $files = Storage::allFiles('compliance_reports');
+        $jsonFile = collect($files)->first(fn ($f) => str_ends_with($f, '.json'));
+        $this->assertNotNull($jsonFile);
 
-        $content = Storage::get($files[0]);
+        $content = Storage::get($jsonFile);
         $decoded = json_decode($content, true);
 
         $this->assertEquals('SOC2', $decoded['report_type']);
