@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\Organization;
 use App\Models\SecurityIncident;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\SecurityIncident>
+ * @extends Factory<SecurityIncident>
  */
 class SecurityIncidentFactory extends Factory
 {
@@ -36,6 +37,7 @@ class SecurityIncidentFactory extends Factory
             'ip_address' => fake()->ipv4(),
             'user_agent' => fake()->userAgent(),
             'user_id' => null,
+            'organization_id' => null,
             'endpoint' => fake()->randomElement([
                 '/api/v1/auth/login',
                 '/api/v1/auth/register',
@@ -185,6 +187,17 @@ class SecurityIncidentFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'user_id' => $user->id,
+            'organization_id' => $user->organization_id,
+        ]);
+    }
+
+    /**
+     * Indicate that the incident is for a specific organization.
+     */
+    public function forOrganization(Organization $organization): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'organization_id' => $organization->id,
         ]);
     }
 

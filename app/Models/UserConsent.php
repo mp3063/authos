@@ -7,33 +7,33 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SecurityIncident extends Model
+class UserConsent extends Model
 {
     use HasFactory;
 
+    public const TYPE_TERMS = 'terms';
+
+    public const TYPE_PRIVACY = 'privacy';
+
+    public const TYPE_MARKETING = 'marketing';
+
+    public const TYPE_DATA_PROCESSING = 'data_processing';
+
     protected $fillable = [
-        'type',
-        'severity',
-        'ip_address',
-        'user_agent',
         'user_id',
         'organization_id',
-        'endpoint',
-        'description',
-        'metadata',
-        'status',
-        'detected_at',
-        'resolved_at',
-        'resolution_notes',
-        'action_taken',
+        'consent_type',
+        'terms_version',
+        'ip_address',
+        'given_at',
+        'withdrawn_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'metadata' => 'array',
-            'detected_at' => 'datetime',
-            'resolved_at' => 'datetime',
+            'given_at' => 'datetime',
+            'withdrawn_at' => 'datetime',
         ];
     }
 
@@ -47,19 +47,19 @@ class SecurityIncident extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function scopeOpen(Builder $query): Builder
+    public function isActive(): bool
     {
-        return $query->where('status', 'open');
+        return $this->given_at !== null && $this->withdrawn_at === null;
     }
 
-    public function scopeCritical(Builder $query): Builder
+    public function scopeActive(Builder $query): Builder
     {
-        return $query->where('severity', 'critical');
+        return $query->whereNotNull('given_at')->whereNull('withdrawn_at');
     }
 
-    public function scopeByType(Builder $query, string $type): Builder
+    public function scopeWithdrawn(Builder $query): Builder
     {
-        return $query->where('type', $type);
+        return $query->whereNotNull('withdrawn_at');
     }
 
     public function scopeForOrganization(Builder $query, int $organizationId): Builder

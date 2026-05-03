@@ -106,6 +106,31 @@ class Organization extends Model
         return $this->hasManyThrough(SecurityIncident::class, User::class);
     }
 
+    public function securityIncidentsDirect(): HasMany
+    {
+        return $this->hasMany(SecurityIncident::class);
+    }
+
+    public function complianceReports(): HasMany
+    {
+        return $this->hasMany(ComplianceReport::class);
+    }
+
+    public function scheduledComplianceReports(): HasMany
+    {
+        return $this->hasMany(ScheduledComplianceReport::class);
+    }
+
+    public function userConsents(): HasMany
+    {
+        return $this->hasMany(UserConsent::class);
+    }
+
+    public function dataSubjectRequests(): HasMany
+    {
+        return $this->hasMany(DataSubjectRequest::class);
+    }
+
     public function authenticationLogs(): HasManyThrough
     {
         return $this->hasManyThrough(AuthenticationLog::class, User::class);
