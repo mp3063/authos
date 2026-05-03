@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Organizations\OrganizationAnalyticsController;
 use App\Http\Controllers\Api\Organizations\OrganizationCrudController;
 use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\Profile\ConsentController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\SSOController;
@@ -188,6 +189,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/change-password', [ProfileController::class, 'changePassword']);
         Route::get('/social-accounts', [ProfileController::class, 'socialAccounts']);
         Route::delete('/social-accounts/{provider}', [ProfileController::class, 'unlinkSocialAccount']);
+
+        // GDPR consent and data subject requests
+        Route::get('/consents', [ConsentController::class, 'listConsents']);
+        Route::post('/consents', [ConsentController::class, 'recordConsent']);
+        Route::delete('/consents/{type}', [ConsentController::class, 'withdrawConsent']);
+        Route::post('/data-requests', [ConsentController::class, 'createDataRequest']);
     });
 
     // MFA Management API

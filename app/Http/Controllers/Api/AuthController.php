@@ -12,9 +12,13 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Mail\WelcomeEmail;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\UserConsent;
 use App\Services\AuthenticationLogService;
+use App\Services\Compliance\ConsentTrackingService;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,6 +26,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Passport\Token;
+use PragmaRX\Google2FA\Google2FA;
 use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
@@ -71,6 +76,17 @@ class AuthController extends Controller
             'profile' => $validated['profile'] ?? [],
             'email_verified_at' => null, // Will be verified later
         ]);
+
+        // Record GDPR consent: terms_accepted is a required validation rule above,
+        // so reaching this point means the user agreed.
+        if ($organizationId !== null) {
+            app(ConsentTrackingService::class)->recordConsent(
+                $user,
+                UserConsent::TYPE_TERMS,
+                (string) ($validated['terms_version'] ?? config('compliance.terms_version', 'v1.0')),
+                $request->ip(),
+            );
+        }
 
         // Assign default user role for API guard
         // We must find the role directly and attach it because getDefaultGuardName()
@@ -147,7 +163,7 @@ class AuthController extends Controller
                     'grant_type' => 'password',
                 ]
             );
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             // Security check failed (IP blocked or account locked)
             // The exception contains the appropriate error response
             throw $e;
@@ -572,7 +588,7 @@ class AuthController extends Controller
                 // Decrypt challenge data - will throw DecryptException if tampered
                 $challengeData = decrypt($encryptedData);
 
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 // Log potential security incident - tampered token
                 Log::warning('MFA challenge token decryption failed - possible tampering attempt', [
                     'token_prefix' => substr($request->challenge_token, 0, 8).'...',
@@ -723,7 +739,7 @@ class AuthController extends Controller
         $token = $tokenResult->token;
 
         // Dispatch successful login event
-        \App\Events\Auth\LoginSuccessful::dispatch(
+        LoginSuccessful::dispatch(
             $user,
             $request->ip(),
             $request->userAgent(),
@@ -784,12 +800,12 @@ class AuthController extends Controller
         }
 
         try {
-            $google2fa = new \PragmaRX\Google2FA\Google2FA;
+            $google2fa = new Google2FA;
             $secretKey = decrypt($user->two_factor_secret);
 
             // Verify with ±1 window for clock drift tolerance
             return $google2fa->verifyKey($secretKey, $code, 1);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log decryption or verification errors
             \Log::error('MFA TOTP verification error', [
                 'user_id' => $user->id,
@@ -848,7 +864,7 @@ class AuthController extends Controller
             ]);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             \Log::error('MFA recovery code verification error', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
