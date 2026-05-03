@@ -8,6 +8,11 @@ use App\Http\Controllers\Api\Bulk\BulkUserOperationsController;
 use App\Http\Controllers\Api\BulkUserController;
 use App\Http\Controllers\Api\CacheManagementController;
 use App\Http\Controllers\Api\CustomRoleController;
+use App\Http\Controllers\Api\Enterprise\AuditController;
+use App\Http\Controllers\Api\Enterprise\BrandingController;
+use App\Http\Controllers\Api\Enterprise\ComplianceController;
+use App\Http\Controllers\Api\Enterprise\DomainController;
+use App\Http\Controllers\Api\Enterprise\LdapController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\Monitoring\HealthCheckController;
 use App\Http\Controllers\Api\Monitoring\MetricsController;
@@ -19,6 +24,7 @@ use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SocialAuthController;
+use App\Http\Controllers\Api\SSOController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\WebhookDeliveryController;
@@ -278,45 +284,45 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     Route::prefix('sso')->middleware(['throttle:oauth'])->group(function () {
         // Authenticated SSO endpoints
         Route::middleware('auth:api')->group(function () {
-            Route::post('/initiate', [\App\Http\Controllers\Api\SSOController::class, 'initiate'])->middleware('scopes:sso');
-            Route::get('/sessions', [\App\Http\Controllers\Api\SSOController::class, 'sessions'])->middleware('scopes:sso');
-            Route::post('/sessions/revoke', [\App\Http\Controllers\Api\SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
+            Route::post('/initiate', [SSOController::class, 'initiate'])->middleware('scopes:sso');
+            Route::get('/sessions', [SSOController::class, 'sessions'])->middleware('scopes:sso');
+            Route::post('/sessions/revoke', [SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
 
             // Individual session management
-            Route::get('/sessions/{session_token}/validate', [\App\Http\Controllers\Api\SSOController::class, 'validateSpecificSession'])->middleware('scopes:sso');
-            Route::post('/sessions/{session_token}/refresh', [\App\Http\Controllers\Api\SSOController::class, 'refreshSpecificSession'])->middleware('scopes:sso');
-            Route::post('/sessions/{session_token}/logout', [\App\Http\Controllers\Api\SSOController::class, 'logoutSpecificSession'])->middleware('scopes:sso');
+            Route::get('/sessions/{session_token}/validate', [SSOController::class, 'validateSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/refresh', [SSOController::class, 'refreshSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/logout', [SSOController::class, 'logoutSpecificSession'])->middleware('scopes:sso');
 
             // Synchronized logout
-            Route::post('/logout/synchronized', [\App\Http\Controllers\Api\SSOController::class, 'synchronizedLogout'])->middleware('scopes:sso');
+            Route::post('/logout/synchronized', [SSOController::class, 'synchronizedLogout'])->middleware('scopes:sso');
 
             // SSO Configuration Management
-            Route::get('/configurations/{organizationId}', [\App\Http\Controllers\Api\SSOController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
-            Route::post('/configurations', [\App\Http\Controllers\Api\SSOController::class, 'createSSOConfiguration'])->middleware('scopes:sso');
-            Route::put('/configurations/{id}', [\App\Http\Controllers\Api\SSOController::class, 'updateSSOConfiguration'])->middleware('scopes:sso');
-            Route::delete('/configurations/{id}', [\App\Http\Controllers\Api\SSOController::class, 'deleteSSOConfiguration'])->middleware('scopes:sso');
+            Route::get('/configurations/{organizationId}', [SSOController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
+            Route::post('/configurations', [SSOController::class, 'createSSOConfiguration'])->middleware('scopes:sso');
+            Route::put('/configurations/{id}', [SSOController::class, 'updateSSOConfiguration'])->middleware('scopes:sso');
+            Route::delete('/configurations/{id}', [SSOController::class, 'deleteSSOConfiguration'])->middleware('scopes:sso');
         });
 
         // Public SSO endpoints (for client applications)
-        Route::post('/callback', [\App\Http\Controllers\Api\SSOController::class, 'callback']);
-        Route::post('/saml/callback', [\App\Http\Controllers\Api\SSOController::class, 'samlCallback']);
-        Route::post('/validate', [\App\Http\Controllers\Api\SSOController::class, 'validateSession']);
-        Route::post('/refresh', [\App\Http\Controllers\Api\SSOController::class, 'refresh']);
-        Route::post('/logout', [\App\Http\Controllers\Api\SSOController::class, 'logout']);
-        Route::get('/configuration/{applicationId}', [\App\Http\Controllers\Api\SSOController::class, 'configuration']);
-        Route::get('/metadata/{organizationSlug}', [\App\Http\Controllers\Api\SSOController::class, 'metadata']);
-        Route::post('/cleanup', [\App\Http\Controllers\Api\SSOController::class, 'cleanup']);
+        Route::post('/callback', [SSOController::class, 'callback']);
+        Route::post('/saml/callback', [SSOController::class, 'samlCallback']);
+        Route::post('/validate', [SSOController::class, 'validateSession']);
+        Route::post('/refresh', [SSOController::class, 'refresh']);
+        Route::post('/logout', [SSOController::class, 'logout']);
+        Route::get('/configuration/{applicationId}', [SSOController::class, 'configuration']);
+        Route::get('/metadata/{organizationSlug}', [SSOController::class, 'metadata']);
+        Route::post('/cleanup', [SSOController::class, 'cleanup']);
 
         // SAML 2.0 endpoints
-        Route::get('/saml/{organizationSlug}/metadata', [\App\Http\Controllers\Api\SSOController::class, 'spMetadata']);
-        Route::post('/saml/slo', [\App\Http\Controllers\Api\SSOController::class, 'sloEndpoint']);
-        Route::post('/saml/acs', [\App\Http\Controllers\Api\SSOController::class, 'idpInitiatedSso']);
+        Route::get('/saml/{organizationSlug}/metadata', [SSOController::class, 'spMetadata']);
+        Route::post('/saml/slo', [SSOController::class, 'sloEndpoint']);
+        Route::post('/saml/acs', [SSOController::class, 'idpInitiatedSso']);
 
         // SAML certificate management (authenticated)
         Route::middleware('auth:api')->group(function () {
-            Route::post('/saml/certificates/{configId}', [\App\Http\Controllers\Api\SSOController::class, 'updateSamlCertificate'])->middleware('scopes:sso');
-            Route::get('/saml/certificates/{configId}', [\App\Http\Controllers\Api\SSOController::class, 'viewSamlCertificate'])->middleware('scopes:sso');
-            Route::post('/saml/certificates/{configId}/rotate', [\App\Http\Controllers\Api\SSOController::class, 'rotateSamlCertificate'])->middleware('scopes:sso');
+            Route::post('/saml/certificates/{configId}', [SSOController::class, 'updateSamlCertificate'])->middleware('scopes:sso');
+            Route::get('/saml/certificates/{configId}', [SSOController::class, 'viewSamlCertificate'])->middleware('scopes:sso');
+            Route::post('/saml/certificates/{configId}/rotate', [SSOController::class, 'rotateSamlCertificate'])->middleware('scopes:sso');
         });
     });
 
@@ -362,33 +368,36 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     // Enterprise Features (v1/enterprise/*)
     Route::middleware(['auth:api', 'throttle:api'])->prefix('enterprise')->group(function () {
         // LDAP Configuration & User Sync
-        Route::post('ldap/test', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'testConnection']);
-        Route::post('ldap/sync', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'syncUsers']);
-        Route::get('ldap/users', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'listUsers']);
-        Route::post('ldap/configure', [\App\Http\Controllers\Api\Enterprise\LdapController::class, 'configure']);
+        Route::post('ldap/test', [LdapController::class, 'testConnection']);
+        Route::post('ldap/sync', [LdapController::class, 'syncUsers']);
+        Route::get('ldap/users', [LdapController::class, 'listUsers']);
+        Route::post('ldap/configure', [LdapController::class, 'configure']);
 
         // Custom Domains & DNS Verification
-        Route::get('domains', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'index'])->name('api.enterprise.domains.index');
-        Route::post('domains', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'store'])->name('api.enterprise.domains.store');
-        Route::post('domains/{id}/verify', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'verify'])->name('api.enterprise.domains.verify');
-        Route::delete('domains/{id}', [\App\Http\Controllers\Api\Enterprise\DomainController::class, 'destroy'])->name('api.enterprise.domains.destroy');
+        Route::get('domains', [DomainController::class, 'index'])->name('api.enterprise.domains.index');
+        Route::post('domains', [DomainController::class, 'store'])->name('api.enterprise.domains.store');
+        Route::post('domains/{id}/verify', [DomainController::class, 'verify'])->name('api.enterprise.domains.verify');
+        Route::delete('domains/{id}', [DomainController::class, 'destroy'])->name('api.enterprise.domains.destroy');
 
         // Audit Export & Logging
-        Route::post('audit/export', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'export']);
-        Route::get('audit/exports', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'listExports']);
-        Route::get('audit/exports/{id}/download', [\App\Http\Controllers\Api\Enterprise\AuditController::class, 'download']);
+        Route::post('audit/export', [AuditController::class, 'export']);
+        Route::get('audit/exports', [AuditController::class, 'listExports']);
+        Route::get('audit/exports/{id}/download', [AuditController::class, 'download']);
 
         // Compliance Reports
-        Route::get('compliance/soc2', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'soc2']);
-        Route::get('compliance/iso27001', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'iso27001']);
-        Route::get('compliance/gdpr', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'gdpr']);
-        Route::post('compliance/schedule', [\App\Http\Controllers\Api\Enterprise\ComplianceController::class, 'schedule']);
+        Route::get('compliance/soc2', [ComplianceController::class, 'soc2']);
+        Route::get('compliance/iso27001', [ComplianceController::class, 'iso27001']);
+        Route::get('compliance/gdpr', [ComplianceController::class, 'gdpr']);
+        Route::post('compliance/schedule', [ComplianceController::class, 'schedule']);
+        Route::get('compliance/schedules', [ComplianceController::class, 'listSchedules']);
+        Route::patch('compliance/schedules/{id}', [ComplianceController::class, 'updateSchedule']);
+        Route::delete('compliance/schedules/{id}', [ComplianceController::class, 'cancelSchedule']);
 
         // Organization Branding
-        Route::get('organizations/{organization}/branding', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'show']);
-        Route::put('organizations/{organization}/branding', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'update']);
-        Route::post('organizations/{organization}/branding/logo', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadLogo']);
-        Route::post('organizations/{organization}/branding/background', [\App\Http\Controllers\Api\Enterprise\BrandingController::class, 'uploadBackground']);
+        Route::get('organizations/{organization}/branding', [BrandingController::class, 'show']);
+        Route::put('organizations/{organization}/branding', [BrandingController::class, 'update']);
+        Route::post('organizations/{organization}/branding/logo', [BrandingController::class, 'uploadLogo']);
+        Route::post('organizations/{organization}/branding/background', [BrandingController::class, 'uploadBackground']);
     });
 
     // Webhook Management API (v1/webhooks/*)

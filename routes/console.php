@@ -13,3 +13,8 @@ Schedule::command('invitations:cleanup-expired')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+Schedule::command('compliance:dispatch-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer();

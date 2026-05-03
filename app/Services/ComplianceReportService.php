@@ -6,6 +6,7 @@ use App\Jobs\GenerateComplianceReportJob;
 use App\Models\AuthenticationLog;
 use App\Models\DataSubjectRequest;
 use App\Models\Organization;
+use App\Models\ScheduledComplianceReport;
 use App\Models\SecurityIncident;
 use App\Models\User;
 use App\Models\UserConsent;
@@ -24,6 +25,68 @@ class ComplianceReportService
     public function scheduleReport(Organization $organization, string $reportType, array $emailRecipients = []): void
     {
         GenerateComplianceReportJob::dispatch($organization, $reportType, $emailRecipients);
+    }
+
+    /**
+     * Persist a recurring compliance report schedule.
+     */
+    public function createSchedule(
+        Organization $organization,
+        ?User $createdBy,
+        string $reportType,
+        string $frequency,
+        array $recipients,
+        bool $isActive = true,
+    ): ScheduledComplianceReport {
+        $schedule = new ScheduledComplianceReport([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $createdBy?->id,
+            'report_type' => $reportType,
+            'frequency' => $frequency,
+            'recipients' => array_values(array_unique($recipients)),
+            'is_active' => $isActive,
+        ]);
+
+        $schedule->next_run_at = $schedule->computeNextRunAt(CarbonImmutable::now());
+        $schedule->save();
+
+        return $schedule;
+    }
+
+    /**
+     * Update an existing schedule. Only frequency / recipients / type / activation
+     * may be changed; created_by stays fixed.
+     */
+    public function updateSchedule(ScheduledComplianceReport $schedule, array $attributes): ScheduledComplianceReport
+    {
+        $allowed = array_intersect_key($attributes, array_flip([
+            'report_type', 'frequency', 'recipients', 'is_active',
+        ]));
+
+        if (isset($allowed['recipients'])) {
+            $allowed['recipients'] = array_values(array_unique($allowed['recipients']));
+        }
+
+        $frequencyChanged = isset($allowed['frequency']) && $allowed['frequency'] !== $schedule->frequency;
+
+        $schedule->fill($allowed);
+
+        if ($frequencyChanged) {
+            $schedule->next_run_at = $schedule->computeNextRunAt(CarbonImmutable::now());
+        }
+
+        $schedule->save();
+
+        return $schedule;
+    }
+
+    /**
+     * Cancel a schedule by deactivating it. We never hard-delete so audit trails
+     * still link historical reports back to the schedule that produced them.
+     */
+    public function cancelSchedule(ScheduledComplianceReport $schedule): void
+    {
+        $schedule->update(['is_active' => false]);
     }
 
     /**
