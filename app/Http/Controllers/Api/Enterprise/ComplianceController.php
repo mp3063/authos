@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\Api\Enterprise;
 
 use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Requests\Enterprise\ListComplianceReportsRequest;
 use App\Http\Requests\Enterprise\ScheduleComplianceReportRequest;
 use App\Http\Requests\Enterprise\UpdateScheduledComplianceReportRequest;
 use App\Jobs\GenerateComplianceReportJob;
+use App\Models\ComplianceReport;
 use App\Models\ScheduledComplianceReport;
 use App\Services\ComplianceReportService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ComplianceController extends BaseApiController
 {
@@ -206,6 +211,152 @@ class ComplianceController extends BaseApiController
             'next_run_at' => $schedule->next_run_at?->toISOString(),
             'last_run_at' => $schedule->last_run_at?->toISOString(),
             'created_at' => $schedule->created_at?->toISOString(),
+        ];
+    }
+
+    public function listReports(ListComplianceReportsRequest $request): JsonResponse
+    {
+        try {
+            $user = $this->getAuthenticatedUser();
+
+            $query = ComplianceReport::query()
+                ->forOrganization($user->organization_id)
+                ->latest('generated_at')
+                ->latest('id');
+
+            if ($type = $request->input('report_type')) {
+                $query->where('report_type', $type);
+            }
+            if ($status = $request->input('status')) {
+                $query->where('status', $status);
+            }
+            if ($from = $request->date('from')) {
+                $query->where('created_at', '>=', $from);
+            }
+            if ($to = $request->date('to')) {
+                $query->where('created_at', '<=', $to->copy()->endOfDay());
+            }
+
+            $perPage = (int) $request->input('per_page', 25);
+            $reports = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'reports' => $reports->getCollection()
+                        ->map(fn (ComplianceReport $r) => $this->formatReport($r))
+                        ->all(),
+                    'pagination' => [
+                        'current_page' => $reports->currentPage(),
+                        'per_page' => $reports->perPage(),
+                        'total' => $reports->total(),
+                        'last_page' => $reports->lastPage(),
+                    ],
+                ],
+            ]);
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    public function downloadReport(int $reportId, Request $request): StreamedResponse|JsonResponse
+    {
+        try {
+            $user = $this->getAuthenticatedUser();
+
+            if (! auth()->user()->tokenCan('enterprise.compliance.read')) {
+                return $this->forbiddenResponse('You do not have permission to download compliance reports');
+            }
+
+            $report = ComplianceReport::query()
+                ->forOrganization($user->organization_id)
+                ->findOrFail($reportId);
+
+            if (! $report->isCompleted()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'report_not_ready',
+                    'message' => 'Report is still generating or has failed',
+                ], 400);
+            }
+
+            if ($report->isExpired()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'report_expired',
+                    'message' => 'Report has expired and is no longer available for download',
+                ], 410);
+            }
+
+            $format = $request->query('format', 'pdf');
+            $path = match ($format) {
+                'pdf' => $report->file_path_pdf,
+                'json' => $report->file_path_json,
+                default => null,
+            };
+
+            if ($path === null) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_format',
+                    'message' => 'Format must be one of: pdf, json',
+                ], 400);
+            }
+
+            // Defense in depth: ensure the stored path lives under our org's namespace.
+            $expectedPrefix = "compliance_reports/{$report->organization_id}/";
+            if (! Str::startsWith($path, $expectedPrefix)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_file_path',
+                    'message' => 'File path does not match organization namespace',
+                ], 403);
+            }
+
+            $disk = Storage::disk('local');
+            if (! $disk->exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'file_not_found',
+                    'message' => 'Report file not found on storage',
+                ], 404);
+            }
+
+            $contentType = match ($format) {
+                'pdf' => 'application/pdf',
+                'json' => 'application/json',
+            };
+
+            return response()->streamDownload(
+                fn () => print $disk->get($path),
+                basename($path),
+                ['Content-Type' => $contentType],
+            );
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Report not found'], 404);
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    private function formatReport(ComplianceReport $report): array
+    {
+        return [
+            'id' => $report->id,
+            'report_type' => $report->report_type,
+            'status' => $report->status,
+            'period_start' => $report->period_start?->toDateString(),
+            'period_end' => $report->period_end?->toDateString(),
+            'generated_at' => $report->generated_at?->toISOString(),
+            'expires_at' => $report->expires_at?->toISOString(),
+            'is_expired' => $report->isExpired(),
+            'has_pdf' => ! empty($report->file_path_pdf),
+            'has_json' => ! empty($report->file_path_json),
+            'pdf_download_url' => $report->pdfDownloadUrl(),
+            'json_download_url' => $report->jsonDownloadUrl(),
+            'summary' => $report->summary,
+            'error_message' => $report->error_message,
+            'created_at' => $report->created_at?->toISOString(),
         ];
     }
 }

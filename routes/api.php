@@ -392,6 +392,8 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('compliance/schedules', [ComplianceController::class, 'listSchedules']);
         Route::patch('compliance/schedules/{id}', [ComplianceController::class, 'updateSchedule']);
         Route::delete('compliance/schedules/{id}', [ComplianceController::class, 'cancelSchedule']);
+        Route::get('compliance/reports', [ComplianceController::class, 'listReports']);
+        Route::get('compliance/reports/{id}/download', [ComplianceController::class, 'downloadReport']);
 
         // Organization Branding
         Route::get('organizations/{organization}/branding', [BrandingController::class, 'show']);
