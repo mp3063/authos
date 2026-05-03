@@ -18,3 +18,11 @@ Schedule::command('compliance:dispatch-scheduled')
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer();
+
+Schedule::command('compliance:enforce-retention')
+    ->dailyAt('03:00')
+    ->onOneServer();
+
+Schedule::command('compliance:cleanup-expired-reports')
+    ->dailyAt('03:30')
+    ->onOneServer();
