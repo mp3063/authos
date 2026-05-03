@@ -4,15 +4,19 @@ namespace Tests\Unit;
 
 use App\Filament\Resources\ApplicationResource;
 use App\Filament\Resources\AuthenticationLogResource;
+use App\Filament\Resources\ComplianceReportResource;
 use App\Filament\Resources\OrganizationResource;
 use App\Filament\Resources\PermissionResource;
 use App\Filament\Resources\RoleResource;
+use App\Filament\Resources\ScheduledComplianceReportResource;
 use App\Filament\Resources\UserResource;
 use App\Models\Application;
 use App\Models\AuthenticationLog;
+use App\Models\ComplianceReport;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\ScheduledComplianceReport;
 use App\Models\User;
 use Filament\Resources\Resource;
 use PHPUnit\Framework\Attributes\Test;
@@ -184,6 +188,8 @@ class FilamentResourceTest extends TestCase
             RoleResource::class,
             PermissionResource::class,
             AuthenticationLogResource::class,
+            ComplianceReportResource::class,
+            ScheduledComplianceReportResource::class,
         ];
 
         foreach ($resources as $resourceClass) {
@@ -204,6 +210,8 @@ class FilamentResourceTest extends TestCase
             RoleResource::class,
             PermissionResource::class,
             AuthenticationLogResource::class,
+            ComplianceReportResource::class,
+            ScheduledComplianceReportResource::class,
         ];
 
         foreach ($resources as $resourceClass) {
@@ -244,6 +252,8 @@ class FilamentResourceTest extends TestCase
             RoleResource::class,
             PermissionResource::class,
             AuthenticationLogResource::class,
+            ComplianceReportResource::class,
+            ScheduledComplianceReportResource::class,
         ];
 
         foreach ($resources as $resourceClass) {
@@ -252,5 +262,43 @@ class FilamentResourceTest extends TestCase
             $this->assertTrue(method_exists($resourceClass, 'table'), "{$resourceClass} should have table method");
             $this->assertTrue(method_exists($resourceClass, 'getEloquentQuery'), "{$resourceClass} should have getEloquentQuery method");
         }
+    }
+
+    #[Test]
+    public function compliance_report_resource_has_correct_model_and_configuration()
+    {
+        $this->assertEquals(ComplianceReport::class, ComplianceReportResource::getModel());
+        $this->assertNull(ComplianceReportResource::getNavigationIcon());
+        $this->assertEquals('Enterprise', ComplianceReportResource::getNavigationGroup());
+        $this->assertIsInt(ComplianceReportResource::getNavigationSort());
+    }
+
+    #[Test]
+    public function compliance_report_resource_disables_create()
+    {
+        // Reports are generated via the header "Generate" action, not a Create page.
+        $this->assertFalse(ComplianceReportResource::canCreate());
+    }
+
+    #[Test]
+    public function compliance_report_resource_exposes_stream_helper()
+    {
+        $this->assertTrue(method_exists(ComplianceReportResource::class, 'streamReportFile'));
+    }
+
+    #[Test]
+    public function scheduled_compliance_report_resource_has_correct_model_and_configuration()
+    {
+        $this->assertEquals(ScheduledComplianceReport::class, ScheduledComplianceReportResource::getModel());
+        $this->assertNull(ScheduledComplianceReportResource::getNavigationIcon());
+        $this->assertEquals('Enterprise', ScheduledComplianceReportResource::getNavigationGroup());
+        $this->assertIsInt(ScheduledComplianceReportResource::getNavigationSort());
+    }
+
+    #[Test]
+    public function scheduled_compliance_report_resource_allows_create()
+    {
+        // Schedules are operator-defined, so this resource needs a Create page.
+        $this->assertTrue(ScheduledComplianceReportResource::canCreate());
     }
 }
