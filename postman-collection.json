@@ -2413,6 +2413,105 @@
 						"description": "Unlink a specific social account from profile"
 					},
 					"response": []
+				},
+				{
+					"name": "Get Consents",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/profile/consents",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"consents"
+							]
+						},
+						"description": "List the authenticated user's recorded consents (terms, privacy, marketing, data_processing) with given_at / withdrawn_at timestamps."
+					},
+					"response": []
+				},
+				{
+					"name": "Record Consent",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"consent_type\": \"marketing\",\n    \"terms_version\": \"v1.0\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/profile/consents",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"consents"
+							]
+						},
+						"description": "Record a consent for the authenticated user. consent_type: terms | privacy | marketing | data_processing. terms_version is required (free-form string). The IP address is captured automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Withdraw Consent",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/profile/consents/{{consentType}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"consents",
+								"{{consentType}}"
+							]
+						},
+						"description": "Withdraw a previously-given consent of the specified type. The row is preserved (withdrawn_at is set) for GDPR audit history."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Data Subject Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"request_type\": \"access\",\n    \"notes\": \"Optional context for the operator handling this request.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/profile/data-requests",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"profile",
+								"data-requests"
+							]
+						},
+						"description": "Submit a GDPR data subject request. request_type: access | rectification | deletion | portability | restriction. The request lands in the operator queue with status=pending until handled."
+					},
+					"response": []
 				}
 			]
 		},
@@ -5366,7 +5465,159 @@
 								"schedule"
 							]
 						},
-						"description": "Schedule automated compliance reports"
+						"description": "Schedule automated compliance reports. Persists a row in scheduled_compliance_reports and dispatches the first run immediately. Returns the persisted schedule under data.schedule with {id, report_type, frequency, recipients, is_active, next_run_at, last_run_at, created_at}. Requires OAuth scope: enterprise.compliance.manage."
+					},
+					"response": []
+				},
+				{
+					"name": "List Compliance Schedules",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/schedules",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"schedules"
+							]
+						},
+						"description": "List all scheduled compliance reports for the authenticated user's organization. Requires OAuth scope: enterprise.compliance.read."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Compliance Schedule",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"frequency\": \"weekly\",\n    \"recipients\": [\n        \"compliance@example.com\"\n    ],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/schedules/{{scheduleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"schedules",
+								"{{scheduleId}}"
+							]
+						},
+						"description": "Update a scheduled compliance report. All fields are optional - pass only what you want to change. Recomputes next_run_at when frequency changes. Requires OAuth scope: enterprise.compliance.manage."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Compliance Schedule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/schedules/{{scheduleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"schedules",
+								"{{scheduleId}}"
+							]
+						},
+						"description": "Cancel a scheduled compliance report so no further runs are dispatched. Requires OAuth scope: enterprise.compliance.manage."
+					},
+					"response": []
+				},
+				{
+					"name": "List Compliance Reports",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/reports?report_type=soc2&status=completed&from=2026-01-01&to=2026-12-31&per_page=25",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"reports"
+							],
+							"query": [
+								{
+									"key": "report_type",
+									"value": "soc2",
+									"description": "Filter by type: soc2, iso27001, gdpr"
+								},
+								{
+									"key": "status",
+									"value": "completed",
+									"description": "Filter by status: generating, completed, failed"
+								},
+								{
+									"key": "from",
+									"value": "2026-01-01",
+									"description": "Filter created_at >= this date (YYYY-MM-DD)"
+								},
+								{
+									"key": "to",
+									"value": "2026-12-31",
+									"description": "Filter created_at <= this date (YYYY-MM-DD)"
+								},
+								{
+									"key": "per_page",
+									"value": "25",
+									"description": "Page size (default 25)"
+								}
+							]
+						},
+						"description": "List generated compliance reports for the authenticated user's organization, paginated and ordered by generated_at desc. All query params are optional. Requires OAuth scope: enterprise.compliance.read."
+					},
+					"response": []
+				},
+				{
+					"name": "Download Compliance Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/enterprise/compliance/reports/{{complianceReportId}}/download?format=pdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"enterprise",
+								"compliance",
+								"reports",
+								"{{complianceReportId}}",
+								"download"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "pdf",
+									"description": "pdf or json"
+								}
+							]
+						},
+						"description": "Stream a generated compliance report file. Returns application/pdf or application/json based on ?format. Returns 410 Gone if the report has expired (default 180-day retention), 404 if not found or owned by another organization, 400 if the report is still generating. Requires OAuth scope: enterprise.compliance.read."
 					},
 					"response": []
 				}
@@ -6551,6 +6802,16 @@
 		{
 			"key": "provider",
 			"value": "google",
+			"type": "string"
+		},
+		{
+			"key": "consentType",
+			"value": "marketing",
+			"type": "string"
+		},
+		{
+			"key": "complianceReportId",
+			"value": "",
 			"type": "string"
 		}
 	]
