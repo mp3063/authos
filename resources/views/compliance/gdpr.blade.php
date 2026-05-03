@@ -23,7 +23,7 @@
 <table class="summary-grid">
     <tr>
         <td><div class="num">{{ $report['data_subjects_count'] ?? 0 }}</div><div class="lbl">Data subjects</div></td>
-        <td><div class="num">{{ $consent['total_consents_active'] ?? $consent['total_consents'] ?? 0 }}</div><div class="lbl">Active consents</div></td>
+        <td><div class="num">{{ $consent['total_consents_active'] ?? 0 }}</div><div class="lbl">Active consents</div></td>
         <td><div class="num">{{ number_format($consent['consent_coverage_percentage'] ?? 0, 1) }}%</div><div class="lbl">Coverage</div></td>
         <td><div class="num">{{ $dsrTotal }}</div><div class="lbl">DSRs in period</div></td>
     </tr>
@@ -31,7 +31,7 @@
 
 <h2>Article 5 — Lawfulness, Fairness, Transparency</h2>
 <table class="kv">
-    <tr><td class="label">Active consents</td><td>{{ $consent['total_consents_active'] ?? $consent['total_consents'] ?? 0 }}</td></tr>
+    <tr><td class="label">Active consents</td><td>{{ $consent['total_consents_active'] ?? 0 }}</td></tr>
     <tr><td class="label">Withdrawn consents</td><td>{{ $consent['total_consents_withdrawn'] ?? 0 }}</td></tr>
     <tr><td class="label">Coverage of data subjects</td><td>{{ number_format($consent['consent_coverage_percentage'] ?? 0, 2) }}%</td></tr>
 </table>

@@ -5,8 +5,12 @@ namespace Tests\Integration\Enterprise;
 use App\Http\Controllers\Api\Enterprise\ComplianceController;
 use App\Jobs\GenerateComplianceReportJob;
 use App\Mail\ComplianceReportGenerated;
+use App\Models\ComplianceReport;
+use App\Models\DataSubjectRequest;
+use App\Models\LdapConfiguration;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\UserConsent;
 use App\Services\ComplianceReportService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -152,7 +156,9 @@ class ComplianceReportTest extends IntegrationTestCase
         $this->assertEquals($organization->id, $report['organization']['id']);
         $this->assertArrayHasKey('role_count', $report['access_management']);
         $this->assertArrayHasKey('total_incidents', $report['incident_management']);
-        $this->assertArrayHasKey('new_users_last_30_days', $report['user_provisioning']);
+        $this->assertArrayHasKey('new_users_in_period', $report['user_provisioning']);
+        $this->assertArrayHasKey('automated_provisioning', $report['user_provisioning']);
+        $this->assertArrayHasKey('deprovisioning_process', $report['user_provisioning']);
         $this->assertArrayHasKey('total_audit_records', $report['audit_trail']);
     }
 
@@ -206,7 +212,10 @@ class ComplianceReportTest extends IntegrationTestCase
         $this->assertEquals(8, $report['data_subjects_count']); // 7 + 1 admin
         $this->assertArrayHasKey('total_access_logs', $report['data_access_logs']);
         $this->assertArrayHasKey('policy_defined', $report['retention_policy']);
-        $this->assertArrayHasKey('total_consents', $report['consent_tracking']);
+        $this->assertArrayHasKey('total_consents_active', $report['consent_tracking']);
+        $this->assertArrayHasKey('total_consents_withdrawn', $report['consent_tracking']);
+        $this->assertArrayHasKey('consent_coverage_percentage', $report['consent_tracking']);
+        $this->assertArrayHasKey('data_subject_requests', $report['consent_tracking']);
     }
 
     /**
@@ -237,22 +246,34 @@ class ComplianceReportTest extends IntegrationTestCase
                 ],
             ]);
 
-        // ASSERT: Schedule created successfully
+        // ASSERT: Schedule created successfully (full Step-3 response shape)
         $response->assertStatus(201);
         $response->assertJsonStructure([
             'success',
             'data' => [
                 'schedule' => [
+                    'id',
                     'report_type',
                     'frequency',
                     'recipients',
+                    'is_active',
                     'next_run_at',
+                    'last_run_at',
+                    'created_at',
                 ],
             ],
             'message',
         ]);
 
-        // ASSERT: Job dispatched for immediate generation
+        // ASSERT: Persisted to scheduled_compliance_reports (Step 3 fixed the silent-drop)
+        $this->assertDatabaseHas('scheduled_compliance_reports', [
+            'organization_id' => $organization->id,
+            'report_type' => 'soc2',
+            'frequency' => 'monthly',
+            'is_active' => true,
+        ]);
+
+        // ASSERT: Job dispatched for immediate generation (current controller behavior)
         Queue::assertPushed(GenerateComplianceReportJob::class, function ($job) use ($organization) {
             return $job->organization->id === $organization->id
                 && $job->reportType === 'soc2'
@@ -261,10 +282,13 @@ class ComplianceReportTest extends IntegrationTestCase
 
         // ASSERT: Schedule details correct
         $schedule = $response->json('data.schedule');
+        $this->assertNotNull($schedule['id']);
         $this->assertEquals('soc2', $schedule['report_type']);
         $this->assertEquals('monthly', $schedule['frequency']);
         $this->assertCount(2, $schedule['recipients']);
+        $this->assertTrue($schedule['is_active']);
         $this->assertNotNull($schedule['next_run_at']);
+        $this->assertNull($schedule['last_run_at']);
     }
 
     /**
@@ -405,15 +429,10 @@ class ComplianceReportTest extends IntegrationTestCase
     }
 
     /**
-     * Test: Reports can be generated in multiple formats
+     * Test: Reports are generated as both JSON and PDF
      *
-     * Compliance reports should be available in multiple formats to
-     * support different use cases: JSON for API consumption, HTML for
-     * web viewing, and PDF for archival/distribution.
-     *
-     * Note: Currently only JSON format is implemented. This test
-     * validates JSON format and documents expected behavior for
-     * future format additions.
+     * Step 4 added DomPDF rendering. Each generation now produces a
+     * sibling PDF file alongside the JSON for auditor distribution.
      */
     #[Test]
     public function reports_can_be_generated_in_multiple_formats(): void
@@ -422,16 +441,19 @@ class ComplianceReportTest extends IntegrationTestCase
         $organization = Organization::factory()->create();
         Storage::fake('local');
 
-        // ACT: Generate report via job (creates JSON file)
+        // ACT: Generate report via job (creates JSON + PDF in per-org subdir)
         $job = new GenerateComplianceReportJob($organization, 'gdpr', []);
         $job->handle(app(ComplianceReportService::class));
 
-        // ASSERT: JSON format stored (now in per-org subdirs alongside PDF)
-        $files = Storage::disk('local')->allFiles('compliance_reports');
+        // ASSERT: Both formats stored under compliance_reports/{org_id}/
+        $files = Storage::disk('local')->allFiles("compliance_reports/{$organization->id}");
         $this->assertNotEmpty($files);
 
         $jsonFile = collect($files)->first(fn ($file) => str_contains($file, '/gdpr_') && str_ends_with($file, '.json'));
-        $this->assertNotNull($jsonFile);
+        $pdfFile = collect($files)->first(fn ($file) => str_contains($file, '/gdpr_') && str_ends_with($file, '.pdf'));
+
+        $this->assertNotNull($jsonFile, 'JSON report file should exist');
+        $this->assertNotNull($pdfFile, 'PDF report file should exist');
 
         // ASSERT: JSON content valid
         $content = Storage::disk('local')->get($jsonFile);
@@ -441,11 +463,10 @@ class ComplianceReportTest extends IntegrationTestCase
         $this->assertEquals('GDPR', $report['report_type']);
         $this->assertEquals($organization->id, $report['organization']['id']);
 
-        // TODO: Future format support
-        // When PDF/HTML formats are implemented, test:
-        // - PDF file generation via appropriate library
-        // - HTML file generation with proper styling
-        // - Format selection via query parameter or header
+        // ASSERT: PDF starts with the magic bytes and is not trivially empty
+        $pdfContent = Storage::disk('local')->get($pdfFile);
+        $this->assertStringStartsWith('%PDF-', $pdfContent);
+        $this->assertGreaterThan(1024, strlen($pdfContent));
     }
 
     /**
@@ -503,56 +524,53 @@ class ComplianceReportTest extends IntegrationTestCase
     }
 
     /**
-     * Test: Generated reports can be downloaded via API endpoint
+     * Test: Generated reports can be downloaded via the API endpoint
      *
-     * After report generation, users should be able to download the
-     * generated report file via a secure download endpoint.
-     *
-     * Note: This tests the report generation and storage. Download
-     * endpoint implementation would require signed URLs or similar
-     * secure download mechanism.
+     * Step 5 added GET /api/v1/enterprise/compliance/reports/{id}/download
+     * with org-scoped lookup, format selection, expiry checks, and
+     * defense-in-depth path validation.
      */
     #[Test]
     public function generated_reports_can_be_downloaded_via_endpoint(): void
     {
-        // ARRANGE: Create organization and generate report
+        // ARRANGE: Create org + generate report (Job persists ComplianceReport row)
         $organization = Organization::factory()->create();
+        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
         Storage::fake('local');
 
-        // ACT: Generate report
         $job = new GenerateComplianceReportJob($organization, 'soc2', []);
         $job->handle(app(ComplianceReportService::class));
 
-        // ASSERT: Report files created (now in per-org subdirs)
-        $files = Storage::disk('local')->allFiles('compliance_reports');
-        $this->assertNotEmpty($files);
+        $report = ComplianceReport::query()
+            ->where('organization_id', $organization->id)
+            ->where('report_type', 'soc2')
+            ->firstOrFail();
 
-        $jsonFile = collect($files)->first(fn ($f) => str_contains($f, '/soc2_') && str_ends_with($f, '.json'));
-        $this->assertNotNull($jsonFile);
+        $this->assertEquals('completed', $report->status);
+        $this->assertNotNull($report->file_path_pdf);
+        $this->assertNotNull($report->file_path_json);
 
-        // ASSERT: File is accessible
-        $this->assertTrue(Storage::disk('local')->exists($jsonFile));
+        $token = $this->createAccessToken($user, ['*']);
 
-        // ASSERT: File contains valid report data
-        $content = Storage::disk('local')->get($jsonFile);
-        $report = json_decode($content, true);
+        // ACT + ASSERT: PDF download
+        $pdfResponse = $this->withToken($token)
+            ->get("/api/v1/enterprise/compliance/reports/{$report->id}/download?format=pdf");
 
-        $this->assertIsArray($report);
-        $this->assertEquals('SOC2', $report['report_type']);
-        $this->assertArrayHasKey('generated_at', $report);
+        $pdfResponse->assertOk();
+        $pdfResponse->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $pdfResponse->streamedContent());
 
-        // ASSERT: File naming convention {type}_{Ymd}_{uuid}.json
-        $this->assertMatchesRegularExpression(
-            '/^soc2_\d{8}_[0-9a-f-]{36}\.json$/',
-            basename($jsonFile)
-        );
+        // ACT + ASSERT: JSON download
+        $jsonResponse = $this->withToken($token)
+            ->get("/api/v1/enterprise/compliance/reports/{$report->id}/download?format=json");
 
-        // TODO: Future download endpoint
-        // When download endpoint is implemented, test:
-        // - GET /api/v1/enterprise/compliance/reports/{id}/download
-        // - Signed URL generation for secure downloads
-        // - Authorization checks (only org members)
-        // - Content-Disposition header for file download
+        $jsonResponse->assertOk();
+        $jsonResponse->assertHeader('Content-Type', 'application/json');
+        $this->assertNotEmpty($jsonResponse->streamedContent());
+
+        // ASSERT: Defense-in-depth namespace prefix held by Step 5's controller check
+        $this->assertStringStartsWith("compliance_reports/{$organization->id}/", $report->file_path_pdf);
+        $this->assertStringStartsWith("compliance_reports/{$organization->id}/", $report->file_path_json);
     }
 
     /**
@@ -755,5 +773,215 @@ class ComplianceReportTest extends IntegrationTestCase
         $this->assertEquals(9, $mfaAdoption['mfa_enabled_users']);
         $this->assertEquals(90.0, $mfaAdoption['adoption_rate_percentage']);
         $this->assertEquals('compliant', $mfaAdoption['compliance_status']); // >=90% is compliant
+    }
+
+    /**
+     * Test: GenerateComplianceReportJob persists a ComplianceReport row
+     *
+     * Step 4 changed the job from "render JSON to disk" to "create row,
+     * render JSON+PDF, update row to completed with file paths and
+     * top-line summary."
+     */
+    #[Test]
+    public function generate_compliance_report_job_persists_a_completed_report_row(): void
+    {
+        // ARRANGE
+        $organization = Organization::factory()->create();
+        Storage::fake('local');
+
+        // ACT
+        GenerateComplianceReportJob::dispatchSync($organization, 'soc2', []);
+
+        // ASSERT: row written with status=completed and file paths
+        $report = ComplianceReport::query()
+            ->where('organization_id', $organization->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($report);
+        $this->assertEquals('soc2', $report->report_type);
+        $this->assertEquals('completed', $report->status);
+        $this->assertNotNull($report->file_path_pdf);
+        $this->assertNotNull($report->file_path_json);
+        $this->assertNotNull($report->generated_at);
+        $this->assertNotNull($report->expires_at);
+        $this->assertIsArray($report->summary);
+        $this->assertArrayHasKey('mfa_adoption_rate', $report->summary);
+
+        // ASSERT: physical files exist on the fake disk
+        $this->assertTrue(Storage::disk('local')->exists($report->file_path_pdf));
+        $this->assertTrue(Storage::disk('local')->exists($report->file_path_json));
+    }
+
+    /**
+     * Test: GDPR consent metrics reflect persisted UserConsent rows
+     *
+     * Step 7 introduced the user_consents table. The service now counts
+     * actual rows instead of returning the placeholder string 'available'.
+     */
+    #[Test]
+    public function gdpr_consent_metrics_reflect_persisted_user_consents(): void
+    {
+        // ARRANGE: 5 users in org. 3 active consents, 2 withdrawn.
+        $organization = Organization::factory()->create();
+        $users = User::factory()->count(5)->create(['organization_id' => $organization->id]);
+
+        foreach ($users->take(3) as $u) {
+            UserConsent::factory()->create([
+                'organization_id' => $organization->id,
+                'user_id' => $u->id,
+            ]);
+        }
+        foreach ($users->slice(3, 2) as $u) {
+            UserConsent::factory()->withdrawn()->create([
+                'organization_id' => $organization->id,
+                'user_id' => $u->id,
+            ]);
+        }
+
+        // ACT
+        $report = app(ComplianceReportService::class)->generateGDPRReport($organization);
+
+        // ASSERT: real counts (no placeholder strings)
+        $consent = $report['consent_tracking'];
+        $this->assertEquals(3, $consent['total_consents_active']);
+        $this->assertEquals(2, $consent['total_consents_withdrawn']);
+        // 3 active / 5 total users = 60.0
+        $this->assertEqualsWithDelta(60.0, $consent['consent_coverage_percentage'], 0.01);
+    }
+
+    /**
+     * Test: GDPR report bucket-counts data subject requests by type
+     */
+    #[Test]
+    public function gdpr_report_includes_data_subject_request_counts_by_type(): void
+    {
+        // ARRANGE
+        $organization = Organization::factory()->create();
+        $users = User::factory()->count(3)->create(['organization_id' => $organization->id]);
+
+        DataSubjectRequest::factory()
+            ->count(2)
+            ->ofType(DataSubjectRequest::TYPE_ACCESS)
+            ->create(['organization_id' => $organization->id, 'user_id' => $users->first()->id]);
+
+        DataSubjectRequest::factory()
+            ->ofType(DataSubjectRequest::TYPE_DELETION)
+            ->create(['organization_id' => $organization->id, 'user_id' => $users->first()->id]);
+
+        // ACT
+        $report = app(ComplianceReportService::class)->generateGDPRReport($organization);
+
+        // ASSERT
+        $dsr = $report['consent_tracking']['data_subject_requests'];
+        $this->assertEquals(2, $dsr['access']);
+        $this->assertEquals(1, $dsr['deletion']);
+        $this->assertEquals(0, $dsr['rectification']);
+        $this->assertEquals(0, $dsr['portability']);
+        $this->assertEquals(0, $dsr['restriction']);
+    }
+
+    /**
+     * Test: ISO 27001 user provisioning detects active LDAP configuration
+     *
+     * Step 2 replaced hardcoded 'manual' with a dynamic check against
+     * the organization's active LDAP configurations.
+     */
+    #[Test]
+    public function iso27001_user_provisioning_reports_automated_via_ldap_when_configured(): void
+    {
+        // ARRANGE: org with an active LDAP config
+        $organization = Organization::factory()->create();
+        LdapConfiguration::factory()->create([
+            'organization_id' => $organization->id,
+            'is_active' => true,
+        ]);
+
+        // ACT
+        $report = app(ComplianceReportService::class)->generateISO27001Report($organization);
+
+        // ASSERT
+        $this->assertTrue($report['user_provisioning']['automated_provisioning']);
+        $this->assertEquals('automated_via_ldap', $report['user_provisioning']['deprovisioning_process']);
+    }
+
+    /**
+     * Test: ISO 27001 user provisioning falls back to manual without LDAP
+     */
+    #[Test]
+    public function iso27001_user_provisioning_reports_manual_without_ldap(): void
+    {
+        // ARRANGE: org with no LDAP config
+        $organization = Organization::factory()->create();
+
+        // ACT
+        $report = app(ComplianceReportService::class)->generateISO27001Report($organization);
+
+        // ASSERT
+        $this->assertFalse($report['user_provisioning']['automated_provisioning']);
+        $this->assertEquals('manual', $report['user_provisioning']['deprovisioning_process']);
+    }
+
+    /**
+     * Test: GDPR retention policy reflects organization security settings
+     *
+     * Step 2 made retention values read from organization.settings.security
+     * instead of the hardcoded 365/false placeholders.
+     */
+    #[Test]
+    public function gdpr_retention_policy_reflects_organization_security_settings(): void
+    {
+        // ARRANGE: org with explicit retention settings
+        $organization = Organization::factory()->create([
+            'settings' => [
+                'security' => [
+                    'retention_period_days' => 720,
+                    'auto_pruning_enabled' => true,
+                    'last_pruned_at' => '2026-04-01T00:00:00Z',
+                ],
+            ],
+        ]);
+
+        // ACT
+        $report = app(ComplianceReportService::class)->generateGDPRReport($organization);
+
+        // ASSERT
+        $retention = $report['retention_policy'];
+        $this->assertTrue($retention['policy_defined']);
+        $this->assertEquals(720, $retention['retention_period_days']);
+        $this->assertTrue($retention['auto_deletion']);
+        $this->assertEquals('2026-04-01T00:00:00Z', $retention['last_enforced_at']);
+    }
+
+    /**
+     * Test: Cross-org download attempts are rejected
+     *
+     * Step 5's downloadReport uses forOrganization(...)->findOrFail, so
+     * org B cannot read org A's reports even with a known report id.
+     */
+    #[Test]
+    public function download_endpoint_rejects_cross_organization_report_access(): void
+    {
+        // ARRANGE: report owned by org1; admin token is for org2
+        $org1 = Organization::factory()->create();
+        $org2 = Organization::factory()->create();
+        $org2Admin = $this->createApiOrganizationAdmin(['organization_id' => $org2->id]);
+        Storage::fake('local');
+
+        $job = new GenerateComplianceReportJob($org1, 'gdpr', []);
+        $job->handle(app(ComplianceReportService::class));
+
+        $org1Report = ComplianceReport::query()
+            ->where('organization_id', $org1->id)
+            ->firstOrFail();
+
+        $token = $this->createAccessToken($org2Admin, ['*']);
+
+        // ACT: org2 admin attempts to download org1's report
+        $response = $this->withToken($token)
+            ->getJson("/api/v1/enterprise/compliance/reports/{$org1Report->id}/download?format=pdf");
+
+        // ASSERT
+        $response->assertNotFound();
     }
 }

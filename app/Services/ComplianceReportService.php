@@ -350,8 +350,6 @@ class ComplianceReportService
         $hasLdap = $organization->ldapConfigurations()->active()->exists();
 
         return [
-            // Backward-compatible alias used by existing tests
-            'new_users_last_30_days' => $newUsers,
             'new_users_in_period' => $newUsers,
             'automated_provisioning' => $hasLdap,
             'deprovisioning_process' => $hasLdap ? 'automated_via_ldap' : 'manual',
@@ -446,8 +444,6 @@ class ComplianceReportService
             ->all();
 
         return [
-            // Backward-compatible alias used by existing tests
-            'total_consents' => $activeConsents,
             'total_consents_active' => $activeConsents,
             'total_consents_withdrawn' => $withdrawnConsents,
             'consent_coverage_percentage' => $coverage,

@@ -43,7 +43,7 @@
 
 <h3>A.9.2 — User Access Lifecycle</h3>
 <table class="kv">
-    <tr><td class="label">New users provisioned in period</td><td>{{ $provisioning['new_users_in_period'] ?? $provisioning['new_users_last_30_days'] ?? 0 }}</td></tr>
+    <tr><td class="label">New users provisioned in period</td><td>{{ $provisioning['new_users_in_period'] ?? 0 }}</td></tr>
     <tr><td class="label">Automated provisioning</td><td>{{ ($provisioning['automated_provisioning'] ?? false) ? 'Yes (LDAP)' : 'No' }}</td></tr>
     <tr><td class="label">Deprovisioning process</td><td>{{ str_replace('_', ' ', $provisioning['deprovisioning_process'] ?? 'manual') }}</td></tr>
 </table>

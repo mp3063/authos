@@ -114,7 +114,6 @@ class CompliancePdfRendererTest extends TestCase
             'data_access_logs' => ['total_access_logs' => 1234, 'data_export_requests' => 0],
             'retention_policy' => ['policy_defined' => true, 'retention_period_days' => 365, 'auto_deletion' => false, 'last_enforced_at' => null],
             'consent_tracking' => [
-                'total_consents' => 47,
                 'total_consents_active' => 47,
                 'total_consents_withdrawn' => 3,
                 'consent_coverage_percentage' => 94.0,
