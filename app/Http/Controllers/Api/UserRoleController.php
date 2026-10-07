@@ -6,14 +6,9 @@ use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\UserRoleService;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
 
 class UserRoleController extends BaseController
 {
@@ -48,10 +43,10 @@ class UserRoleController extends BaseController
         $user = User::findOrFail($id);
 
         $request->validate([
-            'role_id' => ['required', 'integer', $this->assignableRoleRule($request, $user, 'id')],
+            'role_id' => ['required', 'integer', $this->userRoleService->assignableRoleRule($request->user(), $user->organization_id, 'id')],
         ]);
 
-        if ($denial = $this->roleChangeDenial($request->user(), $user, Role::whereKey($request->role_id)->get())) {
+        if ($denial = $this->userRoleService->roleChangeDenial($request->user(), $user, Role::whereKey($request->role_id)->get())) {
             return $this->forbiddenResponse($denial);
         }
 
@@ -75,16 +70,12 @@ class UserRoleController extends BaseController
 
         $request->validate([
             'roles' => 'required|array',
-            'roles.*' => ['required', 'string', $this->assignableRoleRule($request, $user, 'name')->where('guard_name', 'api')],
+            'roles.*' => ['required', 'string', $this->userRoleService->assignableRoleRule($request->user(), $user->organization_id, 'name')->where('guard_name', 'api')],
         ]);
 
-        $roles = Role::query()
-            ->where('guard_name', 'api')
-            ->whereIn('name', $request->input('roles'))
-            ->where(fn (Builder $query) => $this->scopeToAssignableRoles($query, $request, $user))
-            ->get();
+        $roles = $this->userRoleService->assignableApiRolesByName($request->user(), $user->organization_id, $request->input('roles'));
 
-        if ($denial = $this->roleChangeDenial($request->user(), $user, $roles->merge($user->roles))) {
+        if ($denial = $this->userRoleService->roleChangeDenial($request->user(), $user, $roles->merge($user->roles))) {
             return $this->forbiddenResponse($denial);
         }
 
@@ -102,7 +93,7 @@ class UserRoleController extends BaseController
 
         $user = User::findOrFail($id);
 
-        if ($denial = $this->roleChangeDenial($request->user(), $user, Role::whereKey($roleId)->get())) {
+        if ($denial = $this->userRoleService->roleChangeDenial($request->user(), $user, Role::whereKey($roleId)->get())) {
             return $this->forbiddenResponse($denial);
         }
 
@@ -113,43 +104,5 @@ class UserRoleController extends BaseController
         }
 
         return $this->successResponse([], 'Role removed successfully');
-    }
-
-    /**
-     * @param  Collection<int, Role>  $roles  roles being granted or revoked
-     */
-    private function roleChangeDenial(User $caller, User $target, Collection $roles): ?string
-    {
-        if ($caller->isSuperAdmin()) {
-            return null;
-        }
-
-        if ($caller->is($target)) {
-            return 'You cannot change your own roles.';
-        }
-
-        $callerPermissions = $caller->getAllPermissions()->pluck('name');
-        $exceedsCaller = $roles->load('permissions')
-            ->flatMap(fn (Role $role) => $role->permissions->pluck('name'))
-            ->diff($callerPermissions)
-            ->isNotEmpty();
-
-        return $exceedsCaller ? 'You cannot grant or revoke a role with permissions you do not have.' : null;
-    }
-
-    private function assignableRoleRule(Request $request, User $user, string $column): Exists
-    {
-        return Rule::exists('roles', $column)->where(fn (QueryBuilder $query) => $this->scopeToAssignableRoles($query, $request, $user));
-    }
-
-    private function scopeToAssignableRoles(Builder|QueryBuilder $query, Request $request, User $user): void
-    {
-        $query->where(fn ($organizationRoles) => $organizationRoles
-            ->whereNotNull('organization_id')
-            ->where('organization_id', $user->organization_id));
-
-        if ($request->user()->isSuperAdmin()) {
-            $query->orWhereNull('organization_id');
-        }
     }
 }

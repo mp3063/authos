@@ -182,6 +182,74 @@ class UserRoleAssignmentTest extends IntegrationTestCase
         $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $userRole->id]);
     }
 
+    #[Test]
+    public function an_organization_admin_cannot_create_a_user_in_another_organization_with_422(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $otherOrganization = $this->createOrganization();
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson('/api/v1/users', $this->newUserPayload($otherOrganization->id));
+
+        $response->assertUnprocessable();
+        $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_create_a_user_with_the_super_admin_role_with_422(): void
+    {
+        $this->createApiSuperAdmin();
+        $admin = $this->createApiOrganizationAdmin();
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson('/api/v1/users', $this->newUserPayload($admin->organization_id, ['Super Admin']));
+
+        $response->assertUnprocessable();
+        $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_create_a_user_with_a_role_exceeding_their_permissions_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $this->apiRole('Organization Owner', $admin->organization_id);
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson('/api/v1/users', $this->newUserPayload($admin->organization_id, ['Organization Owner']));
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
+    }
+
+    #[Test]
+    public function an_organization_admin_creates_a_user_with_the_api_role_of_their_organization(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $userRole = $this->apiRole('User', $admin->organization_id);
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson('/api/v1/users', $this->newUserPayload($admin->organization_id, ['User']));
+
+        $response->assertCreated();
+        $created = User::where('email', 'new.user@example.com')->firstOrFail();
+        $this->assertSame([$userRole->id], $created->roles()->pluck('roles.id')->all());
+    }
+
+    /**
+     * @param  list<string>|null  $roles
+     * @return array<string, mixed>
+     */
+    private function newUserPayload(int $organizationId, ?array $roles = null): array
+    {
+        return array_filter([
+            'name' => 'New User',
+            'email' => 'new.user@example.com',
+            'password' => 'TestP@ssw0rd!2024_'.uniqid(),
+            'organization_id' => $organizationId,
+            'roles' => $roles,
+        ], fn ($value) => $value !== null);
+    }
+
     private function apiRole(string $name, int $organizationId): Role
     {
         $this->setupRoleWithPermissions($name, 'api', $organizationId);

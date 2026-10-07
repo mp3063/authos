@@ -10,6 +10,7 @@ use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\UserManagementService;
+use App\Services\UserRoleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class UserController extends BaseController
 
     protected UserManagementService $userManagementService;
 
-    public function __construct(UserManagementService $userManagementService)
+    public function __construct(UserManagementService $userManagementService, protected UserRoleService $userRoleService)
     {
         $this->userManagementService = $userManagementService;
         $this->middleware('auth:api');
@@ -139,15 +140,21 @@ class UserController extends BaseController
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
+        $organization = Organization::findOrFail($request->organization_id);
+        $roles = $this->userRoleService->assignableApiRolesByName($request->user(), $organization->id, $request->getRoles());
+
+        if ($request->has('roles') && $denial = $this->userRoleService->roleChangeDenial($request->user(), null, $roles)) {
+            return $this->forbiddenResponse($denial);
+        }
+
         $userData = [
             'name' => $request->name,
             'email' => $request->email,
             'password' => $request->password,
             'profile' => $request->input('profile', []),
-            'roles' => $request->getRoles(),
+            'roles' => $roles,
         ];
 
-        $organization = Organization::findOrFail($request->organization_id);
         $user = $this->userManagementService->createUser($userData, $organization);
 
         $response = $this->userManagementService->formatUserResponse($user);

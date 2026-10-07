@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\User;
 
+use App\Services\UserRoleService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class StoreUserRequest extends FormRequest
@@ -34,7 +36,12 @@ class StoreUserRequest extends FormRequest
                     ->symbols()
                     ->uncompromised(),
             ],
-            'organization_id' => ['required', 'integer', 'exists:organizations,id'],
+            'organization_id' => [
+                'required',
+                'integer',
+                'exists:organizations,id',
+                ...($this->user()->isSuperAdmin() ? [] : [Rule::in([$this->user()->organization_id])]),
+            ],
             'profile' => ['sometimes', 'array'],
             'profile.timezone' => ['sometimes', 'string', 'timezone'],
             'profile.language' => ['sometimes', 'string', 'in:en,es,fr,de,it,pt,nl,ru,ja,zh'],
@@ -42,7 +49,12 @@ class StoreUserRequest extends FormRequest
             'profile.department' => ['sometimes', 'string', 'max:100'],
             'profile.job_title' => ['sometimes', 'string', 'max:100'],
             'roles' => ['sometimes', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => [
+                'string',
+                app(UserRoleService::class)
+                    ->assignableRoleRule($this->user(), $this->integer('organization_id'), 'name')
+                    ->where('guard_name', 'api'),
+            ],
         ];
     }
 
