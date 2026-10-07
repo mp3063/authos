@@ -6,13 +6,17 @@ namespace Tests\Integration\Jobs;
 
 use App\Jobs\GenerateComplianceReportJob;
 use App\Mail\ComplianceReportGenerated;
+use App\Models\ComplianceReport;
 use App\Models\Organization;
 use App\Services\ComplianceReportService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 class GenerateComplianceReportJobTest extends TestCase
@@ -36,156 +40,114 @@ class GenerateComplianceReportJobTest extends TestCase
     #[Test]
     public function job_generates_soc2_compliance_report(): void
     {
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateSOC2Report')
+        $start = CarbonImmutable::parse('2026-01-01');
+        $end = CarbonImmutable::parse('2026-03-31');
+
+        $service = Mockery::mock(ComplianceReportService::class);
+        $service->shouldReceive('generateSOC2Report')
             ->once()
-            ->with($this->organization)
-            ->andReturn([
-                'report_type' => 'SOC2',
-                'organization' => $this->organization->name,
-                'sections' => [
-                    'security' => ['controls' => 10, 'compliant' => 10],
-                    'availability' => ['controls' => 5, 'compliant' => 5],
-                ],
-                'generated_at' => now()->toDateTimeString(),
-            ]);
+            ->with(
+                Mockery::on(fn ($org) => $org->is($this->organization)),
+                Mockery::on(fn ($from) => $from->toDateString() === '2026-01-01'),
+                Mockery::on(fn ($to) => $to->toDateString() === '2026-03-31'),
+            )
+            ->andReturn(['report_type' => 'SOC2', 'organization' => $this->organization->name]);
 
-        $this->app->instance(ComplianceReportService::class, $mockService);
+        (new GenerateComplianceReportJob($this->organization, 'soc2', periodStart: $start, periodEnd: $end))->handle($service);
 
-        $job = new GenerateComplianceReportJob($this->organization, 'soc2');
-        $job->handle($mockService);
-
-        $files = Storage::allFiles('compliance_reports');
-        $this->assertCount(1, $files);
-
-        $content = Storage::get($files[0]);
-        $report = json_decode($content, true);
-
-        $this->assertEquals('SOC2', $report['report_type']);
-        $this->assertEquals($this->organization->name, $report['organization']);
+        $report = $this->latestReport();
+        $this->assertSame(ComplianceReport::STATUS_COMPLETED, $report->status);
+        $this->assertSame('2026-01-01', $report->period_start->toDateString());
+        $this->assertSame('2026-03-31', $report->period_end->toDateString());
+        $this->assertSame('SOC2', $this->storedJson($report)['report_type']);
+        $this->assertSame($this->organization->name, $this->storedJson($report)['organization']);
     }
 
     #[Test]
     public function job_generates_iso27001_report(): void
     {
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateISO27001Report')
-            ->once()
-            ->with($this->organization)
-            ->andReturn([
-                'report_type' => 'ISO27001',
-                'organization' => $this->organization->name,
-                'domains' => [
-                    'information_security_policies' => ['compliant' => true],
-                    'access_control' => ['compliant' => true],
-                ],
-                'generated_at' => now()->toDateTimeString(),
-            ]);
+        $service = $this->mockService('generateISO27001Report', ['report_type' => 'ISO27001']);
 
-        $this->app->instance(ComplianceReportService::class, $mockService);
+        (new GenerateComplianceReportJob($this->organization, 'iso27001'))->handle($service);
 
-        $job = new GenerateComplianceReportJob($this->organization, 'iso27001');
-        $job->handle($mockService);
-
-        $files = Storage::allFiles('compliance_reports');
-        $this->assertCount(1, $files);
-
-        $content = Storage::get($files[0]);
-        $report = json_decode($content, true);
-
-        $this->assertEquals('ISO27001', $report['report_type']);
+        $report = $this->latestReport();
+        $this->assertSame(ComplianceReport::TYPE_ISO27001, $report->report_type);
+        $this->assertSame(ComplianceReport::STATUS_COMPLETED, $report->status);
+        $this->assertSame('ISO27001', $this->storedJson($report)['report_type']);
     }
 
     #[Test]
     public function job_generates_gdpr_report(): void
     {
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateGDPRReport')
+        $service = $this->mockService('generateGDPRReport', [
+            'report_type' => 'GDPR',
+            'compliance_areas' => ['data_protection' => ['status' => 'compliant']],
+        ]);
+
+        (new GenerateComplianceReportJob($this->organization, 'gdpr'))->handle($service);
+
+        $report = $this->latestReport();
+        $this->assertSame(ComplianceReport::STATUS_COMPLETED, $report->status);
+        $this->assertSame('GDPR', $this->storedJson($report)['report_type']);
+        $this->assertArrayHasKey('compliance_areas', $this->storedJson($report));
+    }
+
+    #[Test]
+    public function job_defaults_to_the_last_30_days_when_no_period_given(): void
+    {
+        CarbonImmutable::setTestNow('2026-06-30 12:00:00');
+
+        $service = Mockery::mock(ComplianceReportService::class);
+        $service->shouldReceive('generateSOC2Report')
             ->once()
-            ->with($this->organization)
-            ->andReturn([
-                'report_type' => 'GDPR',
-                'organization' => $this->organization->name,
-                'compliance_areas' => [
-                    'data_protection' => ['status' => 'compliant'],
-                    'consent_management' => ['status' => 'compliant'],
-                    'data_portability' => ['status' => 'compliant'],
-                ],
-                'generated_at' => now()->toDateTimeString(),
-            ]);
+            ->with(
+                Mockery::any(),
+                Mockery::on(fn ($from) => $from->toDateString() === '2026-05-31'),
+                Mockery::on(fn ($to) => $to->toDateString() === '2026-06-30'),
+            )
+            ->andReturn(['report_type' => 'SOC2']);
 
-        $this->app->instance(ComplianceReportService::class, $mockService);
+        (new GenerateComplianceReportJob($this->organization, 'soc2'))->handle($service);
 
-        $job = new GenerateComplianceReportJob($this->organization, 'gdpr');
-        $job->handle($mockService);
-
-        $files = Storage::allFiles('compliance_reports');
-        $this->assertCount(1, $files);
-
-        $content = Storage::get($files[0]);
-        $report = json_decode($content, true);
-
-        $this->assertEquals('GDPR', $report['report_type']);
-        $this->assertArrayHasKey('compliance_areas', $report);
+        $report = $this->latestReport();
+        $this->assertSame('2026-05-31', $report->period_start->toDateString());
+        $this->assertSame('2026-06-30', $report->period_end->toDateString());
     }
 
     #[Test]
     public function job_includes_all_required_sections(): void
     {
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateSOC2Report')
-            ->once()
-            ->andReturn([
-                'report_type' => 'SOC2',
-                'organization' => $this->organization->name,
-                'sections' => [
-                    'security' => ['controls' => 10, 'compliant' => 10],
-                    'availability' => ['controls' => 5, 'compliant' => 5],
-                    'processing_integrity' => ['controls' => 3, 'compliant' => 3],
-                    'confidentiality' => ['controls' => 7, 'compliant' => 7],
-                    'privacy' => ['controls' => 8, 'compliant' => 8],
-                ],
-                'summary' => [
-                    'total_controls' => 33,
-                    'compliant_controls' => 33,
-                    'compliance_percentage' => 100,
-                ],
-                'generated_at' => now()->toDateTimeString(),
-            ]);
+        $service = $this->mockService('generateSOC2Report', [
+            'report_type' => 'SOC2',
+            'period' => ['from' => '2026-01-01', 'to' => '2026-01-31', 'days' => 30.4],
+            'access_controls' => ['total_users' => 42],
+            'mfa_adoption' => ['adoption_rate_percentage' => 87.5],
+            'incident_management' => ['open_critical_count' => 1],
+            'generated_at' => now()->toDateTimeString(),
+        ]);
 
-        $this->app->instance(ComplianceReportService::class, $mockService);
+        (new GenerateComplianceReportJob($this->organization, 'soc2'))->handle($service);
 
-        $job = new GenerateComplianceReportJob($this->organization, 'soc2');
-        $job->handle($mockService);
+        $report = $this->latestReport();
+        $json = $this->storedJson($report);
+        $this->assertArrayHasKey('access_controls', $json);
+        $this->assertArrayHasKey('mfa_adoption', $json);
+        $this->assertArrayHasKey('generated_at', $json);
 
-        $files = Storage::allFiles('compliance_reports');
-        $content = Storage::get($files[0]);
-        $report = json_decode($content, true);
-
-        $this->assertArrayHasKey('sections', $report);
-        $this->assertArrayHasKey('summary', $report);
-        $this->assertArrayHasKey('generated_at', $report);
+        $this->assertSame('SOC2', $report->summary['report_type']);
+        $this->assertSame(30, $report->summary['period_days']);
+        $this->assertSame(42, $report->summary['total_users']);
+        $this->assertEquals(87.5, $report->summary['mfa_adoption_rate']);
+        $this->assertSame(1, $report->summary['open_critical_incidents']);
     }
 
     #[Test]
     public function job_emails_report_to_recipients(): void
     {
         $recipients = ['admin@example.com', 'compliance@example.com'];
+        $service = $this->mockService('generateSOC2Report', ['report_type' => 'SOC2']);
 
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateSOC2Report')
-            ->once()
-            ->andReturn([
-                'report_type' => 'SOC2',
-                'organization' => $this->organization->name,
-                'sections' => [],
-                'generated_at' => now()->toDateTimeString(),
-            ]);
-
-        $this->app->instance(ComplianceReportService::class, $mockService);
-
-        $job = new GenerateComplianceReportJob($this->organization, 'soc2', $recipients);
-        $job->handle($mockService);
+        (new GenerateComplianceReportJob($this->organization, 'soc2', $recipients))->handle($service);
 
         Mail::assertSent(ComplianceReportGenerated::class, function ($mail) use ($recipients) {
             return $mail->hasTo($recipients[0]) &&
@@ -196,33 +158,65 @@ class GenerateComplianceReportJobTest extends TestCase
     #[Test]
     public function job_stores_report_in_storage(): void
     {
-        $mockService = Mockery::mock(ComplianceReportService::class);
-        $mockService->shouldReceive('generateSOC2Report')
-            ->once()
-            ->andReturn([
-                'report_type' => 'SOC2',
-                'data' => 'test report data',
-            ]);
+        $service = $this->mockService('generateSOC2Report', ['report_type' => 'SOC2', 'data' => 'test report data']);
 
-        $this->app->instance(ComplianceReportService::class, $mockService);
+        (new GenerateComplianceReportJob($this->organization, 'soc2'))->handle($service);
 
-        $job = new GenerateComplianceReportJob($this->organization, 'soc2');
-        $job->handle($mockService);
+        $report = $this->latestReport();
+        $prefix = "compliance_reports/{$this->organization->id}/soc2_".now()->format('Ymd').'_';
 
-        $files = Storage::allFiles('compliance_reports');
-        $this->assertNotEmpty($files);
+        $this->assertStringStartsWith($prefix, $report->file_path_json);
+        $this->assertStringEndsWith('.json', $report->file_path_json);
+        Storage::disk('local')->assertExists($report->file_path_json);
 
-        $filename = $files[0];
-        $this->assertStringContainsString('soc2_report', $filename);
-        $this->assertStringContainsString((string) $this->organization->id, $filename);
-        $this->assertStringContainsString(now()->format('Y-m-d'), $filename);
+        $this->assertNotNull($report->file_path_pdf);
+        Storage::disk('local')->assertExists($report->file_path_pdf);
+        $this->assertStringStartsWith('%PDF', Storage::disk('local')->get($report->file_path_pdf));
 
-        Storage::assertExists($filename);
+        $this->assertNotNull($report->expires_at);
+    }
+
+    #[Test]
+    public function job_marks_report_failed_and_rethrows_when_generation_fails(): void
+    {
+        $service = Mockery::mock(ComplianceReportService::class);
+        $service->shouldReceive('generateSOC2Report')->once()->andThrow(new RuntimeException('Data source unavailable'));
+
+        try {
+            (new GenerateComplianceReportJob($this->organization, 'soc2', ['admin@example.com']))->handle($service);
+            $this->fail('Expected the job to rethrow the generation error.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Data source unavailable', $e->getMessage());
+        }
+
+        $report = $this->latestReport();
+        $this->assertSame(ComplianceReport::STATUS_FAILED, $report->status);
+        $this->assertSame('Data source unavailable', $report->error_message);
+        $this->assertNull($report->file_path_json);
+        Mail::assertNothingSent();
     }
 
     protected function tearDown(): void
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    private function mockService(string $method, array $reportData): ComplianceReportService&MockInterface
+    {
+        $service = Mockery::mock(ComplianceReportService::class);
+        $service->shouldReceive($method)->once()->andReturn($reportData);
+
+        return $service;
+    }
+
+    private function latestReport(): ComplianceReport
+    {
+        return ComplianceReport::where('organization_id', $this->organization->id)->latest('id')->firstOrFail();
+    }
+
+    private function storedJson(ComplianceReport $report): array
+    {
+        return json_decode(Storage::disk('local')->get($report->file_path_json), true);
     }
 }
