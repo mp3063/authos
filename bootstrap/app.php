@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware): void {
         // Configure trusted proxies for proper IP address detection
         // In production, specify actual proxy IPs instead of '*'

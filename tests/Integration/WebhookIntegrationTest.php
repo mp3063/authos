@@ -2,7 +2,6 @@
 
 namespace Tests\Integration;
 
-use App\Events\UserCreatedEvent;
 use App\Jobs\DeliverWebhookJob;
 use App\Models\Organization;
 use App\Models\User;
@@ -10,7 +9,6 @@ use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
 use App\Services\WebhookSignatureService;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -43,11 +41,10 @@ class WebhookIntegrationTest extends TestCase
         Queue::fake();
 
         // Create user, which should trigger webhook
-        $user = User::factory()->for($this->organization)->create();
-        Event::dispatch(new UserCreatedEvent($user));
+        User::factory()->for($this->organization)->create();
 
         // Assert webhook job was queued
-        Queue::assertPushed(DeliverWebhookJob::class);
+        Queue::assertPushed(DeliverWebhookJob::class, 1);
 
         // Process the job
         $job = Queue::pushedJobs()[DeliverWebhookJob::class][0]['job'];
@@ -152,8 +149,7 @@ class WebhookIntegrationTest extends TestCase
             ]);
 
         // Create user
-        $user = User::factory()->for($this->organization)->create();
-        Event::dispatch(new UserCreatedEvent($user));
+        User::factory()->for($this->organization)->create();
 
         // Both webhooks should receive the event
         Queue::assertPushed(DeliverWebhookJob::class, 2);
@@ -267,8 +263,7 @@ class WebhookIntegrationTest extends TestCase
         Queue::fake();
 
         // Create user in org1
-        $user = User::factory()->for($this->organization)->create();
-        Event::dispatch(new UserCreatedEvent($user));
+        User::factory()->for($this->organization)->create();
 
         // Only webhook from org1 should be triggered
         Queue::assertPushed(DeliverWebhookJob::class, function ($job) {

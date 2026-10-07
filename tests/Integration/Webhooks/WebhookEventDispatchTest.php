@@ -78,23 +78,8 @@ class WebhookEventDispatchTest extends IntegrationTestCase
             'name' => 'Test User',
         ]);
 
-        // Clear the static processed events cache between tests
-        $this->clearWebhookEventCache();
-
         // Don't fake events - we want to test real event dispatching
         // Queue::fake() will prevent actual job execution but allow assertions
-    }
-
-    /**
-     * Clear the static processed events cache in WebhookEventSubscriber
-     */
-    protected function clearWebhookEventCache(): void
-    {
-        // Use reflection to access the private static property
-        $reflection = new \ReflectionClass(\App\Listeners\WebhookEventSubscriber::class);
-        $property = $reflection->getProperty('processedEvents');
-        $property->setAccessible(true);
-        $property->setValue(null, []);
     }
 
     // ============================================================
@@ -125,6 +110,9 @@ class WebhookEventDispatchTest extends IntegrationTestCase
             'status' => 'pending',
         ]);
 
+        $this->assertSame(1, WebhookDelivery::where('webhook_id', $webhook->id)->count());
+        Queue::assertPushed(DeliverWebhookJob::class, 1);
+
         // ASSERT: DeliverWebhookJob dispatched
         Queue::assertPushed(DeliverWebhookJob::class, function ($job) use ($webhook) {
             return $job->delivery->webhook_id === $webhook->id &&
@@ -140,14 +128,9 @@ class WebhookEventDispatchTest extends IntegrationTestCase
         $this->assertArrayHasKey('timestamp', $delivery->payload);
     }
 
-    // ============================================================
-    // DUPLICATE PREVENTION (MD5 DEDUPLICATION)
-    // ============================================================
-
     #[Test]
-    public function duplicate_prevention_blocks_same_event_in_single_request()
+    public function each_dispatched_event_creates_its_own_delivery(): void
     {
-        // ARRANGE: Create webhook subscribed to user.updated
         $webhook = Webhook::factory()->create([
             'organization_id' => $this->organization->id,
             'url' => 'https://example.com/webhook',
@@ -157,20 +140,13 @@ class WebhookEventDispatchTest extends IntegrationTestCase
         ]);
 
         Queue::fake();
+        $this->freezeTime();
 
-        // ACT: Fire UserUpdatedEvent twice with identical payload
         event(new UserUpdatedEvent($this->user));
         event(new UserUpdatedEvent($this->user));
 
-        // ASSERT: Only ONE WebhookDelivery created (deduplication works)
-        $deliveryCount = WebhookDelivery::where('webhook_id', $webhook->id)
-            ->where('event_type', 'user.updated')
-            ->count();
-
-        $this->assertEquals(1, $deliveryCount, 'Duplicate event should be prevented by MD5 deduplication');
-
-        // ASSERT: Only ONE DeliverWebhookJob dispatched
-        Queue::assertPushed(DeliverWebhookJob::class, 1);
+        $this->assertSame(2, WebhookDelivery::where('webhook_id', $webhook->id)->where('event_type', 'user.updated')->count());
+        Queue::assertPushed(DeliverWebhookJob::class, 2);
     }
 
     // ============================================================

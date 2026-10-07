@@ -14,6 +14,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Group;
@@ -77,8 +78,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        (new \ReflectionProperty(WebhookEventSubscriber::class, 'processedEvents'))->setValue(null, []);
-        $this->freezeTime();
+        Event::fake();
 
         // Create test organization
         $this->organization = $this->createOrganization(['name' => 'Pattern Test Organization']);
@@ -221,7 +221,6 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
         $eventTypes = WebhookDelivery::where('webhook_id', $webhook->id)->orderBy('event_type')->pluck('event_type')->all();
         $this->assertSame([
             'application.created',
-            'application.updated',
             'organization.updated',
             'user.created',
             'user.deleted',

@@ -149,11 +149,6 @@ class WebhookEventSubscriber
     }
 
     /**
-     * Track processed events to prevent duplicate dispatches
-     */
-    private static $processedEvents = [];
-
-    /**
      * Dispatch webhooks for the given event
      */
     protected function dispatchWebhooks(string $eventType, array $payload, ?int $organizationId): void
@@ -161,17 +156,6 @@ class WebhookEventSubscriber
         if ($organizationId === null) {
             return;
         }
-
-        // Generate a unique key for this event to prevent duplicate processing
-        $eventKey = md5($eventType.'|'.$organizationId.'|'.json_encode($payload));
-
-        // Skip if we've already processed this exact event in this request
-        if (isset(self::$processedEvents[$eventKey])) {
-            return;
-        }
-
-        // Mark as processed
-        self::$processedEvents[$eventKey] = true;
 
         // Get all active webhooks for this organization
         $webhooks = Webhook::where('organization_id', $organizationId)
