@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\UserRoleService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +51,10 @@ class UserRoleController extends BaseController
             'role_id' => ['required', 'integer', $this->assignableRoleRule($request, $user, 'id')],
         ]);
 
+        if ($denial = $this->roleChangeDenial($request->user(), $user, Role::whereKey($request->role_id)->get())) {
+            return $this->forbiddenResponse($denial);
+        }
+
         $assigned = $this->userRoleService->assignRole($user, (string) $request->role_id);
 
         if (! $assigned) {
@@ -79,6 +84,10 @@ class UserRoleController extends BaseController
             ->where(fn (Builder $query) => $this->scopeToAssignableRoles($query, $request, $user))
             ->get();
 
+        if ($denial = $this->roleChangeDenial($request->user(), $user, $roles->merge($user->roles))) {
+            return $this->forbiddenResponse($denial);
+        }
+
         $user->syncRoles($roles);
 
         return $this->successResponse([], 'User roles updated successfully');
@@ -87,11 +96,16 @@ class UserRoleController extends BaseController
     /**
      * Remove role from user
      */
-    public function removeRole(string $id, string $roleId): JsonResponse
+    public function removeRole(Request $request, string $id, string $roleId): JsonResponse
     {
         $this->authorize('roles.assign');
 
         $user = User::findOrFail($id);
+
+        if ($denial = $this->roleChangeDenial($request->user(), $user, Role::whereKey($roleId)->get())) {
+            return $this->forbiddenResponse($denial);
+        }
+
         $removed = $this->userRoleService->removeRole($user, $roleId);
 
         if (! $removed) {
@@ -99,6 +113,28 @@ class UserRoleController extends BaseController
         }
 
         return $this->successResponse([], 'Role removed successfully');
+    }
+
+    /**
+     * @param  Collection<int, Role>  $roles  roles being granted or revoked
+     */
+    private function roleChangeDenial(User $caller, User $target, Collection $roles): ?string
+    {
+        if ($caller->isSuperAdmin()) {
+            return null;
+        }
+
+        if ($caller->is($target)) {
+            return 'You cannot change your own roles.';
+        }
+
+        $callerPermissions = $caller->getAllPermissions()->pluck('name');
+        $exceedsCaller = $roles->load('permissions')
+            ->flatMap(fn (Role $role) => $role->permissions->pluck('name'))
+            ->diff($callerPermissions)
+            ->isNotEmpty();
+
+        return $exceedsCaller ? 'You cannot grant or revoke a role with permissions you do not have.' : null;
     }
 
     private function assignableRoleRule(Request $request, User $user, string $column): Exists

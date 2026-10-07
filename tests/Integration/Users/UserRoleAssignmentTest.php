@@ -106,6 +106,64 @@ class UserRoleAssignmentTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function an_organization_admin_cannot_promote_themselves_to_organization_owner_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $ownerRole = $this->apiRole('Organization Owner', $admin->organization_id);
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson("/api/v1/users/{$admin->id}/roles", ['role_id' => $ownerRole->id]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $admin->id, 'role_id' => $ownerRole->id]);
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_assign_a_role_with_permissions_they_lack_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $member = $this->createApiUser(['organization_id' => $admin->organization_id]);
+        $ownerRole = $this->apiRole('Organization Owner', $admin->organization_id);
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->postJson("/api/v1/users/{$member->id}/roles", ['role_id' => $ownerRole->id]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $ownerRole->id]);
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_sync_their_own_roles_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $this->apiRole('Organization Owner', $admin->organization_id);
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->putJson("/api/v1/users/{$admin->id}/roles", ['roles' => ['Organization Admin', 'Organization Owner']]);
+
+        $response->assertForbidden();
+        $this->assertFalse($admin->fresh()->roles()->where('name', 'Organization Owner')->exists());
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_demote_an_organization_owner_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $owner = $this->createUser(['organization_id' => $admin->organization_id], 'Organization Owner', 'api');
+        $ownerRole = $this->apiRole('Organization Owner', $admin->organization_id);
+        $this->apiRole('User', $admin->organization_id);
+
+        $sync = $this->actingAsApiUserWithToken($admin)
+            ->putJson("/api/v1/users/{$owner->id}/roles", ['roles' => ['User']]);
+        $remove = $this->actingAsApiUserWithToken($admin)
+            ->deleteJson("/api/v1/users/{$owner->id}/roles/{$ownerRole->id}");
+
+        $sync->assertForbidden();
+        $remove->assertForbidden();
+        $this->assertDatabaseHas('model_has_roles', ['model_id' => $owner->id, 'role_id' => $ownerRole->id]);
+    }
+
+    #[Test]
     public function an_organization_admin_can_replace_a_members_roles_with_api_roles_of_their_organization(): void
     {
         $admin = $this->createApiOrganizationAdmin();
@@ -122,5 +180,15 @@ class UserRoleAssignmentTest extends IntegrationTestCase
         $response->assertOk();
         $this->assertSame([$adminRole->id], $member->fresh()->roles()->pluck('roles.id')->all());
         $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $userRole->id]);
+    }
+
+    private function apiRole(string $name, int $organizationId): Role
+    {
+        $this->setupRoleWithPermissions($name, 'api', $organizationId);
+
+        return Role::where('name', $name)
+            ->where('organization_id', $organizationId)
+            ->where('guard_name', 'api')
+            ->firstOrFail();
     }
 }
