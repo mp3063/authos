@@ -36,6 +36,8 @@ use Tests\Integration\IntegrationTestCase;
  */
 class SsoSamlFlowTest extends IntegrationTestCase
 {
+    use SignsSamlResponses;
+
     protected SSOService $ssoService;
 
     protected function setUp(): void
@@ -67,6 +69,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'session_lifetime' => 3600,
             'is_active' => true,
             'configuration' => [
+                'x509_cert' => $this->samlIdpCertificate(),
                 'idp_entity_id' => 'https://idp.example.com',
                 'idp_sso_url' => 'https://idp.example.com/saml/sso',
                 'idp_slo_url' => 'https://idp.example.com/saml/logout',
@@ -76,7 +79,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Create a valid SAML response (simplified XML structure)
-        $samlResponse = base64_encode('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="response-123" Version="2.0">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="assertion-123" Version="2.0">
         <saml:Subject>
@@ -183,10 +186,11 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'logout_url' => 'https://app.example.com/logout',
             'allowed_domains' => ['example.com'],
             'is_active' => true,
+            'configuration' => ['x509_cert' => $this->samlIdpCertificate()],
         ]);
 
         // Valid SAML response with assertion
-        $samlResponse = base64_encode('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="assertion-456">
         <saml:Subject>
@@ -267,6 +271,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'logout_url' => 'https://app.example.com/logout',
             'allowed_domains' => ['example.com'],
             'is_active' => true,
+            'configuration' => ['x509_cert' => $this->samlIdpCertificate()],
         ]);
 
         $relayState = Str::random(32);
@@ -287,7 +292,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Valid SAML response
-        $samlResponse = base64_encode('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>
@@ -327,6 +332,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'logout_url' => 'https://app.example.com/logout',
             'allowed_domains' => ['example.com'],
             'is_active' => true,
+            'configuration' => ['x509_cert' => $this->samlIdpCertificate()],
         ]);
 
         // Create SSO session with default-request as external_session_id
@@ -345,7 +351,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Valid SAML response
-        $samlResponse = base64_encode('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>
@@ -552,6 +558,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'allowed_domains' => ['example.com'],
             'is_active' => true,
             'configuration' => [
+                'x509_cert' => $this->samlIdpCertificate(),
                 'attribute_mapping' => [
                     'email' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
                     'name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
@@ -574,7 +581,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // SAML response with custom attribute names
-        $samlResponse = base64_encode('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>

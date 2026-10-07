@@ -7,10 +7,12 @@ use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\SSOService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
+use Tests\Integration\SSO\SignsSamlResponses;
 
 /**
  * Comprehensive End-to-End SSO Flow Tests
@@ -24,6 +26,8 @@ use Laravel\Passport\Passport;
  */
 class SsoFlowsTest extends EndToEndTestCase
 {
+    use SignsSamlResponses;
+
     protected SSOService $ssoService;
 
     protected Application $oidcApplication;
@@ -116,7 +120,7 @@ class SsoFlowsTest extends EndToEndTestCase
                 'entity_id' => 'https://saml-idp.example.com/metadata',
                 'sso_url' => 'https://saml-idp.example.com/sso',
                 'sls_url' => 'https://saml-idp.example.com/sls',
-                'x509cert' => 'test_certificate_content',
+                'x509_cert' => $this->samlIdpCertificate(),
             ],
             'is_active' => true,
         ]);
@@ -338,7 +342,7 @@ class SsoFlowsTest extends EndToEndTestCase
         ]);
 
         // Step 2: Simulate SAML response from IdP
-        $samlResponse = base64_encode(
+        $samlResponse = $this->signSamlResponse(
             '<?xml version="1.0"?>
             <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
                 <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
@@ -407,7 +411,7 @@ class SsoFlowsTest extends EndToEndTestCase
      */
     public function test_saml_assertion_validation(): void
     {
-        $validSamlResponse = base64_encode(
+        $validSamlResponse = $this->signSamlResponse(
             '<?xml version="1.0"?>
             <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
                 <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
@@ -1031,7 +1035,7 @@ class SsoFlowsTest extends EndToEndTestCase
         // Mock network timeout
         Http::fake([
             'https://idp.example.com/token' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+                throw new ConnectionException('Connection timeout');
             },
         ]);
 

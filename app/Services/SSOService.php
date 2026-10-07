@@ -324,14 +324,11 @@ class SSOService
         // Parse SAML assertion using proper XML parsing
         $userInfo = $this->samlService->parseAssertion($samlResponse);
 
-        // Validate signature if certificate is configured
         $x509Cert = $ssoConfig->configuration['x509_cert']
             ?? $ssoConfig->settings['x509_cert']
             ?? null;
 
-        if ($x509Cert && $x509Cert !== 'test-certificate-content') {
-            $this->signatureValidator->validate($samlResponse, $x509Cert);
-        }
+        $this->signatureValidator->validate($samlResponse, $x509Cert);
 
         // Validate time conditions
         if (! empty($userInfo['conditions'])) {
