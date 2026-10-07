@@ -66,7 +66,7 @@ trait ManagesOrganizationRoles
                 'applications.create', 'applications.read', 'applications.update', 'applications.delete',
                 'applications.regenerate_credentials',
                 'organizations.read', 'organizations.update',
-                'roles.create', 'roles.read', 'roles.update', 'roles.delete',
+                'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
                 'auth_logs.read', 'auth_logs.export',
                 'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
