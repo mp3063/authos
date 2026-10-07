@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Events\MfaDisabledEvent;
 use App\Events\MfaEnabledEvent;
 use App\Mail\MfaSetupConfirmation;
+use App\Models\User;
+use App\Services\Auth\MfaCodeVerifier;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,12 +14,15 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use PragmaRX\Google2FA\Google2FA;
 
 class MfaController extends BaseController
 {
-    public function __construct(protected AuthenticationLogService $authLogService)
-    {
+    public function __construct(
+        protected AuthenticationLogService $authLogService,
+        protected MfaCodeVerifier $mfaCodeVerifier
+    ) {
         $this->middleware('auth:api');
     }
 
@@ -139,12 +144,12 @@ class MfaController extends BaseController
      */
     public function disableTotp(Request $request): JsonResponse
     {
+        $user = Auth::user();
+
         $request->validate([
             'password' => 'required|string',
-            'code' => 'sometimes|string|size:6',
+            'code' => [Rule::requiredIf($user->hasMfaEnabled()), 'string'],
         ]);
-
-        $user = Auth::user();
 
         // Verify password
         if (! Hash::check($request->password, $user->password)) {
@@ -154,17 +159,8 @@ class MfaController extends BaseController
             ], 401);
         }
 
-        // If TOTP is enabled, verify code
-        if ($user->hasMfaEnabled() && $request->has('code')) {
-            $google2fa = new Google2FA;
-            $secretKey = decrypt($user->two_factor_secret);
-
-            if (! $google2fa->verifyKey($secretKey, $request->code)) {
-                return response()->json([
-                    'error' => 'authentication_failed',
-                    'error_description' => 'Invalid TOTP code.',
-                ], 401);
-            }
+        if ($user->hasMfaEnabled() && ! $this->verifySecondFactor($user, $request->code)) {
+            return $this->invalidSecondFactorResponse();
         }
 
         // Disable MFA
@@ -339,17 +335,22 @@ class MfaController extends BaseController
      */
     public function disableMfa(Request $request): JsonResponse
     {
+        $user = Auth::user();
+
         $request->validate([
             'password' => 'required|string',
+            'code' => [Rule::requiredIf($user->hasMfaEnabled()), 'string'],
         ]);
-
-        $user = Auth::user();
 
         if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Password is incorrect.',
             ], 401);
+        }
+
+        if ($user->hasMfaEnabled() && ! $this->verifySecondFactor($user, $request->code)) {
+            return $this->invalidSecondFactorResponse();
         }
 
         // Disable MFA for the user
@@ -378,6 +379,24 @@ class MfaController extends BaseController
             ],
             'message' => 'MFA disabled successfully',
         ]);
+    }
+
+    private function verifySecondFactor(User $user, ?string $code): bool
+    {
+        if (! $code) {
+            return false;
+        }
+
+        return $this->mfaCodeVerifier->verifyTotpCode($user, $code)
+            || $this->mfaCodeVerifier->verifyAndConsumeRecoveryCode($user, $code);
+    }
+
+    private function invalidSecondFactorResponse(): JsonResponse
+    {
+        return response()->json([
+            'error' => 'authentication_failed',
+            'error_description' => 'Invalid TOTP or recovery code.',
+        ], 401);
     }
 
     /**

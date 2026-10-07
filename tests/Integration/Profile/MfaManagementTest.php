@@ -5,6 +5,7 @@ namespace Tests\Integration\Profile;
 use App\Http\Controllers\Api\MfaController;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Integration\IntegrationTestCase;
@@ -486,6 +487,7 @@ class MfaManagementTest extends IntegrationTestCase
         $response = $this->actingAs($this->user, 'api')
             ->postJson('/api/v1/mfa/disable', [
                 'password' => 'password123',
+                'code' => $this->google2fa->getCurrentOtp($secret),
             ]);
 
         // ASSERT: MFA disabled successfully
@@ -516,6 +518,71 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function disableEndpoints(): array
+    {
+        return [
+            'disable' => ['/api/v1/mfa/disable'],
+            'disable totp (deprecated)' => ['/api/v1/mfa/disable/totp'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('disableEndpoints')]
+    public function disabling_mfa_without_a_second_factor_is_rejected_with_422(string $endpoint): void
+    {
+        $this->enableMfaForUser();
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson($endpoint, ['password' => 'password123']);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['code' => 'The code field is required.']);
+        $this->assertTrue($this->user->fresh()->hasMfaEnabled());
+    }
+
+    #[Test]
+    #[DataProvider('disableEndpoints')]
+    public function disabling_mfa_with_a_wrong_code_is_rejected_with_401(string $endpoint): void
+    {
+        $this->enableMfaForUser();
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson($endpoint, ['password' => 'password123', 'code' => '000000']);
+
+        $response->assertUnauthorized()->assertJsonPath('error_description', 'Invalid TOTP or recovery code.');
+        $this->assertTrue($this->user->fresh()->hasMfaEnabled());
+    }
+
+    #[Test]
+    public function mfa_can_be_disabled_with_a_recovery_code(): void
+    {
+        $this->enableMfaForUser(['ABCD1234', 'EFGH5678']);
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson('/api/v1/mfa/disable', ['password' => 'password123', 'code' => 'ABCD1234']);
+
+        $response->assertOk();
+        $this->assertFalse($this->user->fresh()->hasMfaEnabled());
+    }
+
+    /**
+     * @param  array<int, string>|null  $recoveryCodes
+     */
+    private function enableMfaForUser(?array $recoveryCodes = null): string
+    {
+        $secret = $this->google2fa->generateSecretKey();
+        $this->user->update([
+            'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+            'two_factor_recovery_codes' => json_encode($recoveryCodes ?? $this->generateBackupCodes()),
+        ]);
+
+        return $secret;
+    }
+
     #[Test]
     public function disable_endpoint_rejects_incorrect_password_and_keeps_mfa_enabled(): void
     {
@@ -529,6 +596,7 @@ class MfaManagementTest extends IntegrationTestCase
         $response = $this->actingAs($this->user, 'api')
             ->postJson('/api/v1/mfa/disable', [
                 'password' => 'not-the-password',
+                'code' => '000000',
             ]);
 
         $response->assertUnauthorized();

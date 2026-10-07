@@ -549,9 +549,10 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         $this->assertNotContains('recovery1', $user->mfa_backup_codes);
         $this->assertNotContains('recovery2', $user->mfa_backup_codes);
 
-        // Step 3: Disable MFA (requires password)
+        // Step 3: Disable MFA (requires password and a regenerated recovery code)
         $disableResponse = $this->postJson('/api/v1/mfa/disable', [
             'password' => 'password',
+            'code' => $newCodes[0],
         ]);
 
         $this->assertUnifiedApiResponse($disableResponse, 200);
