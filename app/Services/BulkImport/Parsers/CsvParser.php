@@ -6,6 +6,7 @@ use App\Services\BulkImport\Contracts\FileParserInterface;
 use Generator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class CsvParser implements FileParserInterface
 {
@@ -17,23 +18,23 @@ class CsvParser implements FileParserInterface
         $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file;
 
         if (! file_exists($filePath)) {
-            throw new \RuntimeException("File not found: {$filePath}");
+            throw new RuntimeException("File not found: {$filePath}");
         }
 
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
-            throw new \RuntimeException("Unable to open file: {$filePath}");
+            throw new RuntimeException("Unable to open file: {$filePath}");
         }
 
         try {
             // Read header row
             $headers = fgetcsv($handle);
             if ($headers === false) {
-                throw new \RuntimeException('Unable to read CSV headers');
+                throw new RuntimeException('Unable to read CSV headers');
             }
 
             // Normalize headers (trim whitespace, lowercase)
-            $headers = array_map(fn ($h) => trim(strtolower($h)), $headers);
+            $headers = array_map(fn ($column) => trim(strtolower($column)), $headers);
 
             $rowNumber = 1; // Start at 1 for data rows (header is row 0)
 
@@ -50,7 +51,7 @@ class CsvParser implements FileParserInterface
                 $record = array_combine($headers, $row);
 
                 if ($record === false) {
-                    throw new \RuntimeException("Failed to parse row {$rowNumber}");
+                    throw new RuntimeException("Failed to parse row {$rowNumber}");
                 }
 
                 yield $rowNumber => $record;
@@ -66,7 +67,7 @@ class CsvParser implements FileParserInterface
     public function generate(array $records, string $filename): string
     {
         if (empty($records)) {
-            throw new \RuntimeException('No records to export');
+            throw new RuntimeException('No records to export');
         }
 
         $path = 'exports/'.$filename;
@@ -80,7 +81,7 @@ class CsvParser implements FileParserInterface
 
         $handle = fopen($fullPath, 'w');
         if ($handle === false) {
-            throw new \RuntimeException("Unable to create file: {$fullPath}");
+            throw new RuntimeException("Unable to create file: {$fullPath}");
         }
 
         try {

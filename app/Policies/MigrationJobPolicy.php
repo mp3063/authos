@@ -81,7 +81,7 @@ class MigrationJobPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, MigrationJob $migrationJob): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

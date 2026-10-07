@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\PasswordResetConfirmRequest;
 use App\Http\Requests\Api\PasswordResetRequest;
 use App\Models\User;
@@ -10,12 +9,13 @@ use App\Notifications\PasswordResetNotification;
 use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Passport\Token;
 
-class PasswordResetController extends Controller
+class PasswordResetController extends BaseController
 {
     protected AuthenticationLogService $authLogService;
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\Webhook\StoreWebhookRequest;
 use App\Http\Requests\Webhook\UpdateWebhookRequest;
 use App\Http\Resources\WebhookResource;
@@ -9,10 +10,14 @@ use App\Models\Webhook;
 use App\Services\WebhookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
-class WebhookController extends BaseApiController
+class WebhookController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         protected WebhookService $webhookService
     ) {
@@ -48,8 +53,8 @@ class WebhookController extends BaseApiController
         // Apply filters
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('url', 'LIKE', "%$search%")
                     ->orWhere('description', 'LIKE', "%$search%");
             });
@@ -113,7 +118,7 @@ class WebhookController extends BaseApiController
                 WebhookResource::class,
                 'Webhook created successfully'
             );
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return $this->errorResponse(
@@ -186,7 +191,7 @@ class WebhookController extends BaseApiController
                 WebhookResource::class,
                 'Webhook updated successfully'
             );
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return $this->errorResponse(
@@ -400,91 +405,5 @@ class WebhookController extends BaseApiController
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
-    }
-
-    /**
-     * Get delivery history for a webhook
-     *
-     * @group Webhook Analytics
-     */
-    public function deliveries(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('webhooks.read');
-
-        $request->validate([
-            'page' => 'sometimes|integer|min:1',
-            'per_page' => 'sometimes|integer|min:1|max:100',
-            'status' => 'sometimes|string|in:pending,sending,success,failed,retrying',
-            'event_type' => 'sometimes|string',
-        ]);
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
-
-        if (! $webhook) {
-            return $this->notFoundResponse('Webhook not found');
-        }
-
-        $deliveriesQuery = $webhook->deliveries()->with('webhook');
-
-        // Apply filters
-        if ($request->has('status')) {
-            $deliveriesQuery->where('status', $request->status);
-        }
-
-        if ($request->has('event_type')) {
-            $deliveriesQuery->where('event_type', $request->event_type);
-        }
-
-        // Order by most recent
-        $deliveriesQuery->latest();
-
-        // Paginate
-        $perPage = $request->input('per_page', 20);
-        $deliveries = $deliveriesQuery->paginate($perPage);
-
-        return $this->paginatedResponse(
-            $deliveries,
-            null,
-            \App\Http\Resources\WebhookDeliveryResource::class
-        );
-    }
-
-    /**
-     * Get delivery statistics for a webhook
-     *
-     * @group Webhook Analytics
-     */
-    public function stats(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('webhooks.read');
-
-        $request->validate([
-            'days' => 'sometimes|integer|min:1|max:90',
-        ]);
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
-
-        if (! $webhook) {
-            return $this->notFoundResponse('Webhook not found');
-        }
-
-        $days = $request->input('days', 30);
-        $stats = $this->webhookService->getDeliveryStats($webhook, $days);
-
-        return $this->successResponse($stats);
     }
 }

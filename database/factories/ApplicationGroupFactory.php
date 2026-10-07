@@ -7,7 +7,7 @@ use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\ApplicationGroup>
+ * @extends Factory<ApplicationGroup>
  */
 class ApplicationGroupFactory extends Factory
 {
@@ -37,7 +37,7 @@ class ApplicationGroupFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -47,7 +47,7 @@ class ApplicationGroupFactory extends Factory
      */
     public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }
@@ -57,7 +57,7 @@ class ApplicationGroupFactory extends Factory
      */
     public function childOf(ApplicationGroup $parent): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'parent_id' => $parent->id,
             'organization_id' => $parent->organization_id,
         ]);

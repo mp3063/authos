@@ -26,11 +26,11 @@ class ListIpBlocklist extends ListRecords
                 ->badge(fn () => static::getResource()::getEloquentQuery()->count()),
 
             'active' => Tab::make('Active')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true)->where(function ($q) {
-                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true)->where(function ($subQuery) {
+                    $subQuery->whereNull('expires_at')->orWhere('expires_at', '>', now());
                 }))
-                ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', true)->where(function ($q) {
-                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                ->badge(fn () => static::getResource()::getEloquentQuery()->where('is_active', true)->where(function ($subQuery) {
+                    $subQuery->whereNull('expires_at')->orWhere('expires_at', '>', now());
                 })->count())
                 ->badgeColor('success'),
 

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Webhook;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Override;
 
 class UpdateWebhookRequest extends FormRequest
 {
@@ -74,6 +75,7 @@ class UpdateWebhookRequest extends FormRequest
     /**
      * Get validated data with field name mapping
      */
+    #[Override]
     public function validated($key = null, $default = null): array
     {
         $validated = parent::validated();

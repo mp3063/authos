@@ -6,6 +6,7 @@ use App\Exports\AuditLogsExport;
 use App\Jobs\ProcessAuditExportJob;
 use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
+use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -89,13 +90,14 @@ class AuditExportService
     private function getFilteredLogs(AuditExport $export)
     {
         // Get user IDs for this organization
-        $userIds = \App\Models\User::where('organization_id', $export->organization_id)
+        $userIds = User::where('organization_id', $export->organization_id)
             ->pluck('id')
             ->toArray();
 
         $query = AuthenticationLog::whereIn('user_id', $userIds);
 
-        if ($filters = $export->filters) {
+        $filters = $export->filters;
+        if ($filters) {
             if (isset($filters['date_from'])) {
                 $query->where('created_at', '>=', $filters['date_from']);
             }

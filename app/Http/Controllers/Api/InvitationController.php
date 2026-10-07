@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\InvitationStatus;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Resources\InvitationResource;
 use App\Models\Invitation;
 use App\Services\InvitationService;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Validation\ValidationException;
 
-class InvitationController extends BaseApiController
+class InvitationController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(protected InvitationService $invitationService) {}
 
     /**
@@ -70,7 +75,6 @@ class InvitationController extends BaseApiController
             $page = $request->get('page', 1);
 
             // Manual pagination
-            $total = $invitations->count();
             $paginatedInvitations = $invitations->forPage($page, $perPage)->values();
 
             return $this->successResponse(
@@ -190,11 +194,11 @@ class InvitationController extends BaseApiController
     /**
      * Cancel an invitation
      */
-    public function destroy(Request $request, int $organizationId, int $invitationId): JsonResponse
+    public function destroy(Request $request): JsonResponse
     {
         try {
             $cancelled = $this->invitationService->cancelInvitation(
-                $invitationId,
+                $request->route('invitationId'),
                 $request->user()
             );
 
@@ -208,7 +212,7 @@ class InvitationController extends BaseApiController
                 'message' => 'Failed to cancel invitation',
             ], 400);
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'Invitation not found',
             ], 404);
@@ -222,11 +226,11 @@ class InvitationController extends BaseApiController
     /**
      * Resend an invitation
      */
-    public function resend(Request $request, int $organizationId, int $invitationId): JsonResponse
+    public function resend(Request $request): JsonResponse
     {
         try {
             $invitation = $this->invitationService->resendInvitation(
-                $invitationId,
+                $request->route('invitationId'),
                 $request->user()
             );
 

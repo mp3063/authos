@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
+use App\Services\SSO\SsoSessionManager;
 use App\Services\SSOService;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -397,7 +398,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->assertTrue($session->isActive());
 
         // ACT: Revoke SSO session (simulating logout request)
-        $success = $this->ssoService->revokeSSOSession($session->session_token, $user->id);
+        $success = app(SsoSessionManager::class)->revokeSSOSession($session->session_token, $user->id);
 
         // ASSERT: Session revoked successfully
         $this->assertTrue($success);
@@ -457,7 +458,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->assertEquals(2, SSOSession::where('user_id', $user->id)->active()->count());
 
         // ACT: Synchronized logout (revoke all user sessions)
-        $revokedCount = $this->ssoService->revokeUserSessions($user->id);
+        $revokedCount = app(SsoSessionManager::class)->revokeUserSessions($user->id);
 
         // ASSERT: All sessions revoked
         $this->assertEquals(2, $revokedCount);

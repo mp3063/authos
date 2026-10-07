@@ -42,7 +42,7 @@ class BulkImportJobFactory extends Factory
 
     public function pending(): self
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => BulkImportJob::STATUS_PENDING,
             'processed_records' => 0,
             'started_at' => null,
@@ -52,7 +52,7 @@ class BulkImportJobFactory extends Factory
 
     public function processing(): self
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => BulkImportJob::STATUS_PROCESSING,
             'started_at' => now()->subMinutes(5),
             'completed_at' => null,
@@ -79,7 +79,7 @@ class BulkImportJobFactory extends Factory
 
     public function failed(): self
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => BulkImportJob::STATUS_FAILED,
             'errors' => [
                 [
@@ -95,14 +95,14 @@ class BulkImportJobFactory extends Factory
 
     public function import(): self
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => BulkImportJob::TYPE_IMPORT,
         ]);
     }
 
     public function export(): self
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => BulkImportJob::TYPE_EXPORT,
         ]);
     }

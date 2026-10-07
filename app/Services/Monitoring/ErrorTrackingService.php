@@ -132,7 +132,6 @@ class ErrorTrackingService
      */
     public function getRecentErrors(int $limit = 50): array
     {
-        $errors = [];
         $recentErrorsKey = 'recent_errors';
 
         $storedErrors = Cache::get($recentErrorsKey, []);

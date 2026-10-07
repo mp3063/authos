@@ -2,18 +2,22 @@
 
 namespace App\Services;
 
-use App\Mail\InvitationAccepted;
 use App\Mail\OrganizationInvitation;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Exception;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class InvitationService
 {
+    public function __construct(
+        protected InvitationAuthorizer $authorizer,
+        protected InvitationAcceptanceService $acceptance,
+    ) {}
+
     public function sendInvitation(
         int $organizationId,
         string $email,
@@ -37,7 +41,7 @@ class InvitationService
         $inviterUser->setPermissionsTeamId($inviterUser->organization_id);
 
         // Validate that the inviter has permission to invite to this organization
-        if (! $this->canInviteToOrganization($inviterUser, $organization)) {
+        if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
 
@@ -91,50 +95,7 @@ class InvitationService
 
     public function acceptInvitation(string $token, array $userData): User
     {
-        $invitation = Invitation::where('token', $token)->first();
-
-        if (! $invitation) {
-            throw new Exception('Invalid or expired invitation');
-        }
-
-        if (! $invitation->isPending()) {
-            throw new Exception($invitation->isExpired() ? 'Invalid or expired invitation' : 'Invitation has already been accepted');
-        }
-
-        return DB::transaction(function () use ($invitation, $userData) {
-            // Create new user with invitation email and provided data
-            $user = User::create([
-                'name' => $userData['name'],
-                'email' => $invitation->email,
-                'password' => bcrypt($userData['password']),
-                'organization_id' => $invitation->organization_id,
-                'email_verified_at' => now(),
-            ]);
-
-            // Accept the invitation
-            $invitation->accept($user);
-
-            // Assign the role to the user
-            if (method_exists($user, 'assignRole')) {
-                $user->assignRole($invitation->role);
-            }
-
-            // Notify the inviter
-            try {
-                if ($invitation->inviter) {
-                    Mail::to($invitation->inviter->email)->send(
-                        new InvitationAccepted($invitation, $user)
-                    );
-                }
-            } catch (Exception $e) {
-                logger()->error('Failed to send invitation accepted email', [
-                    'invitation_id' => $invitation->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return $user;
-        });
+        return $this->acceptance->acceptAsNewUser($token, $userData);
     }
 
     /**
@@ -142,108 +103,12 @@ class InvitationService
      */
     public function acceptInvitationAsExistingUser(string $token, User $user): bool
     {
-        $invitation = Invitation::where('token', $token)->first();
-
-        if (! $invitation) {
-            throw new Exception('Invalid or expired invitation');
-        }
-
-        if (! $invitation->isPending()) {
-            throw new Exception($invitation->isExpired() ? 'Invitation has expired' : 'Invitation already accepted');
-        }
-
-        // Verify the invitation email matches the user's email
-        if ($invitation->email !== $user->email) {
-            throw new Exception('Invitation email does not match your account email');
-        }
-
-        return DB::transaction(function () use ($invitation, $user) {
-            // Accept the invitation
-            $invitation->accept($user);
-
-            // Assign the role to the user if they don't already have it
-            if (method_exists($user, 'assignRole') && $invitation->role) {
-                // Ensure permissions team context is set
-                $user->setPermissionsTeamId($user->organization_id);
-
-                // Check if user already has this role for this organization
-                try {
-                    $hasRole = $user->hasRole($invitation->role);
-                } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
-                    // Role doesn't exist for this guard, skip role assignment
-                    $hasRole = false;
-                    logger()->warning('Role not found during invitation acceptance', [
-                        'role' => $invitation->role,
-                        'user_id' => $user->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-
-                // Testing environment fallback
-                if (! $hasRole && app()->environment('testing')) {
-                    $userRoles = $user->roles()->get()->pluck('name')->toArray();
-                    $hasRole = in_array($invitation->role, $userRoles);
-                }
-
-                if (! $hasRole) {
-                    try {
-                        $user->assignRole($invitation->role);
-                    } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
-                        // Role doesn't exist, log and continue without error
-                        logger()->warning('Unable to assign role during invitation acceptance', [
-                            'role' => $invitation->role,
-                            'user_id' => $user->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    } catch (\Exception $e) {
-                        // If role assignment fails due to constraint violation, it means user already has the role
-                        if (strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
-                            // Role already exists, continue without error
-                        } else {
-                            throw $e;
-                        }
-                    }
-                }
-            }
-
-            // Send notification email to inviter
-            try {
-                if ($invitation->inviter) {
-                    Mail::to($invitation->inviter->email)->send(
-                        new InvitationAccepted($invitation, $user)
-                    );
-                }
-            } catch (Exception $e) {
-                logger()->error('Failed to send invitation accepted email', [
-                    'invitation_id' => $invitation->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return true;
-        });
+        return $this->acceptance->acceptAsExistingUser($token, $user);
     }
 
     public function declineInvitation(string $token, ?string $reason = null): bool
     {
-        $invitation = Invitation::where('token', $token)->first();
-
-        if (! $invitation) {
-            throw new Exception('Invalid or expired invitation');
-        }
-
-        if (! $invitation->isPending()) {
-            throw new Exception($invitation->isExpired() ? 'Invitation has expired' : 'Invitation already processed');
-        }
-
-        return DB::transaction(function () use ($invitation, $reason) {
-            $invitation->status = 'declined';
-            $invitation->declined_at = now();
-            $invitation->decline_reason = $reason;
-            $invitation->save();
-
-            return true;
-        });
+        return $this->acceptance->decline($token, $reason);
     }
 
     public function cancelInvitation(int $invitationId, User $canceller): bool
@@ -257,11 +122,11 @@ class InvitationService
             ->first();
 
         if (! $invitation) {
-            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Invitation not found');
+            throw new ModelNotFoundException('Invitation not found');
         }
 
         // Check if user has permission to cancel this invitation
-        if (! $this->canManageInvitation($canceller, $invitation)) {
+        if (! $this->authorizer->canManageInvitation($canceller, $invitation)) {
             throw new Exception('Not authorized to cancel this invitation');
         }
 
@@ -276,7 +141,7 @@ class InvitationService
         $sender->setPermissionsTeamId($sender->organization_id);
 
         // Check if user has permission to resend this invitation
-        if (! $this->canManageInvitation($sender, $invitation)) {
+        if (! $this->authorizer->canManageInvitation($sender, $invitation)) {
             throw new Exception('User does not have permission to resend this invitation');
         }
 
@@ -328,7 +193,7 @@ class InvitationService
         // Set permissions team context
         $inviterUser->setPermissionsTeamId($inviterUser->organization_id);
 
-        if (! $this->canInviteToOrganization($inviterUser, $organization)) {
+        if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
 
@@ -373,7 +238,7 @@ class InvitationService
         // Ensure permissions context is set
         $user->setPermissionsTeamId($user->organization_id);
 
-        if (! $this->canViewInvitations($user, $organization)) {
+        if (! $this->authorizer->canViewInvitations($user, $organization)) {
             throw new Exception('User does not have permission to view invitations for this organization');
         }
 
@@ -402,92 +267,6 @@ class InvitationService
             ->with(['inviter', 'organization'])
             ->orderBy('created_at', 'desc')
             ->get();
-    }
-
-    private function canInviteToOrganization(User $user, Organization $organization): bool
-    {
-        // Super admins can invite to any organization
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners and admins can invite
-        if ($user->organization_id === $organization->id) {
-            // Ensure permissions team context is set for role checking
-            $user->setPermissionsTeamId($user->organization_id);
-
-            // More explicit role checking to bypass Spatie issues in testing
-            $isOwner = $user->hasOrganizationRole('Organization Owner', $user->organization_id);
-            $isAdmin = $user->hasOrganizationRole('Organization Admin', $user->organization_id) ||
-                      $user->hasOrganizationRole('organization admin', $user->organization_id);
-
-            // Also check direct role by name for testing environment
-            $hasAdminRole = false;
-            if (app()->environment('testing')) {
-                $userRoles = $user->roles()->get()->pluck('name')->toArray();
-                $hasAdminRole = in_array('Organization Admin', $userRoles) || in_array('organization admin', $userRoles);
-            }
-
-            $hasRole = $isOwner || $isAdmin || $hasAdminRole;
-
-            return $hasRole;
-        }
-
-        return false;
-    }
-
-    private function canManageInvitation(User $user, Invitation $invitation): bool
-    {
-        // Ensure permissions team context is set
-        $user->setPermissionsTeamId($user->organization_id);
-
-        // Super admins can manage any invitation
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can manage invitations in their own organization
-        if ($user->organization_id === $invitation->organization_id) {
-            $isOwner = $user->isOrganizationOwner();
-            $isAdmin = $user->isOrganizationAdmin();
-
-            // Testing environment fallback
-            if (app()->environment('testing') && ! $isOwner && ! $isAdmin) {
-                $userRoles = $user->roles()->get()->pluck('name')->toArray();
-                $isAdmin = in_array('Organization Admin', $userRoles) || in_array('organization admin', $userRoles);
-            }
-
-            return $isOwner || $isAdmin || $user->id === $invitation->inviter_id;
-        }
-
-        return false;
-    }
-
-    private function canViewInvitations(User $user, Organization $organization): bool
-    {
-        // Ensure permissions team context is set
-        $user->setPermissionsTeamId($user->organization_id);
-
-        // Super admins can view all invitations
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can view invitations in their own organization
-        if ($user->organization_id === $organization->id) {
-            $isOwner = $user->isOrganizationOwner();
-            $isAdmin = $user->isOrganizationAdmin();
-
-            // Testing environment fallback
-            if (app()->environment('testing') && ! $isOwner && ! $isAdmin) {
-                $userRoles = $user->roles()->get()->pluck('name')->toArray();
-                $isAdmin = in_array('Organization Admin', $userRoles) || in_array('organization admin', $userRoles);
-            }
-
-            return $isOwner || $isAdmin;
-        }
-
-        return false;
     }
 
     private function isUserInOrganization(string $email, int $organizationId): bool

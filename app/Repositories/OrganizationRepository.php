@@ -44,8 +44,8 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
         }
 
         if (isset($filters['search'])) {
-            $query->where(function (Builder $q) use ($filters) {
-                $q->where('name', 'like', '%'.$filters['search'].'%')
+            $query->where(function (Builder $subQuery) use ($filters) {
+                $subQuery->where('name', 'like', '%'.$filters['search'].'%')
                     ->orWhere('slug', 'like', '%'.$filters['search'].'%')
                     ->orWhere('domain', 'like', '%'.$filters['search'].'%');
             });
@@ -100,8 +100,8 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     public function searchOrganizations(string $query, int $limit = 10): Collection
     {
         return $this->model
-            ->where(function (Builder $q) use ($query) {
-                $q->where('name', 'like', '%'.$query.'%')
+            ->where(function (Builder $subQuery) use ($query) {
+                $subQuery->where('name', 'like', '%'.$query.'%')
                     ->orWhere('slug', 'like', '%'.$query.'%')
                     ->orWhere('domain', 'like', '%'.$query.'%');
             })
@@ -210,8 +210,8 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
 
         // Apply search (using LIKE for SQLite compatibility)
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('slug', 'LIKE', "%{$search}%")
                     ->orWhere('description', 'LIKE', "%{$search}%");
             });

@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Api\Enterprise;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\AuditExport;
 use App\Services\AuditExportService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class AuditController extends BaseApiController
+class AuditController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly AuditExportService $auditService
     ) {

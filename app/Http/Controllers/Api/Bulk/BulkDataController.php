@@ -2,20 +2,25 @@
 
 namespace App\Http\Controllers\Api\Bulk;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Organization;
-use App\Services\BulkOperationService;
+use App\Services\BulkUserDataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class BulkDataController extends BaseApiController
+class BulkDataController extends BaseController
 {
-    protected BulkOperationService $bulkOperationService;
+    use ApiControllerHelpers;
 
-    public function __construct(BulkOperationService $bulkOperationService)
+    protected BulkUserDataService $bulkUserDataService;
+
+    public function __construct(BulkUserDataService $bulkUserDataService)
     {
-        $this->bulkOperationService = $bulkOperationService;
+        $this->bulkUserDataService = $bulkUserDataService;
         $this->middleware('auth:api');
     }
 
@@ -57,14 +62,13 @@ class BulkDataController extends BaseApiController
                 'fields' => $fields,
             ]);
 
-            $result = $this->bulkOperationService->exportUsersExtended(
+            $result = $this->bulkUserDataService->exportUsersExtended(
                 $organization,
-                $options,
-                auth()->user()
+                $options
             );
 
             // Generate export ID for tracking
-            $exportId = (string) \Illuminate\Support\Str::uuid();
+            $exportId = (string) Str::uuid();
 
             return $this->successResponse([
                 'export_id' => $exportId,
@@ -116,13 +120,12 @@ class BulkDataController extends BaseApiController
                 $format = $request->get('format', 'csv');
                 // Create a fake UploadedFile from the path with proper extension
                 $filename = 'import.'.$format;
-                $file = new \Illuminate\Http\UploadedFile($filePath, $filename, null, null, true);
+                $file = new UploadedFile($filePath, $filename, null, null, true);
             } else {
                 $file = $request->file('file');
             }
 
             $requestOptions = $request->get('options', []);
-            $mapping = $request->get('mapping', []);
 
             // Merge top-level options with nested options object
             $options = [
@@ -133,7 +136,7 @@ class BulkDataController extends BaseApiController
                 'invite_expires_in_days' => $request->integer('invite_expires_in_days', 7),
             ];
 
-            $result = $this->bulkOperationService->importUsersExtended(
+            $result = $this->bulkUserDataService->importUsersExtended(
                 $file,
                 $organization,
                 $options,
@@ -147,7 +150,7 @@ class BulkDataController extends BaseApiController
             $successful = count($result['created']) + count($result['updated']) + count($result['invited']);
 
             // Generate import ID for tracking
-            $importId = (string) \Illuminate\Support\Str::uuid();
+            $importId = (string) Str::uuid();
 
             return response()->json([
                 'data' => [

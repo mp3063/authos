@@ -9,6 +9,7 @@ use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class WebhookEventDispatcher extends BaseService
 {
@@ -95,11 +96,12 @@ class WebhookEventDispatcher extends BaseService
             'id' => 'wh_delivery_'.uniqid(),
             'event' => $eventType,
             'created_at' => now()->toISOString(),
-            'data' => $this->buildEventData($eventType, $subject, $extra),
+            'data' => $this->buildEventData($subject, $extra),
         ];
 
         // Add organization_id if available
-        if ($organization = $this->extractOrganization($subject)) {
+        $organization = $this->extractOrganization($subject);
+        if ($organization) {
             $payload['organization_id'] = $organization->id;
         }
 
@@ -121,7 +123,7 @@ class WebhookEventDispatcher extends BaseService
     /**
      * Build event-specific data
      */
-    protected function buildEventData(string $eventType, Model $subject, array $extra): array
+    protected function buildEventData(Model $subject, array $extra): array
     {
         $data = [];
 
@@ -248,7 +250,7 @@ class WebhookEventDispatcher extends BaseService
     public function buildUserPayload($user, string $eventType = 'user.event'): array
     {
         return [
-            'id' => 'evt_'.\Illuminate\Support\Str::random(32),
+            'id' => 'evt_'.Str::random(32),
             'event' => $eventType,
             'data' => $this->sanitizeUserData($user),
             'timestamp' => now()->toIso8601String(),
@@ -331,7 +333,7 @@ class WebhookEventDispatcher extends BaseService
 
         // Check for pattern match (e.g., "user.*")
         foreach ($events as $subscribedEvent) {
-            if (\Illuminate\Support\Str::is($subscribedEvent, $eventType)) {
+            if (Str::is($subscribedEvent, $eventType)) {
                 return true;
             }
         }

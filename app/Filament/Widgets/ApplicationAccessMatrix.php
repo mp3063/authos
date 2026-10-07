@@ -142,9 +142,9 @@ class ApplicationAccessMatrix extends Widget
         $totalGrantedAccess = 0;
         $activeUsers = 0;
 
-        foreach ($data['accessMatrix'] as $userId => $userAccess) {
+        foreach ($data['accessMatrix'] as $userAccess) {
             $hasAnyAccess = false;
-            foreach ($userAccess as $appId => $access) {
+            foreach ($userAccess as $access) {
                 if ($access['hasAccess']) {
                     $totalGrantedAccess++;
                     $hasAnyAccess = true;

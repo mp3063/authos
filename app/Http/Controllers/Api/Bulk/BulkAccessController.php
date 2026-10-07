@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers\Api\Bulk;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\BulkOperationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 
-class BulkAccessController extends BaseApiController
+class BulkAccessController extends BaseController
 {
+    use ApiControllerHelpers;
+
     protected BulkOperationService $bulkOperationService;
 
     public function __construct(BulkOperationService $bulkOperationService)
@@ -49,7 +53,7 @@ class BulkAccessController extends BaseApiController
         try {
             if ($revokeAllRoles) {
                 // Revoke all roles from users (simpler operation)
-                $users = \App\Models\User::whereIn('id', $userIds)
+                $users = User::whereIn('id', $userIds)
                     ->where('organization_id', $organization->id)
                     ->get();
 
@@ -62,7 +66,7 @@ class BulkAccessController extends BaseApiController
 
                 return $this->successResponse([
                     'revoked_count' => $successfulCount,
-                    'successful' => $users->map(fn ($u) => ['user_id' => $u->id, 'name' => $u->name])->toArray(),
+                    'successful' => $users->map(fn ($revokedUser) => ['user_id' => $revokedUser->id, 'name' => $revokedUser->name])->toArray(),
                     'failed' => [],
                     'summary' => [
                         'total_revocations' => count($userIds),

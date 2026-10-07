@@ -88,7 +88,7 @@ class FailedLoginAttemptResource extends Resource
 
             TextColumn::make('metadata')
                 ->formatStateUsing(fn ($state) => $state ? collect($state)
-                    ->map(fn ($v, $k) => "$k: $v")
+                    ->map(fn ($value, $key) => "$key: $value")
                     ->join(', ') : 'None')
                 ->limit(50)
                 ->toggleable(),

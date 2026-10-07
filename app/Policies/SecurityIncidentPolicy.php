@@ -41,7 +41,7 @@ class SecurityIncidentPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         // Security incidents are system-generated
         return false;
@@ -68,7 +68,7 @@ class SecurityIncidentPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, SecurityIncident $securityIncident): bool
+    public function delete(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -76,7 +76,7 @@ class SecurityIncidentPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, SecurityIncident $securityIncident): bool
+    public function restore(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -84,7 +84,7 @@ class SecurityIncidentPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, SecurityIncident $securityIncident): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

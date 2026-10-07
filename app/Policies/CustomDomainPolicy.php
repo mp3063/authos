@@ -91,7 +91,7 @@ class CustomDomainPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, CustomDomain $customDomain): bool
+    public function forceDelete(User $user): bool
     {
         // Only super admins can force delete
         return $user->isSuperAdmin();

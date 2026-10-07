@@ -3,7 +3,6 @@
 namespace App\Services\Contracts;
 
 use App\Models\Organization;
-use Illuminate\Http\UploadedFile;
 
 /**
  * Interface for bulk operation service
@@ -29,16 +28,6 @@ interface BulkOperationServiceInterface extends BaseServiceInterface
      * Revoke application access from multiple users
      */
     public function bulkRevokeAccess(array $userIds, int $applicationId, Organization $organization): array;
-
-    /**
-     * Export users to specified format
-     */
-    public function exportUsers(Organization $organization, string $format = 'csv', array $filters = []): string;
-
-    /**
-     * Import users from uploaded file
-     */
-    public function importUsers(UploadedFile $file, Organization $organization, string $defaultRole): array;
 
     /**
      * Perform bulk user operations (activate, deactivate, delete)

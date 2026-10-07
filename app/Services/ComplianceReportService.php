@@ -323,7 +323,7 @@ class ComplianceReportService
         $avgResponseMinutes = null;
         if ($resolvedRows->isNotEmpty()) {
             $totalSeconds = $resolvedRows->sum(
-                fn (SecurityIncident $i): int => $i->resolved_at->diffInSeconds($i->detected_at, true),
+                fn (SecurityIncident $incident): int => $incident->resolved_at->diffInSeconds($incident->detected_at, true),
             );
             $avgResponseMinutes = round(($totalSeconds / $resolvedRows->count()) / 60, 2);
         }

@@ -7,6 +7,8 @@ use App\Jobs\DeliverWebhookJob;
 use App\Jobs\RetryWebhookDeliveryJob;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use App\Notifications\WebhookAutoDisabledNotification;
+use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
@@ -128,7 +130,7 @@ class WebhookDeliveryService extends BaseService
 
             return false;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->handleException($e, 'webhook_delivery', [
                 'delivery_id' => $delivery->id,
                 'webhook_id' => $delivery->webhook_id,
@@ -289,7 +291,7 @@ class WebhookDeliveryService extends BaseService
                 ->role(['Organization Owner', 'Organization Admin'])
                 ->get();
             foreach ($admins as $admin) {
-                $admin->notify(new \App\Notifications\WebhookAutoDisabledNotification($webhook, 'dead_letter'));
+                $admin->notify(new WebhookAutoDisabledNotification($webhook, 'dead_letter'));
             }
         }
     }

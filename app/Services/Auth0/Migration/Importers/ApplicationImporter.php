@@ -68,7 +68,7 @@ class ApplicationImporter
         return DB::transaction(function () use ($auth0Client) {
             // Create application with required settings
             $settings = [
-                'description' => $auth0Client->description ?? "Migrated from Auth0: {$auth0Client->name}",
+                'description' => $auth0Client->settings->description ?? "Migrated from Auth0: {$auth0Client->name}",
             ];
 
             // Create application
@@ -167,7 +167,7 @@ class ApplicationImporter
         }
 
         // Check if client is first-party Auth0 client
-        if ($auth0Client->isFirstParty && Str::contains($auth0Client->name, 'Auth0')) {
+        if ($auth0Client->settings->isFirstParty && Str::contains($auth0Client->name, 'Auth0')) {
             return true;
         }
 

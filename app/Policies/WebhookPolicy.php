@@ -81,7 +81,7 @@ class WebhookPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Webhook $webhook): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

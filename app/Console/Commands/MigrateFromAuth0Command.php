@@ -9,6 +9,8 @@ use App\Services\Auth0\Auth0Client;
 use App\Services\Auth0\Exceptions\Auth0ApiException;
 use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\Importers\UserImporter;
+use App\Services\Auth0\Migration\MigrationPlan;
+use App\Services\Auth0\Migration\MigrationResult;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Throwable;
@@ -42,18 +44,15 @@ class MigrateFromAuth0Command extends Command
         }
 
         // Get target organization
-        $targetOrganization = null;
-        if ($organizationId = $this->option('organization')) {
-            $targetOrganization = Organization::find($organizationId);
+        $organizationId = $this->option('organization');
+        $targetOrganization = $organizationId ? Organization::find($organizationId) : null;
 
-            if (! $targetOrganization) {
-                $this->error("Organization with ID $organizationId not found");
+        if ($organizationId && ! $targetOrganization) {
+            $this->error("Organization with ID $organizationId not found");
 
-                return self::FAILURE;
-            }
+            return self::FAILURE;
         }
 
-        $dryRun = $this->option('dry-run');
         $strategy = $this->option('strategy') ?? UserImporter::STRATEGY_LAZY;
 
         // Validate strategy
@@ -64,84 +63,7 @@ class MigrateFromAuth0Command extends Command
         }
 
         try {
-            // Test connection
-            $this->info('Testing Auth0 connection...');
-            $client = new Auth0Client($domain, $token);
-
-            if (! $client->testConnection()) {
-                $this->error('Failed to connect to Auth0 API');
-
-                return self::FAILURE;
-            }
-
-            $this->info('Connection successful!');
-            $this->newLine();
-
-            // Create migration service
-            $migrationService = new Auth0MigrationService($client, $targetOrganization);
-
-            // Phase 1: Discovery
-            $this->info('Discovering Auth0 resources...');
-            $plan = $migrationService->discover();
-
-            // Display summary
-            $this->displayMigrationPlan($plan);
-
-            // Export plan if requested
-            if ($exportPath = $this->option('export')) {
-                $this->info("Exporting migration plan to $exportPath...");
-                File::put($exportPath, $plan->exportToJson());
-                $this->info('Plan exported successfully!');
-                $this->newLine();
-            }
-
-            // Confirm before proceeding
-            if (! $dryRun) {
-                if (! $this->confirm('Do you want to proceed with the migration?')) {
-                    $this->info('Migration cancelled');
-
-                    return self::SUCCESS;
-                }
-            }
-
-            // Phase 2: Migration
-            $this->newLine();
-            $this->info($dryRun ? 'Performing dry run...' : 'Starting migration...');
-            $this->newLine();
-
-            $result = $this->createProgressBar($plan->getTotalItems(), function ($bar) use ($migrationService, $plan, $dryRun, $strategy) {
-                return $migrationService->migrate($plan, $dryRun, $strategy);
-            });
-
-            $this->newLine(2);
-
-            // Display results
-            $this->displayMigrationResult($result);
-
-            // Phase 3: Validation
-            if (! $this->option('skip-validation') && ! $dryRun && $result->getSuccessCount() > 0) {
-                $this->newLine();
-                $this->info('Validating migration...');
-
-                $validationReport = $migrationService->validate($result);
-
-                if ($validationReport->isValid()) {
-                    $this->info('Validation passed!');
-                } else {
-                    $this->warn('Validation found issues:');
-                    $this->displayValidationReport($validationReport);
-
-                    if ($this->confirm('Do you want to rollback the migration?')) {
-                        $this->info('Rolling back migration...');
-                        $migrationService->rollback($result);
-                        $this->info('Rollback completed!');
-
-                        return self::FAILURE;
-                    }
-                }
-            }
-
-            return $result->hasFailures() ? self::FAILURE : self::SUCCESS;
+            return $this->runMigration($domain, $token, $targetOrganization, $strategy);
         } catch (Auth0ApiException $e) {
             $this->error("Auth0 API Error: {$e->getMessage()}");
 
@@ -152,6 +74,106 @@ class MigrateFromAuth0Command extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function runMigration(string $domain, string $token, ?Organization $targetOrganization, string $strategy): int
+    {
+        $dryRun = $this->option('dry-run');
+
+        // Test connection
+        $this->info('Testing Auth0 connection...');
+        $client = new Auth0Client($domain, $token);
+
+        if (! $client->testConnection()) {
+            $this->error('Failed to connect to Auth0 API');
+
+            return self::FAILURE;
+        }
+
+        $this->info('Connection successful!');
+        $this->newLine();
+
+        $migrationService = new Auth0MigrationService($client, $targetOrganization);
+
+        // Phase 1: Discovery
+        $this->info('Discovering Auth0 resources...');
+        $plan = $migrationService->discover();
+
+        $this->displayMigrationPlan($plan);
+        $this->exportMigrationPlan($plan);
+
+        if (! $dryRun && ! $this->confirm('Do you want to proceed with the migration?')) {
+            $this->info('Migration cancelled');
+
+            return self::SUCCESS;
+        }
+
+        // Phase 2: Migration
+        $this->newLine();
+        $this->info($dryRun ? 'Performing dry run...' : 'Starting migration...');
+        $this->newLine();
+
+        $result = $this->createProgressBar(
+            $plan->getTotalItems(),
+            fn () => $migrationService->migrate($plan, $dryRun, $strategy)
+        );
+
+        $this->newLine(2);
+
+        $this->displayMigrationResult($result);
+
+        // Phase 3: Validation
+        $shouldValidate = ! $this->option('skip-validation') && ! $dryRun && $result->getSuccessCount() > 0;
+
+        if ($shouldValidate && $this->validateOrRollback($migrationService, $result)) {
+            return self::FAILURE;
+        }
+
+        return $result->hasFailures() ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function exportMigrationPlan(MigrationPlan $plan): void
+    {
+        $exportPath = $this->option('export');
+
+        if (! $exportPath) {
+            return;
+        }
+
+        $this->info("Exporting migration plan to $exportPath...");
+        File::put($exportPath, $plan->exportToJson());
+        $this->info('Plan exported successfully!');
+        $this->newLine();
+    }
+
+    /**
+     * @return bool true when the migration was rolled back
+     */
+    private function validateOrRollback(Auth0MigrationService $migrationService, MigrationResult $result): bool
+    {
+        $this->newLine();
+        $this->info('Validating migration...');
+
+        $validationReport = $migrationService->validate($result);
+
+        if ($validationReport->isValid()) {
+            $this->info('Validation passed!');
+
+            return false;
+        }
+
+        $this->warn('Validation found issues:');
+        $this->displayValidationReport($validationReport);
+
+        if (! $this->confirm('Do you want to rollback the migration?')) {
+            return false;
+        }
+
+        $this->info('Rolling back migration...');
+        $migrationService->rollback($result);
+        $this->info('Rollback completed!');
+
+        return true;
     }
 
     /**
@@ -287,7 +309,7 @@ class MigrateFromAuth0Command extends Command
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
-        $result = $callback($bar);
+        $result = $callback();
 
         $bar->finish();
 

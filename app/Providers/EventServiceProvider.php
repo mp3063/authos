@@ -30,6 +30,7 @@ use App\Listeners\Auth\RecordFailedLoginAttempt;
 use App\Listeners\Auth\RegenerateSession;
 use App\Listeners\Auth\SendNewDeviceLoginAlert;
 use App\Listeners\Auth\TriggerIntrusionDetection;
+use App\Listeners\ResourceWebhookEventSubscriber;
 use App\Listeners\WebhookEventSubscriber;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
@@ -75,13 +76,13 @@ class EventServiceProvider extends ServiceProvider
             WebhookEventSubscriber::class.'@handleMfaEnabled',
         ],
         ApplicationCreatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleApplicationCreated',
+            ResourceWebhookEventSubscriber::class.'@handleApplicationCreated',
         ],
         ApplicationUpdatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleApplicationUpdated',
+            ResourceWebhookEventSubscriber::class.'@handleApplicationUpdated',
         ],
         ApplicationDeletedEvent::class => [
-            WebhookEventSubscriber::class.'@handleApplicationDeleted',
+            ResourceWebhookEventSubscriber::class.'@handleApplicationDeleted',
         ],
         OrganizationUpdatedEvent::class => [
             WebhookEventSubscriber::class.'@handleOrganizationUpdated',
@@ -90,25 +91,25 @@ class EventServiceProvider extends ServiceProvider
             WebhookEventSubscriber::class.'@handleOrganizationSettingsChanged',
         ],
         RoleCreatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleRoleCreated',
+            ResourceWebhookEventSubscriber::class.'@handleRoleCreated',
         ],
         RoleUpdatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleRoleUpdated',
+            ResourceWebhookEventSubscriber::class.'@handleRoleUpdated',
         ],
         RoleDeletedEvent::class => [
-            WebhookEventSubscriber::class.'@handleRoleDeleted',
+            ResourceWebhookEventSubscriber::class.'@handleRoleDeleted',
         ],
         WebhookCreatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleWebhookCreated',
+            ResourceWebhookEventSubscriber::class.'@handleWebhookCreated',
         ],
         WebhookUpdatedEvent::class => [
-            WebhookEventSubscriber::class.'@handleWebhookUpdated',
+            ResourceWebhookEventSubscriber::class.'@handleWebhookUpdated',
         ],
         WebhookDeletedEvent::class => [
-            WebhookEventSubscriber::class.'@handleWebhookDeleted',
+            ResourceWebhookEventSubscriber::class.'@handleWebhookDeleted',
         ],
         DomainVerifiedEvent::class => [
-            WebhookEventSubscriber::class.'@handleDomainVerified',
+            ResourceWebhookEventSubscriber::class.'@handleDomainVerified',
         ],
         MfaDisabledEvent::class => [
             WebhookEventSubscriber::class.'@handleMfaDisabled',

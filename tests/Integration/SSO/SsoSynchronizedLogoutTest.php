@@ -7,7 +7,7 @@ use App\Models\AuthenticationLog;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
-use App\Services\SSOService;
+use App\Services\SSO\SsoSessionManager;
 use Illuminate\Support\Str;
 use Laravel\Passport\Token;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,12 +34,12 @@ use Tests\Integration\IntegrationTestCase;
  */
 class SsoSynchronizedLogoutTest extends IntegrationTestCase
 {
-    protected SSOService $ssoService;
+    protected SsoSessionManager $ssoSessions;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->ssoService = app(SSOService::class);
+        $this->ssoSessions = app(SsoSessionManager::class);
     }
 
     // ============================================================
@@ -118,7 +118,7 @@ class SsoSynchronizedLogoutTest extends IntegrationTestCase
         $this->assertEquals(3, SSOSession::where('user_id', $user->id)->active()->count());
 
         // ACT: Synchronized logout - revoke all user sessions
-        $revokedCount = $this->ssoService->revokeUserSessions($user->id);
+        $revokedCount = $this->ssoSessions->revokeUserSessions($user->id);
 
         // ASSERT: All sessions revoked successfully
         $this->assertEquals(3, $revokedCount);
@@ -198,7 +198,7 @@ class SsoSynchronizedLogoutTest extends IntegrationTestCase
         $this->assertEquals($user->id, $foundSession->user_id);
 
         // ACT: Revoke session using external session ID
-        $success = $this->ssoService->revokeSSOSession($session->session_token, $user->id);
+        $success = $this->ssoSessions->revokeSSOSession($session->session_token, $user->id);
 
         // ASSERT: Session revoked successfully
         $this->assertTrue($success);
@@ -264,7 +264,7 @@ class SsoSynchronizedLogoutTest extends IntegrationTestCase
         $this->assertTrue($sessionB->isActive());
 
         // ACT: Logout from App A - should revoke ALL user sessions (synchronized logout)
-        $result = $this->ssoService->synchronizeLogout($sessionA->session_token);
+        $result = $this->ssoSessions->synchronizeLogout($sessionA->session_token);
 
         // ASSERT: Synchronized logout returned logout URLs and revoked count
         $this->assertArrayHasKey('logout_urls', $result);
@@ -463,13 +463,13 @@ class SsoSynchronizedLogoutTest extends IntegrationTestCase
         $this->assertEquals(0, SSOSession::where('user_id', $user->id)->active()->count());
 
         // ACT: Attempt synchronized logout with no active sessions
-        $revokedCount = $this->ssoService->revokeUserSessions($user->id);
+        $revokedCount = $this->ssoSessions->revokeUserSessions($user->id);
 
         // ASSERT: No sessions revoked (none existed)
         $this->assertEquals(0, $revokedCount);
 
         // ACT: Attempt synchronizedLogout method (higher-level)
-        $success = $this->ssoService->synchronizedLogout($user->id);
+        $success = $this->ssoSessions->synchronizedLogout($user->id);
 
         // ASSERT: Operation successful even with no sessions
         $this->assertTrue($success);

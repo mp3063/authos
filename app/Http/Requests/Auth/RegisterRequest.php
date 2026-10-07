@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Organization;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends FormRequest
@@ -75,9 +78,9 @@ class RegisterRequest extends FormRequest
     /**
      * Handle a failed validation attempt.
      */
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    protected function failedValidation(Validator $validator)
     {
-        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+        throw new HttpResponseException(
             response()->json([
                 'error' => 'validation_failed',
                 'error_description' => 'The given data was invalid.',
@@ -95,7 +98,7 @@ class RegisterRequest extends FormRequest
             return null;
         }
 
-        $organization = \App\Models\Organization::where('slug', $this->organization_slug)->first();
+        $organization = Organization::where('slug', $this->organization_slug)->first();
 
         return $organization?->id;
     }

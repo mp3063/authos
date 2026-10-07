@@ -148,8 +148,8 @@ class ComplianceReportResource extends Resource
                 ])
                 ->query(function (Builder $query, array $data): Builder {
                     return $query
-                        ->when($data['from'] ?? null, fn (Builder $q, $date) => $q->whereDate('generated_at', '>=', $date))
-                        ->when($data['to'] ?? null, fn (Builder $q, $date) => $q->whereDate('generated_at', '<=', $date));
+                        ->when($data['from'] ?? null, fn (Builder $subQuery, $date) => $subQuery->whereDate('generated_at', '>=', $date))
+                        ->when($data['to'] ?? null, fn (Builder $subQuery, $date) => $subQuery->whereDate('generated_at', '<=', $date));
                 }),
         ])->recordActions([
             ViewAction::make(),

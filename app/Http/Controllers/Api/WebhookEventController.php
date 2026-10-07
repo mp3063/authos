@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Resources\WebhookEventResource;
 use App\Models\WebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Cache;
 
-class WebhookEventController extends BaseApiController
+class WebhookEventController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct()
     {
         $this->middleware('auth:api');

@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\IpBlocklist>
+ * @extends Factory<IpBlocklist>
  */
 class IpBlocklistFactory extends Factory
 {
@@ -58,7 +58,7 @@ class IpBlocklistFactory extends Factory
      */
     public function temporary(int $hoursUntilExpiry = 24): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'block_type' => 'temporary',
             'reason' => 'Multiple failed login attempts',
             'expires_at' => now()->addHours($hoursUntilExpiry),
@@ -70,7 +70,7 @@ class IpBlocklistFactory extends Factory
      */
     public function permanent(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'block_type' => 'permanent',
             'reason' => 'Known malicious IP address',
             'expires_at' => null,
@@ -82,7 +82,7 @@ class IpBlocklistFactory extends Factory
      */
     public function suspicious(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'block_type' => 'suspicious',
             'reason' => 'Suspicious activity detected',
             'expires_at' => now()->addHours(48),
@@ -106,7 +106,7 @@ class IpBlocklistFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -116,7 +116,7 @@ class IpBlocklistFactory extends Factory
      */
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'blocked_at' => now()->subDays(2),
             'expires_at' => now()->subDay(),
             'is_active' => false,
@@ -142,7 +142,7 @@ class IpBlocklistFactory extends Factory
      */
     public function forIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }
@@ -152,7 +152,7 @@ class IpBlocklistFactory extends Factory
      */
     public function withIncidentCount(int $count): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'incident_count' => $count,
         ]);
     }

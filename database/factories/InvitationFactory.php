@@ -2,13 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Invitation>
+ * @extends Factory<Invitation>
  */
 class InvitationFactory extends Factory
 {
@@ -46,7 +47,7 @@ class InvitationFactory extends Factory
      */
     public function expired(): static
     {
-        return $this->state(function (array $attributes) {
+        return $this->state(function () {
             return [
                 'expires_at' => now()->subDays(1),
                 'status' => 'pending', // Still pending but expired by date
@@ -59,7 +60,7 @@ class InvitationFactory extends Factory
      */
     public function accepted(): static
     {
-        return $this->state(function (array $attributes) {
+        return $this->state(function () {
             return [
                 'status' => 'accepted',
                 'accepted_at' => fake()->dateTimeBetween('-7 days', 'now'),
@@ -73,7 +74,7 @@ class InvitationFactory extends Factory
      */
     public function declined(): static
     {
-        return $this->state(function (array $attributes) {
+        return $this->state(function () {
             return [
                 'status' => 'declined',
                 'declined_at' => fake()->dateTimeBetween('-7 days', 'now'),
@@ -87,7 +88,7 @@ class InvitationFactory extends Factory
      */
     public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }
@@ -97,7 +98,7 @@ class InvitationFactory extends Factory
      */
     public function withRole(string $role): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'role' => $role,
         ]);
     }
@@ -107,7 +108,7 @@ class InvitationFactory extends Factory
      */
     public function fromInviter(User $inviter): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'inviter_id' => $inviter->id,
         ]);
     }
@@ -117,7 +118,7 @@ class InvitationFactory extends Factory
      */
     public function forEmail(string $email): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'email' => $email,
         ]);
     }
@@ -127,7 +128,7 @@ class InvitationFactory extends Factory
      */
     public function expiresIn(int $days): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'expires_at' => now()->addDays($days),
         ]);
     }

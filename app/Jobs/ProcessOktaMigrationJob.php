@@ -15,6 +15,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 class ProcessOktaMigrationJob implements ShouldQueue
@@ -48,7 +49,7 @@ class ProcessOktaMigrationJob implements ShouldQueue
             $token = $config['okta_api_token'] ?? null;
 
             if (! $domain || ! $token) {
-                throw new \RuntimeException('Missing Okta domain or API token');
+                throw new RuntimeException('Missing Okta domain or API token');
             }
 
             $client = $this->makeOktaClient($domain, $token);

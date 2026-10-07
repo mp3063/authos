@@ -4,6 +4,7 @@ namespace App\Http\Responses;
 
 use Illuminate\Http\Response;
 use Laravel\Passport\Contracts\AuthorizationViewResponse as AuthorizationViewResponseContract;
+use Override;
 
 class AuthorizationViewResponse implements AuthorizationViewResponseContract
 {
@@ -27,6 +28,7 @@ class AuthorizationViewResponse implements AuthorizationViewResponseContract
     /**
      * Create an HTTP response that represents the object.
      */
+    #[Override]
     public function toResponse($request): Response
     {
         return response()->view('passport.authorize', $this->parameters);

@@ -97,7 +97,7 @@ class RolePolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Role $role): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

@@ -137,11 +137,13 @@ class RunPerformanceTests extends Command
 
         $process = new Process($command);
         $process->setTimeout(300); // 5 minutes timeout
-        $process->run(function ($type, $buffer) {
+        $process->start();
+        foreach ($process as $buffer) {
             if ($this->output->isVerbose()) {
                 $this->output->write($buffer);
             }
-        });
+        }
+        $process->wait();
 
         if ($process->isSuccessful()) {
             $this->results[$filter] = 'passed';
@@ -215,8 +217,8 @@ class RunPerformanceTests extends Command
         $this->info('=== Test Results Summary ===');
         $this->newLine();
 
-        $passed = count(array_filter($this->results, fn ($r) => $r === 'passed'));
-        $failed = count(array_filter($this->results, fn ($r) => $r === 'failed'));
+        $passed = count(array_filter($this->results, fn ($result) => $result === 'passed'));
+        $failed = count(array_filter($this->results, fn ($result) => $result === 'failed'));
         $total = count($this->results);
 
         $this->table(

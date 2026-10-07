@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 
-class OpenIdController extends Controller
+class OpenIdController extends BaseController
 {
     /**
      * OpenID Connect Discovery endpoint
@@ -148,8 +148,8 @@ class OpenIdController extends Controller
         }
 
         // Convert RSA key parameters to JWK format
-        $n = $this->base64UrlEncode($keyDetails['rsa']['n']);
-        $e = $this->base64UrlEncode($keyDetails['rsa']['e']);
+        $modulus = $this->base64UrlEncode($keyDetails['rsa']['n']);
+        $exponent = $this->base64UrlEncode($keyDetails['rsa']['e']);
 
         return response()->json([
             'keys' => [
@@ -157,8 +157,8 @@ class OpenIdController extends Controller
                     'kty' => 'RSA',
                     'use' => 'sig',
                     'kid' => 'authos-'.md5($publicKey),
-                    'n' => $n,
-                    'e' => $e,
+                    'n' => $modulus,
+                    'e' => $exponent,
                     'alg' => 'RS256',
                 ],
             ],

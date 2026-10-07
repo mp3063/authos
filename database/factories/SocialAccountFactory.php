@@ -30,7 +30,7 @@ class SocialAccountFactory extends Factory
 
     public function google(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'provider' => 'google',
             'provider_id' => 'google-'.$this->faker->randomNumber(9),
         ]);
@@ -38,7 +38,7 @@ class SocialAccountFactory extends Factory
 
     public function github(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'provider' => 'github',
             'provider_id' => 'github-'.$this->faker->randomNumber(9),
         ]);
@@ -46,7 +46,7 @@ class SocialAccountFactory extends Factory
 
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'token_expires_at' => now()->subDays(1),
         ]);
     }

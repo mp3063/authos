@@ -15,6 +15,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class CustomDomainsTable
 {
@@ -144,7 +145,7 @@ class CustomDomainsTable
                             $html .= '<p class="mt-4 text-sm text-gray-600 dark:text-gray-400">After adding these records, allow up to 48 hours for DNS propagation, then click "Verify Domain".</p>';
                             $html .= '</div>';
 
-                            return new \Illuminate\Support\HtmlString($html);
+                            return new HtmlString($html);
                         })
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Close'),

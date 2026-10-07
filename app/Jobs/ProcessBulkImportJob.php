@@ -14,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class ProcessBulkImportJob implements ShouldQueue
 {
@@ -57,7 +58,7 @@ class ProcessBulkImportJob implements ShouldQueue
             } else {
                 // Handle file-based import
                 if (! $service) {
-                    throw new \RuntimeException('BulkImportService is required for file-based imports');
+                    throw new RuntimeException('BulkImportService is required for file-based imports');
                 }
 
                 // Get parser
@@ -92,7 +93,7 @@ class ProcessBulkImportJob implements ShouldQueue
 
                 // If skip_invalid is false and there are errors, fail the job
                 if (! $options->skipInvalid && $validationResult->hasErrors()) {
-                    throw new \RuntimeException(
+                    throw new RuntimeException(
                         "Validation failed with {$validationResult->getInvalidCount()} invalid records"
                     );
                 }

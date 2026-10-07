@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Profile;
 
+use App\Rules\CurrentPasswordMatches;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class ChangePasswordRequest extends FormRequest
 {
@@ -24,11 +27,7 @@ class ChangePasswordRequest extends FormRequest
             'current_password' => [
                 'required',
                 'string',
-                function ($attribute, $value, $fail) {
-                    if (! \Illuminate\Support\Facades\Hash::check($value, $this->user()->password)) {
-                        $fail('The current password is incorrect.');
-                    }
-                },
+                new CurrentPasswordMatches($this->user()),
             ],
             'password' => [
                 'required',
@@ -58,8 +57,8 @@ class ChangePasswordRequest extends FormRequest
     /**
      * Handle a failed validation attempt.
      */
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    protected function failedValidation(Validator $validator)
     {
-        throw new \Illuminate\Validation\ValidationException($validator);
+        throw new ValidationException($validator);
     }
 }

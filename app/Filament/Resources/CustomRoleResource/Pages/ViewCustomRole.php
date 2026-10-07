@@ -83,7 +83,7 @@ class ViewCustomRole extends ViewRecord
                                     }
 
                                     return implode(', ', array_map(
-                                        fn ($p) => ucfirst(str_replace('_', ' ', last(explode('.', $p)))),
+                                        fn ($permission) => ucfirst(str_replace('_', ' ', last(explode('.', $permission)))),
                                         $matched,
                                     ));
                                 })

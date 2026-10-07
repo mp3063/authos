@@ -33,6 +33,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Spatie\Permission\Models\Permission;
 use UnitEnum;
 
 class RoleResource extends Resource
@@ -97,14 +98,14 @@ class RoleResource extends Resource
 
                         // CRITICAL FIX: Deduplicate permissions - prioritize organization-specific over global
                         // Use a subquery to find permission names that exist for this specific organization
-                        $orgSpecificNames = \Spatie\Permission\Models\Permission::query()
+                        $orgSpecificNames = Permission::query()
                             ->where('guard_name', $guardName)
                             ->where('organization_id', $organizationId)
                             ->pluck('name');
 
                         // Show organization-specific permissions + global permissions not in organization scope
-                        $query->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                            $q->where('organization_id', $organizationId)
+                        $query->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                            $subQuery->where('organization_id', $organizationId)
                                 ->orWhere(function ($q2) use ($orgSpecificNames) {
                                     $q2->whereNull('organization_id')
                                         ->whereNotIn('name', $orgSpecificNames);
@@ -125,7 +126,17 @@ class RoleResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('name');
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('name')->searchable()->sortable()->weight('bold')->badge()->color('primary'),
 
             TextColumn::make('guard_name')->badge()->color('gray')->sortable(),
@@ -146,7 +157,7 @@ class RoleResource extends Resource
                     $organizationId = $record->organization_id;
 
                     // Get organization-specific permission names to exclude from global permissions
-                    $orgSpecificNames = \Spatie\Permission\Models\Permission::query()
+                    $orgSpecificNames = Permission::query()
                         ->where('guard_name', $guardName)
                         ->where('organization_id', $organizationId)
                         ->pluck('name');
@@ -154,8 +165,8 @@ class RoleResource extends Resource
                     // Count unique permissions matching this role's guard
                     return $record->permissions()
                         ->where('guard_name', $guardName)
-                        ->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                            $q->where('organization_id', $organizationId)
+                        ->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                            $subQuery->where('organization_id', $organizationId)
                                 ->orWhere(function ($q2) use ($orgSpecificNames) {
                                     $q2->whereNull('organization_id')
                                         ->whereNotIn('name', $orgSpecificNames);
@@ -176,7 +187,7 @@ class RoleResource extends Resource
                     $organizationId = $record->organization_id;
 
                     // Get organization-specific permission names to exclude from global permissions
-                    $orgSpecificNames = \Spatie\Permission\Models\Permission::query()
+                    $orgSpecificNames = Permission::query()
                         ->where('guard_name', $guardName)
                         ->where('organization_id', $organizationId)
                         ->pluck('name');
@@ -184,8 +195,8 @@ class RoleResource extends Resource
                     // Get unique permissions matching this role's guard
                     return $record->permissions()
                         ->where('guard_name', $guardName)
-                        ->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                            $q->where('organization_id', $organizationId)
+                        ->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                            $subQuery->where('organization_id', $organizationId)
                                 ->orWhere(function ($q2) use ($orgSpecificNames) {
                                     $q2->whereNull('organization_id')
                                         ->whereNotIn('name', $orgSpecificNames);
@@ -202,7 +213,12 @@ class RoleResource extends Resource
             TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
 
             TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('guard_name')->options([
                 'web' => 'Web',
                 'api' => 'API',
@@ -241,7 +257,12 @@ class RoleResource extends Resource
                 'User Manager',
                 'Auditor',
             ]))->label('Default Roles'),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
@@ -278,7 +299,12 @@ class RoleResource extends Resource
                         return true;
                     }),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 DeleteBulkAction::make()->requiresConfirmation()->modalDescription('Are you sure you want to delete these roles?'),
 
@@ -295,7 +321,7 @@ class RoleResource extends Resource
                         Notification::make()->title('Permission assigned to selected roles')->success()->send();
                     }),
             ]),
-        ])->defaultSort('name');
+        ];
     }
 
     public static function getRelations(): array
@@ -344,8 +370,8 @@ class RoleResource extends Resource
         }
 
         // Organization users can only see their organization's roles + global roles
-        return $query->where(function ($q) use ($user) {
-            $q->where('organization_id', $user?->organization_id)
+        return $query->where(function ($subQuery) use ($user) {
+            $subQuery->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         });
     }

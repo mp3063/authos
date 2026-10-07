@@ -2,11 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\AuthenticationLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\AuthenticationLog>
+ * @extends Factory<AuthenticationLog>
  */
 class AuthenticationLogFactory extends Factory
 {
@@ -63,7 +64,7 @@ class AuthenticationLogFactory extends Factory
      */
     public function successfulLogin(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'event' => 'login_success',
             'success' => true,
         ]);
@@ -74,7 +75,7 @@ class AuthenticationLogFactory extends Factory
      */
     public function logout(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'event' => 'logout',
             'success' => true,
         ]);
@@ -102,7 +103,7 @@ class AuthenticationLogFactory extends Factory
      */
     public function forUser(User $user): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'user_id' => $user->id,
         ]);
     }
@@ -112,7 +113,7 @@ class AuthenticationLogFactory extends Factory
      */
     public function fromIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }
@@ -139,7 +140,7 @@ class AuthenticationLogFactory extends Factory
      */
     public function recent(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'created_at' => fake()->dateTimeBetween('-1 hour', 'now'),
         ]);
     }

@@ -16,8 +16,6 @@ class GenerateOpenAPISpec extends Command
 
     protected $description = 'Generate OpenAPI 3.1.0 specification from routes';
 
-    private array $schemas = [];
-
     public function handle(): int
     {
         $this->info('Generating OpenAPI specification...');
@@ -198,39 +196,29 @@ class GenerateOpenAPISpec extends Command
     private function generateOperationId(string $uri, string $method): string
     {
         $parts = array_filter(explode('/', $uri));
-        $parts = array_map(fn ($p) => str_replace(['{', '}'], '', $p), $parts);
+        $parts = array_map(fn ($part) => str_replace(['{', '}'], '', $part), $parts);
 
         return $method.implode('', array_map('ucfirst', $parts));
     }
 
     private function extractTags(string $uri): array
     {
-        if (str_contains($uri, '/v1/auth')) {
-            return ['Authentication'];
-        }
-        if (str_contains($uri, '/v1/users')) {
-            return ['Users'];
-        }
-        if (str_contains($uri, '/v1/organizations')) {
-            return ['Organizations'];
-        }
-        if (str_contains($uri, '/v1/applications')) {
-            return ['Applications'];
-        }
-        if (str_contains($uri, '/v1/profile')) {
-            return ['Profile'];
-        }
-        if (str_contains($uri, '/v1/mfa')) {
-            return ['MFA'];
-        }
-        if (str_contains($uri, '/v1/sso')) {
-            return ['SSO'];
-        }
-        if (str_contains($uri, '/v1/enterprise')) {
-            return ['Enterprise'];
-        }
-        if (str_contains($uri, '/v1/oauth')) {
-            return ['OAuth'];
+        $tagsByPrefix = [
+            '/v1/auth' => 'Authentication',
+            '/v1/users' => 'Users',
+            '/v1/organizations' => 'Organizations',
+            '/v1/applications' => 'Applications',
+            '/v1/profile' => 'Profile',
+            '/v1/mfa' => 'MFA',
+            '/v1/sso' => 'SSO',
+            '/v1/enterprise' => 'Enterprise',
+            '/v1/oauth' => 'OAuth',
+        ];
+
+        foreach ($tagsByPrefix as $prefix => $tag) {
+            if (str_contains($uri, $prefix)) {
+                return [$tag];
+            }
         }
 
         return ['General'];
@@ -291,14 +279,17 @@ class GenerateOpenAPISpec extends Command
         if (str_contains($uri, '/auth/login')) {
             return 'LoginRequest';
         }
-        if (str_contains($uri, '/users')) {
-            return $method === 'post' ? 'CreateUserRequest' : 'UpdateUserRequest';
-        }
-        if (str_contains($uri, '/organizations')) {
-            return $method === 'post' ? 'CreateOrganizationRequest' : 'UpdateOrganizationRequest';
-        }
-        if (str_contains($uri, '/applications')) {
-            return $method === 'post' ? 'CreateApplicationRequest' : 'UpdateApplicationRequest';
+
+        $resourcesBySegment = [
+            '/users' => 'User',
+            '/organizations' => 'Organization',
+            '/applications' => 'Application',
+        ];
+
+        foreach ($resourcesBySegment as $segment => $resource) {
+            if (str_contains($uri, $segment)) {
+                return ($method === 'post' ? 'Create' : 'Update').$resource.'Request';
+            }
         }
 
         return 'GenericRequest';
@@ -381,6 +372,16 @@ class GenerateOpenAPISpec extends Command
 
     private function generateSchemas(): array
     {
+        return array_merge(
+            $this->responseSchemas(),
+            $this->authSchemas(),
+            $this->modelSchemas(),
+            $this->resourceRequestSchemas(),
+        );
+    }
+
+    private function responseSchemas(): array
+    {
         return [
             'SuccessResponse' => [
                 'type' => 'object',
@@ -412,6 +413,12 @@ class GenerateOpenAPISpec extends Command
                     ],
                 ],
             ],
+        ];
+    }
+
+    private function authSchemas(): array
+    {
+        return [
             'LoginRequest' => [
                 'type' => 'object',
                 'required' => ['email', 'password'],
@@ -444,6 +451,12 @@ class GenerateOpenAPISpec extends Command
                     'password' => ['type' => 'string', 'format' => 'password', 'minLength' => 8],
                 ],
             ],
+        ];
+    }
+
+    private function modelSchemas(): array
+    {
+        return [
             'User' => [
                 'type' => 'object',
                 'properties' => [
@@ -478,6 +491,12 @@ class GenerateOpenAPISpec extends Command
                     'updated_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
+        ];
+    }
+
+    private function resourceRequestSchemas(): array
+    {
+        return [
             'CreateUserRequest' => [
                 'type' => 'object',
                 'required' => ['name', 'email', 'password'],

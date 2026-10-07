@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\SocialAccount;
 use App\Models\User;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
@@ -70,7 +72,7 @@ class SocialAuthService
         $stateData = cache()->pull("oauth_state:{$state}");
 
         if (! $stateData) {
-            throw new \Exception('Invalid or expired OAuth state parameter');
+            throw new Exception('Invalid or expired OAuth state parameter');
         }
 
         // Additional security: verify IP and user agent
@@ -151,14 +153,14 @@ class SocialAuthService
                     'token_type' => 'Bearer',
                 ];
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Social authentication failed', [
                 'provider' => $provider,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            throw new \Exception('Social authentication failed: '.$e->getMessage());
+            throw new Exception('Social authentication failed: '.$e->getMessage());
         }
     }
 
@@ -199,13 +201,13 @@ class SocialAuthService
         if ($organizationSlug) {
             $organization = Organization::where('slug', $organizationSlug)->first();
             if (! $organization) {
-                throw new \Exception('Organization not found');
+                throw new Exception('Organization not found');
             }
 
             // Check if organization allows registration
             $settings = $organization->settings ?? [];
             if (isset($settings['allow_registration']) && ! $settings['allow_registration']) {
-                throw new \Exception('Organization does not allow registration');
+                throw new Exception('Organization does not allow registration');
             }
         } else {
             // Use default organization or create one
@@ -235,7 +237,7 @@ class SocialAuthService
         $user = User::create($userData);
 
         // Create social account record
-        \App\Models\SocialAccount::create([
+        SocialAccount::create([
             'user_id' => $user->id,
             'provider' => $provider,
             'provider_id' => $socialUser->getId(),
@@ -277,7 +279,7 @@ class SocialAuthService
         ]);
 
         // Update or create social account record
-        \App\Models\SocialAccount::updateOrCreate(
+        SocialAccount::updateOrCreate(
             [
                 'user_id' => $user->id,
                 'provider' => $user->provider,
@@ -306,25 +308,25 @@ class SocialAuthService
     public function linkSocialAccount(User $user, string $provider, SocialiteUser $socialUser): User
     {
         // Check if social account already exists for this provider and provider_id
-        $existingSocialAccount = \App\Models\SocialAccount::where('provider', $provider)
+        $existingSocialAccount = SocialAccount::where('provider', $provider)
             ->where('provider_id', $socialUser->getId())
             ->first();
 
         if ($existingSocialAccount && $existingSocialAccount->user_id !== $user->id) {
-            throw new \Exception('This social account is already linked to another user.');
+            throw new Exception('This social account is already linked to another user.');
         }
 
         // Check if user already has this provider linked
-        $userExistingAccount = \App\Models\SocialAccount::where('user_id', $user->id)
+        $userExistingAccount = SocialAccount::where('user_id', $user->id)
             ->where('provider', $provider)
             ->first();
 
         if ($userExistingAccount) {
-            throw new \Exception('You already have a '.ucfirst($provider).' account linked.');
+            throw new Exception('You already have a '.ucfirst($provider).' account linked.');
         }
 
         // Create new social account record
-        \App\Models\SocialAccount::create([
+        SocialAccount::create([
             'user_id' => $user->id,
             'provider' => $provider,
             'provider_id' => $socialUser->getId(),
@@ -396,7 +398,7 @@ class SocialAuthService
                     $user->assignRole($globalRole);
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to assign default role to social user', [
                 'user_id' => $user->id,
                 'organization_id' => $organization?->id,
@@ -421,7 +423,7 @@ class SocialAuthService
                     'provider_display_name' => $user->getProviderDisplayName(),
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to log social authentication event', [
                 'user_id' => $user->id,
                 'provider' => $provider,

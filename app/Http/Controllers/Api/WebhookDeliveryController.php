@@ -2,17 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Resources\WebhookDeliveryResource;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
+use App\Services\WebhookService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Symfony\Component\HttpFoundation\Response;
 
-class WebhookDeliveryController extends BaseApiController
+class WebhookDeliveryController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
-        protected WebhookDeliveryService $deliveryService
+        protected WebhookDeliveryService $deliveryService,
+        protected WebhookService $webhookService
     ) {
         $this->middleware('auth:api');
     }
@@ -109,5 +116,91 @@ class WebhookDeliveryController extends BaseApiController
             $delivery,
             WebhookDeliveryResource::class
         );
+    }
+
+    /**
+     * Get delivery history for a webhook
+     *
+     * @group Webhook Analytics
+     */
+    public function deliveries(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('webhooks.read');
+
+        $request->validate([
+            'page' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+            'status' => 'sometimes|string|in:pending,sending,success,failed,retrying',
+            'event_type' => 'sometimes|string',
+        ]);
+
+        $query = Webhook::query();
+
+        // Enforce organization-based data isolation
+        if (! $this->isSuperAdmin()) {
+            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
+        }
+
+        $webhook = $query->find($id);
+
+        if (! $webhook) {
+            return $this->notFoundResponse('Webhook not found');
+        }
+
+        $deliveriesQuery = $webhook->deliveries()->with('webhook');
+
+        // Apply filters
+        if ($request->has('status')) {
+            $deliveriesQuery->where('status', $request->status);
+        }
+
+        if ($request->has('event_type')) {
+            $deliveriesQuery->where('event_type', $request->event_type);
+        }
+
+        // Order by most recent
+        $deliveriesQuery->latest();
+
+        // Paginate
+        $perPage = $request->input('per_page', 20);
+        $deliveries = $deliveriesQuery->paginate($perPage);
+
+        return $this->paginatedResponse(
+            $deliveries,
+            null,
+            WebhookDeliveryResource::class
+        );
+    }
+
+    /**
+     * Get delivery statistics for a webhook
+     *
+     * @group Webhook Analytics
+     */
+    public function stats(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('webhooks.read');
+
+        $request->validate([
+            'days' => 'sometimes|integer|min:1|max:90',
+        ]);
+
+        $query = Webhook::query();
+
+        // Enforce organization-based data isolation
+        if (! $this->isSuperAdmin()) {
+            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
+        }
+
+        $webhook = $query->find($id);
+
+        if (! $webhook) {
+            return $this->notFoundResponse('Webhook not found');
+        }
+
+        $days = $request->input('days', 30);
+        $stats = $this->webhookService->getDeliveryStats($webhook, $days);
+
+        return $this->successResponse($stats);
     }
 }

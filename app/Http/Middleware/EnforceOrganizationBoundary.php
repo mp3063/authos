@@ -3,10 +3,13 @@
 namespace App\Http\Middleware;
 
 use App\Models\Application;
+use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
 use Closure;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -15,8 +18,8 @@ class EnforceOrganizationBoundary
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
-     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     * @param  Closure(Request): (Response|RedirectResponse)  $next
+     * @return Response|RedirectResponse
      */
     public function handle(Request $request, Closure $next)
     {
@@ -39,8 +42,7 @@ class EnforceOrganizationBoundary
         ]);
 
         // Skip for super admins (they can access all organizations)
-        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
-            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+        if ($this->isSuperAdmin($user)) {
             \Log::info('Super admin detected, allowing access');
 
             return $next($request);
@@ -48,50 +50,15 @@ class EnforceOrganizationBoundary
 
         \Log::info('Not a super admin, checking organization boundaries');
 
-        // Check if the route has organization ID parameter
-        $organizationId = $request->route('organizationId');
-        $applicationId = $request->route('applicationId');
-        $userId = $request->route('userId');
+        [$organizationId, $applicationId, $userId] = $this->resolveRouteResourceIds($request);
 
-        // For user and application routes, the 'id' parameter refers to those resources, not organization
-        $routeName = $request->route()->getName();
-        $routeUri = $request->route()->uri();
+        $violation = $this->findBoundaryViolation($user, $organizationId, $applicationId, $userId);
 
-        if (str_contains($routeUri, 'users/{id}')) {
-            $userId = $request->route('id');
-        } elseif (str_contains($routeUri, 'applications/{id}')) {
-            $applicationId = $request->route('id');
-        } elseif (str_contains($routeUri, 'organizations/{id}')) {
-            $organizationId = $request->route('id');
-        }
+        if ($violation !== null) {
+            [$resourceType, $resourceId] = $violation;
+            $this->logViolationAttempt($user, $resourceType, $resourceId, $request);
 
-        // Validate organization access
-        if ($organizationId && ! $this->canAccessOrganization($user, $organizationId)) {
-            $this->logViolationAttempt($user, 'organization', $organizationId, $request);
-
-            // Return 404 to not leak information about organization existence
-            return response()->json([
-                'error' => 'Not found',
-                'message' => 'The requested resource was not found.',
-            ], 404);
-        }
-
-        // Validate application access
-        if ($applicationId && ! $this->canAccessApplication($user, $applicationId)) {
-            $this->logViolationAttempt($user, 'application', $applicationId, $request);
-
-            // Return 404 to not leak information about application existence
-            return response()->json([
-                'error' => 'Not found',
-                'message' => 'The requested resource was not found.',
-            ], 404);
-        }
-
-        // Validate user access (for user management endpoints)
-        if ($userId && ! $this->canAccessUser($user, $userId)) {
-            $this->logViolationAttempt($user, 'user', $userId, $request);
-
-            // Return 404 to not leak information about user existence
+            // Return 404 to not leak information about resource existence
             return response()->json([
                 'error' => 'Not found',
                 'message' => 'The requested resource was not found.',
@@ -102,13 +69,62 @@ class EnforceOrganizationBoundary
     }
 
     /**
+     * @return array{0: mixed, 1: mixed, 2: mixed} organization, application and user IDs from the route
+     */
+    private function resolveRouteResourceIds(Request $request): array
+    {
+        $organizationId = $request->route('organizationId');
+        $applicationId = $request->route('applicationId');
+        $userId = $request->route('userId');
+
+        // For user and application routes, the 'id' parameter refers to those resources, not organization
+        $routeUri = $request->route()->uri();
+
+        if (str_contains($routeUri, 'users/{id}')) {
+            $userId = $request->route('id');
+        } elseif (str_contains($routeUri, 'applications/{id}')) {
+            $applicationId = $request->route('id');
+        } elseif (str_contains($routeUri, 'organizations/{id}')) {
+            $organizationId = $request->route('id');
+        }
+
+        return [$organizationId, $applicationId, $userId];
+    }
+
+    /**
+     * @return array{0: string, 1: mixed}|null the first violated resource type and ID, checked in order
+     */
+    private function findBoundaryViolation(User $user, mixed $organizationId, mixed $applicationId, mixed $userId): ?array
+    {
+        if ($organizationId && ! $this->canAccessOrganization($user, $organizationId)) {
+            return ['organization', $organizationId];
+        }
+
+        if ($applicationId && ! $this->canAccessApplication($user, $applicationId)) {
+            return ['application', $applicationId];
+        }
+
+        // Validate user access (for user management endpoints)
+        if ($userId && ! $this->canAccessUser($user, $userId)) {
+            return ['user', $userId];
+        }
+
+        return null;
+    }
+
+    private function isSuperAdmin(User $user): bool
+    {
+        return $user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
+            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api');
+    }
+
+    /**
      * Check if user can access the specified organization
      */
     private function canAccessOrganization(User $user, int $organizationId): bool
     {
         // Super admins can access any organization
-        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
-            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+        if ($this->isSuperAdmin($user)) {
             return true;
         }
 
@@ -128,8 +144,7 @@ class EnforceOrganizationBoundary
         }
 
         // Super admins can access any application
-        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
-            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+        if ($this->isSuperAdmin($user)) {
             return true;
         }
 
@@ -154,8 +169,7 @@ class EnforceOrganizationBoundary
         }
 
         // Super admins can access any user
-        if ($user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
-            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api')) {
+        if ($this->isSuperAdmin($user)) {
             return true;
         }
 
@@ -185,7 +199,7 @@ class EnforceOrganizationBoundary
         ]);
 
         // Also create an authentication log entry for audit trail
-        \App\Models\AuthenticationLog::create([
+        AuthenticationLog::create([
             'user_id' => $user->id,
             'event' => 'boundary_violation',
             'ip_address' => $request->ip(),

@@ -5,8 +5,10 @@ namespace App\Services\BulkImport;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Services\BulkImport\DTOs\ImportOptions;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class UserProcessor
 {
@@ -37,7 +39,7 @@ class UserProcessor
                 'user_id' => $user->id,
                 'action' => $user->wasRecentlyCreated ? 'created' : 'updated',
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -96,7 +98,7 @@ class UserProcessor
         }
 
         // If we get here, user exists but updating is not allowed
-        throw new \RuntimeException("User with email {$email} already exists");
+        throw new RuntimeException("User with email {$email} already exists");
     }
 
     /**
@@ -113,8 +115,8 @@ class UserProcessor
                 // Use the organization-aware role assignment
                 $user->assignOrganizationRole($roleName, $user->organization_id);
             }
-        } catch (\Exception $e) {
-            throw new \RuntimeException('Failed to assign role: '.$e->getMessage());
+        } catch (Exception $e) {
+            throw new RuntimeException('Failed to assign role: '.$e->getMessage());
         }
     }
 
@@ -136,7 +138,7 @@ class UserProcessor
 
             // Note: Actual email sending would be handled by an event listener
             // or notification system in production
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Don't fail the import if invitation fails
             logger()->warning("Failed to send invitation to {$user->email}: ".$e->getMessage());
         }
@@ -178,9 +180,9 @@ class UserProcessor
             }
 
             DB::commit();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
-            throw new \RuntimeException('Batch processing failed: '.$e->getMessage());
+            throw new RuntimeException('Batch processing failed: '.$e->getMessage());
         }
 
         return $results;

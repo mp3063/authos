@@ -91,7 +91,7 @@ class LdapConfigurationPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, LdapConfiguration $ldapConfiguration): bool
+    public function forceDelete(User $user): bool
     {
         // Only super admins can force delete
         return $user->isSuperAdmin();

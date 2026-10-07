@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
 use App\Models\Application;
 use App\Models\AuthenticationLog;
-use App\Models\User;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
 
-class ApplicationController extends BaseApiController
+class ApplicationController extends BaseController
 {
+    use ApiControllerHelpers;
+    use FindsOrgScopedApplications;
+
     protected AuthenticationLogService $authLogService;
 
     public function __construct(AuthenticationLogService $authLogService)
@@ -50,8 +55,8 @@ class ApplicationController extends BaseApiController
         // Apply filters
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('client_id', 'LIKE', "%$search%");
             });
         }
@@ -309,182 +314,6 @@ class ApplicationController extends BaseApiController
     }
 
     /**
-     * Get application users
-     */
-    public function users(string $id): JsonResponse
-    {
-        $this->authorize('applications.read');
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $users = $application->users()->withPivot(['granted_at', 'last_login_at', 'login_count'])->get();
-
-        return response()->json([
-            'data' => $users->map(function ($user) {
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'granted_at' => $user->pivot->granted_at,
-                    'last_login_at' => $user->pivot->last_login_at,
-                    'login_count' => $user->pivot->login_count,
-                ];
-            }),
-        ]);
-    }
-
-    /**
-     * Grant user access to application
-     */
-    public function grantUserAccess(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('applications.update');
-
-        $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
-        ]);
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $user = User::findOrFail($request->user_id);
-
-        // Check if access already exists
-        if ($application->users()->where('user_id', $user->id)->exists()) {
-            return response()->json([
-                'error' => 'resource_conflict',
-                'error_description' => 'User already has access to this application.',
-            ], 409);
-        }
-
-        $application->users()->attach($user->id, [
-            'granted_at' => now(),
-            'login_count' => 0,
-        ]);
-
-        return response()->json([
-            'message' => 'User access granted successfully',
-        ], 201);
-    }
-
-    /**
-     * Revoke user access to application
-     */
-    public function revokeUserAccess(string $id, string $userId): JsonResponse
-    {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $user = User::findOrFail($userId);
-
-        if (! $application->users()->where('user_id', $user->id)->exists()) {
-            return response()->json([
-                'error' => 'resource_not_found',
-                'error_description' => 'User does not have access to this application.',
-            ], 404);
-        }
-
-        $application->users()->detach($user->id);
-
-        // Revoke user's tokens for this application
-        Token::where('client_id', $application->passport_client_id)
-            ->where('user_id', $user->id)
-            ->delete();
-
-        return response()->json([], 204);
-    }
-
-    /**
-     * Get application active tokens
-     */
-    public function tokens(string $id): JsonResponse
-    {
-        $this->authorize('applications.read');
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $tokens = Token::where('client_id', $application->passport_client_id)
-            ->where('revoked', false)
-            ->where('expires_at', '>', now())
-            ->get();
-
-        $userIds = $tokens->pluck('user_id')->filter()->unique()->values();
-        $users = User::whereIn('id', $userIds)->get()->keyBy('id');
-
-        return response()->json([
-            'data' => $tokens->map(function ($token) use ($users) {
-                $user = $users->get($token->user_id);
-
-                return [
-                    'id' => $token->id,
-                    'name' => $token->name,
-                    'scopes' => $token->scopes,
-                    'user' => $user ? [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                    ] : null,
-                    'created_at' => $token->created_at,
-                    'expires_at' => $token->expires_at,
-                ];
-            }),
-        ]);
-    }
-
-    /**
-     * Revoke all application tokens
-     */
-    public function revokeAllTokens(string $id): JsonResponse
-    {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $revokedCount = Token::where('client_id', $application->passport_client_id)->count();
-
-        Token::where('client_id', $application->passport_client_id)->delete();
-
-        return response()->json([
-            'message' => "Revoked $revokedCount active tokens",
-        ]);
-    }
-
-    /**
-     * Revoke specific application token
-     */
-    public function revokeToken(string $id, string $tokenId): JsonResponse
-    {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
-        $token = Token::where('client_id', $application->passport_client_id)
-            ->where('id', $tokenId)
-            ->first();
-
-        if (! $token) {
-            return response()->json([
-                'error' => 'resource_not_found',
-                'error_description' => 'Token not found.',
-            ], 404);
-        }
-
-        // Log the token revocation
-        if ($token->user) {
-            $this->authLogService->logAuthenticationEvent($token->user, 'token_revoked', [
-                'token_id' => $token->id,
-                'application_id' => $application->id,
-            ]);
-        }
-
-        // Revoke the token using Passport
-        $token->revoke();
-
-        // Also revoke refresh token if it exists
-        if ($token->refreshToken) {
-            $token->refreshToken->revoke();
-        }
-
-        return response()->json([
-            'message' => 'Token revoked successfully',
-        ]);
-    }
-
-    /**
      * Get application analytics
      */
     public function analytics(Request $request, string $id): JsonResponse
@@ -534,26 +363,6 @@ class ApplicationController extends BaseApiController
                     : 0,
             ],
         ]);
-    }
-
-    /**
-     * Find application with organization scope enforcement
-     *
-     * This method ensures that non-super-admin users can only access
-     * applications within their own organization. This is critical for
-     * multi-tenant security and prevents OWASP A01:2021 - Broken Access Control.
-     */
-    private function findApplicationWithOrgScope(string $id): Application
-    {
-        $query = Application::query();
-
-        // Enforce organization-based data isolation for non-super-admin users
-        $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
-            $query->where('organization_id', $currentUser->organization_id);
-        }
-
-        return $query->findOrFail($id);
     }
 
     /**

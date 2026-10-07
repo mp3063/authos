@@ -2,11 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\CustomRole;
 use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\CustomRole>
+ * @extends Factory<CustomRole>
  */
 class CustomRoleFactory extends Factory
 {
@@ -30,7 +32,7 @@ class CustomRoleFactory extends Factory
             'display_name' => $roleBaseName, // Keep display name clean
             'description' => fake()->sentence(),
             'organization_id' => Organization::factory(),
-            'created_by' => \App\Models\User::factory(),
+            'created_by' => User::factory(),
             'permissions' => fake()->randomElements([
                 'users.view', 'users.create', 'users.edit', 'users.delete',
                 'applications.view', 'applications.create', 'applications.edit',
@@ -47,7 +49,7 @@ class CustomRoleFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -57,7 +59,7 @@ class CustomRoleFactory extends Factory
      */
     public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }
@@ -65,9 +67,9 @@ class CustomRoleFactory extends Factory
     /**
      * Create role with specific creator.
      */
-    public function createdBy(\App\Models\User $user): static
+    public function createdBy(User $user): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'created_by' => $user->id,
             'organization_id' => $user->organization_id,
         ]);
@@ -78,7 +80,7 @@ class CustomRoleFactory extends Factory
      */
     public function withPermissions(array $permissions): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'permissions' => $permissions,
         ]);
     }
@@ -88,7 +90,7 @@ class CustomRoleFactory extends Factory
      */
     public function system(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_system' => true,
             'name' => 'System Role',
             'display_name' => 'System Role',
@@ -101,7 +103,7 @@ class CustomRoleFactory extends Factory
      */
     public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'name' => 'Organization Admin',
             'display_name' => 'Organization Administrator',
             'permissions' => [
@@ -120,7 +122,7 @@ class CustomRoleFactory extends Factory
      */
     public function readOnly(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'name' => 'Read Only',
             'display_name' => 'Read Only User',
             'permissions' => ['users.view', 'applications.view', 'reports.view'],
@@ -132,7 +134,7 @@ class CustomRoleFactory extends Factory
      */
     public function default(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_default' => true,
         ]);
     }

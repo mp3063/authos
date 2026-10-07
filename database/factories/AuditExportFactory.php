@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\AuditExport;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\AuditExport>
+ * @extends Factory<AuditExport>
  */
 class AuditExportFactory extends Factory
 {
@@ -41,7 +42,7 @@ class AuditExportFactory extends Factory
      */
     public function processing(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'processing',
             'started_at' => now(),
         ]);
@@ -66,7 +67,7 @@ class AuditExportFactory extends Factory
      */
     public function failed(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'failed',
             'started_at' => now()->subMinutes(2),
             'completed_at' => now(),

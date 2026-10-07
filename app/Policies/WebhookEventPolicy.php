@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\WebhookEvent;
 
 class WebhookEventPolicy
 {
@@ -23,7 +22,7 @@ class WebhookEventPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, WebhookEvent $webhookEvent): bool
+    public function view(User $user): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -44,7 +43,7 @@ class WebhookEventPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, WebhookEvent $webhookEvent): bool
+    public function update(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -52,7 +51,7 @@ class WebhookEventPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, WebhookEvent $webhookEvent): bool
+    public function delete(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -60,7 +59,7 @@ class WebhookEventPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, WebhookEvent $webhookEvent): bool
+    public function restore(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -68,7 +67,7 @@ class WebhookEventPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, WebhookEvent $webhookEvent): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

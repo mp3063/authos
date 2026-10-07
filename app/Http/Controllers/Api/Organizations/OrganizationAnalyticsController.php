@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Organizations;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use App\Models\AuditExport;
 use App\Models\Organization;
@@ -11,12 +11,14 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class OrganizationAnalyticsController extends BaseApiController
+class OrganizationAnalyticsController extends BaseController
 {
+    use ApiControllerHelpers;
     use CacheableResponse;
 
     protected OrganizationAnalyticsService $analyticsService;
@@ -315,7 +317,7 @@ class OrganizationAnalyticsController extends BaseApiController
     /**
      * Get export status
      */
-    public function exportStatus(Request $request, string $id, string $exportId): JsonResponse
+    public function exportStatus(string $id, string $exportId): JsonResponse
     {
         $this->authorize('organizations.read');
 

@@ -2,32 +2,21 @@
 
 namespace App\Listeners;
 
-use App\Events\ApplicationCreatedEvent;
-use App\Events\ApplicationDeletedEvent;
-use App\Events\ApplicationUpdatedEvent;
 use App\Events\AuthFailedEvent;
 use App\Events\AuthLoginEvent;
-use App\Events\DomainVerifiedEvent;
 use App\Events\MfaDisabledEvent;
 use App\Events\MfaEnabledEvent;
 use App\Events\OrganizationSettingsChangedEvent;
 use App\Events\OrganizationUpdatedEvent;
-use App\Events\RoleCreatedEvent;
-use App\Events\RoleDeletedEvent;
-use App\Events\RoleUpdatedEvent;
 use App\Events\UserCreatedEvent;
 use App\Events\UserDeletedEvent;
 use App\Events\UserUpdatedEvent;
-use App\Events\WebhookCreatedEvent;
-use App\Events\WebhookDeletedEvent;
-use App\Events\WebhookUpdatedEvent;
-use App\Jobs\DeliverWebhookJob;
-use App\Models\Webhook;
-use App\Models\WebhookDelivery;
-use Illuminate\Support\Str;
+use App\Listeners\Concerns\DispatchesWebhooks;
 
 class WebhookEventSubscriber
 {
+    use DispatchesWebhooks;
+
     /**
      * Handle user created event
      */
@@ -78,14 +67,6 @@ class WebhookEventSubscriber
     }
 
     /**
-     * Handle application created event
-     */
-    public function handleApplicationCreated(ApplicationCreatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->application->organization_id);
-    }
-
-    /**
      * Handle organization updated event
      */
     public function handleOrganizationUpdated(OrganizationUpdatedEvent $event): void
@@ -93,124 +74,13 @@ class WebhookEventSubscriber
         $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->organization->id);
     }
 
-    public function handleApplicationUpdated(ApplicationUpdatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->application->organization_id);
-    }
-
-    public function handleApplicationDeleted(ApplicationDeletedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->application->organization_id);
-    }
-
-    public function handleRoleCreated(RoleCreatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->role->organization_id);
-    }
-
-    public function handleRoleUpdated(RoleUpdatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->role->organization_id);
-    }
-
-    public function handleRoleDeleted(RoleDeletedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->role->organization_id);
-    }
-
     public function handleOrganizationSettingsChanged(OrganizationSettingsChangedEvent $event): void
     {
         $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->organization->id);
     }
 
-    public function handleWebhookCreated(WebhookCreatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->webhook->organization_id);
-    }
-
-    public function handleWebhookUpdated(WebhookUpdatedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->webhook->organization_id);
-    }
-
-    public function handleWebhookDeleted(WebhookDeletedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->webhook->organization_id);
-    }
-
-    public function handleDomainVerified(DomainVerifiedEvent $event): void
-    {
-        $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->domain->organization_id);
-    }
-
     public function handleMfaDisabled(MfaDisabledEvent $event): void
     {
         $this->dispatchWebhooks($event->getEventType(), $event->getPayload(), $event->user->organization_id);
-    }
-
-    /**
-     * Dispatch webhooks for the given event
-     */
-    protected function dispatchWebhooks(string $eventType, array $payload, ?int $organizationId): void
-    {
-        if ($organizationId === null) {
-            return;
-        }
-
-        // Get all active webhooks for this organization
-        $webhooks = Webhook::where('organization_id', $organizationId)
-            ->where('is_active', true)
-            ->get();
-
-        foreach ($webhooks as $webhook) {
-            // Check if webhook is subscribed to this event type
-            if (! $this->isSubscribedToEvent($webhook, $eventType)) {
-                continue;
-            }
-
-            // Add unique ID to payload if not present
-            if (! isset($payload['id'])) {
-                $payload['id'] = 'evt_'.Str::random(32);
-            }
-
-            // Create webhook delivery record
-            $delivery = WebhookDelivery::create([
-                'webhook_id' => $webhook->id,
-                'event_type' => $eventType,
-                'payload' => $payload,
-                'status' => 'pending',
-                'signature' => '', // Will be generated by delivery service
-            ]);
-
-            // Dispatch the delivery job
-            DeliverWebhookJob::dispatch($delivery);
-        }
-    }
-
-    /**
-     * Check if webhook is subscribed to the event type
-     */
-    protected function isSubscribedToEvent(Webhook $webhook, string $eventType): bool
-    {
-        $events = $webhook->events ?? [];
-
-        // Check for wildcard subscription
-        if (in_array('*', $events)) {
-            return true;
-        }
-
-        // Check for exact match
-        if (in_array($eventType, $events)) {
-            return true;
-        }
-
-        // Check for pattern match (e.g., "user.*")
-        foreach ($events as $subscribedEvent) {
-            if (Str::is($subscribedEvent, $eventType)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

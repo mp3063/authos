@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use PragmaRX\Google2FA\Google2FA;
 
 class UserImporter
@@ -82,9 +83,9 @@ class UserImporter
             $user = User::create([
                 'name' => $auth0User->name,
                 'email' => $auth0User->email,
-                'password' => $this->handlePassword($auth0User),
+                'password' => $this->handlePassword(),
                 'email_verified_at' => $auth0User->emailVerified ? now() : null,
-                'avatar' => $auth0User->picture,
+                'avatar' => $auth0User->profile->picture,
                 'organization_id' => $this->getOrganizationId(),
             ]);
 
@@ -130,12 +131,12 @@ class UserImporter
     /**
      * Handle password based on strategy
      */
-    private function handlePassword(Auth0UserDTO $auth0User): string
+    private function handlePassword(): string
     {
         return match ($this->passwordStrategy) {
             self::STRATEGY_RESET => $this->generateTemporaryPassword(),
             self::STRATEGY_LAZY => $this->generateTemporaryPassword(),
-            self::STRATEGY_HASH => $this->importPasswordHash($auth0User),
+            self::STRATEGY_HASH => $this->importPasswordHash(),
             default => $this->generateTemporaryPassword(),
         };
     }
@@ -151,7 +152,7 @@ class UserImporter
     /**
      * Import password hash (if available)
      */
-    private function importPasswordHash(Auth0UserDTO $auth0User): string
+    private function importPasswordHash(): string
     {
         // Auth0 typically doesn't expose password hashes
         // This would only work if you have direct database access
@@ -301,9 +302,9 @@ class UserImporter
             [
                 'auth0_app_metadata' => $auth0User->appMetadata,
                 'auth0_user_metadata' => $auth0User->userMetadata,
-                'auth0_logins_count' => $auth0User->loginsCount,
-                'auth0_last_login' => $auth0User->lastLogin?->format('Y-m-d H:i:s'),
-                'auth0_created_at' => $auth0User->createdAt?->format('Y-m-d H:i:s'),
+                'auth0_logins_count' => $auth0User->activity->loginsCount,
+                'auth0_last_login' => $auth0User->activity->lastLogin?->format('Y-m-d H:i:s'),
+                'auth0_created_at' => $auth0User->activity->createdAt?->format('Y-m-d H:i:s'),
             ]
         );
 
@@ -314,9 +315,9 @@ class UserImporter
                 'auth0_user_id' => $auth0User->userId,
                 'auth0_app_metadata' => $auth0User->appMetadata,
                 'auth0_user_metadata' => $auth0User->userMetadata,
-                'auth0_logins_count' => $auth0User->loginsCount,
-                'auth0_last_login' => $auth0User->lastLogin?->format('Y-m-d H:i:s'),
-                'auth0_created_at' => $auth0User->createdAt?->format('Y-m-d H:i:s'),
+                'auth0_logins_count' => $auth0User->activity->loginsCount,
+                'auth0_last_login' => $auth0User->activity->lastLogin?->format('Y-m-d H:i:s'),
+                'auth0_created_at' => $auth0User->activity->createdAt?->format('Y-m-d H:i:s'),
             ]
         );
 
@@ -348,7 +349,7 @@ class UserImporter
     public function setPasswordStrategy(string $strategy): void
     {
         if (! in_array($strategy, [self::STRATEGY_RESET, self::STRATEGY_LAZY, self::STRATEGY_HASH], true)) {
-            throw new \InvalidArgumentException("Invalid password strategy: {$strategy}");
+            throw new InvalidArgumentException("Invalid password strategy: {$strategy}");
         }
 
         $this->passwordStrategy = $strategy;

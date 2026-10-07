@@ -22,7 +22,7 @@ use Tests\Integration\IntegrationTestCase;
  * - Multiple providers per user support
  * - Legacy social account compatibility
  *
- * @see \App\Http\Controllers\Api\ProfileController::socialAccounts()
+ * @see \App\Http\Controllers\Api\SocialAccountController::socialAccounts()
  * @see \App\Http\Controllers\Api\SocialAuthController
  */
 class SocialAccountsTest extends IntegrationTestCase

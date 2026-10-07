@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Organizations;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\Organization\GrantUserAccessRequest;
 use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\UserResource;
@@ -12,9 +12,12 @@ use App\Models\User;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class OrganizationUsersController extends BaseApiController
+class OrganizationUsersController extends BaseController
 {
+    use ApiControllerHelpers;
+
     protected UserManagementService $userService;
 
     public function __construct(UserManagementService $userService)
@@ -68,8 +71,8 @@ class OrganizationUsersController extends BaseApiController
 
         if ($request->has('search')) {
             $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('email', 'LIKE', "%$search%");
             });
         }
@@ -92,8 +95,8 @@ class OrganizationUsersController extends BaseApiController
         // Support both filter[role] and role= query parameter
         $roleFilter = $filters['role'] ?? $request->get('role');
         if ($roleFilter) {
-            $query->whereHas('roles', function ($q) use ($roleFilter) {
-                $q->where('name', $roleFilter);
+            $query->whereHas('roles', function ($roleQuery) use ($roleFilter) {
+                $roleQuery->where('name', $roleFilter);
             });
         }
 
@@ -134,8 +137,8 @@ class OrganizationUsersController extends BaseApiController
 
         if ($request->has('search')) {
             $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('description', 'LIKE', "%$search%");
             });
         }

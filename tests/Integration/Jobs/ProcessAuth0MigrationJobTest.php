@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Auth0\Auth0Client;
 use App\Services\Auth0\DTOs\Auth0ClientDTO;
 use App\Services\Auth0\DTOs\Auth0RoleDTO;
+use App\Services\Auth0\DTOs\Auth0UserActivity;
 use App\Services\Auth0\DTOs\Auth0UserDTO;
 use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\Importers\UserImporter;
@@ -64,8 +65,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: [],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
                 new Auth0UserDTO(
                     userId: 'auth0|456',
@@ -75,8 +75,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: [],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [],
@@ -117,8 +116,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: ['custom_field' => 'custom_value'],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [],
@@ -177,8 +175,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                             'profileData' => ['password_hash' => '$2a$10$hashedpassword'],
                         ],
                     ],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [],
@@ -225,8 +222,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                             'user_id' => '123',
                         ],
                     ],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [],
@@ -309,8 +305,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: [],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [],
@@ -380,8 +375,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: [],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
                 new Auth0UserDTO(
                     userId: 'auth0|report2',
@@ -391,8 +385,7 @@ class ProcessAuth0MigrationJobTest extends TestCase
                     appMetadata: [],
                     userMetadata: [],
                     identities: [],
-                    createdAt: now(),
-                    updatedAt: now()
+                    activity: new Auth0UserActivity(createdAt: now(), updatedAt: now())
                 ),
             ],
             applications: [

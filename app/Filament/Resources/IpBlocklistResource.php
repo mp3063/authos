@@ -82,7 +82,18 @@ class IpBlocklistResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('blocked_at', 'desc')
+            ->striped();
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('ip_address')
                 ->searchable()
                 ->sortable()
@@ -130,7 +141,12 @@ class IpBlocklistResource extends Resource
             TextColumn::make('created_at')
                 ->dateTime()
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             TernaryFilter::make('is_active')
                 ->label('Active Status')
                 ->boolean()
@@ -160,7 +176,12 @@ class IpBlocklistResource extends Resource
                         fn (Builder $query, $ip): Builder => $query->where('ip_address', 'like', "%$ip%"),
                     );
                 }),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 Action::make('unblock')
                     ->icon('heroicon-o-shield-check')
@@ -199,7 +220,12 @@ class IpBlocklistResource extends Resource
                     ->modalHeading('Delete Blocked IP')
                     ->modalDescription('Are you sure you want to delete this blocked IP entry? This action cannot be undone.'),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('bulk_unblock')
                     ->label('Unblock Selected')
@@ -236,7 +262,7 @@ class IpBlocklistResource extends Resource
                     ->modalHeading('Delete Blocked IPs')
                     ->modalDescription('Are you sure you want to delete these blocked IP entries? This action cannot be undone.'),
             ]),
-        ])->defaultSort('blocked_at', 'desc')->striped();
+        ];
     }
 
     public static function getRelations(): array

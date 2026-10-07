@@ -8,6 +8,7 @@ use App\Events\UserCreatedEvent;
 use App\Events\UserDeletedEvent;
 use App\Events\UserRestoredEvent;
 use App\Events\UserUpdatedEvent;
+use App\Listeners\ResourceWebhookEventSubscriber;
 use App\Listeners\WebhookEventSubscriber;
 use App\Models\Application;
 use App\Models\Organization;
@@ -187,7 +188,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
         $this->subscriber->handleUserDeleted($eventUserDeleted);
 
         $eventAppCreated = new ApplicationCreatedEvent($application);
-        $this->subscriber->handleApplicationCreated($eventAppCreated);
+        app(ResourceWebhookEventSubscriber::class)->handleApplicationCreated($eventAppCreated);
 
         $eventOrgUpdated = new OrganizationUpdatedEvent($this->organization, ['name' => 'Updated Org']);
         $this->subscriber->handleOrganizationUpdated($eventOrgUpdated);
@@ -285,7 +286,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
             'organization_id' => $this->organization->id,
         ]);
         $eventAppCreated = new ApplicationCreatedEvent($application);
-        $this->subscriber->handleApplicationCreated($eventAppCreated);
+        app(ResourceWebhookEventSubscriber::class)->handleApplicationCreated($eventAppCreated);
 
         // ASSERT: application.created did NOT match user.* pattern
         $this->assertDatabaseMissing('webhook_deliveries', [
@@ -330,7 +331,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
         $this->subscriber->handleUserCreated($eventUserCreated);
 
         $eventAppCreated = new ApplicationCreatedEvent($application);
-        $this->subscriber->handleApplicationCreated($eventAppCreated);
+        app(ResourceWebhookEventSubscriber::class)->handleApplicationCreated($eventAppCreated);
 
         // ASSERT: All *.created events matched
         $this->assertDatabaseHas('webhook_deliveries', [
@@ -423,7 +424,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
             'organization_id' => $this->organization->id,
         ]);
         $eventAppCreated = new ApplicationCreatedEvent($application);
-        $this->subscriber->handleApplicationCreated($eventAppCreated);
+        app(ResourceWebhookEventSubscriber::class)->handleApplicationCreated($eventAppCreated);
 
         // ASSERT: application.created did NOT match
         $this->assertDatabaseMissing('webhook_deliveries', [
@@ -475,7 +476,7 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
         $this->subscriber->handleOrganizationUpdated($eventOrgUpdated);
 
         $eventAppCreated = new ApplicationCreatedEvent($application);
-        $this->subscriber->handleApplicationCreated($eventAppCreated);
+        app(ResourceWebhookEventSubscriber::class)->handleApplicationCreated($eventAppCreated);
 
         // ASSERT: All matching events delivered
         $this->assertDatabaseHas('webhook_deliveries', [

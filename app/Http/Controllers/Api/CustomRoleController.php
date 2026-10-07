@@ -6,17 +6,19 @@ use App\Events\RoleCreatedEvent;
 use App\Events\RoleDeletedEvent;
 use App\Events\RoleUpdatedEvent;
 use App\Http\Controllers\Api\Traits\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Services\AuthenticationLogService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Validation\Rule;
 
-class CustomRoleController extends Controller
+class CustomRoleController extends BaseController
 {
     use ApiResponse;
+    use AuthorizesRequests;
 
     protected AuthenticationLogService $authLogService;
 
@@ -57,8 +59,8 @@ class CustomRoleController extends Controller
         // Apply filters
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('display_name', 'LIKE', "%$search%")
                     ->orWhere('description', 'LIKE', "%$search%");
             });

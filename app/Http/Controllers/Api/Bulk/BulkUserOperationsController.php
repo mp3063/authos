@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Bulk;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
@@ -10,10 +10,13 @@ use App\Services\BulkOperationService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
 
-class BulkUserOperationsController extends BaseApiController
+class BulkUserOperationsController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         protected BulkOperationService $bulkOperationService
     ) {
@@ -271,7 +274,7 @@ class BulkUserOperationsController extends BaseApiController
                 'deleted_count' => $deletedCount,
                 'reason' => $request->input('reason'),
             ], sprintf('Successfully deleted %d users', $deletedCount));
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to delete users: '.$e->getMessage());
         }
     }
@@ -330,7 +333,7 @@ class BulkUserOperationsController extends BaseApiController
                 'notification_sent_count' => $notificationSentCount,
                 'grace_period_days' => $gracePeriodDays,
             ], sprintf('MFA enabled for %d users with %d day grace period', $enabledCount, $gracePeriodDays));
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to enable MFA: '.$e->getMessage());
         }
     }
@@ -381,7 +384,7 @@ class BulkUserOperationsController extends BaseApiController
                 'updated_count' => $updatedCount,
                 'settings' => $settings,
             ], sprintf('Successfully updated settings for %d organizations', $updatedCount));
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to update organization settings: '.$e->getMessage());
         }
     }

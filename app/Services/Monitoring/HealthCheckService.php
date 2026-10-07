@@ -2,6 +2,7 @@
 
 namespace App\Services\Monitoring;
 
+use Exception;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -23,10 +24,11 @@ class HealthCheckService
         ];
 
         if ($detailed) {
+            $systemResources = app(SystemResourceHealthCheck::class);
             $checks['ldap'] = $this->checkLDAP();
             $checks['email'] = $this->checkEmail();
-            $checks['disk_space'] = $this->checkDiskSpace();
-            $checks['php_extensions'] = $this->checkPhpExtensions();
+            $checks['disk_space'] = $systemResources->checkDiskSpace();
+            $checks['php_extensions'] = $systemResources->checkPhpExtensions();
         }
 
         $overallStatus = $this->calculateOverallStatus($checks);
@@ -76,7 +78,7 @@ class HealthCheckService
                 'message' => 'Database connection successful',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('Database health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -111,7 +113,7 @@ class HealthCheckService
             Cache::forget($testKey);
 
             if ($retrieved !== $testValue) {
-                throw new \Exception('Cache read/write mismatch');
+                throw new Exception('Cache read/write mismatch');
             }
 
             $responseTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -123,7 +125,7 @@ class HealthCheckService
                 'message' => 'Cache system operational',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('Cache health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -185,7 +187,7 @@ class HealthCheckService
                 'message' => 'OAuth system operational',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('OAuth health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -220,7 +222,7 @@ class HealthCheckService
             File::delete($testFile);
 
             if ($retrieved !== $testContent) {
-                throw new \Exception('Storage read/write mismatch');
+                throw new Exception('Storage read/write mismatch');
             }
 
             $responseTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -232,7 +234,7 @@ class HealthCheckService
                 'message' => 'Storage system operational',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('Storage health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -282,7 +284,7 @@ class HealthCheckService
                 'message' => $status === 'healthy' ? 'Queue system operational' : 'High number of failed jobs',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('Queue health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -328,7 +330,7 @@ class HealthCheckService
                 'message' => 'LDAP configurations present',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::channel('monitoring')->error('LDAP health check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -362,7 +364,7 @@ class HealthCheckService
                 'message' => 'Email system configured',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return [
                 'status' => 'unhealthy',
                 'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
@@ -370,86 +372,6 @@ class HealthCheckService
                 'error' => $e->getMessage(),
             ];
         }
-    }
-
-    /**
-     * Check disk space.
-     */
-    public function checkDiskSpace(): array
-    {
-        $startTime = microtime(true);
-
-        try {
-            $path = storage_path();
-            $freeSpace = disk_free_space($path);
-            $totalSpace = disk_total_space($path);
-            $usedSpace = $totalSpace - $freeSpace;
-            $usedPercentage = round(($usedSpace / $totalSpace) * 100, 2);
-
-            $responseTime = round((microtime(true) - $startTime) * 1000, 2);
-
-            $status = 'healthy';
-            if ($usedPercentage > 90) {
-                $status = 'critical';
-            } elseif ($usedPercentage > 80) {
-                $status = 'degraded';
-            }
-
-            return [
-                'status' => $status,
-                'response_time_ms' => $responseTime,
-                'free_space_bytes' => $freeSpace,
-                'total_space_bytes' => $totalSpace,
-                'used_percentage' => $usedPercentage,
-                'message' => $status === 'healthy' ? 'Disk space adequate' : 'Low disk space',
-            ];
-
-        } catch (\Exception $e) {
-            return [
-                'status' => 'unhealthy',
-                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
-                'message' => 'Disk space check failed: '.$e->getMessage(),
-                'error' => $e->getMessage(),
-            ];
-        }
-    }
-
-    /**
-     * Check required PHP extensions.
-     */
-    public function checkPhpExtensions(): array
-    {
-        $startTime = microtime(true);
-
-        $requiredExtensions = [
-            'openssl',
-            'pdo',
-            'mbstring',
-            'tokenizer',
-            'xml',
-            'ctype',
-            'json',
-            'bcmath',
-        ];
-
-        $missingExtensions = [];
-        foreach ($requiredExtensions as $extension) {
-            if (! extension_loaded($extension)) {
-                $missingExtensions[] = $extension;
-            }
-        }
-
-        $responseTime = round((microtime(true) - $startTime) * 1000, 2);
-
-        $status = empty($missingExtensions) ? 'healthy' : 'unhealthy';
-
-        return [
-            'status' => $status,
-            'response_time_ms' => $responseTime,
-            'required' => $requiredExtensions,
-            'missing' => $missingExtensions,
-            'message' => $status === 'healthy' ? 'All PHP extensions loaded' : 'Missing PHP extensions',
-        ];
     }
 
     /**
@@ -489,7 +411,7 @@ class HealthCheckService
             }
 
             return 0;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return 0;
         }
     }

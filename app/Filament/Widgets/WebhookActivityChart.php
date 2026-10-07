@@ -31,8 +31,8 @@ class WebhookActivityChart extends ChartWidget
 
             // Apply organization scoping
             if (! $user->isSuperAdmin() && $user->organization_id) {
-                $query->whereHas('webhook', function ($q) use ($user) {
-                    $q->where('organization_id', $user->organization_id);
+                $query->whereHas('webhook', function ($subQuery) use ($user) {
+                    $subQuery->where('organization_id', $user->organization_id);
                 });
             }
 

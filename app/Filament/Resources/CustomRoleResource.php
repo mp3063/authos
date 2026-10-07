@@ -34,6 +34,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class CustomRoleResource extends Resource
@@ -106,7 +107,7 @@ class CustomRoleResource extends Resource
                             $categories = CustomRole::getPermissionCategories();
                             $options = [];
 
-                            foreach ($categories as $category => $permissions) {
+                            foreach ($categories as $permissions) {
                                 foreach ($permissions as $permission) {
                                     $options[$permission] = self::formatPermissionLabel($permission);
                                 }
@@ -127,12 +128,22 @@ class CustomRoleResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('created_at', 'desc');
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('name')
                 ->searchable()
                 ->sortable()
                 ->weight('bold')
-                ->description(fn (CustomRole $record): ?string => $record->description ? \Illuminate\Support\Str::limit($record->description, 50) : null),
+                ->description(fn (CustomRole $record): ?string => $record->description ? Str::limit($record->description, 50) : null),
 
             TextColumn::make('display_name')
                 ->label('Display Name')
@@ -189,7 +200,12 @@ class CustomRoleResource extends Resource
                 ->dateTime()
                 ->sortable()
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('organization')
                 ->relationship('organization', 'name')
                 ->searchable()
@@ -214,7 +230,12 @@ class CustomRoleResource extends Resource
                         $query->where('is_system', (bool) $data['value']);
                     }
                 }),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
@@ -253,7 +274,12 @@ class CustomRoleResource extends Resource
                     ->modalHeading('Delete Role')
                     ->modalDescription('Are you sure you want to delete this role? Users assigned to this role will lose these permissions.'),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('activate')
                     ->icon('heroicon-o-check-circle')
@@ -286,7 +312,7 @@ class CustomRoleResource extends Resource
                     ->modalHeading('Delete Roles')
                     ->modalDescription('Are you sure you want to delete these roles? This action cannot be undone.'),
             ]),
-        ])->defaultSort('created_at', 'desc');
+        ];
     }
 
     public static function getRelations(): array

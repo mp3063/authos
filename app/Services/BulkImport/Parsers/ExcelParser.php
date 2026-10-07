@@ -7,8 +7,10 @@ use Generator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use RuntimeException;
 
 class ExcelParser implements FileParserInterface
 {
@@ -20,7 +22,7 @@ class ExcelParser implements FileParserInterface
         $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file;
 
         if (! file_exists($filePath)) {
-            throw new \RuntimeException("File not found: {$filePath}");
+            throw new RuntimeException("File not found: {$filePath}");
         }
 
         try {
@@ -41,7 +43,7 @@ class ExcelParser implements FileParserInterface
             }
 
             if (empty($headers)) {
-                throw new \RuntimeException('No headers found in Excel file');
+                throw new RuntimeException('No headers found in Excel file');
             }
 
             // Get highest row
@@ -70,8 +72,8 @@ class ExcelParser implements FileParserInterface
 
                 yield $rowNumber => $row;
             }
-        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
-            throw new \RuntimeException('Failed to read Excel file: '.$e->getMessage());
+        } catch (ReaderException $e) {
+            throw new RuntimeException('Failed to read Excel file: '.$e->getMessage());
         }
     }
 
@@ -81,7 +83,7 @@ class ExcelParser implements FileParserInterface
     public function generate(array $records, string $filename): string
     {
         if (empty($records)) {
-            throw new \RuntimeException('No records to export');
+            throw new RuntimeException('No records to export');
         }
 
         $spreadsheet = new Spreadsheet;

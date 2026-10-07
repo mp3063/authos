@@ -2,16 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\AuthenticationLog;
+use App\Models\CustomRole;
+use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\Contracts\UserManagementServiceInterface;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Spatie\Permission\Models\Role as SpatieRole;
+use InvalidArgumentException;
 use Spatie\Permission\PermissionRegistrar;
 
 class UserManagementService extends BaseService implements UserManagementServiceInterface
@@ -66,7 +69,7 @@ class UserManagementService extends BaseService implements UserManagementService
     /**
      * Get paginated users for an organization
      */
-    public function getUsersForOrganization(Organization $organization, array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function getUsersForOrganization(Organization $organization, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         return $this->userRepository->getOrganizationUsers($organization, $filters, $perPage);
     }
@@ -196,110 +199,6 @@ class UserManagementService extends BaseService implements UserManagementService
     }
 
     /**
-     * Assign role to user
-     */
-    public function assignRole(User $user, string $roleId): bool
-    {
-        $role = SpatieRole::findOrFail($roleId);
-
-        if ($user->hasRole($role)) {
-            return false;
-        }
-
-        // Guard is handled by User model's getDefaultGuardName() method
-        $user->assignRole($role);
-
-        return true;
-    }
-
-    /**
-     * Remove role from user
-     */
-    public function removeRole(User $user, string $roleId): bool
-    {
-        $role = SpatieRole::findOrFail($roleId);
-
-        if (! $user->hasRole($role)) {
-            return false;
-        }
-
-        $user->removeRole($role);
-
-        return true;
-    }
-
-    /**
-     * Get user's active OAuth tokens (sessions)
-     */
-    public function getUserSessions(User $user): EloquentCollection
-    {
-        // Get OAuth access tokens (Passport) for this user
-        return $user->tokens()
-            ->where('revoked', false)
-            ->orderBy('created_at', 'desc')
-            ->get();
-    }
-
-    /**
-     * Revoke all user OAuth tokens (sessions)
-     */
-    public function revokeAllUserSessions(User $user): int
-    {
-        // Get all active OAuth tokens for this user
-        $activeTokens = $user->tokens()->where('revoked', false)->get();
-        $revokedCount = $activeTokens->count();
-
-        // Revoke each token
-        foreach ($activeTokens as $token) {
-            $token->revoke();
-        }
-
-        // Log session revocation
-        if (request()) {
-            \App\Models\AuthenticationLog::create([
-                'user_id' => $user->id,
-                'event' => 'all_sessions_revoked',
-                'success' => true,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'details' => [],
-            ]);
-        }
-
-        return $revokedCount;
-    }
-
-    /**
-     * Revoke specific user OAuth token (session)
-     */
-    public function revokeUserSession(User $user, string $sessionId): bool
-    {
-        // Find the specific OAuth token
-        $token = $user->tokens()->where('id', $sessionId)->first();
-
-        if (! $token) {
-            return false;
-        }
-
-        // Revoke the token
-        $token->revoke();
-
-        // Log session revocation
-        if (request()) {
-            \App\Models\AuthenticationLog::create([
-                'user_id' => $user->id,
-                'event' => 'session_revoked',
-                'success' => true,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'details' => ['token_id' => $sessionId],
-            ]);
-        }
-
-        return true;
-    }
-
-    /**
      * Perform bulk operations on users
      */
     public function performBulkOperation(array $userIds, string $action, User $currentUser): array
@@ -308,7 +207,7 @@ class UserManagementService extends BaseService implements UserManagementService
         $users = $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization);
 
         if ($users->count() !== count($userIds)) {
-            throw new \InvalidArgumentException('Some users not found or not accessible.');
+            throw new InvalidArgumentException('Some users not found or not accessible.');
         }
 
         $affectedCount = 0;
@@ -356,12 +255,12 @@ class UserManagementService extends BaseService implements UserManagementService
     private function cleanupUserRelations(User $user): void
     {
         // Nullify invitations where user is inviter, accepted_by, or cancelled_by
-        \App\Models\Invitation::where('inviter_id', $user->id)->update(['inviter_id' => null]);
-        \App\Models\Invitation::where('accepted_by', $user->id)->update(['accepted_by' => null]);
-        \App\Models\Invitation::where('cancelled_by', $user->id)->update(['cancelled_by' => null]);
+        Invitation::where('inviter_id', $user->id)->update(['inviter_id' => null]);
+        Invitation::where('accepted_by', $user->id)->update(['accepted_by' => null]);
+        Invitation::where('cancelled_by', $user->id)->update(['cancelled_by' => null]);
 
         // Delete authentication logs
-        \App\Models\AuthenticationLog::where('user_id', $user->id)->delete();
+        AuthenticationLog::where('user_id', $user->id)->delete();
 
         // Delete oauth access tokens
         DB::table('oauth_access_tokens')->where('user_id', $user->id)->delete();
@@ -370,7 +269,7 @@ class UserManagementService extends BaseService implements UserManagementService
         $user->ssoSessions()->delete();
 
         // Nullify CustomRole created_by references
-        \App\Models\CustomRole::where('created_by', $user->id)->update(['created_by' => null]);
+        CustomRole::where('created_by', $user->id)->update(['created_by' => null]);
 
         // Delete user's tokens/sessions (in case some remain)
         $user->tokens()->delete();
@@ -463,45 +362,6 @@ class UserManagementService extends BaseService implements UserManagementService
                 'last_login_at' => $app->pivot->last_login_at,
                 'login_count' => $app->pivot->login_count ?? 0,
                 'is_active' => $app->is_active,
-            ];
-        })->toArray();
-    }
-
-    /**
-     * Format user OAuth tokens (sessions) response
-     */
-    public function formatUserSessionsResponse(Collection $sessions): array
-    {
-        return $sessions->map(function ($token) {
-            // Decode scopes from JSON if it's a string
-            $scopes = $token->scopes;
-            if (is_string($scopes)) {
-                $scopes = json_decode($scopes, true) ?? [];
-            }
-
-            return [
-                'id' => $token->id,
-                'name' => $token->name,
-                'scopes' => $scopes ?? [],
-                'created_at' => $token->created_at?->toISOString(),
-                'expires_at' => $token->expires_at?->toISOString(),
-                'last_used_at' => $token->updated_at?->toISOString(),
-                'revoked' => (bool) $token->revoked,
-            ];
-        })->toArray();
-    }
-
-    /**
-     * Format user roles response
-     */
-    public function formatUserRolesResponse(Collection $roles): array
-    {
-        return $roles->map(function ($role) {
-            return [
-                'id' => $role->id,
-                'name' => $role->name,
-                'display_name' => $role->display_name ?? ucfirst($role->name),
-                'permissions' => $role->permissions->pluck('name'),
             ];
         })->toArray();
     }

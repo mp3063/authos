@@ -45,7 +45,7 @@ class ComplianceReportFactory extends Factory
 
     public function completed(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'status' => ComplianceReport::STATUS_COMPLETED,
             'generated_at' => now(),
             'expires_at' => now()->addDays(180),
@@ -67,7 +67,7 @@ class ComplianceReportFactory extends Factory
 
     public function failed(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'status' => ComplianceReport::STATUS_FAILED,
             'error_message' => fake()->sentence(),
             'generated_at' => now(),
@@ -76,7 +76,7 @@ class ComplianceReportFactory extends Factory
 
     public function expired(): static
     {
-        return $this->completed()->state(fn (array $attributes): array => [
+        return $this->completed()->state(fn (): array => [
             'expires_at' => now()->subDay(),
         ]);
     }

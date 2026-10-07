@@ -59,7 +59,19 @@ class SecurityIncidentResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('detected_at', 'desc')
+            ->poll('30s')
+            ->striped();
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('detected_at')
                 ->dateTime()
                 ->sortable(),
@@ -116,7 +128,12 @@ class SecurityIncidentResource extends Resource
             TextColumn::make('resolved_at')
                 ->dateTime()
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('severity')
                 ->options([
                     'critical' => 'Critical',
@@ -173,9 +190,19 @@ class SecurityIncidentResource extends Resource
             Filter::make('critical_open')
                 ->query(fn (Builder $query): Builder => $query->where('severity', 'critical')->where('status', 'open'))
                 ->label('Critical & Open'),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ViewAction::make()->modalWidth('2xl'),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('resolve')
                     ->label('Resolve Selected')
@@ -219,7 +246,7 @@ class SecurityIncidentResource extends Resource
                             ->send();
                     }),
             ]),
-        ])->defaultSort('detected_at', 'desc')->poll('30s')->striped();
+        ];
     }
 
     public static function getPages(): array

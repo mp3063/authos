@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class ProcessBulkExportJob implements ShouldQueue
 {
@@ -52,7 +53,7 @@ class ProcessBulkExportJob implements ShouldQueue
             // Export based on type
             match ($exportType) {
                 'users' => $this->exportUsers($format, $filters),
-                default => throw new \RuntimeException("Unsupported export type: {$exportType}"),
+                default => throw new RuntimeException("Unsupported export type: {$exportType}"),
             };
 
             // Mark as completed
@@ -94,8 +95,8 @@ class ProcessBulkExportJob implements ShouldQueue
         }
 
         if (! empty($filters['roles'])) {
-            $query->whereHas('roles', function ($q) use ($filters) {
-                $q->whereIn('name', (array) $filters['roles']);
+            $query->whereHas('roles', function ($roleQuery) use ($filters) {
+                $roleQuery->whereIn('name', (array) $filters['roles']);
             });
         }
 
@@ -106,7 +107,7 @@ class ProcessBulkExportJob implements ShouldQueue
             'csv' => $this->generateCsv($users),
             'json' => $this->generateJson($users),
             'xlsx' => $this->generateCsv($users), // Simplified - treat as CSV
-            default => throw new \RuntimeException("Unsupported format: {$format}"),
+            default => throw new RuntimeException("Unsupported format: {$format}"),
         };
 
         // Store file

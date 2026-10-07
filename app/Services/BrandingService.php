@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Organization;
 use App\Models\OrganizationBranding;
+use ErrorException;
 use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -281,7 +282,7 @@ class BrandingService
 
         // Validate dimensions for images (not SVG)
         if (in_array($file->getClientOriginalExtension(), ['png', 'jpg', 'jpeg'])) {
-            $dimensions = @getimagesize($file->getRealPath());
+            $dimensions = $this->readImageSize($file->getRealPath());
 
             if (! $dimensions) {
                 throw new InvalidArgumentException('Invalid image file');
@@ -295,6 +296,18 @@ class BrandingService
                     "Image dimensions exceed maximum of {$maxWidth}x{$maxHeight} pixels"
                 );
             }
+        }
+    }
+
+    /**
+     * @return array<int|string, mixed>|false
+     */
+    private function readImageSize(string|false $path): array|false
+    {
+        try {
+            return getimagesize($path);
+        } catch (ErrorException) {
+            return false;
         }
     }
 }

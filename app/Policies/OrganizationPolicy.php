@@ -77,7 +77,7 @@ class OrganizationPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Organization $organization): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

@@ -79,167 +79,184 @@ class ViewLdapConfiguration extends ViewRecord
     public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Basic Information')
-                ->schema([
-                    TextEntry::make('name')
-                        ->label('Configuration Name')
-                        ->weight('bold'),
-
-                    TextEntry::make('organization.name')
-                        ->label('Organization')
-                        ->badge()
-                        ->placeholder('N/A'),
-
-                    TextEntry::make('connection_info')
-                        ->label('Connection')
-                        ->state(fn ($record): string => $record->host.':'.$record->port)
-                        ->icon('heroicon-o-server')
-                        ->copyable()
-                        ->copyMessage('Connection info copied'),
-
-                    TextEntry::make('base_dn')
-                        ->label('Base DN')
-                        ->copyable()
-                        ->copyMessage('Base DN copied'),
-
-                    TextEntry::make('username')
-                        ->label('Bind Username')
-                        ->copyable(),
-
-                    TextEntry::make('user_filter')
-                        ->label('User Filter')
-                        ->placeholder('(objectClass=person)'),
-
-                    TextEntry::make('user_attribute')
-                        ->label('User Attribute')
-                        ->placeholder('Not set'),
-
-                    TextEntry::make('ssl_tls')
-                        ->label('Encryption')
-                        ->state(function ($record): string {
-                            if ($record->use_ssl) {
-                                return 'SSL';
-                            }
-                            if ($record->use_tls) {
-                                return 'TLS';
-                            }
-
-                            return 'None';
-                        })
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'SSL', 'TLS' => 'success',
-                            default => 'warning',
-                        }),
-
-                    TextEntry::make('is_active')
-                        ->label('Status')
-                        ->formatStateUsing(fn (bool $state): string => $state ? 'Enabled' : 'Disabled')
-                        ->badge()
-                        ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
-                ])
-                ->columns(3),
-
-            Section::make('Sync Status')
-                ->schema([
-                    TextEntry::make('sync_status')
-                        ->label('Status')
-                        ->badge()
-                        ->color(fn (?string $state): string => match ($state) {
-                            'pending' => 'warning',
-                            'processing' => 'info',
-                            'completed' => 'success',
-                            'failed' => 'danger',
-                            default => 'gray',
-                        })
-                        ->icon(fn (?string $state): ?string => match ($state) {
-                            'pending' => 'heroicon-o-clock',
-                            'processing' => 'heroicon-o-arrow-path',
-                            'completed' => 'heroicon-o-check-circle',
-                            'failed' => 'heroicon-o-x-circle',
-                            default => null,
-                        })
-                        ->placeholder('Never synced'),
-
-                    TextEntry::make('last_sync_at')
-                        ->label('Last Sync')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
-                        ->placeholder('Never'),
-
-                    TextEntry::make('created_at')
-                        ->label('Created At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
-
-                    TextEntry::make('updated_at')
-                        ->label('Last Updated')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
-                ])
-                ->columns(3),
-
-            Section::make('Last Sync Result')
-                ->schema([
-                    ViewEntry::make('last_sync_result')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->last_sync_result;
-                            if (! $state) {
-                                return ['json' => 'No sync results available'];
-                            }
-
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                return ['json' => trim($formatted)];
-                            }
-
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->columnSpanFull(),
-
-            Section::make('Error Log')
-                ->schema([
-                    ViewEntry::make('last_sync_error')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->last_sync_error;
-                            if (! $state) {
-                                return ['json' => 'No errors'];
-                            }
-
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                return ['json' => trim($formatted)];
-                            }
-
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->visible(fn ($record) => ! empty($record->last_sync_error))
-                ->columnSpanFull(),
+            $this->basicInformationSection(),
+            $this->syncStatusSection(),
+            $this->lastSyncResultSection(),
+            $this->errorLogSection(),
         ]);
+    }
+
+    private function basicInformationSection(): Section
+    {
+        return Section::make('Basic Information')
+            ->schema([
+                TextEntry::make('name')
+                    ->label('Configuration Name')
+                    ->weight('bold'),
+
+                TextEntry::make('organization.name')
+                    ->label('Organization')
+                    ->badge()
+                    ->placeholder('N/A'),
+
+                TextEntry::make('connection_info')
+                    ->label('Connection')
+                    ->state(fn ($record): string => $record->host.':'.$record->port)
+                    ->icon('heroicon-o-server')
+                    ->copyable()
+                    ->copyMessage('Connection info copied'),
+
+                TextEntry::make('base_dn')
+                    ->label('Base DN')
+                    ->copyable()
+                    ->copyMessage('Base DN copied'),
+
+                TextEntry::make('username')
+                    ->label('Bind Username')
+                    ->copyable(),
+
+                TextEntry::make('user_filter')
+                    ->label('User Filter')
+                    ->placeholder('(objectClass=person)'),
+
+                TextEntry::make('user_attribute')
+                    ->label('User Attribute')
+                    ->placeholder('Not set'),
+
+                TextEntry::make('ssl_tls')
+                    ->label('Encryption')
+                    ->state(function ($record): string {
+                        if ($record->use_ssl) {
+                            return 'SSL';
+                        }
+                        if ($record->use_tls) {
+                            return 'TLS';
+                        }
+
+                        return 'None';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'SSL', 'TLS' => 'success',
+                        default => 'warning',
+                    }),
+
+                TextEntry::make('is_active')
+                    ->label('Status')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Enabled' : 'Disabled')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
+            ])
+            ->columns(3);
+    }
+
+    private function syncStatusSection(): Section
+    {
+        return Section::make('Sync Status')
+            ->schema([
+                TextEntry::make('sync_status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'processing' => 'info',
+                        'completed' => 'success',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn (?string $state): ?string => match ($state) {
+                        'pending' => 'heroicon-o-clock',
+                        'processing' => 'heroicon-o-arrow-path',
+                        'completed' => 'heroicon-o-check-circle',
+                        'failed' => 'heroicon-o-x-circle',
+                        default => null,
+                    })
+                    ->placeholder('Never synced'),
+
+                TextEntry::make('last_sync_at')
+                    ->label('Last Sync')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
+                    ->placeholder('Never'),
+
+                TextEntry::make('created_at')
+                    ->label('Created At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+
+                TextEntry::make('updated_at')
+                    ->label('Last Updated')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+            ])
+            ->columns(3);
+    }
+
+    private function lastSyncResultSection(): Section
+    {
+        return Section::make('Last Sync Result')
+            ->schema([
+                ViewEntry::make('last_sync_result')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->last_sync_result;
+                        if (! $state) {
+                            return ['json' => 'No sync results available'];
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                                return ['json' => trim($formatted)];
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->columnSpanFull();
+    }
+
+    private function errorLogSection(): Section
+    {
+        return Section::make('Error Log')
+            ->schema([
+                ViewEntry::make('last_sync_error')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->last_sync_error;
+                        if (! $state) {
+                            return ['json' => 'No errors'];
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                                return ['json' => trim($formatted)];
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->visible(fn ($record) => ! empty($record->last_sync_error))
+            ->columnSpanFull();
     }
 }

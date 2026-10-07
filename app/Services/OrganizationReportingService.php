@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -33,26 +34,26 @@ class OrganizationReportingService
         $applicationIds = $organization->applications()->pluck('id');
 
         // User statistics
-        $totalUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $totalUsers = User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })->distinct()->count();
 
-        $activeUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
-            $q->whereIn('application_id', $applicationIds)
+        $activeUsers = User::whereHas('applications', function ($subQuery) use ($applicationIds, $startDate) {
+            $subQuery->whereIn('application_id', $applicationIds)
                 ->where('user_applications.last_login_at', '>=', $startDate);
         })->distinct()->count();
 
-        $newUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $newUsers = User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })->whereBetween('created_at', [$startDate, $endDate])->count();
 
-        $mfaEnabledUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $mfaEnabledUsers = User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })->whereNotNull('mfa_methods')->count();
 
         // Daily login activity
-        $dailyLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $dailyLogins = AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
             ->where('event', 'login_success')
             ->whereBetween('created_at', [$startDate, $endDate])
@@ -66,12 +67,12 @@ class OrganizationReportingService
             ->get();
 
         // Top active users
-        $topUsers = User::whereHas('applications', function ($q) use ($applicationIds, $startDate) {
-            $q->whereIn('application_id', $applicationIds)
+        $topUsers = User::whereHas('applications', function ($subQuery) use ($applicationIds, $startDate) {
+            $subQuery->whereIn('application_id', $applicationIds)
                 ->where('user_applications.last_login_at', '>=', $startDate);
         })
-            ->with(['applications' => function ($q) use ($applicationIds) {
-                $q->whereIn('application_id', $applicationIds)
+            ->with(['applications' => function ($subQuery) use ($applicationIds) {
+                $subQuery->whereIn('application_id', $applicationIds)
                     ->withPivot(['last_login_at', 'login_count']);
             }])
             ->get()
@@ -93,16 +94,16 @@ class OrganizationReportingService
             ->values();
 
         // Failed login attempts
-        $failedLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $failedLogins = AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
             ->where('event', 'login_failed')
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 
         // Role distribution
-        $roleDistribution = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $roleDistribution = User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
             ->with('roles')
             ->get()
@@ -167,8 +168,8 @@ class OrganizationReportingService
         $organization = Organization::findOrFail($organizationId);
 
         $applications = $organization->applications()
-            ->with(['users' => function ($q) {
-                $q->withPivot(['last_login_at', 'login_count', 'granted_at']);
+            ->with(['users' => function ($subQuery) {
+                $subQuery->withPivot(['last_login_at', 'login_count', 'granted_at']);
             }])
             ->get()
             ->map(function ($app) {
@@ -276,8 +277,8 @@ class OrganizationReportingService
         $startDate = Carbon::now()->subDays(90);
 
         // Failed login attempts
-        $failedLogins = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $failedLogins = AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
             ->where('event', 'login_failed')
             ->where('created_at', '>=', $startDate)
@@ -292,8 +293,8 @@ class OrganizationReportingService
             ->get();
 
         // Suspicious IP addresses (multiple failed logins)
-        $suspiciousIPs = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $suspiciousIPs = AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
             ->where('event', 'login_failed')
             ->where('created_at', '>=', $startDate)
@@ -309,51 +310,20 @@ class OrganizationReportingService
             ->get();
 
         // Users without MFA
-        $usersWithoutMFA = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
+        $usersWithoutMFA = User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
         })
-            ->where(function ($q) {
-                $q->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
+            ->where(function ($subQuery) {
+                $subQuery->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
             })
             ->select('id', 'name', 'email', 'created_at')
             ->get();
 
-        // Privileged users (admins, owners)
-        $privilegedUsers = User::whereHas('applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
-        })
-            ->whereHas('roles', function ($q) {
-                $q->whereIn('name', ['Super Admin', 'Organization Admin', 'Organization Owner']);
-            })
-            ->with('roles.permissions')
-            ->select('id', 'name', 'email', 'created_at')
-            ->get()
-            ->map(function ($user) {
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'roles' => $user->roles->pluck('name'),
-                    'mfa_enabled' => $user->hasMfaEnabled(),
-                    'created_at' => $user->created_at,
-                ];
-            });
+        $privilegedUsers = $this->getPrivilegedUsers($applicationIds);
 
-        // Token revocation events
-        $tokenRevocations = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
-        })
-            ->where('event', 'token_revoked')
-            ->where('created_at', '>=', $startDate)
-            ->count();
+        $tokenRevocations = $this->countAuthEventsSince($applicationIds, 'token_revoked', $startDate);
 
-        // Password change events
-        $passwordChanges = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
-        })
-            ->where('event', 'password_changed')
-            ->where('created_at', '>=', $startDate)
-            ->count();
+        $passwordChanges = $this->countAuthEventsSince($applicationIds, 'password_changed', $startDate);
 
         // Organization security settings compliance
         $orgSettings = $organization->settings ?? [];
@@ -366,31 +336,7 @@ class OrganizationReportingService
 
         $complianceScore = (array_sum($securityCompliance) / count($securityCompliance)) * 100;
 
-        // Recent security events (last 30 days)
-        $recentSecurityEvents = AuthenticationLog::whereHas('user.applications', function ($q) use ($applicationIds) {
-            $q->whereIn('application_id', $applicationIds);
-        })
-            ->whereIn('event', ['login_failed', 'token_revoked', 'mfa_failed', 'password_changed'])
-            ->where('created_at', '>=', Carbon::now()->subDays(30))
-            ->with('user:id,name,email')
-            ->orderByDesc('created_at')
-            ->limit(100)
-            ->get()
-            ->map(function ($log) {
-                return [
-                    'event' => $log->event,
-                    'user' => $log->user ? [
-                        'id' => $log->user->id,
-                        'name' => $log->user->name,
-                        'email' => $log->user->email,
-                    ] : null,
-                    'ip_address' => $log->ip_address,
-                    'user_agent' => $log->user_agent,
-                    'success' => $log->success,
-                    'metadata' => $log->metadata,
-                    'created_at' => $log->created_at,
-                ];
-            });
+        $recentSecurityEvents = $this->getRecentSecurityEvents($applicationIds);
 
         return [
             'organization' => [
@@ -427,6 +373,73 @@ class OrganizationReportingService
             'recommendations' => $this->generateSecurityRecommendations($organization, $usersWithoutMFA->count(), $suspiciousIPs->count(), $complianceScore),
             'generated_at' => Carbon::now()->toISOString(),
         ];
+    }
+
+    /**
+     * Privileged users (admins, owners)
+     */
+    private function getPrivilegedUsers(Collection $applicationIds): Collection
+    {
+        return User::whereHas('applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
+        })
+            ->whereHas('roles', function ($subQuery) {
+                $subQuery->whereIn('name', ['Super Admin', 'Organization Admin', 'Organization Owner']);
+            })
+            ->with('roles.permissions')
+            ->select('id', 'name', 'email', 'created_at')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $user->roles->pluck('name'),
+                    'mfa_enabled' => $user->hasMfaEnabled(),
+                    'created_at' => $user->created_at,
+                ];
+            });
+    }
+
+    private function countAuthEventsSince(Collection $applicationIds, string $event, Carbon $startDate): int
+    {
+        return AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
+        })
+            ->where('event', $event)
+            ->where('created_at', '>=', $startDate)
+            ->count();
+    }
+
+    /**
+     * Recent security events (last 30 days)
+     */
+    private function getRecentSecurityEvents(Collection $applicationIds): Collection
+    {
+        return AuthenticationLog::whereHas('user.applications', function ($subQuery) use ($applicationIds) {
+            $subQuery->whereIn('application_id', $applicationIds);
+        })
+            ->whereIn('event', ['login_failed', 'token_revoked', 'mfa_failed', 'password_changed'])
+            ->where('created_at', '>=', Carbon::now()->subDays(30))
+            ->with('user:id,name,email')
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'event' => $log->event,
+                    'user' => $log->user ? [
+                        'id' => $log->user->id,
+                        'name' => $log->user->name,
+                        'email' => $log->user->email,
+                    ] : null,
+                    'ip_address' => $log->ip_address,
+                    'user_agent' => $log->user_agent,
+                    'success' => $log->success,
+                    'metadata' => $log->metadata,
+                    'created_at' => $log->created_at,
+                ];
+            });
     }
 
     /**

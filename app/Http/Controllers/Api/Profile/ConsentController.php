@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\Api\Profile;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\DataSubjectRequest;
 use App\Models\UserConsent;
 use App\Services\Compliance\ConsentTrackingService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class ConsentController extends BaseApiController
+class ConsentController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly ConsentTrackingService $consentService,
     ) {
@@ -76,13 +79,13 @@ class ConsentController extends BaseApiController
                 ->where('user_id', $user->id)
                 ->orderBy('consent_type')
                 ->get(['id', 'consent_type', 'terms_version', 'given_at', 'withdrawn_at'])
-                ->map(fn (UserConsent $c): array => [
-                    'id' => $c->id,
-                    'consent_type' => $c->consent_type,
-                    'terms_version' => $c->terms_version,
-                    'given_at' => $c->given_at?->toISOString(),
-                    'withdrawn_at' => $c->withdrawn_at?->toISOString(),
-                    'is_active' => $c->isActive(),
+                ->map(fn (UserConsent $consent): array => [
+                    'id' => $consent->id,
+                    'consent_type' => $consent->consent_type,
+                    'terms_version' => $consent->terms_version,
+                    'given_at' => $consent->given_at?->toISOString(),
+                    'withdrawn_at' => $consent->withdrawn_at?->toISOString(),
+                    'is_active' => $consent->isActive(),
                 ])
                 ->all();
 

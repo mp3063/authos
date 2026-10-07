@@ -16,6 +16,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Override;
 use UnitEnum;
 
 class WebhookEventResource extends Resource
@@ -39,11 +40,13 @@ class WebhookEventResource extends Resource
         return false;
     }
 
+    #[Override]
     public static function canEdit($record): bool
     {
         return false;
     }
 
+    #[Override]
     public static function canDelete($record): bool
     {
         return false;

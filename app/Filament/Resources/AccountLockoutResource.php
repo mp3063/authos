@@ -58,7 +58,19 @@ class AccountLockoutResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('locked_at', 'desc')
+            ->poll('30s')
+            ->striped();
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('locked_at')
                 ->dateTime()
                 ->sortable(),
@@ -130,13 +142,18 @@ class AccountLockoutResource extends Resource
 
                     return 'danger';
                 }),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             Filter::make('active_only')
                 ->label('Active Only')
                 ->query(fn (Builder $query): Builder => $query
                     ->whereNull('unlocked_at')
-                    ->where(function (Builder $q) {
-                        $q->whereNull('unlock_at')
+                    ->where(function (Builder $subQuery) {
+                        $subQuery->whereNull('unlock_at')
                             ->orWhere('unlock_at', '>', now());
                     })
                 ),
@@ -183,7 +200,12 @@ class AccountLockoutResource extends Resource
                         fn (Builder $query, $date): Builder => $query->whereDate('locked_at', '<=', $date),
                     );
                 }),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 ViewAction::make(),
                 Action::make('unlock')
@@ -205,7 +227,12 @@ class AccountLockoutResource extends Resource
                             ->send();
                     }),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('bulk_unlock')
                     ->label('Unlock Selected')
@@ -239,7 +266,7 @@ class AccountLockoutResource extends Resource
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these lockout records? This action cannot be undone.'),
             ]),
-        ])->defaultSort('locked_at', 'desc')->poll('30s')->striped();
+        ];
     }
 
     public static function getPages(): array

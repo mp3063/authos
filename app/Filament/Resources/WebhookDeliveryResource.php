@@ -27,6 +27,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Override;
 use UnitEnum;
 
 class WebhookDeliveryResource extends Resource
@@ -49,12 +50,14 @@ class WebhookDeliveryResource extends Resource
         return false;
     }
 
+    #[Override]
     public static function canEdit($record): bool
     {
         // Deliveries are read-only logs
         return false;
     }
 
+    #[Override]
     public static function canDelete($record): bool
     {
         // Deliveries should not be deleted
@@ -72,7 +75,17 @@ class WebhookDeliveryResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('created_at', 'desc');
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('webhook.name')
                 ->label('Webhook')
                 ->searchable()
@@ -98,22 +111,7 @@ class WebhookDeliveryResource extends Resource
             TextColumn::make('http_status_code')
                 ->label('HTTP Status')
                 ->badge()
-                ->color(function ($state): string {
-                    if (! $state) {
-                        return 'gray';
-                    }
-                    if ($state >= 200 && $state < 300) {
-                        return 'success';
-                    }
-                    if ($state >= 400 && $state < 500) {
-                        return 'warning';
-                    }
-                    if ($state >= 500) {
-                        return 'danger';
-                    }
-
-                    return 'gray';
-                })
+                ->color(fn ($state): string => self::httpStatusColor($state))
                 ->formatStateUsing(fn ($state): string => $state ? (string) $state : 'N/A')
                 ->sortable(),
 
@@ -122,19 +120,7 @@ class WebhookDeliveryResource extends Resource
                 ->formatStateUsing(fn ($state): string => $state ? $state.' ms' : 'N/A')
                 ->sortable()
                 ->alignCenter()
-                ->color(function ($state): string {
-                    if (! $state) {
-                        return 'gray';
-                    }
-                    if ($state < 1000) {
-                        return 'success';
-                    }
-                    if ($state < 3000) {
-                        return 'warning';
-                    }
-
-                    return 'danger';
-                }),
+                ->color(fn ($state): string => self::durationColor($state)),
 
             TextColumn::make('attempt_number')
                 ->label('Attempt')
@@ -166,7 +152,45 @@ class WebhookDeliveryResource extends Resource
                 ->sortable()
                 ->placeholder('Pending')
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function httpStatusColor(mixed $state): string
+    {
+        if (! $state) {
+            return 'gray';
+        }
+        if ($state >= 200 && $state < 300) {
+            return 'success';
+        }
+        if ($state >= 400 && $state < 500) {
+            return 'warning';
+        }
+        if ($state >= 500) {
+            return 'danger';
+        }
+
+        return 'gray';
+    }
+
+    private static function durationColor(mixed $state): string
+    {
+        if (! $state) {
+            return 'gray';
+        }
+        if ($state < 1000) {
+            return 'success';
+        }
+        if ($state < 3000) {
+            return 'warning';
+        }
+
+        return 'danger';
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('webhook')
                 ->relationship('webhook', 'name')
                 ->searchable()
@@ -212,7 +236,12 @@ class WebhookDeliveryResource extends Resource
                             fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                         );
                 }),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 ViewAction::make(),
                 Action::make('retry')
@@ -247,7 +276,12 @@ class WebhookDeliveryResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('retry_failed')
                     ->icon('heroicon-o-arrow-path')
@@ -271,7 +305,7 @@ class WebhookDeliveryResource extends Resource
                             ->send();
                     }),
             ]),
-        ])->defaultSort('created_at', 'desc');
+        ];
     }
 
     public static function getRelations(): array
@@ -306,8 +340,8 @@ class WebhookDeliveryResource extends Resource
 
         // Other users can only see deliveries from their organization's webhooks
         if ($user->organization_id) {
-            $query->whereHas('webhook', function ($q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
+            $query->whereHas('webhook', function ($subQuery) use ($user) {
+                $subQuery->where('organization_id', $user->organization_id);
             });
         }
 

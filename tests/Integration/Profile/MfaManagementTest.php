@@ -2,8 +2,10 @@
 
 namespace Tests\Integration\Profile;
 
+use App\Http\Controllers\Api\MfaController;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Integration\IntegrationTestCase;
 
@@ -20,7 +22,7 @@ use Tests\Integration\IntegrationTestCase;
  * - Invalid and expired TOTP code handling
  * - MFA status checking
  *
- * @see \App\Http\Controllers\Api\ProfileController
+ * @see MfaController
  */
 class MfaManagementTest extends IntegrationTestCase
 {
@@ -43,7 +45,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->google2fa = new Google2FA;
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_setup_totp_mfa(): void
     {
         // ARRANGE: User without MFA
@@ -79,7 +81,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertFalse($this->user->hasMfaEnabled());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_verify_and_enable_totp(): void
     {
         // ARRANGE: User with TOTP setup
@@ -128,7 +130,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function invalid_totp_code_rejected(): void
     {
         // ARRANGE: User with TOTP setup
@@ -155,7 +157,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertFalse($this->user->hasMfaEnabled());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_disable_mfa_with_password(): void
     {
         // ARRANGE: User with MFA enabled
@@ -202,7 +204,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function mfa_disable_rejects_incorrect_password(): void
     {
         // ARRANGE: User with MFA enabled
@@ -232,7 +234,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertTrue($this->user->hasMfaEnabled());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_generate_recovery_codes(): void
     {
         // ARRANGE: User with MFA enabled
@@ -263,7 +265,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertCount(8, $codes);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_regenerate_recovery_codes(): void
     {
         // ARRANGE: User with MFA and existing recovery codes
@@ -310,7 +312,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function recovery_code_operations_require_mfa_enabled(): void
     {
         // ARRANGE: User without MFA enabled
@@ -342,7 +344,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_view_mfa_status(): void
     {
         // ARRANGE: User with MFA enabled
@@ -380,7 +382,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertTrue($data['totp_configured']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cannot_setup_mfa_when_already_enabled(): void
     {
         // ARRANGE: User with MFA already enabled
@@ -404,7 +406,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_enable_mfa_via_enable_endpoint(): void
     {
         // ARRANGE: User with TOTP setup but not confirmed
@@ -451,7 +453,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_disable_mfa_via_disable_endpoint(): void
     {
         // ARRANGE: User with MFA enabled
@@ -497,7 +499,7 @@ class MfaManagementTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function totp_verification_requires_setup_first(): void
     {
         // ARRANGE: User without TOTP setup

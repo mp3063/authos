@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 class PerformanceBenchmarkService
 {
@@ -60,7 +62,7 @@ class PerformanceBenchmarkService
             $result = $function();
             $metadata['success'] = true;
             $metadata['result'] = is_scalar($result) ? $result : gettype($result);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $metadata['success'] = false;
             $metadata['error'] = $e->getMessage();
         }
@@ -87,7 +89,7 @@ class PerformanceBenchmarkService
                 'queries' => count($queryLog),
                 'query_time_ms' => collect($queryLog)->sum('time'),
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $metadata = [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -113,7 +115,7 @@ class PerformanceBenchmarkService
                 'POST' => $http->post($url, $options),
                 'PUT' => $http->put($url, $options),
                 'DELETE' => $http->delete($url, $options),
-                default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
+                default => throw new InvalidArgumentException("Unsupported HTTP method: {$method}"),
             };
 
             $metadata = [
@@ -123,7 +125,7 @@ class PerformanceBenchmarkService
                 'url' => $url,
                 'method' => $method,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $metadata = [
                 'success' => false,
                 'error' => $e->getMessage(),

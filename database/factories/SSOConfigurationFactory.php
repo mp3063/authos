@@ -2,11 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Application;
+use App\Models\Organization;
+use App\Models\SSOConfiguration;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\SSOConfiguration>
+ * @extends Factory<SSOConfiguration>
  */
 class SSOConfigurationFactory extends Factory
 {
@@ -18,7 +21,7 @@ class SSOConfigurationFactory extends Factory
     public function definition(): array
     {
         return [
-            'application_id' => \App\Models\Application::factory(),
+            'application_id' => Application::factory(),
             'logout_url' => fake()->url().'/logout',
             'callback_url' => fake()->url().'/callback',
             'allowed_domains' => [
@@ -40,9 +43,9 @@ class SSOConfigurationFactory extends Factory
     /**
      * Create configuration for specific application.
      */
-    public function forApplication(\App\Models\Application $application): static
+    public function forApplication(Application $application): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'application_id' => $application->id,
         ]);
     }
@@ -52,7 +55,7 @@ class SSOConfigurationFactory extends Factory
      */
     public function withSessionLifetime(int $seconds): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'session_lifetime' => $seconds,
         ]);
     }
@@ -62,7 +65,7 @@ class SSOConfigurationFactory extends Factory
      */
     public function withAllowedDomains(array $domains): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'allowed_domains' => $domains,
         ]);
     }
@@ -85,7 +88,7 @@ class SSOConfigurationFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -93,11 +96,11 @@ class SSOConfigurationFactory extends Factory
     /**
      * Create configuration for organization.
      */
-    public function forOrganization(\App\Models\Organization $organization): static
+    public function forOrganization(Organization $organization): static
     {
-        return $this->state(function (array $attributes) use ($organization) {
+        return $this->state(function () use ($organization) {
             // Create an application for this organization if not already set
-            $application = \App\Models\Application::factory()->forOrganization($organization)->create();
+            $application = Application::factory()->forOrganization($organization)->create();
 
             return [
                 'application_id' => $application->id,

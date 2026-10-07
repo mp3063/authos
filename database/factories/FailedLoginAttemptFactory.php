@@ -6,7 +6,7 @@ use App\Models\FailedLoginAttempt;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\FailedLoginAttempt>
+ * @extends Factory<FailedLoginAttempt>
  */
 class FailedLoginAttemptFactory extends Factory
 {
@@ -43,7 +43,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function password(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'attempt_type' => 'password',
             'failure_reason' => 'Invalid credentials',
         ]);
@@ -54,7 +54,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function mfa(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'attempt_type' => 'mfa',
             'failure_reason' => 'Invalid MFA code',
         ]);
@@ -65,7 +65,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function social(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'attempt_type' => 'social',
             'failure_reason' => 'Social provider error',
         ]);
@@ -76,7 +76,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function recent(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'attempted_at' => now()->subMinutes(fake()->numberBetween(1, 60)),
         ]);
     }
@@ -86,7 +86,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function forIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }
@@ -96,7 +96,7 @@ class FailedLoginAttemptFactory extends Factory
      */
     public function forEmail(string $email): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'email' => $email,
         ]);
     }

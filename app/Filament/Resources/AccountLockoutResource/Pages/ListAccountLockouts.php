@@ -20,8 +20,8 @@ class ListAccountLockouts extends ListRecords
             'active' => Tab::make('Active')
                 ->modifyQueryUsing(fn (Builder $query) => $query
                     ->whereNull('unlocked_at')
-                    ->where(function (Builder $q) {
-                        $q->whereNull('unlock_at')
+                    ->where(function (Builder $subQuery) {
+                        $subQuery->whereNull('unlock_at')
                             ->orWhere('unlock_at', '>', now());
                     })
                 )
@@ -52,8 +52,8 @@ class ListAccountLockouts extends ListRecords
             return match ($type) {
                 'active' => $query
                     ->whereNull('unlocked_at')
-                    ->where(function (Builder $q) {
-                        $q->whereNull('unlock_at')
+                    ->where(function (Builder $subQuery) {
+                        $subQuery->whereNull('unlock_at')
                             ->orWhere('unlock_at', '>', now());
                     })
                     ->count(),

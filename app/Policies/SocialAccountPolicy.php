@@ -40,7 +40,7 @@ class SocialAccountPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         // Social accounts are created through OAuth flow
         return true;
@@ -93,7 +93,7 @@ class SocialAccountPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, SocialAccount $socialAccount): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

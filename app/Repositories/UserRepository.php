@@ -80,14 +80,14 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
         }
 
         if (isset($filters['role'])) {
-            $query->whereHas('roles', function (Builder $q) use ($filters) {
-                $q->where('name', $filters['role']);
+            $query->whereHas('roles', function (Builder $subQuery) use ($filters) {
+                $subQuery->where('name', $filters['role']);
             });
         }
 
         if (isset($filters['search'])) {
-            $query->where(function (Builder $q) use ($filters) {
-                $q->where('name', 'like', '%'.$filters['search'].'%')
+            $query->where(function (Builder $subQuery) use ($filters) {
+                $subQuery->where('name', 'like', '%'.$filters['search'].'%')
                     ->orWhere('email', 'like', '%'.$filters['search'].'%');
             });
         }
@@ -146,8 +146,8 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         return $this->model
             ->where('organization_id', $organization->id)
-            ->where(function (Builder $q) use ($query) {
-                $q->where('name', 'like', '%'.$query.'%')
+            ->where(function (Builder $subQuery) use ($query) {
+                $subQuery->where('name', 'like', '%'.$query.'%')
                     ->orWhere('email', 'like', '%'.$query.'%');
             })
             ->limit($limit)

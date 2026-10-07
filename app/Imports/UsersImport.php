@@ -8,6 +8,7 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
+use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -60,7 +61,7 @@ class UsersImport implements ToCollection, WithHeadingRow
         foreach ($rows as $row) {
             try {
                 $this->processRow($row);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->results['failed'][] = [
                     'row' => $row->toArray(),
                     'reason' => $e->getMessage(),
@@ -132,7 +133,7 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         // Create new user
         if ($password) {
-            $this->createUser($email, $name, $password, $role, $customRole, $rowData);
+            $this->createUser($email, $name, $password, $role, $customRole);
         } else {
             $this->results['failed'][] = [
                 'row' => $rowData,
@@ -141,7 +142,7 @@ class UsersImport implements ToCollection, WithHeadingRow
         }
     }
 
-    protected function createUser(string $email, string $name, string $password, string $role, ?string $customRole, array $rowData)
+    protected function createUser(string $email, string $name, string $password, string $role, ?string $customRole)
     {
         $user = User::create([
             'name' => $name,
@@ -249,7 +250,7 @@ class UsersImport implements ToCollection, WithHeadingRow
         try {
             Mail::to($invitation->email)
                 ->send(new OrganizationInvitation($invitation));
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log email failure but don't fail the import
             logger()->error('Failed to send invitation email during import', [
                 'invitation_id' => $invitation->id,
@@ -348,7 +349,7 @@ class UsersImport implements ToCollection, WithHeadingRow
             // Assign the role using Spatie's method
             $user->assignRole($roleModel);
         } else {
-            throw new \Exception("Role '$role' does not exist for organization {$this->organization->id}");
+            throw new Exception("Role '$role' does not exist for organization {$this->organization->id}");
         }
     }
 }

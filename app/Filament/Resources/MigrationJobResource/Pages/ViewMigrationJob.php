@@ -75,279 +75,304 @@ class ViewMigrationJob extends ViewRecord
     public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Migration Details')
-                ->schema([
-                    TextEntry::make('id')
-                        ->label('Migration ID'),
-
-                    TextEntry::make('source')
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'auth0' => 'info',
-                            'okta' => 'warning',
-                            'custom' => 'gray',
-                            default => 'gray',
-                        }),
-
-                    TextEntry::make('status')
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'pending' => 'warning',
-                            'running' => 'info',
-                            'completed' => 'success',
-                            'failed' => 'danger',
-                            'rolled_back' => 'gray',
-                            default => 'gray',
-                        }),
-
-                    TextEntry::make('organization.name')
-                        ->label('Organization')
-                        ->badge()
-                        ->placeholder('N/A'),
-
-                    TextEntry::make('total_items')
-                        ->label('Total Items')
-                        ->placeholder('0'),
-
-                    TextEntry::make('summary')
-                        ->label('Summary')
-                        ->state(fn (MigrationJob $record): string => $record->getSummary())
-                        ->columnSpanFull(),
-                ])
-                ->columns(3),
-
-            Section::make('Migration Progress')
-                ->schema([
-                    TextEntry::make('progress')
-                        ->label('Progress')
-                        ->state(function (MigrationJob $record): string {
-                            if ($record->status === 'pending') {
-                                return 'Waiting to start...';
-                            }
-                            if ($record->status === 'running') {
-                                $stats = $record->stats ?? [];
-                                $processed = 0;
-                                foreach (['users', 'applications', 'roles'] as $type) {
-                                    if (isset($stats[$type]) && is_array($stats[$type])) {
-                                        $processed += ($stats[$type]['successful'] ?? 0) + ($stats[$type]['failed'] ?? 0) + ($stats[$type]['skipped'] ?? 0);
-                                    }
-                                }
-                                $total = $record->total_items ?: 1;
-                                $pct = min(100, round(($processed / $total) * 100));
-
-                                return "{$processed}/{$total} items processed ({$pct}%)";
-                            }
-                            if ($record->status === 'completed') {
-                                return 'Migration completed successfully';
-                            }
-                            if ($record->status === 'failed') {
-                                return 'Migration failed';
-                            }
-                            if ($record->status === 'rolled_back') {
-                                return 'Migration was rolled back';
-                            }
-
-                            return $record->status;
-                        })
-                        ->badge()
-                        ->color(fn (MigrationJob $record): string => match ($record->status) {
-                            'pending' => 'warning',
-                            'running' => 'info',
-                            'completed' => 'success',
-                            'failed' => 'danger',
-                            'rolled_back' => 'gray',
-                            default => 'gray',
-                        }),
-
-                    TextEntry::make('users_progress')
-                        ->label('Users')
-                        ->state(function (MigrationJob $record): string {
-                            $stats = $record->stats['users'] ?? null;
-                            if (! $stats) {
-                                return 'N/A';
-                            }
-
-                            $successful = $stats['successful'] ?? 0;
-                            $failed = $stats['failed'] ?? 0;
-                            $skipped = $stats['skipped'] ?? 0;
-
-                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
-                        })
-                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['users'])),
-
-                    TextEntry::make('apps_progress')
-                        ->label('Applications')
-                        ->state(function (MigrationJob $record): string {
-                            $stats = $record->stats['applications'] ?? null;
-                            if (! $stats) {
-                                return 'N/A';
-                            }
-
-                            $successful = $stats['successful'] ?? 0;
-                            $failed = $stats['failed'] ?? 0;
-                            $skipped = $stats['skipped'] ?? 0;
-
-                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
-                        })
-                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['applications'])),
-
-                    TextEntry::make('roles_progress')
-                        ->label('Roles')
-                        ->state(function (MigrationJob $record): string {
-                            $stats = $record->stats['roles'] ?? null;
-                            if (! $stats) {
-                                return 'N/A';
-                            }
-
-                            $successful = $stats['successful'] ?? 0;
-                            $failed = $stats['failed'] ?? 0;
-                            $skipped = $stats['skipped'] ?? 0;
-
-                            return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
-                        })
-                        ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['roles'])),
-                ])
-                ->columns(2)
-                ->visible(fn (MigrationJob $record): bool => in_array($record->status, ['running', 'completed', 'failed'])),
-
-            Section::make('Timing')
-                ->schema([
-                    TextEntry::make('started_at')
-                        ->label('Started At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
-                        ->placeholder('Not started'),
-
-                    TextEntry::make('completed_at')
-                        ->label('Completed At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
-                        ->placeholder('Not completed'),
-
-                    TextEntry::make('duration')
-                        ->label('Duration')
-                        ->state(function (MigrationJob $record): string {
-                            if (! $record->started_at) {
-                                return 'N/A';
-                            }
-                            $end = $record->completed_at ?? now();
-                            $seconds = $record->started_at->diffInSeconds($end);
-
-                            if ($seconds < 60) {
-                                return "{$seconds}s";
-                            }
-
-                            $minutes = floor($seconds / 60);
-                            $remainingSeconds = $seconds % 60;
-
-                            return "{$minutes}m {$remainingSeconds}s";
-                        }),
-
-                    TextEntry::make('created_at')
-                        ->label('Created At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
-
-                    TextEntry::make('updated_at')
-                        ->label('Last Updated')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
-                ])
-                ->columns(3),
-
-            Section::make('Migration Statistics')
-                ->schema([
-                    ViewEntry::make('stats')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->stats;
-                            if (! $state) {
-                                return ['json' => 'No statistics available'];
-                            }
-
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                return ['json' => trim($formatted)];
-                            }
-
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->columnSpanFull(),
-
-            Section::make('Configuration')
-                ->schema([
-                    ViewEntry::make('config')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->config;
-                            if (! $state) {
-                                return ['json' => 'No configuration data'];
-                            }
-
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                return ['json' => trim($formatted)];
-                            }
-
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->columnSpanFull(),
-
-            Section::make('Error Log')
-                ->schema([
-                    ViewEntry::make('error_log')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->error_log;
-                            if (! $state) {
-                                return ['json' => 'No errors'];
-                            }
-
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-                                return ['json' => trim($formatted)];
-                            }
-
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->visible(fn ($record) => ! empty($record->error_log))
-                ->columnSpanFull(),
+            $this->migrationDetailsSection(),
+            $this->migrationProgressSection(),
+            $this->timingSection(),
+            $this->migrationStatisticsSection(),
+            $this->configurationSection(),
+            $this->errorLogSection(),
         ]);
+    }
+
+    private function migrationDetailsSection(): Section
+    {
+        return Section::make('Migration Details')
+            ->schema([
+                TextEntry::make('id')
+                    ->label('Migration ID'),
+
+                TextEntry::make('source')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'auth0' => 'info',
+                        'okta' => 'warning',
+                        'custom' => 'gray',
+                        default => 'gray',
+                    }),
+
+                TextEntry::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'running' => 'info',
+                        'completed' => 'success',
+                        'failed' => 'danger',
+                        'rolled_back' => 'gray',
+                        default => 'gray',
+                    }),
+
+                TextEntry::make('organization.name')
+                    ->label('Organization')
+                    ->badge()
+                    ->placeholder('N/A'),
+
+                TextEntry::make('total_items')
+                    ->label('Total Items')
+                    ->placeholder('0'),
+
+                TextEntry::make('summary')
+                    ->label('Summary')
+                    ->state(fn (MigrationJob $record): string => $record->getSummary())
+                    ->columnSpanFull(),
+            ])
+            ->columns(3);
+    }
+
+    private function migrationProgressSection(): Section
+    {
+        return Section::make('Migration Progress')
+            ->schema([
+                TextEntry::make('progress')
+                    ->label('Progress')
+                    ->state(function (MigrationJob $record): string {
+                        if ($record->status === 'pending') {
+                            return 'Waiting to start...';
+                        }
+                        if ($record->status === 'running') {
+                            $stats = $record->stats ?? [];
+                            $processed = 0;
+                            foreach (['users', 'applications', 'roles'] as $type) {
+                                if (isset($stats[$type]) && is_array($stats[$type])) {
+                                    $processed += ($stats[$type]['successful'] ?? 0) + ($stats[$type]['failed'] ?? 0) + ($stats[$type]['skipped'] ?? 0);
+                                }
+                            }
+                            $total = $record->total_items ?: 1;
+                            $pct = min(100, round(($processed / $total) * 100));
+
+                            return "{$processed}/{$total} items processed ({$pct}%)";
+                        }
+                        if ($record->status === 'completed') {
+                            return 'Migration completed successfully';
+                        }
+                        if ($record->status === 'failed') {
+                            return 'Migration failed';
+                        }
+                        if ($record->status === 'rolled_back') {
+                            return 'Migration was rolled back';
+                        }
+
+                        return $record->status;
+                    })
+                    ->badge()
+                    ->color(fn (MigrationJob $record): string => match ($record->status) {
+                        'pending' => 'warning',
+                        'running' => 'info',
+                        'completed' => 'success',
+                        'failed' => 'danger',
+                        'rolled_back' => 'gray',
+                        default => 'gray',
+                    }),
+
+                TextEntry::make('users_progress')
+                    ->label('Users')
+                    ->state(function (MigrationJob $record): string {
+                        $stats = $record->stats['users'] ?? null;
+                        if (! $stats) {
+                            return 'N/A';
+                        }
+
+                        $successful = $stats['successful'] ?? 0;
+                        $failed = $stats['failed'] ?? 0;
+                        $skipped = $stats['skipped'] ?? 0;
+
+                        return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                    })
+                    ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['users'])),
+
+                TextEntry::make('apps_progress')
+                    ->label('Applications')
+                    ->state(function (MigrationJob $record): string {
+                        $stats = $record->stats['applications'] ?? null;
+                        if (! $stats) {
+                            return 'N/A';
+                        }
+
+                        $successful = $stats['successful'] ?? 0;
+                        $failed = $stats['failed'] ?? 0;
+                        $skipped = $stats['skipped'] ?? 0;
+
+                        return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                    })
+                    ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['applications'])),
+
+                TextEntry::make('roles_progress')
+                    ->label('Roles')
+                    ->state(function (MigrationJob $record): string {
+                        $stats = $record->stats['roles'] ?? null;
+                        if (! $stats) {
+                            return 'N/A';
+                        }
+
+                        $successful = $stats['successful'] ?? 0;
+                        $failed = $stats['failed'] ?? 0;
+                        $skipped = $stats['skipped'] ?? 0;
+
+                        return "Successful: {$successful} / Failed: {$failed} / Skipped: {$skipped}";
+                    })
+                    ->visible(fn (MigrationJob $record): bool => ! empty($record->stats['roles'])),
+            ])
+            ->columns(2)
+            ->visible(fn (MigrationJob $record): bool => in_array($record->status, ['running', 'completed', 'failed']));
+    }
+
+    private function timingSection(): Section
+    {
+        return Section::make('Timing')
+            ->schema([
+                TextEntry::make('started_at')
+                    ->label('Started At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
+                    ->placeholder('Not started'),
+
+                TextEntry::make('completed_at')
+                    ->label('Completed At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
+                    ->placeholder('Not completed'),
+
+                TextEntry::make('duration')
+                    ->label('Duration')
+                    ->state(function (MigrationJob $record): string {
+                        if (! $record->started_at) {
+                            return 'N/A';
+                        }
+                        $end = $record->completed_at ?? now();
+                        $seconds = $record->started_at->diffInSeconds($end);
+
+                        if ($seconds < 60) {
+                            return "{$seconds}s";
+                        }
+
+                        $minutes = floor($seconds / 60);
+                        $remainingSeconds = $seconds % 60;
+
+                        return "{$minutes}m {$remainingSeconds}s";
+                    }),
+
+                TextEntry::make('created_at')
+                    ->label('Created At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+
+                TextEntry::make('updated_at')
+                    ->label('Last Updated')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+            ])
+            ->columns(3);
+    }
+
+    private function migrationStatisticsSection(): Section
+    {
+        return Section::make('Migration Statistics')
+            ->schema([
+                ViewEntry::make('stats')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->stats;
+                        if (! $state) {
+                            return ['json' => 'No statistics available'];
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                                return ['json' => trim($formatted)];
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->columnSpanFull();
+    }
+
+    private function configurationSection(): Section
+    {
+        return Section::make('Configuration')
+            ->schema([
+                ViewEntry::make('config')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->config;
+                        if (! $state) {
+                            return ['json' => 'No configuration data'];
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                                return ['json' => trim($formatted)];
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->collapsed()
+            ->columnSpanFull();
+    }
+
+    private function errorLogSection(): Section
+    {
+        return Section::make('Error Log')
+            ->schema([
+                ViewEntry::make('error_log')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->error_log;
+                        if (! $state) {
+                            return ['json' => 'No errors'];
+                        }
+
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                                return ['json' => trim($formatted)];
+                            }
+                        }
+
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->visible(fn ($record) => ! empty($record->error_log))
+            ->columnSpanFull();
     }
 }

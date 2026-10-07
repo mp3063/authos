@@ -160,7 +160,17 @@ class WebhookResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('created_at', 'desc');
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('name')
                 ->searchable()
                 ->sortable()
@@ -244,7 +254,12 @@ class WebhookResource extends Resource
                 ->dateTime()
                 ->sortable()
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('organization')
                 ->relationship('organization', 'name')
                 ->searchable()
@@ -272,14 +287,19 @@ class WebhookResource extends Resource
                 ->query(function (Builder $query, array $data) {
                     if (filled($data['value'])) {
                         $events = WebhookEvent::where('category', $data['value'])->pluck('name')->toArray();
-                        $query->where(function ($q) use ($events) {
+                        $query->where(function ($subQuery) use ($events) {
                             foreach ($events as $event) {
-                                $q->orWhereJsonContains('events', $event);
+                                $subQuery->orWhereJsonContains('events', $event);
                             }
                         });
                     }
                 }),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
@@ -367,7 +387,12 @@ class WebhookResource extends Resource
                     ->modalHeading('Delete Webhook')
                     ->modalDescription('Are you sure you want to delete this webhook? This action cannot be undone.'),
             ]),
-        ])->toolbarActions([
+        ];
+    }
+
+    private static function tableToolbarActions(): array
+    {
+        return [
             BulkActionGroup::make([
                 BulkAction::make('enable')
                     ->icon('heroicon-o-check-circle')
@@ -401,7 +426,7 @@ class WebhookResource extends Resource
                     ->modalHeading('Delete Webhooks')
                     ->modalDescription('Are you sure you want to delete these webhooks? This action cannot be undone.'),
             ]),
-        ])->defaultSort('created_at', 'desc');
+        ];
     }
 
     public static function getRelations(): array

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Enterprise;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\Enterprise\ListComplianceReportsRequest;
 use App\Http\Requests\Enterprise\ScheduleComplianceReportRequest;
 use App\Http\Requests\Enterprise\UpdateScheduledComplianceReportRequest;
@@ -14,19 +14,22 @@ use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class ComplianceController extends BaseApiController
+class ComplianceController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly ComplianceReportService $complianceService
     ) {
         $this->middleware('auth:api');
     }
 
-    public function soc2(Request $request): JsonResponse
+    public function soc2(): JsonResponse
     {
         return $this->generateReport(
             'enterprise.compliance.read',
@@ -35,7 +38,7 @@ class ComplianceController extends BaseApiController
         );
     }
 
-    public function iso27001(Request $request): JsonResponse
+    public function iso27001(): JsonResponse
     {
         return $this->generateReport(
             'enterprise.compliance.read',
@@ -44,7 +47,7 @@ class ComplianceController extends BaseApiController
         );
     }
 
-    public function gdpr(Request $request): JsonResponse
+    public function gdpr(): JsonResponse
     {
         return $this->generateReport(
             'enterprise.compliance.read',
@@ -58,7 +61,8 @@ class ComplianceController extends BaseApiController
         try {
             $user = $this->getAuthenticatedUser();
 
-            if ($denied = $this->ensureFeatureEnabled($user->organization)) {
+            $denied = $this->ensureFeatureEnabled($user->organization);
+            if ($denied) {
                 return $denied;
             }
 
@@ -89,7 +93,7 @@ class ComplianceController extends BaseApiController
         }
     }
 
-    public function listSchedules(Request $request): JsonResponse
+    public function listSchedules(): JsonResponse
     {
         try {
             $user = $this->getAuthenticatedUser();
@@ -102,7 +106,7 @@ class ComplianceController extends BaseApiController
                 ->forOrganization($user->organization_id)
                 ->orderByDesc('created_at')
                 ->get()
-                ->map(fn ($s) => $this->formatSchedule($s))
+                ->map(fn ($schedule) => $this->formatSchedule($schedule))
                 ->all();
 
             return response()->json([
@@ -173,7 +177,8 @@ class ComplianceController extends BaseApiController
                 return $this->forbiddenResponse('You do not have permission to generate compliance reports');
             }
 
-            if ($denied = $this->ensureFeatureEnabled($user->organization)) {
+            $denied = $this->ensureFeatureEnabled($user->organization);
+            if ($denied) {
                 return $denied;
             }
 
@@ -224,16 +229,20 @@ class ComplianceController extends BaseApiController
                 ->latest('generated_at')
                 ->latest('id');
 
-            if ($type = $request->input('report_type')) {
+            $type = $request->input('report_type');
+            if ($type) {
                 $query->where('report_type', $type);
             }
-            if ($status = $request->input('status')) {
+            $status = $request->input('status');
+            if ($status) {
                 $query->where('status', $status);
             }
-            if ($from = $request->date('from')) {
+            $from = $request->date('from');
+            if ($from) {
                 $query->where('created_at', '>=', $from);
             }
-            if ($to = $request->date('to')) {
+            $to = $request->date('to');
+            if ($to) {
                 $query->where('created_at', '<=', $to->copy()->endOfDay());
             }
 
@@ -244,7 +253,7 @@ class ComplianceController extends BaseApiController
                 'success' => true,
                 'data' => [
                     'reports' => $reports->getCollection()
-                        ->map(fn (ComplianceReport $r) => $this->formatReport($r))
+                        ->map(fn (ComplianceReport $report) => $this->formatReport($report))
                         ->all(),
                     'pagination' => [
                         'current_page' => $reports->currentPage(),

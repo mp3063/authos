@@ -42,7 +42,7 @@ class WebhookDeliveryFactory extends Factory
 
     public function failed(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'failed',
             'http_status_code' => 500,
             'response_body' => json_encode(['error' => 'Internal Server Error']),
@@ -54,7 +54,7 @@ class WebhookDeliveryFactory extends Factory
 
     public function retrying(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'retrying',
             'attempt_number' => 2,
             'next_retry_at' => now()->addMinutes(5),
@@ -63,7 +63,7 @@ class WebhookDeliveryFactory extends Factory
 
     public function withAttempts(int $attempts): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'attempt_number' => $attempts,
         ]);
     }

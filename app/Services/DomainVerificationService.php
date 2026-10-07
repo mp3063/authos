@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CustomDomain;
 use App\Models\Organization;
+use ErrorException;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -156,11 +157,11 @@ class DomainVerificationService
     private function getDnsTxtRecords(string $domain): array
     {
         // Try to get DNS records using dns_get_record
-        $records = @dns_get_record("_authos-verify.$domain", DNS_TXT);
+        $records = $this->queryTxtRecords("_authos-verify.$domain");
 
         if ($records === false) {
             // Fallback: try without subdomain prefix
-            $records = @dns_get_record($domain, DNS_TXT);
+            $records = $this->queryTxtRecords($domain);
         }
 
         if ($records === false || empty($records)) {
@@ -175,6 +176,15 @@ class DomainVerificationService
         }
 
         return $txtRecords;
+    }
+
+    private function queryTxtRecords(string $hostname): array|false
+    {
+        try {
+            return dns_get_record($hostname, DNS_TXT);
+        } catch (ErrorException) {
+            return false;
+        }
     }
 
     /**
@@ -210,7 +220,6 @@ class DomainVerificationService
     public function checkSslCertificate(CustomDomain $domain): array
     {
         try {
-            $url = "https://{$domain->domain}";
             $stream = stream_context_create([
                 'ssl' => [
                     'capture_peer_cert' => true,
@@ -219,14 +228,18 @@ class DomainVerificationService
                 ],
             ]);
 
-            $client = @stream_socket_client(
-                "ssl://{$domain->domain}:443",
-                $errno,
-                $errstr,
-                30,
-                STREAM_CLIENT_CONNECT,
-                $stream
-            );
+            try {
+                $client = stream_socket_client(
+                    "ssl://{$domain->domain}:443",
+                    $errno,
+                    $errstr,
+                    30,
+                    STREAM_CLIENT_CONNECT,
+                    $stream
+                );
+            } catch (ErrorException) {
+                $client = false;
+            }
 
             if ($client === false) {
                 return [

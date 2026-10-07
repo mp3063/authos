@@ -81,7 +81,7 @@ class SSOConfigurationPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, SSOConfiguration $ssoConfiguration): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

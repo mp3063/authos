@@ -19,17 +19,8 @@ class Auth0UserDTO
         public array $appMetadata,
         public array $userMetadata,
         public array $identities,
-        public ?string $picture = null,
-        public ?string $nickname = null,
-        public ?string $givenName = null,
-        public ?string $familyName = null,
-        public ?string $phoneNumber = null,
-        public ?bool $phoneVerified = null,
-        public ?\DateTimeInterface $createdAt = null,
-        public ?\DateTimeInterface $updatedAt = null,
-        public ?\DateTimeInterface $lastLogin = null,
-        public ?int $loginsCount = null,
-        public ?bool $blocked = null,
+        public Auth0UserProfile $profile = new Auth0UserProfile,
+        public Auth0UserActivity $activity = new Auth0UserActivity,
     ) {}
 
     /**
@@ -47,17 +38,8 @@ class Auth0UserDTO
             appMetadata: $data['app_metadata'] ?? [],
             userMetadata: $data['user_metadata'] ?? [],
             identities: $data['identities'] ?? [],
-            picture: $data['picture'] ?? null,
-            nickname: $data['nickname'] ?? null,
-            givenName: $data['given_name'] ?? null,
-            familyName: $data['family_name'] ?? null,
-            phoneNumber: $data['phone_number'] ?? null,
-            phoneVerified: $data['phone_verified'] ?? null,
-            createdAt: isset($data['created_at']) ? new \DateTimeImmutable($data['created_at']) : null,
-            updatedAt: isset($data['updated_at']) ? new \DateTimeImmutable($data['updated_at']) : null,
-            lastLogin: isset($data['last_login']) ? new \DateTimeImmutable($data['last_login']) : null,
-            loginsCount: $data['logins_count'] ?? null,
-            blocked: $data['blocked'] ?? null,
+            profile: Auth0UserProfile::fromArray($data),
+            activity: Auth0UserActivity::fromArray($data),
         );
     }
 

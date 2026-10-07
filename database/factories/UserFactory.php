@@ -2,12 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -35,7 +37,7 @@ class UserFactory extends Factory
                 'website' => fake()->optional()->url(),
                 'phone' => fake()->optional()->phoneNumber(),
             ],
-            'organization_id' => \App\Models\Organization::factory(),
+            'organization_id' => Organization::factory(),
             'is_active' => true,
             'password_changed_at' => now()->subDays(fake()->numberBetween(1, 365)),
             'remember_token' => Str::random(10),
@@ -47,7 +49,7 @@ class UserFactory extends Factory
      */
     public function unverified(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'email_verified_at' => null,
         ]);
     }
@@ -57,7 +59,7 @@ class UserFactory extends Factory
      */
     public function withMfa(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'two_factor_secret' => 'test-secret-'.Str::random(10),
             'two_factor_confirmed_at' => now(),
             'two_factor_recovery_codes' => json_encode([
@@ -73,7 +75,7 @@ class UserFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -81,9 +83,9 @@ class UserFactory extends Factory
     /**
      * Create a user with specific organization.
      */
-    public function forOrganization(\App\Models\Organization $organization): static
+    public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }

@@ -12,6 +12,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class ExportUsersJob implements ShouldQueue
 {
@@ -56,7 +57,7 @@ class ExportUsersJob implements ShouldQueue
             $this->exportJob->update(['total_records' => $total]);
 
             if ($total === 0) {
-                throw new \RuntimeException('No users found matching the export criteria');
+                throw new RuntimeException('No users found matching the export criteria');
             }
 
             Log::info("Exporting {$total} users");
@@ -143,8 +144,8 @@ class ExportUsersJob implements ShouldQueue
 
         // Filter by roles
         if ($options->roles && ! empty($options->roles)) {
-            $query->whereHas('roles', function ($q) use ($options) {
-                $q->whereIn('name', $options->roles);
+            $query->whereHas('roles', function ($roleQuery) use ($options) {
+                $roleQuery->whereIn('name', $options->roles);
             });
         }
 

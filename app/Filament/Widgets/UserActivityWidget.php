@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AuthenticationLog;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Enums\TextSize;
@@ -45,142 +46,159 @@ class UserActivityWidget extends BaseWidget
                     ->latest()
                     ->limit(50)
             )
-            ->columns([
-                TextColumn::make('created_at')
-                    ->label('Time')
-                    ->dateTime('M d, H:i:s')
-                    ->sortable()
-                    ->size(TextSize::ExtraSmall),
-
-                TextColumn::make('event')
-                    ->badge()
-                    ->color(fn ($record) => $record->getEventBadgeColor())
-                    ->icon(fn ($record) => $record->getEventIcon())
-                    ->size(TextSize::Small),
-
-                TextColumn::make('user.name')
-                    ->label('User')
-                    ->placeholder('System')
-                    ->limit(25)
-                    ->tooltip(fn ($record) => $record->user?->email)
-                    ->url(fn ($record) => $record->user && $user->can('view users') ?
-                        route('filament.admin.resources.users.view', $record->user->id) : null)
-                    ->color('primary')
-                    ->weight('medium'),
-
-                TextColumn::make('application.name')
-                    ->label('Application')
-                    ->placeholder('N/A')
-                    ->badge()
-                    ->color('gray')
-                    ->limit(20)
-                    ->url(fn ($record) => $record->application && $user->can('view applications') ?
-                        route('filament.admin.resources.applications.view', $record->application->id) : null),
-
-                TextColumn::make('ip_address')
-                    ->label('IP Address')
-                    ->copyable()
-                    ->icon('heroicon-o-globe-alt')
-                    ->color('gray')
-                    ->size(TextSize::Small),
-
-                TextColumn::make('location')
-                    ->label('Location')
-                    ->formatStateUsing(function ($record) {
-                        // Simple location formatting based on IP or user agent
-                        if ($record->metadata && isset($record->metadata['location'])) {
-                            return $record->metadata['location'];
-                        }
-
-                        return 'Unknown';
-                    })
-                    ->icon('heroicon-o-map-pin')
-                    ->color('gray')
-                    ->size(TextSize::Small),
-
-                TextColumn::make('user_agent')
-                    ->label('Device')
-                    ->formatStateUsing(function ($state) {
-                        if (! $state) {
-                            return 'Unknown';
-                        }
-
-                        // Enhanced user agent parsing
-                        if (str_contains($state, 'Mobile') || str_contains($state, 'Android') || str_contains($state, 'iPhone')) {
-                            return 'Mobile';
-                        } elseif (str_contains($state, 'iPad') || str_contains($state, 'Tablet')) {
-                            return 'Tablet';
-                        } elseif (str_contains($state, 'Chrome')) {
-                            return 'Chrome';
-                        } elseif (str_contains($state, 'Firefox')) {
-                            return 'Firefox';
-                        } elseif (str_contains($state, 'Safari')) {
-                            return 'Safari';
-                        } elseif (str_contains($state, 'Edge')) {
-                            return 'Edge';
-                        } else {
-                            return 'Desktop';
-                        }
-                    })
-                    ->badge()
-                    ->color(fn ($state) => match (true) {
-                        str_contains($state, 'Mobile') => 'info',
-                        str_contains($state, 'Tablet') => 'warning',
-                        default => 'gray'
-                    }),
-
-                TextColumn::make('risk_score')
-                    ->label('Risk')
-                    ->formatStateUsing(function ($record) {
-                        return $this->calculateRiskScore($record);
-                    })
-                    ->badge()
-                    ->color(fn ($state) => match ($state) {
-                        'Low' => 'success',
-                        'Medium' => 'warning',
-                        'High' => 'danger',
-                        default => 'gray'
-                    }),
-            ])
-            ->filters([
-                SelectFilter::make('event')
-                    ->options([
-                        'login_success' => 'Login',
-                        'logout' => 'Logout',
-                        'login_failed' => 'Failed Login',
-                        'failed_mfa' => 'Failed MFA',
-                        'password_reset' => 'Password Reset',
-                        'suspicious_activity' => 'Suspicious Activity',
-                    ])
-                    ->multiple(),
-
-                SelectFilter::make('application_id')
-                    ->label('Application')
-                    ->relationship('application', 'name')
-                    ->searchable()
-                    ->preload(),
-
-                SelectFilter::make('user_id')
-                    ->label('User')
-                    ->relationship('user', 'name')
-                    ->searchable()
-                    ->preload(),
-            ])
-            ->recordActions([
-                Action::make('view_details')
-                    ->icon('heroicon-o-eye')
-                    ->color('gray')
-                    ->tooltip('View Details')
-                    ->modalHeading(fn ($record) => 'Activity Details - '.ucfirst($record->event))
-                    ->modalContent(fn ($record) => view('filament.widgets.modals.activity-details', ['record' => $record]))
-                    ->modalSubmitAction(false)
-                    ->modalCancelAction(false),
-            ])
+            ->columns($this->tableColumns($user))
+            ->filters($this->tableFilters())
+            ->recordActions($this->tableRecordActions())
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(25)
             ->poll('30s');
+    }
+
+    private function tableColumns(User $user): array
+    {
+        return [
+            TextColumn::make('created_at')
+                ->label('Time')
+                ->dateTime('M d, H:i:s')
+                ->sortable()
+                ->size(TextSize::ExtraSmall),
+
+            TextColumn::make('event')
+                ->badge()
+                ->color(fn ($record) => $record->getEventBadgeColor())
+                ->icon(fn ($record) => $record->getEventIcon())
+                ->size(TextSize::Small),
+
+            TextColumn::make('user.name')
+                ->label('User')
+                ->placeholder('System')
+                ->limit(25)
+                ->tooltip(fn ($record) => $record->user?->email)
+                ->url(fn ($record) => $record->user && $user->can('view users') ?
+                    route('filament.admin.resources.users.view', $record->user->id) : null)
+                ->color('primary')
+                ->weight('medium'),
+
+            TextColumn::make('application.name')
+                ->label('Application')
+                ->placeholder('N/A')
+                ->badge()
+                ->color('gray')
+                ->limit(20)
+                ->url(fn ($record) => $record->application && $user->can('view applications') ?
+                    route('filament.admin.resources.applications.view', $record->application->id) : null),
+
+            TextColumn::make('ip_address')
+                ->label('IP Address')
+                ->copyable()
+                ->icon('heroicon-o-globe-alt')
+                ->color('gray')
+                ->size(TextSize::Small),
+
+            TextColumn::make('location')
+                ->label('Location')
+                ->formatStateUsing(function ($record) {
+                    // Simple location formatting based on IP or user agent
+                    if ($record->metadata && isset($record->metadata['location'])) {
+                        return $record->metadata['location'];
+                    }
+
+                    return 'Unknown';
+                })
+                ->icon('heroicon-o-map-pin')
+                ->color('gray')
+                ->size(TextSize::Small),
+
+            TextColumn::make('user_agent')
+                ->label('Device')
+                ->formatStateUsing(fn ($state) => $this->deviceLabel($state))
+                ->badge()
+                ->color(fn ($state) => match (true) {
+                    str_contains($state, 'Mobile') => 'info',
+                    str_contains($state, 'Tablet') => 'warning',
+                    default => 'gray'
+                }),
+
+            TextColumn::make('risk_score')
+                ->label('Risk')
+                ->formatStateUsing(function ($record) {
+                    return $this->calculateRiskScore($record);
+                })
+                ->badge()
+                ->color(fn ($state) => match ($state) {
+                    'Low' => 'success',
+                    'Medium' => 'warning',
+                    'High' => 'danger',
+                    default => 'gray'
+                }),
+        ];
+    }
+
+    private function deviceLabel(mixed $state): string
+    {
+        if (! $state) {
+            return 'Unknown';
+        }
+
+        if (str_contains($state, 'Mobile') || str_contains($state, 'Android') || str_contains($state, 'iPhone')) {
+            return 'Mobile';
+        } elseif (str_contains($state, 'iPad') || str_contains($state, 'Tablet')) {
+            return 'Tablet';
+        } elseif (str_contains($state, 'Chrome')) {
+            return 'Chrome';
+        } elseif (str_contains($state, 'Firefox')) {
+            return 'Firefox';
+        } elseif (str_contains($state, 'Safari')) {
+            return 'Safari';
+        } elseif (str_contains($state, 'Edge')) {
+            return 'Edge';
+        } else {
+            return 'Desktop';
+        }
+    }
+
+    private function tableFilters(): array
+    {
+        return [
+            SelectFilter::make('event')
+                ->options([
+                    'login_success' => 'Login',
+                    'logout' => 'Logout',
+                    'login_failed' => 'Failed Login',
+                    'failed_mfa' => 'Failed MFA',
+                    'password_reset' => 'Password Reset',
+                    'suspicious_activity' => 'Suspicious Activity',
+                ])
+                ->multiple(),
+
+            SelectFilter::make('application_id')
+                ->label('Application')
+                ->relationship('application', 'name')
+                ->searchable()
+                ->preload(),
+
+            SelectFilter::make('user_id')
+                ->label('User')
+                ->relationship('user', 'name')
+                ->searchable()
+                ->preload(),
+        ];
+    }
+
+    private function tableRecordActions(): array
+    {
+        return [
+            Action::make('view_details')
+                ->icon('heroicon-o-eye')
+                ->color('gray')
+                ->tooltip('View Details')
+                ->modalHeading(fn ($record) => 'Activity Details - '.ucfirst($record->event))
+                ->modalContent(fn ($record) => view('filament.widgets.modals.activity-details', ['record' => $record]))
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false),
+        ];
     }
 
     protected function calculateRiskScore($record): string

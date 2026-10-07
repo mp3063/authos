@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\Enterprise;
 
 use App\Events\DomainVerifiedEvent;
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\Enterprise\CustomDomainRequest;
 use App\Models\CustomDomain;
 use App\Services\DomainVerificationService;
@@ -11,9 +11,12 @@ use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class DomainController extends BaseApiController
+class DomainController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly DomainVerificationService $domainService
     ) {

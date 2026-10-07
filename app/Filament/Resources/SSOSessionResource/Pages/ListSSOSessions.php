@@ -23,12 +23,12 @@ class ListSSOSessions extends ListRecords
                 ->badgeColor('success'),
 
             'expired' => Tab::make('Expired')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where(function (Builder $q) {
-                    $q->where('expires_at', '<=', now())
+                ->modifyQueryUsing(fn (Builder $query) => $query->where(function (Builder $subQuery) {
+                    $subQuery->where('expires_at', '<=', now())
                         ->orWhereNotNull('logged_out_at');
                 }))
-                ->badge(fn () => static::getResource()::getEloquentQuery()->where(function (Builder $q) {
-                    $q->where('expires_at', '<=', now())
+                ->badge(fn () => static::getResource()::getEloquentQuery()->where(function (Builder $subQuery) {
+                    $subQuery->where('expires_at', '<=', now())
                         ->orWhereNotNull('logged_out_at');
                 })->count())
                 ->badgeColor('gray'),

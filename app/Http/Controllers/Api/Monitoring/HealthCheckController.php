@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Api\Monitoring;
 
-use App\Http\Controllers\Controller;
 use App\Services\Monitoring\HealthCheckService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class HealthCheckController extends Controller
+class HealthCheckController extends BaseController
 {
     public function __construct(
         private readonly HealthCheckService $healthCheckService
@@ -84,7 +83,7 @@ class HealthCheckController extends Controller
     /**
      * Component-specific health check.
      */
-    public function component(Request $request, string $component): JsonResponse
+    public function component(string $component): JsonResponse
     {
         $validComponents = ['database', 'cache', 'oauth', 'storage', 'queue', 'ldap', 'email'];
 

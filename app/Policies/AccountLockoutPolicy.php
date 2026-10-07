@@ -39,7 +39,7 @@ class AccountLockoutPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         // Lockouts are system-generated
         return false;
@@ -66,7 +66,7 @@ class AccountLockoutPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, AccountLockout $accountLockout): bool
+    public function delete(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -74,7 +74,7 @@ class AccountLockoutPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, AccountLockout $accountLockout): bool
+    public function restore(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -82,7 +82,7 @@ class AccountLockoutPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, AccountLockout $accountLockout): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\Api\Enterprise;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\Enterprise\LdapConfigurationRequest;
 use App\Models\LdapConfiguration;
 use App\Services\LdapAuthService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class LdapController extends BaseApiController
+class LdapController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly LdapAuthService $ldapService
     ) {
@@ -59,7 +62,7 @@ class LdapController extends BaseApiController
         }
     }
 
-    public function syncUsers(Request $request): JsonResponse
+    public function syncUsers(): JsonResponse
     {
         try {
             $user = $this->getAuthenticatedUser();

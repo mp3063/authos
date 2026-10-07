@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\SecurityIncident;
 use App\Models\User;
 use App\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Services\Contracts\OrganizationAnalyticsServiceInterface;
@@ -221,7 +222,7 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
         // Get all security incidents for users in this organization (using direct organization_id)
         $userIds = User::where('organization_id', $organization->id)->pluck('id');
 
-        $incidents = \App\Models\SecurityIncident::whereIn('user_id', $userIds)
+        $incidents = SecurityIncident::whereIn('user_id', $userIds)
             ->orWhereNull('user_id') // Include incidents not tied to specific users
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get();
@@ -306,15 +307,15 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     {
         if (! empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%$search%")
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('name', 'LIKE', "%$search%")
                     ->orWhere('email', 'LIKE', "%$search%");
             });
         }
 
         if (! empty($filters['role'])) {
-            $query->whereHas('roles', function ($q) use ($filters) {
-                $q->where('name', $filters['role']);
+            $query->whereHas('roles', function ($subQuery) use ($filters) {
+                $subQuery->where('name', $filters['role']);
             });
         }
 
@@ -453,46 +454,6 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
             'start' => $start,
             'end' => $end,
         ];
-    }
-
-    /**
-     * Get login activity metrics
-     */
-    private function getLoginActivityMetrics(Organization $organization, string $period): array
-    {
-        $dateRange = $this->getDateRangeForPeriod($period);
-
-        return [
-            'daily_logins' => $this->getDailyLoginCounts($organization, $dateRange),
-            'peak_hours' => $this->getPeakLoginHours($organization, $dateRange),
-        ];
-    }
-
-    /**
-     * Get top applications metrics
-     */
-    private function getTopApplicationsMetrics(Organization $organization, string $period): array
-    {
-        return [
-            'most_used' => $this->getTopApplications($organization, 10),
-            'usage_trends' => [],
-        ];
-    }
-
-    /**
-     * Get daily login counts
-     */
-    private function getDailyLoginCounts(Organization $organization, array $dateRange): array
-    {
-        return []; // Simplified for now
-    }
-
-    /**
-     * Get peak login hours
-     */
-    private function getPeakLoginHours(Organization $organization, array $dateRange): array
-    {
-        return []; // Simplified for now
     }
 
     /**

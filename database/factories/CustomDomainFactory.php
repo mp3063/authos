@@ -7,7 +7,7 @@ use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\CustomDomain>
+ * @extends Factory<CustomDomain>
  */
 class CustomDomainFactory extends Factory
 {
@@ -66,7 +66,7 @@ class CustomDomainFactory extends Factory
      */
     public function withSsl(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ssl_certificate' => [
                 'provider' => 'letsencrypt',
                 'issued_at' => now()->toDateString(),
@@ -82,7 +82,7 @@ class CustomDomainFactory extends Factory
      */
     public function active(): static
     {
-        return $this->verified()->state(fn (array $attributes) => [
+        return $this->verified()->state(fn () => [
             'is_active' => true,
         ]);
     }

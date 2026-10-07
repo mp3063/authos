@@ -39,7 +39,7 @@ class DataSubjectRequestFactory extends Factory
 
     public function completed(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'status' => DataSubjectRequest::STATUS_COMPLETED,
             'completed_at' => now(),
             'handled_by_user_id' => User::factory(),
@@ -48,7 +48,7 @@ class DataSubjectRequestFactory extends Factory
 
     public function ofType(string $type): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'request_type' => $type,
         ]);
     }

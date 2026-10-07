@@ -7,6 +7,7 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Override;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyles
@@ -98,6 +99,7 @@ class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         return $row;
     }
 
+    #[Override]
     public function styles(Worksheet $sheet): ?array
     {
         return [

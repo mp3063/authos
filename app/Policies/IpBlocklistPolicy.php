@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\IpBlocklist;
 use App\Models\User;
 
 class IpBlocklistPolicy
@@ -22,7 +21,7 @@ class IpBlocklistPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, IpBlocklist $ipBlocklist): bool
+    public function view(User $user): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -46,7 +45,7 @@ class IpBlocklistPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, IpBlocklist $ipBlocklist): bool
+    public function update(User $user): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -58,7 +57,7 @@ class IpBlocklistPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, IpBlocklist $ipBlocklist): bool
+    public function delete(User $user): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -70,15 +69,15 @@ class IpBlocklistPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, IpBlocklist $ipBlocklist): bool
+    public function restore(User $user): bool
     {
-        return $this->delete($user, $ipBlocklist);
+        return $this->delete($user);
     }
 
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, IpBlocklist $ipBlocklist): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

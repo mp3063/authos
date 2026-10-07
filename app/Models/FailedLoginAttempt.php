@@ -29,8 +29,8 @@ class FailedLoginAttempt extends Model
 
     public function scopeRecentAttempts($query, string $identifier, int $minutes = 15)
     {
-        return $query->where(function ($q) use ($identifier) {
-            $q->where('email', $identifier)
+        return $query->where(function ($identifierQuery) use ($identifier) {
+            $identifierQuery->where('email', $identifier)
                 ->orWhere('ip_address', $identifier);
         })->where('attempted_at', '>=', now()->subMinutes($minutes));
     }

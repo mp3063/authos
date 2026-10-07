@@ -150,7 +150,8 @@ class BenchmarkPerformanceCommand extends Command
         );
 
         // Export results if requested
-        if ($exportFile = $this->option('export')) {
+        $exportFile = $this->option('export');
+        if ($exportFile) {
             $this->info("Exporting results to {$exportFile}...");
             $export = $benchmark->export();
             file_put_contents($exportFile, json_encode($export, JSON_PRETTY_PRINT));

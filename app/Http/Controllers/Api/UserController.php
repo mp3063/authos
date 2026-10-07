@@ -3,17 +3,23 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\UserManagementService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
+use InvalidArgumentException;
 
-class UserController extends BaseApiController
+class UserController extends BaseController
 {
+    use ApiControllerHelpers;
+
     protected UserManagementService $userManagementService;
 
     public function __construct(UserManagementService $userManagementService)
@@ -42,50 +48,14 @@ class UserController extends BaseApiController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole(UserRole::SuperAdmin->label()) && ! $currentUser->hasRole(UserRole::SuperAdmin->value)) {
+        if (! $this->hasSuperAdminRole($currentUser)) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 
-        // Apply filters
-        if ($params['search']) {
-            $search = $params['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('email', 'LIKE', "%{$search}%");
-            });
-        }
-
-        if ($request->has('organization_id')) {
-            // Only allow filtering by organization_id if user is super admin or it's their own organization
-            if ($currentUser->hasRole(UserRole::SuperAdmin->label()) || $currentUser->hasRole(UserRole::SuperAdmin->value) ||
-                $request->organization_id == $currentUser->organization_id) {
-                $query->where('organization_id', $request->organization_id);
-            }
-        }
-
-        if ($request->has('role')) {
-            $query->whereHas('roles', function ($q) use ($request) {
-                $q->where('name', $request->role);
-            });
-        }
-
-        if ($request->has('mfa_enabled')) {
-            if ($request->mfa_enabled) {
-                $query->whereNotNull('mfa_methods');
-            } else {
-                $query->whereNull('mfa_methods');
-            }
-        }
-
-        // Handle is_active filter
-        if ($request->has('filter.is_active')) {
-            $isActiveFilter = $request->input('filter.is_active');
-            if ($isActiveFilter === 'true' || $isActiveFilter === true || $isActiveFilter === '1') {
-                $query->where('is_active', true);
-            } elseif ($isActiveFilter === 'false' || $isActiveFilter === false || $isActiveFilter === '0') {
-                $query->where('is_active', false);
-            }
-        }
+        $this->applySearchFilter($query, $params['search']);
+        $this->applyOrganizationFilter($query, $request, $currentUser);
+        $this->applyRoleAndMfaFilters($query, $request);
+        $this->applyActiveFilter($query, $request);
 
         // Apply sorting
         $sort = $params['sort'] ?? 'created_at';
@@ -105,6 +75,63 @@ class UserController extends BaseApiController
         });
 
         return $this->paginatedResponse($users);
+    }
+
+    private function hasSuperAdminRole(User $user): bool
+    {
+        return $user->hasRole(UserRole::SuperAdmin->label()) || $user->hasRole(UserRole::SuperAdmin->value);
+    }
+
+    private function applySearchFilter(Builder $query, mixed $search): void
+    {
+        if (! $search) {
+            return;
+        }
+
+        $query->where(function ($searchQuery) use ($search) {
+            $searchQuery->where('name', 'LIKE', "%{$search}%")
+                ->orWhere('email', 'LIKE', "%{$search}%");
+        });
+    }
+
+    private function applyOrganizationFilter(Builder $query, ListRequest $request, User $currentUser): void
+    {
+        // Only allow filtering by organization_id if user is super admin or it's their own organization
+        if ($request->has('organization_id') &&
+            ($this->hasSuperAdminRole($currentUser) || $request->organization_id == $currentUser->organization_id)) {
+            $query->where('organization_id', $request->organization_id);
+        }
+    }
+
+    private function applyRoleAndMfaFilters(Builder $query, ListRequest $request): void
+    {
+        if ($request->has('role')) {
+            $query->whereHas('roles', function ($roleQuery) use ($request) {
+                $roleQuery->where('name', $request->role);
+            });
+        }
+
+        if ($request->has('mfa_enabled')) {
+            if ($request->mfa_enabled) {
+                $query->whereNotNull('mfa_methods');
+            } else {
+                $query->whereNull('mfa_methods');
+            }
+        }
+    }
+
+    private function applyActiveFilter(Builder $query, ListRequest $request): void
+    {
+        if (! $request->has('filter.is_active')) {
+            return;
+        }
+
+        $isActiveFilter = $request->input('filter.is_active');
+        if ($isActiveFilter === 'true' || $isActiveFilter === true || $isActiveFilter === '1') {
+            $query->where('is_active', true);
+        } elseif ($isActiveFilter === 'false' || $isActiveFilter === false || $isActiveFilter === '0') {
+            $query->where('is_active', false);
+        }
     }
 
     /**
@@ -139,7 +166,7 @@ class UserController extends BaseApiController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole(UserRole::SuperAdmin->label()) && ! $currentUser->hasRole(UserRole::SuperAdmin->value)) {
+        if (! $this->hasSuperAdminRole($currentUser)) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 
@@ -194,406 +221,6 @@ class UserController extends BaseApiController
     }
 
     /**
-     * Get user's applications
-     */
-    public function applications(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('users.read');
-
-        // Enforce authorization BEFORE findOrFail to return 403 instead of 404
-        $currentUser = auth()->user();
-        $user = User::find($id);
-
-        if (! $user) {
-            return $this->notFoundResponse('User not found');
-        }
-
-        // Users can only view their own applications unless they're admins
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
-            return $this->errorResponse('Unauthorized to view other users\' applications', 403);
-        }
-
-        // Build query with pivot data
-        $query = $user->applications()
-            ->withPivot(['permissions', 'granted_at', 'granted_by', 'last_login_at', 'login_count']);
-
-        // Apply permission filter if provided
-        if ($request->has('permission')) {
-            $permission = $request->input('permission');
-            // Use LIKE for SQLite/PostgreSQL compatibility
-            $query->where('user_applications.permissions', 'LIKE', '%"'.$permission.'"%');
-        }
-
-        // Handle pagination
-        $perPage = $request->input('per_page', 15);
-        $page = $request->input('page', 1);
-
-        if ($request->has('per_page') || $request->has('page')) {
-            $applications = $query->paginate($perPage, ['*'], 'page', $page);
-
-            // Transform applications to ensure pivot data is properly formatted
-            $transformedItems = collect($applications->items())->map(function ($app) {
-                $data = $app->toArray();
-                // Ensure permissions is an array, not a JSON string
-                if (isset($data['pivot']['permissions']) && is_string($data['pivot']['permissions'])) {
-                    $data['pivot']['permissions'] = json_decode($data['pivot']['permissions'], true) ?? [];
-                }
-
-                return $data;
-            })->toArray();
-
-            $response = [
-                'success' => true,
-                'data' => $transformedItems,
-                'meta' => [
-                    'current_page' => $applications->currentPage(),
-                    'per_page' => $applications->perPage(),
-                    'total' => $applications->total(),
-                    'last_page' => $applications->lastPage(),
-                ],
-            ];
-
-            return response()->json($response, 200);
-        }
-
-        $applications = $query->get();
-
-        // Transform applications to ensure pivot data is properly formatted
-        $transformedApplications = $applications->map(function ($app) {
-            $data = $app->toArray();
-            // Ensure permissions is an array, not a JSON string
-            if (isset($data['pivot']['permissions']) && is_string($data['pivot']['permissions'])) {
-                $data['pivot']['permissions'] = json_decode($data['pivot']['permissions'], true) ?? [];
-            }
-
-            return $data;
-        });
-
-        $response = [
-            'success' => true,
-            'data' => $transformedApplications,
-        ];
-
-        return response()->json($response, 200);
-    }
-
-    /**
-     * Grant user access to application (single or bulk)
-     */
-    public function grantApplicationAccess(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('users.update');
-
-        // Handle bulk operations
-        if ($request->boolean('bulk') && $request->has('user_ids')) {
-            return $this->bulkGrantApplicationAccess($request);
-        }
-
-        $request->validate([
-            'application_id' => 'required|integer|exists:applications,id',
-            'permissions' => 'required|array',
-            'permissions.*' => 'string',
-        ]);
-
-        $user = User::findOrFail($id);
-        $currentUser = auth()->user();
-
-        // Verify application belongs to same organization
-        $application = \App\Models\Application::findOrFail($request->application_id);
-        if ($application->organization_id !== $user->organization_id) {
-            return $this->errorResponse('Application does not belong to user\'s organization', 403);
-        }
-
-        $granted = $this->userManagementService->grantApplicationAccess(
-            $user,
-            $request->application_id,
-            $request->permissions,
-            $currentUser->id
-        );
-
-        if (! $granted) {
-            return $this->errorResponse('User already has access to this application.', 409);
-        }
-
-        return $this->successResponse([], 'Application access granted successfully', 200);
-    }
-
-    /**
-     * Bulk grant application access
-     */
-    private function bulkGrantApplicationAccess(Request $request): JsonResponse
-    {
-        $request->validate([
-            'application_id' => 'required|integer|exists:applications,id',
-            'user_ids' => 'required|array',
-            'user_ids.*' => 'integer|exists:users,id',
-            'permissions' => 'required|array',
-            'permissions.*' => 'string',
-        ]);
-
-        $currentUser = auth()->user();
-        $application = \App\Models\Application::findOrFail($request->application_id);
-
-        $users = User::whereIn('id', $request->user_ids)
-            ->where('organization_id', $application->organization_id)
-            ->get();
-
-        foreach ($users as $user) {
-            $this->userManagementService->grantApplicationAccess(
-                $user,
-                $request->application_id,
-                $request->permissions,
-                $currentUser->id
-            );
-        }
-
-        return $this->successResponse([], 'Application access granted to users successfully', 200);
-    }
-
-    /**
-     * Revoke user access to application (single or bulk)
-     */
-    public function revokeApplicationAccess(Request $request, string $id, string $applicationId): JsonResponse
-    {
-        $this->authorize('users.update');
-
-        // Handle bulk operations
-        if ($request->boolean('bulk') && $request->has('user_ids')) {
-            return $this->bulkRevokeApplicationAccess($request, $applicationId);
-        }
-
-        $user = User::findOrFail($id);
-        $currentUser = auth()->user();
-
-        $revoked = $this->userManagementService->revokeApplicationAccess(
-            $user,
-            (int) $applicationId,
-            $currentUser->id
-        );
-
-        if (! $revoked) {
-            return $this->errorResponse('User does not have access to this application.', 404);
-        }
-
-        return $this->successResponse([], 'Application access revoked successfully');
-    }
-
-    /**
-     * Bulk revoke application access
-     */
-    private function bulkRevokeApplicationAccess(Request $request, string $applicationId): JsonResponse
-    {
-        $request->validate([
-            'user_ids' => 'required|array',
-            'user_ids.*' => 'integer|exists:users,id',
-        ]);
-
-        $currentUser = auth()->user();
-
-        $users = User::whereIn('id', $request->user_ids)->get();
-
-        foreach ($users as $user) {
-            $this->userManagementService->revokeApplicationAccess(
-                $user,
-                (int) $applicationId,
-                $currentUser->id
-            );
-        }
-
-        return $this->successResponse([], 'Application access revoked from users successfully', 200);
-    }
-
-    /**
-     * Get user's roles
-     */
-    public function roles(string $id): JsonResponse
-    {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
-
-        return $this->successResponse([
-            'data' => $this->userManagementService->formatUserRolesResponse($user->roles),
-        ]);
-    }
-
-    /**
-     * Assign role to user
-     */
-    public function assignRole(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('roles.assign');
-
-        $request->validate([
-            'role_id' => 'required|integer|exists:roles,id',
-        ]);
-
-        $user = User::findOrFail($id);
-        $assigned = $this->userManagementService->assignRole($user, (string) $request->role_id);
-
-        if (! $assigned) {
-            return $this->errorResponse('User already has this role.', 409);
-        }
-
-        return $this->successResponse([], 'Role assigned successfully', 201);
-    }
-
-    /**
-     * Update user roles (sync/replace)
-     */
-    public function updateRoles(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('roles.assign');
-
-        $request->validate([
-            'roles' => 'required|array',
-            'roles.*' => 'required|string|exists:roles,name',
-        ]);
-
-        $user = User::findOrFail($id);
-
-        // Sync roles (replace all current roles with new ones)
-        $user->syncRoles($request->input('roles'));
-
-        return $this->successResponse([], 'User roles updated successfully');
-    }
-
-    /**
-     * Remove role from user
-     */
-    public function removeRole(string $id, string $roleId): JsonResponse
-    {
-        $this->authorize('roles.assign');
-
-        $user = User::findOrFail($id);
-        $removed = $this->userManagementService->removeRole($user, $roleId);
-
-        if (! $removed) {
-            return $this->errorResponse('User does not have this role.', 404);
-        }
-
-        return $this->successResponse([], 'Role removed successfully');
-    }
-
-    /**
-     * Get user's active sessions
-     */
-    public function sessions(Request $request, string $id): JsonResponse
-    {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
-
-        // Check authorization - users can view their own sessions, admins can view any
-        $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
-            return $this->errorResponse('Forbidden', 403);
-        }
-
-        // Get paginated sessions
-        $perPage = $request->input('per_page', 15);
-        $page = $request->input('page', 1);
-
-        $query = $user->tokens()->where('revoked', false)->orderBy('created_at', 'desc');
-
-        // Check if pagination is requested
-        if ($request->has('per_page') || $request->has('page')) {
-            $tokens = $query->paginate($perPage, ['*'], 'page', $page);
-            $formattedSessions = $this->userManagementService->formatUserSessionsResponse($tokens->getCollection());
-
-            return response()->json([
-                'success' => true,
-                'data' => $formattedSessions,
-                'meta' => [
-                    'current_page' => $tokens->currentPage(),
-                    'per_page' => $tokens->perPage(),
-                    'total' => $tokens->total(),
-                    'last_page' => $tokens->lastPage(),
-                ],
-            ]);
-        }
-
-        $sessions = $query->get();
-        $formattedSessions = $this->userManagementService->formatUserSessionsResponse($sessions);
-
-        return response()->json([
-            'success' => true,
-            'data' => $formattedSessions,
-        ]);
-    }
-
-    /**
-     * Show specific session details
-     */
-    public function showSession(string $id, string $sessionId): JsonResponse
-    {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
-
-        // Check authorization - users can view their own sessions, admins can view any
-        $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
-            return $this->errorResponse('Forbidden', 403);
-        }
-
-        // Find the specific token
-        $token = $user->tokens()->where('id', $sessionId)->first();
-
-        if (! $token) {
-            return $this->notFoundResponse('Session not found');
-        }
-
-        // Format the token data
-        $scopes = $token->scopes;
-        if (is_string($scopes)) {
-            $scopes = json_decode($scopes, true) ?? [];
-        }
-
-        $sessionData = [
-            'id' => $token->id,
-            'name' => $token->name,
-            'scopes' => $scopes ?? [],
-            'created_at' => $token->created_at?->toISOString(),
-            'expires_at' => $token->expires_at?->toISOString(),
-            'last_used_at' => $token->updated_at?->toISOString(),
-            'revoked' => (bool) $token->revoked,
-        ];
-
-        return $this->successResponse($sessionData);
-    }
-
-    /**
-     * Revoke all user sessions
-     */
-    public function revokeSessions(string $id): JsonResponse
-    {
-        $this->authorize('users.update');
-
-        $user = User::findOrFail($id);
-        $revokedCount = $this->userManagementService->revokeAllUserSessions($user);
-
-        return $this->successResponse([], 'All other sessions revoked successfully');
-    }
-
-    /**
-     * Revoke specific user session
-     */
-    public function revokeSession(string $id, string $sessionId): JsonResponse
-    {
-        $this->authorize('users.update');
-
-        $user = User::findOrFail($id);
-        $revoked = $this->userManagementService->revokeUserSession($user, $sessionId);
-
-        if (! $revoked) {
-            return $this->errorResponse('Session not found.', 404);
-        }
-
-        return $this->successResponse([], 'Session revoked successfully');
-    }
-
-    /**
      * Handle bulk operations on users
      */
     public function bulk(Request $request): JsonResponse
@@ -617,7 +244,7 @@ class UserController extends BaseApiController
                 'message' => 'Bulk operation completed successfully',
                 'affected_count' => $result['affected_count'],
             ]);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return $this->errorResponse('Some users not found or not accessible.', 403);
         }
     }

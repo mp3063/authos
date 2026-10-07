@@ -21,8 +21,8 @@ class WebhookStatsWidget extends BaseWidget
 
         if (! $user->isSuperAdmin() && $user->organization_id) {
             $webhookQuery->where('organization_id', $user->organization_id);
-            $deliveryQuery->whereHas('webhook', function ($q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
+            $deliveryQuery->whereHas('webhook', function ($subQuery) use ($user) {
+                $subQuery->where('organization_id', $user->organization_id);
             });
         }
 

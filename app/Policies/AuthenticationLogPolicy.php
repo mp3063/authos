@@ -40,7 +40,7 @@ class AuthenticationLogPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(): bool
     {
         // Authentication logs are system-generated
         return false;
@@ -49,7 +49,7 @@ class AuthenticationLogPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, AuthenticationLog $authenticationLog): bool
+    public function update(): bool
     {
         // Authentication logs are immutable audit records
         return false;
@@ -58,7 +58,7 @@ class AuthenticationLogPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, AuthenticationLog $authenticationLog): bool
+    public function delete(User $user): bool
     {
         // Only super admins can delete audit logs
         return $user->isSuperAdmin();
@@ -67,7 +67,7 @@ class AuthenticationLogPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, AuthenticationLog $authenticationLog): bool
+    public function restore(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -75,7 +75,7 @@ class AuthenticationLogPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, AuthenticationLog $authenticationLog): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

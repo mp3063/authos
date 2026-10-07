@@ -44,14 +44,14 @@ abstract class BaseService implements BaseServiceInterface
     /**
      * Handle service exceptions
      */
-    protected function handleException(\Exception $e, string $action, array $context = []): void
+    protected function handleException(\Exception $exception, string $action, array $context = []): void
     {
         Log::error("Service error in {$action}", array_merge([
             'service' => static::class,
-            'error' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString(),
+            'error' => $exception->getMessage(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'trace' => $exception->getTraceAsString(),
         ], $context));
     }
 }

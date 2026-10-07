@@ -2,13 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Application;
 use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Application>
+ * @extends Factory<Application>
  */
 class ApplicationFactory extends Factory
 {
@@ -76,7 +77,7 @@ class ApplicationFactory extends Factory
      */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
         ]);
     }
@@ -86,7 +87,7 @@ class ApplicationFactory extends Factory
      */
     public function withGrantTypes(array $grantTypes): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'allowed_grant_types' => $grantTypes,
         ]);
     }
@@ -109,7 +110,7 @@ class ApplicationFactory extends Factory
      */
     public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }
@@ -149,7 +150,7 @@ class ApplicationFactory extends Factory
      */
     public function withWebhook(string $webhookUrl): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'webhook_url' => $webhookUrl,
         ]);
     }
@@ -159,7 +160,7 @@ class ApplicationFactory extends Factory
      */
     public function withAllowedOrigins(array $origins): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'allowed_origins' => $origins,
         ]);
     }

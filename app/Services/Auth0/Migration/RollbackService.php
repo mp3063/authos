@@ -9,6 +9,8 @@ use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use RuntimeException;
 
 class RollbackService
 {
@@ -20,7 +22,7 @@ class RollbackService
     public function rollback(MigrationResult $result): void
     {
         if ($result->dryRun) {
-            throw new \RuntimeException('Cannot rollback a dry run migration');
+            throw new RuntimeException('Cannot rollback a dry run migration');
         }
 
         DB::transaction(function () use ($result) {
@@ -114,7 +116,7 @@ class RollbackService
     public function partialRollback(MigrationResult $result, string $category): void
     {
         if ($result->dryRun) {
-            throw new \RuntimeException('Cannot rollback a dry run migration');
+            throw new RuntimeException('Cannot rollback a dry run migration');
         }
 
         DB::transaction(function () use ($result, $category) {
@@ -123,7 +125,7 @@ class RollbackService
                 'applications' => $this->rollbackApplications($result),
                 'roles' => $this->rollbackRoles($result),
                 'organizations' => $this->rollbackOrganizations($result),
-                default => throw new \InvalidArgumentException("Invalid category: {$category}"),
+                default => throw new InvalidArgumentException("Invalid category: {$category}"),
             };
         });
     }

@@ -52,170 +52,187 @@ class ViewSSOSession extends ViewRecord
     public function infolist(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('Session Details')
-                ->schema([
-                    TextEntry::make('user.name')
-                        ->label('User'),
+            $this->sessionDetailsSection(),
+            $this->deviceInformationSection(),
+            $this->locationInformationSection(),
+            $this->metadataSection(),
+        ]);
+    }
 
-                    TextEntry::make('user.email')
-                        ->label('Email'),
+    private function sessionDetailsSection(): Section
+    {
+        return Section::make('Session Details')
+            ->schema([
+                TextEntry::make('user.name')
+                    ->label('User'),
 
-                    TextEntry::make('application.name')
-                        ->label('Application')
-                        ->badge(),
+                TextEntry::make('user.email')
+                    ->label('Email'),
 
-                    TextEntry::make('is_active')
-                        ->label('Status')
-                        ->badge()
-                        ->formatStateUsing(fn () => $this->record->isActive() ? 'Active' : 'Inactive')
-                        ->color(fn () => $this->record->isActive() ? 'success' : 'gray'),
+                TextEntry::make('application.name')
+                    ->label('Application')
+                    ->badge(),
 
-                    TextEntry::make('external_session_id')
-                        ->label('External Session ID')
-                        ->placeholder('N/A')
-                        ->copyable(),
+                TextEntry::make('is_active')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn () => $this->record->isActive() ? 'Active' : 'Inactive')
+                    ->color(fn () => $this->record->isActive() ? 'success' : 'gray'),
 
-                    TextEntry::make('created_at')
-                        ->label('Created At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+                TextEntry::make('external_session_id')
+                    ->label('External Session ID')
+                    ->placeholder('N/A')
+                    ->copyable(),
 
-                    TextEntry::make('expires_at')
-                        ->label('Expires At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+                TextEntry::make('created_at')
+                    ->label('Created At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
 
-                    TextEntry::make('last_activity_at')
-                        ->label('Last Activity')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
+                TextEntry::make('expires_at')
+                    ->label('Expires At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
 
-                    TextEntry::make('logged_out_at')
-                        ->label('Logged Out At')
-                        ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
-                        ->placeholder('Still active'),
+                TextEntry::make('last_activity_at')
+                    ->label('Last Activity')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A')),
 
-                    TextEntry::make('loggedOutBy.name')
-                        ->label('Logged Out By')
-                        ->placeholder('N/A'),
-                ])
-                ->columns(2)
-                ->columnSpanFull(),
+                TextEntry::make('logged_out_at')
+                    ->label('Logged Out At')
+                    ->formatStateUsing(fn ($state) => $state?->format('M j, Y \a\t g:i A'))
+                    ->placeholder('Still active'),
 
-            Section::make('Device Information')
-                ->schema([
-                    TextEntry::make('ip_address')
-                        ->label('IP Address')
-                        ->copyable()
-                        ->icon('heroicon-o-globe-alt'),
+                TextEntry::make('loggedOutBy.name')
+                    ->label('Logged Out By')
+                    ->placeholder('N/A'),
+            ])
+            ->columns(2)
+            ->columnSpanFull();
+    }
 
-                    TextEntry::make('user_agent')
-                        ->label('User Agent')
-                        ->columnSpanFull()
-                        ->tooltip(fn ($record) => $record->user_agent),
+    private function deviceInformationSection(): Section
+    {
+        return Section::make('Device Information')
+            ->schema([
+                TextEntry::make('ip_address')
+                    ->label('IP Address')
+                    ->copyable()
+                    ->icon('heroicon-o-globe-alt'),
 
-                    TextEntry::make('device_info')
-                        ->label('Device')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getDeviceInfo();
+                TextEntry::make('user_agent')
+                    ->label('User Agent')
+                    ->columnSpanFull()
+                    ->tooltip(fn ($record) => $record->user_agent),
 
-                            return ucfirst($info['device']);
-                        })
-                        ->placeholder('Unknown'),
+                TextEntry::make('device_info')
+                    ->label('Device')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getDeviceInfo();
 
-                    TextEntry::make('browser_info')
-                        ->label('Browser')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getDeviceInfo();
+                        return ucfirst($info['device']);
+                    })
+                    ->placeholder('Unknown'),
 
-                            return ucfirst($info['browser']);
-                        })
-                        ->placeholder('Unknown'),
+                TextEntry::make('browser_info')
+                    ->label('Browser')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getDeviceInfo();
 
-                    TextEntry::make('platform_info')
-                        ->label('Platform')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getDeviceInfo();
+                        return ucfirst($info['browser']);
+                    })
+                    ->placeholder('Unknown'),
 
-                            return ucfirst($info['platform']);
-                        })
-                        ->placeholder('Unknown'),
-                ])
-                ->columns(3)
-                ->collapsible()
-                ->columnSpanFull(),
+                TextEntry::make('platform_info')
+                    ->label('Platform')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getDeviceInfo();
 
-            Section::make('Location Information')
-                ->schema([
-                    TextEntry::make('location_country')
-                        ->label('Country')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getLocationInfo();
+                        return ucfirst($info['platform']);
+                    })
+                    ->placeholder('Unknown'),
+            ])
+            ->columns(3)
+            ->collapsible()
+            ->columnSpanFull();
+    }
 
-                            return $info['country'];
-                        })
-                        ->placeholder('Unknown'),
+    private function locationInformationSection(): Section
+    {
+        return Section::make('Location Information')
+            ->schema([
+                TextEntry::make('location_country')
+                    ->label('Country')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getLocationInfo();
 
-                    TextEntry::make('location_city')
-                        ->label('City')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getLocationInfo();
+                        return $info['country'];
+                    })
+                    ->placeholder('Unknown'),
 
-                            return $info['city'];
-                        })
-                        ->placeholder('Unknown'),
+                TextEntry::make('location_city')
+                    ->label('City')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getLocationInfo();
 
-                    TextEntry::make('location_region')
-                        ->label('Region')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getLocationInfo();
+                        return $info['city'];
+                    })
+                    ->placeholder('Unknown'),
 
-                            return $info['region'];
-                        })
-                        ->placeholder('Unknown'),
+                TextEntry::make('location_region')
+                    ->label('Region')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getLocationInfo();
 
-                    TextEntry::make('location_timezone')
-                        ->label('Timezone')
-                        ->formatStateUsing(function () {
-                            $info = $this->record->getLocationInfo();
+                        return $info['region'];
+                    })
+                    ->placeholder('Unknown'),
 
-                            return $info['timezone'];
-                        })
-                        ->placeholder('Unknown'),
-                ])
-                ->columns(2)
-                ->collapsible()
-                ->columnSpanFull(),
+                TextEntry::make('location_timezone')
+                    ->label('Timezone')
+                    ->formatStateUsing(function () {
+                        $info = $this->record->getLocationInfo();
 
-            Section::make('Metadata')
-                ->schema([
-                    ViewEntry::make('metadata')
-                        ->label('')
-                        ->view('components.json-display-simple')
-                        ->viewData(function ($record) {
-                            $state = $record->metadata;
-                            if (! $state) {
-                                return ['json' => 'None'];
-                            }
+                        return $info['timezone'];
+                    })
+                    ->placeholder('Unknown'),
+            ])
+            ->columns(2)
+            ->collapsible()
+            ->columnSpanFull();
+    }
 
-                            if (is_string($state)) {
-                                $decoded = json_decode($state, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    private function metadataSection(): Section
+    {
+        return Section::make('Metadata')
+            ->schema([
+                ViewEntry::make('metadata')
+                    ->label('')
+                    ->view('components.json-display-simple')
+                    ->viewData(function ($record) {
+                        $state = $record->metadata;
+                        if (! $state) {
+                            return ['json' => 'None'];
+                        }
 
-                                    return ['json' => trim($formatted)];
-                                }
-                            }
-
-                            if (is_array($state)) {
-                                $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            if (json_last_error() === JSON_ERROR_NONE) {
+                                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
                                 return ['json' => trim($formatted)];
                             }
+                        }
 
-                            return ['json' => $state];
-                        }),
-                ])
-                ->collapsible()
-                ->collapsed()
-                ->columnSpanFull(),
-        ]);
+                        if (is_array($state)) {
+                            $formatted = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+                            return ['json' => trim($formatted)];
+                        }
+
+                        return ['json' => $state];
+                    }),
+            ])
+            ->collapsible()
+            ->collapsed()
+            ->columnSpanFull();
     }
 }

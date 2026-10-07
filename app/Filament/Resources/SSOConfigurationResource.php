@@ -31,6 +31,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class SSOConfigurationResource extends Resource
@@ -48,185 +49,214 @@ class SSOConfigurationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('SSO Configuration')->schema([
-                TextInput::make('name')
-                    ->label('Configuration Name')
-                    ->required()
-                    ->maxLength(255)
-                    ->helperText('A descriptive name for this SSO configuration'),
-
-                Select::make('provider')
-                    ->label('Provider Type')
-                    ->options([
-                        'oidc' => 'OpenID Connect (OIDC)',
-                        'saml' => 'SAML 2.0',
-                        'saml2' => 'SAML 2.0 (Legacy)',
-                    ])
-                    ->required()
-                    ->reactive()
-                    ->live()
-                    ->helperText('Select the SSO protocol to use'),
-
-                Select::make('application_id')
-                    ->label('Application')
-                    ->relationship('application', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    ->helperText('The application this SSO configuration belongs to'),
-
-                Toggle::make('is_active')
-                    ->label('Active')
-                    ->default(true)
-                    ->helperText('Inactive configurations will not be available for authentication'),
-
-                TextInput::make('callback_url')
-                    ->label('Callback URL')
-                    ->url()
-                    ->maxLength(2048)
-                    ->helperText('The URL to redirect to after successful authentication')
-                    ->columnSpanFull(),
-
-                TextInput::make('logout_url')
-                    ->label('Logout URL')
-                    ->url()
-                    ->maxLength(2048)
-                    ->helperText('The URL to redirect to after logout')
-                    ->columnSpanFull(),
-            ])->columns(2),
-
-            Section::make('OIDC Settings')
-                ->schema([
-                    KeyValue::make('configuration')
-                        ->label('OIDC Configuration')
-                        ->keyLabel('Setting')
-                        ->valueLabel('Value')
-                        ->default([
-                            'client_id' => '',
-                            'client_secret' => '',
-                            'discovery_url' => '',
-                            'authorization_endpoint' => '',
-                            'token_endpoint' => '',
-                            'userinfo_endpoint' => '',
-                            'scopes' => 'openid profile email',
-                        ])
-                        ->helperText('Configure the OIDC provider settings. Common keys: client_id, client_secret, discovery_url, authorization_endpoint, token_endpoint, userinfo_endpoint, scopes.')
-                        ->columnSpanFull(),
-                ])
-                ->visible(fn ($get) => $get('provider') === 'oidc')
-                ->collapsible(),
-
-            Section::make('SAML IdP Configuration')
-                ->schema([
-                    TextInput::make('configuration.idp_entity_id')
-                        ->label('IdP Entity ID')
-                        ->required()
-                        ->maxLength(2048)
-                        ->helperText('The Entity ID (Issuer) of the Identity Provider')
-                        ->columnSpanFull(),
-
-                    TextInput::make('configuration.idp_sso_url')
-                        ->label('IdP SSO URL')
-                        ->url()
-                        ->required()
-                        ->maxLength(2048)
-                        ->helperText('The Single Sign-On URL of the Identity Provider'),
-
-                    TextInput::make('configuration.idp_slo_url')
-                        ->label('IdP SLO URL')
-                        ->url()
-                        ->maxLength(2048)
-                        ->helperText('The Single Logout URL of the Identity Provider (optional)'),
-                ])
-                ->columns(2)
-                ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
-                ->collapsible(),
-
-            Section::make('SAML Certificate Management')
-                ->schema([
-                    Textarea::make('configuration.x509_cert')
-                        ->label('IdP Certificate (PEM)')
-                        ->required()
-                        ->rows(6)
-                        ->helperText('Paste the IdP X.509 certificate in PEM format (including BEGIN/END CERTIFICATE lines)')
-                        ->columnSpanFull(),
-
-                    Textarea::make('configuration.sp_x509_cert')
-                        ->label('SP Certificate (PEM)')
-                        ->rows(6)
-                        ->helperText('Optional: Paste the Service Provider X.509 certificate for signing requests')
-                        ->columnSpanFull(),
-                ])
-                ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
-                ->collapsible(),
-
-            Section::make('SAML NameID & SP Configuration')
-                ->schema([
-                    Select::make('settings.name_id_format')
-                        ->label('NameID Format')
-                        ->options([
-                            'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress' => 'Email Address',
-                            'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent' => 'Persistent',
-                            'urn:oasis:names:tc:SAML:2.0:nameid-format:transient' => 'Transient',
-                            'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified' => 'Unspecified',
-                        ])
-                        ->default('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress')
-                        ->helperText('The NameID format to request from the Identity Provider'),
-
-                    TextInput::make('configuration.sp_entity_id')
-                        ->label('SP Entity ID')
-                        ->maxLength(2048)
-                        ->helperText('The Entity ID of this Service Provider (auto-generated if left empty)'),
-
-                    Select::make('configuration.signature_algorithm')
-                        ->label('Signature Algorithm')
-                        ->options([
-                            'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256' => 'RSA-SHA256 (Recommended)',
-                            'http://www.w3.org/2000/09/xmldsig#rsa-sha1' => 'RSA-SHA1 (Legacy)',
-                            'http://www.w3.org/2001/04/xmldsig-more#rsa-sha384' => 'RSA-SHA384',
-                            'http://www.w3.org/2001/04/xmldsig-more#rsa-sha512' => 'RSA-SHA512',
-                        ])
-                        ->default('http://www.w3.org/2001/04/xmldsig-more#rsa-sha256')
-                        ->helperText('The algorithm used for signing SAML requests'),
-                ])
-                ->columns(2)
-                ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
-                ->collapsible(),
-
-            Section::make('SAML Attribute Mapping')
-                ->schema([
-                    KeyValue::make('configuration.attribute_mapping')
-                        ->label('Attribute Mapping')
-                        ->keyLabel('Application Attribute')
-                        ->valueLabel('SAML Attribute')
-                        ->default([
-                            'email' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
-                            'name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
-                            'first_name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname',
-                            'last_name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname',
-                        ])
-                        ->helperText('Map SAML assertion attributes to application user fields')
-                        ->columnSpanFull(),
-                ])
-                ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
-                ->collapsible(),
-
-            Section::make('Domain & Session')->schema([
-                TagsInput::make('allowed_domains')
-                    ->label('Allowed Domains')
-                    ->placeholder('Add domain...')
-                    ->helperText('Restrict SSO to specific email domains. Supports wildcards (e.g., *.example.com). Leave empty to allow all domains.')
-                    ->columnSpanFull(),
-
-                TextInput::make('session_lifetime')
-                    ->label('Session Lifetime (minutes)')
-                    ->numeric()
-                    ->default(60)
-                    ->minValue(1)
-                    ->maxValue(43200)
-                    ->helperText('Maximum session duration in minutes before re-authentication is required'),
-            ])->columns(2),
+            self::ssoConfigurationSection(),
+            self::oidcSettingsSection(),
+            self::samlIdentityProviderSection(),
+            self::samlCertificateSection(),
+            self::samlNameIdSection(),
+            self::samlAttributeMappingSection(),
+            self::domainSessionSection(),
         ]);
+    }
+
+    private static function ssoConfigurationSection(): Section
+    {
+        return Section::make('SSO Configuration')->schema([
+            TextInput::make('name')
+                ->label('Configuration Name')
+                ->required()
+                ->maxLength(255)
+                ->helperText('A descriptive name for this SSO configuration'),
+
+            Select::make('provider')
+                ->label('Provider Type')
+                ->options([
+                    'oidc' => 'OpenID Connect (OIDC)',
+                    'saml' => 'SAML 2.0',
+                    'saml2' => 'SAML 2.0 (Legacy)',
+                ])
+                ->required()
+                ->reactive()
+                ->live()
+                ->helperText('Select the SSO protocol to use'),
+
+            Select::make('application_id')
+                ->label('Application')
+                ->relationship('application', 'name')
+                ->searchable()
+                ->preload()
+                ->required()
+                ->helperText('The application this SSO configuration belongs to'),
+
+            Toggle::make('is_active')
+                ->label('Active')
+                ->default(true)
+                ->helperText('Inactive configurations will not be available for authentication'),
+
+            TextInput::make('callback_url')
+                ->label('Callback URL')
+                ->url()
+                ->maxLength(2048)
+                ->helperText('The URL to redirect to after successful authentication')
+                ->columnSpanFull(),
+
+            TextInput::make('logout_url')
+                ->label('Logout URL')
+                ->url()
+                ->maxLength(2048)
+                ->helperText('The URL to redirect to after logout')
+                ->columnSpanFull(),
+        ])->columns(2);
+    }
+
+    private static function oidcSettingsSection(): Section
+    {
+        return Section::make('OIDC Settings')
+            ->schema([
+                KeyValue::make('configuration')
+                    ->label('OIDC Configuration')
+                    ->keyLabel('Setting')
+                    ->valueLabel('Value')
+                    ->default([
+                        'client_id' => '',
+                        'client_secret' => '',
+                        'discovery_url' => '',
+                        'authorization_endpoint' => '',
+                        'token_endpoint' => '',
+                        'userinfo_endpoint' => '',
+                        'scopes' => 'openid profile email',
+                    ])
+                    ->helperText('Configure the OIDC provider settings. Common keys: client_id, client_secret, discovery_url, authorization_endpoint, token_endpoint, userinfo_endpoint, scopes.')
+                    ->columnSpanFull(),
+            ])
+            ->visible(fn ($get) => $get('provider') === 'oidc')
+            ->collapsible();
+    }
+
+    private static function samlIdentityProviderSection(): Section
+    {
+        return Section::make('SAML IdP Configuration')
+            ->schema([
+                TextInput::make('configuration.idp_entity_id')
+                    ->label('IdP Entity ID')
+                    ->required()
+                    ->maxLength(2048)
+                    ->helperText('The Entity ID (Issuer) of the Identity Provider')
+                    ->columnSpanFull(),
+
+                TextInput::make('configuration.idp_sso_url')
+                    ->label('IdP SSO URL')
+                    ->url()
+                    ->required()
+                    ->maxLength(2048)
+                    ->helperText('The Single Sign-On URL of the Identity Provider'),
+
+                TextInput::make('configuration.idp_slo_url')
+                    ->label('IdP SLO URL')
+                    ->url()
+                    ->maxLength(2048)
+                    ->helperText('The Single Logout URL of the Identity Provider (optional)'),
+            ])
+            ->columns(2)
+            ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
+            ->collapsible();
+    }
+
+    private static function samlCertificateSection(): Section
+    {
+        return Section::make('SAML Certificate Management')
+            ->schema([
+                Textarea::make('configuration.x509_cert')
+                    ->label('IdP Certificate (PEM)')
+                    ->required()
+                    ->rows(6)
+                    ->helperText('Paste the IdP X.509 certificate in PEM format (including BEGIN/END CERTIFICATE lines)')
+                    ->columnSpanFull(),
+
+                Textarea::make('configuration.sp_x509_cert')
+                    ->label('SP Certificate (PEM)')
+                    ->rows(6)
+                    ->helperText('Optional: Paste the Service Provider X.509 certificate for signing requests')
+                    ->columnSpanFull(),
+            ])
+            ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
+            ->collapsible();
+    }
+
+    private static function samlNameIdSection(): Section
+    {
+        return Section::make('SAML NameID & SP Configuration')
+            ->schema([
+                Select::make('settings.name_id_format')
+                    ->label('NameID Format')
+                    ->options([
+                        'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress' => 'Email Address',
+                        'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent' => 'Persistent',
+                        'urn:oasis:names:tc:SAML:2.0:nameid-format:transient' => 'Transient',
+                        'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified' => 'Unspecified',
+                    ])
+                    ->default('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress')
+                    ->helperText('The NameID format to request from the Identity Provider'),
+
+                TextInput::make('configuration.sp_entity_id')
+                    ->label('SP Entity ID')
+                    ->maxLength(2048)
+                    ->helperText('The Entity ID of this Service Provider (auto-generated if left empty)'),
+
+                Select::make('configuration.signature_algorithm')
+                    ->label('Signature Algorithm')
+                    ->options([
+                        'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256' => 'RSA-SHA256 (Recommended)',
+                        'http://www.w3.org/2000/09/xmldsig#rsa-sha1' => 'RSA-SHA1 (Legacy)',
+                        'http://www.w3.org/2001/04/xmldsig-more#rsa-sha384' => 'RSA-SHA384',
+                        'http://www.w3.org/2001/04/xmldsig-more#rsa-sha512' => 'RSA-SHA512',
+                    ])
+                    ->default('http://www.w3.org/2001/04/xmldsig-more#rsa-sha256')
+                    ->helperText('The algorithm used for signing SAML requests'),
+            ])
+            ->columns(2)
+            ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
+            ->collapsible();
+    }
+
+    private static function samlAttributeMappingSection(): Section
+    {
+        return Section::make('SAML Attribute Mapping')
+            ->schema([
+                KeyValue::make('configuration.attribute_mapping')
+                    ->label('Attribute Mapping')
+                    ->keyLabel('Application Attribute')
+                    ->valueLabel('SAML Attribute')
+                    ->default([
+                        'email' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
+                        'name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+                        'first_name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname',
+                        'last_name' => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname',
+                    ])
+                    ->helperText('Map SAML assertion attributes to application user fields')
+                    ->columnSpanFull(),
+            ])
+            ->visible(fn ($get) => in_array($get('provider'), ['saml', 'saml2']))
+            ->collapsible();
+    }
+
+    private static function domainSessionSection(): Section
+    {
+        return Section::make('Domain & Session')->schema([
+            TagsInput::make('allowed_domains')
+                ->label('Allowed Domains')
+                ->placeholder('Add domain...')
+                ->helperText('Restrict SSO to specific email domains. Supports wildcards (e.g., *.example.com). Leave empty to allow all domains.')
+                ->columnSpanFull(),
+
+            TextInput::make('session_lifetime')
+                ->label('Session Lifetime (minutes)')
+                ->numeric()
+                ->default(60)
+                ->minValue(1)
+                ->maxValue(43200)
+                ->helperText('Maximum session duration in minutes before re-authentication is required'),
+        ])->columns(2);
     }
 
     public static function table(Table $table): Table
@@ -236,7 +266,7 @@ class SSOConfigurationResource extends Resource
                 ->searchable()
                 ->sortable()
                 ->weight('bold')
-                ->description(fn (SSOConfiguration $record): ?string => $record->callback_url ? \Illuminate\Support\Str::limit($record->callback_url, 50) : null),
+                ->description(fn (SSOConfiguration $record): ?string => $record->callback_url ? Str::limit($record->callback_url, 50) : null),
 
             TextColumn::make('provider')
                 ->label('Provider')
@@ -366,8 +396,8 @@ class SSOConfigurationResource extends Resource
 
         // Other users can only see SSO configurations from their organization's applications
         if ($user->organization_id) {
-            $query->whereHas('application', function (Builder $q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
+            $query->whereHas('application', function (Builder $subQuery) use ($user) {
+                $subQuery->where('organization_id', $user->organization_id);
             });
         }
 

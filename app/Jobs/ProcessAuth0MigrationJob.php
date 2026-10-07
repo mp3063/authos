@@ -18,6 +18,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class ProcessAuth0MigrationJob implements ShouldQueue
@@ -59,7 +60,7 @@ class ProcessAuth0MigrationJob implements ShouldQueue
             $apiToken = $config['api_token'] ?? null;
 
             if (! $tenantDomain || ! $apiToken) {
-                throw new \RuntimeException('Missing Auth0 tenant domain or API token in migration configuration');
+                throw new RuntimeException('Missing Auth0 tenant domain or API token in migration configuration');
             }
 
             // Initialize Auth0 client (via container for testability)

@@ -18,7 +18,7 @@ class OrganizationObserver
     /**
      * Handle the Organization "created" event.
      */
-    public function created(Organization $organization): void
+    public function created(): void
     {
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/organizations');
     }

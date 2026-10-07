@@ -83,7 +83,7 @@ class UserApplicationPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, UserApplication $userApplication): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

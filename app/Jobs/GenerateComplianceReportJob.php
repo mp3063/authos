@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Throwable;
 
 class GenerateComplianceReportJob implements ShouldQueue
@@ -80,7 +81,7 @@ class GenerateComplianceReportJob implements ShouldQueue
                 ComplianceReport::TYPE_SOC2 => $service->generateSOC2Report($this->organization, $start, $end),
                 ComplianceReport::TYPE_ISO27001 => $service->generateISO27001Report($this->organization, $start, $end),
                 ComplianceReport::TYPE_GDPR => $service->generateGDPRReport($this->organization, $start, $end),
-                default => throw new \InvalidArgumentException("Invalid report type: {$this->reportType}"),
+                default => throw new InvalidArgumentException("Invalid report type: {$this->reportType}"),
             };
 
             $jsonPath = sprintf(

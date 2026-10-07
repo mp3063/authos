@@ -56,7 +56,18 @@ class BulkImportJobResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
+        return $table
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->defaultSort('created_at', 'desc')
+            ->poll('15s')
+            ->striped();
+    }
+
+    private static function tableColumns(): array
+    {
+        return [
             TextColumn::make('id')
                 ->label('ID')
                 ->sortable(),
@@ -145,7 +156,12 @@ class BulkImportJobResource extends Resource
                 ->dateTime()
                 ->sortable()
                 ->toggleable(isToggledHiddenByDefault: true),
-        ])->filters([
+        ];
+    }
+
+    private static function tableFilters(): array
+    {
+        return [
             SelectFilter::make('status')
                 ->options([
                     'pending' => 'Pending',
@@ -168,7 +184,12 @@ class BulkImportJobResource extends Resource
                 ->options(fn () => Organization::pluck('name', 'id')->toArray())
                 ->visible(fn (): bool => static::isSuperAdmin())
                 ->searchable(),
-        ])->recordActions([
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
             ViewAction::make(),
 
             Action::make('retry')
@@ -215,7 +236,7 @@ class BulkImportJobResource extends Resource
                         ->success()
                         ->send();
                 }),
-        ])->defaultSort('created_at', 'desc')->poll('15s')->striped();
+        ];
     }
 
     public static function getPages(): array

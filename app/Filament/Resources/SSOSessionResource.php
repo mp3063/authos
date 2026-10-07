@@ -8,6 +8,7 @@ use App\Models\Application;
 use App\Models\SSOSession;
 use App\Models\User;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
@@ -120,8 +121,8 @@ class SSOSessionResource extends Resource
                 ->label('Active Status')
                 ->queries(
                     true: fn (Builder $query) => $query->active(),
-                    false: fn (Builder $query) => $query->where(function (Builder $q) {
-                        $q->where('expires_at', '<=', now())
+                    false: fn (Builder $query) => $query->where(function (Builder $subQuery) {
+                        $subQuery->where('expires_at', '<=', now())
                             ->orWhereNotNull('logged_out_at');
                     }),
                     blank: fn (Builder $query) => $query,
@@ -134,7 +135,7 @@ class SSOSessionResource extends Resource
         ])->recordActions([
             ViewAction::make(),
 
-            \Filament\Actions\Action::make('terminate')
+            Action::make('terminate')
                 ->label('Terminate')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')

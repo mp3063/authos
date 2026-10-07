@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Services\SocialAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 
-class SocialAuthController extends Controller
+class SocialAuthController extends BaseController
 {
     public function __construct(
         private SocialAuthService $socialAuthService
@@ -183,7 +183,7 @@ class SocialAuthController extends Controller
     /**
      * Handle social login from web (for admin panel)
      */
-    public function webLogin(Request $request, string $provider): RedirectResponse
+    public function webLogin(string $provider): RedirectResponse
     {
         try {
             // Validate provider
@@ -212,7 +212,7 @@ class SocialAuthController extends Controller
     /**
      * Handle OAuth callback for web login
      */
-    public function webCallback(Request $request, string $provider): RedirectResponse
+    public function webCallback(string $provider): RedirectResponse
     {
         try {
             // Validate provider
@@ -279,7 +279,7 @@ class SocialAuthController extends Controller
             $socialUser = Socialite::driver($provider)->user();
 
             // Link the social account
-            $result = $this->socialAuthService->linkSocialAccount($user, $provider, $socialUser);
+            $this->socialAuthService->linkSocialAccount($user, $provider, $socialUser);
 
             return response()->json([
                 'success' => true,

@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\AccountLockout>
+ * @extends Factory<AccountLockout>
  */
 class AccountLockoutFactory extends Factory
 {
@@ -43,7 +43,7 @@ class AccountLockoutFactory extends Factory
      */
     public function progressive(int $attemptCount = 5, int $durationMinutes = 5): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'lockout_type' => 'progressive',
             'attempt_count' => $attemptCount,
             'unlock_at' => now()->addMinutes($durationMinutes),
@@ -60,7 +60,7 @@ class AccountLockoutFactory extends Factory
      */
     public function permanent(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'lockout_type' => 'permanent',
             'unlock_at' => null,
             'reason' => 'Account permanently locked',
@@ -75,7 +75,7 @@ class AccountLockoutFactory extends Factory
      */
     public function adminInitiated(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'lockout_type' => 'admin_initiated',
             'unlock_at' => null,
             'reason' => 'Locked by administrator',
@@ -91,7 +91,7 @@ class AccountLockoutFactory extends Factory
      */
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'locked_at' => now()->subHours(2),
             'unlock_at' => now()->subHour(),
         ]);
@@ -102,7 +102,7 @@ class AccountLockoutFactory extends Factory
      */
     public function active(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'locked_at' => now()->subMinutes(10),
             'unlock_at' => now()->addMinutes(50),
             'unlocked_at' => null,
@@ -114,7 +114,7 @@ class AccountLockoutFactory extends Factory
      */
     public function unlocked(string $method = 'auto'): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'unlocked_at' => now(),
             'unlock_method' => $method,
         ]);
@@ -125,7 +125,7 @@ class AccountLockoutFactory extends Factory
      */
     public function withoutUser(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'user_id' => null,
         ]);
     }
@@ -135,7 +135,7 @@ class AccountLockoutFactory extends Factory
      */
     public function forUser(User $user): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'user_id' => $user->id,
             'email' => $user->email,
         ]);
@@ -146,7 +146,7 @@ class AccountLockoutFactory extends Factory
      */
     public function forIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }

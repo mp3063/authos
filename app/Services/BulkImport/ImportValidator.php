@@ -51,55 +51,17 @@ class ImportValidator
      */
     private function validateRecord(int $rowNumber, array $record): void
     {
-        $errors = [];
+        $errors = array_merge(
+            $this->tally($this->validateRequiredFields($record), 'missing_required_fields'),
+            $this->validateEmailField($record),
+            $this->validatePasswordField($record),
+            $this->validateRoleField($record),
+        );
 
-        // Validate required fields
-        $requiredErrors = $this->validateRequiredFields($record);
-        if (! empty($requiredErrors)) {
-            $errors = array_merge($errors, $requiredErrors);
-            $this->summary['missing_required_fields']++;
-        }
-
-        // Validate email format
-        if (isset($record['email'])) {
-            $emailErrors = $this->validateEmail($record['email']);
-            if (! empty($emailErrors)) {
-                $errors = array_merge($errors, $emailErrors);
-                $this->summary['invalid_emails']++;
-            } else {
-                // Check for duplicates only if email format is valid
-                $duplicateErrors = $this->checkDuplicateEmail($record['email']);
-                if (! empty($duplicateErrors)) {
-                    $errors = array_merge($errors, $duplicateErrors);
-                    $this->summary['duplicate_emails']++;
-                }
-            }
-        }
-
-        // Validate password (if provided and not auto-generating)
-        if (! $this->options->autoGeneratePasswords && isset($record['password']) && ! empty($record['password'])) {
-            $passwordErrors = $this->validatePassword($record['password']);
-            if (! empty($passwordErrors)) {
-                $errors = array_merge($errors, $passwordErrors);
-                $this->summary['weak_passwords']++;
-            }
-        }
-
-        // Validate role (if provided)
-        if (isset($record['role']) && ! empty($record['role'])) {
-            $roleErrors = $this->validateRole($record['role']);
-            if (! empty($roleErrors)) {
-                $errors = array_merge($errors, $roleErrors);
-                $this->summary['invalid_roles']++;
-            }
-        }
-
-        // Validate name length
         if (isset($record['name']) && strlen($record['name']) > 255) {
             $errors[] = 'Name must not exceed 255 characters';
         }
 
-        // Store result
         if (empty($errors)) {
             $this->validRecords[] = [
                 'row' => $rowNumber,
@@ -112,6 +74,50 @@ class ImportValidator
                 'errors' => $errors,
             ];
         }
+    }
+
+    /**
+     * Count a failed check in the summary and pass its errors through
+     */
+    private function tally(array $errors, string $summaryKey): array
+    {
+        if (! empty($errors)) {
+            $this->summary[$summaryKey]++;
+        }
+
+        return $errors;
+    }
+
+    private function validateEmailField(array $record): array
+    {
+        if (! isset($record['email'])) {
+            return [];
+        }
+
+        $emailErrors = $this->tally($this->validateEmail($record['email']), 'invalid_emails');
+        if (! empty($emailErrors)) {
+            return $emailErrors;
+        }
+
+        return $this->tally($this->checkDuplicateEmail($record['email']), 'duplicate_emails');
+    }
+
+    private function validatePasswordField(array $record): array
+    {
+        if ($this->options->autoGeneratePasswords || empty($record['password'])) {
+            return [];
+        }
+
+        return $this->tally($this->validatePassword($record['password']), 'weak_passwords');
+    }
+
+    private function validateRoleField(array $record): array
+    {
+        if (empty($record['role'])) {
+            return [];
+        }
+
+        return $this->tally($this->validateRole($record['role']), 'invalid_roles');
     }
 
     /**
@@ -198,8 +204,8 @@ class ImportValidator
     {
         $exists = Role::where('name', $roleName)
             ->when($this->options->organizationId, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('organization_id', $this->options->organizationId)
+                $query->where(function ($subQuery) {
+                    $subQuery->where('organization_id', $this->options->organizationId)
                         ->orWhereNull('organization_id');
                 });
             })

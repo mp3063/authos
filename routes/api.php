@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\ApplicationController;
+use App\Http\Controllers\Api\ApplicationTokenController;
+use App\Http\Controllers\Api\ApplicationUserController;
+use App\Http\Controllers\Api\Auth\MfaVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Bulk\BulkAccessController;
 use App\Http\Controllers\Api\Bulk\BulkDataController;
@@ -14,6 +17,9 @@ use App\Http\Controllers\Api\Enterprise\ComplianceController;
 use App\Http\Controllers\Api\Enterprise\DomainController;
 use App\Http\Controllers\Api\Enterprise\LdapController;
 use App\Http\Controllers\Api\InvitationController;
+use App\Http\Controllers\Api\MfaController;
+use App\Http\Controllers\Api\Monitoring\CustomMetricController;
+use App\Http\Controllers\Api\Monitoring\ErrorTrackingController;
 use App\Http\Controllers\Api\Monitoring\HealthCheckController;
 use App\Http\Controllers\Api\Monitoring\MetricsController;
 use App\Http\Controllers\Api\OpenIdController;
@@ -24,9 +30,17 @@ use App\Http\Controllers\Api\Organizations\OrganizationUsersController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\Profile\ConsentController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\SocialAccountController;
 use App\Http\Controllers\Api\SocialAuthController;
+use App\Http\Controllers\Api\SSO\SamlCertificateController;
+use App\Http\Controllers\Api\SSO\SamlController;
+use App\Http\Controllers\Api\SSO\SsoConfigurationController;
+use App\Http\Controllers\Api\SSO\SsoSessionController;
 use App\Http\Controllers\Api\SSOController;
+use App\Http\Controllers\Api\UserApplicationController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserRoleController;
+use App\Http\Controllers\Api\UserSessionController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\WebhookDeliveryController;
 use App\Http\Controllers\Api\WebhookEventController;
@@ -67,7 +81,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:auth');
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
         Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth');
-        Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('throttle:auth');
+        Route::post('/mfa/verify', [MfaVerificationController::class, 'verify'])->middleware('throttle:auth');
 
         // Password Reset routes (public, rate-limited)
         Route::prefix('password')->middleware('throttle:5,60')->group(function () {
@@ -112,21 +126,21 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::delete('/{id}', [UserController::class, 'destroy']);
 
         // User applications
-        Route::get('/{id}/applications', [UserController::class, 'applications']);
-        Route::post('/{id}/applications', [UserController::class, 'grantApplicationAccess']);
-        Route::delete('/{id}/applications/{applicationId}', [UserController::class, 'revokeApplicationAccess']);
+        Route::get('/{id}/applications', [UserApplicationController::class, 'applications']);
+        Route::post('/{id}/applications', [UserApplicationController::class, 'grantApplicationAccess']);
+        Route::delete('/{id}/applications/{applicationId}', [UserApplicationController::class, 'revokeApplicationAccess']);
 
         // User roles
-        Route::get('/{id}/roles', [UserController::class, 'roles']);
-        Route::post('/{id}/roles', [UserController::class, 'assignRole']);
-        Route::put('/{id}/roles', [UserController::class, 'updateRoles']);
-        Route::delete('/{id}/roles/{roleId}', [UserController::class, 'removeRole']);
+        Route::get('/{id}/roles', [UserRoleController::class, 'roles']);
+        Route::post('/{id}/roles', [UserRoleController::class, 'assignRole']);
+        Route::put('/{id}/roles', [UserRoleController::class, 'updateRoles']);
+        Route::delete('/{id}/roles/{roleId}', [UserRoleController::class, 'removeRole']);
 
         // User sessions
-        Route::get('/{id}/sessions', [UserController::class, 'sessions']);
-        Route::get('/{id}/sessions/{sessionId}', [UserController::class, 'showSession']);
-        Route::delete('/{id}/sessions', [UserController::class, 'revokeSessions']);
-        Route::delete('/{id}/sessions/{sessionId}', [UserController::class, 'revokeSession']);
+        Route::get('/{id}/sessions', [UserSessionController::class, 'sessions']);
+        Route::get('/{id}/sessions/{sessionId}', [UserSessionController::class, 'showSession']);
+        Route::delete('/{id}/sessions', [UserSessionController::class, 'revokeSessions']);
+        Route::delete('/{id}/sessions/{sessionId}', [UserSessionController::class, 'revokeSession']);
     });
 
     // Bulk Import/Export API
@@ -164,14 +178,14 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/credentials/regenerate', [ApplicationController::class, 'regenerateCredentials']);
 
         // Application users
-        Route::get('/{id}/users', [ApplicationController::class, 'users']);
-        Route::post('/{id}/users', [ApplicationController::class, 'grantUserAccess']);
-        Route::delete('/{id}/users/{userId}', [ApplicationController::class, 'revokeUserAccess']);
+        Route::get('/{id}/users', [ApplicationUserController::class, 'users']);
+        Route::post('/{id}/users', [ApplicationUserController::class, 'grantUserAccess']);
+        Route::delete('/{id}/users/{userId}', [ApplicationUserController::class, 'revokeUserAccess']);
 
         // Application tokens
-        Route::get('/{id}/tokens', [ApplicationController::class, 'tokens']);
-        Route::delete('/{id}/tokens', [ApplicationController::class, 'revokeAllTokens']);
-        Route::delete('/{id}/tokens/{tokenId}', [ApplicationController::class, 'revokeToken']);
+        Route::get('/{id}/tokens', [ApplicationTokenController::class, 'tokens']);
+        Route::delete('/{id}/tokens', [ApplicationTokenController::class, 'revokeAllTokens']);
+        Route::delete('/{id}/tokens/{tokenId}', [ApplicationTokenController::class, 'revokeToken']);
 
         // Application analytics
         Route::get('/{id}/analytics', [ApplicationController::class, 'analytics']);
@@ -187,8 +201,8 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::put('/preferences', [ProfileController::class, 'updatePreferences']);
         Route::get('/security', [ProfileController::class, 'security']);
         Route::post('/change-password', [ProfileController::class, 'changePassword']);
-        Route::get('/social-accounts', [ProfileController::class, 'socialAccounts']);
-        Route::delete('/social-accounts/{provider}', [ProfileController::class, 'unlinkSocialAccount']);
+        Route::get('/social-accounts', [SocialAccountController::class, 'socialAccounts']);
+        Route::delete('/social-accounts/{provider}', [SocialAccountController::class, 'unlinkSocialAccount']);
 
         // GDPR consent and data subject requests
         Route::get('/consents', [ConsentController::class, 'listConsents']);
@@ -199,16 +213,16 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // MFA Management API
     Route::middleware(['auth:api', 'throttle:api'])->prefix('mfa')->group(function () {
-        Route::get('/status', [ProfileController::class, 'mfaStatus']);
-        Route::post('/setup', [ProfileController::class, 'setupTotp']); // Alias for /setup/totp
-        Route::post('/setup/totp', [ProfileController::class, 'setupTotp']);
-        Route::post('/enable', [ProfileController::class, 'enableMfa']); // New endpoint
-        Route::post('/disable', [ProfileController::class, 'disableMfa']); // New endpoint
-        Route::post('/verify/totp', [ProfileController::class, 'verifyTotp']);
-        Route::post('/disable/totp', [ProfileController::class, 'disableTotp']); // Deprecated
-        Route::post('/recovery-codes', [ProfileController::class, 'getRecoveryCodes']);
-        Route::post('/recovery-codes/regenerate', [ProfileController::class, 'regenerateRecoveryCodes']);
-        Route::post('/backup-codes/regenerate', [ProfileController::class, 'regenerateRecoveryCodes']); // Alias
+        Route::get('/status', [MfaController::class, 'mfaStatus']);
+        Route::post('/setup', [MfaController::class, 'setupTotp']); // Alias for /setup/totp
+        Route::post('/setup/totp', [MfaController::class, 'setupTotp']);
+        Route::post('/enable', [MfaController::class, 'enableMfa']); // New endpoint
+        Route::post('/disable', [MfaController::class, 'disableMfa']); // New endpoint
+        Route::post('/verify/totp', [MfaController::class, 'verifyTotp']);
+        Route::post('/disable/totp', [MfaController::class, 'disableTotp']); // Deprecated
+        Route::post('/recovery-codes', [MfaController::class, 'getRecoveryCodes']);
+        Route::post('/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes']);
+        Route::post('/backup-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes']); // Alias
     });
 
     // Organization Management API
@@ -292,27 +306,27 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         // Authenticated SSO endpoints
         Route::middleware('auth:api')->group(function () {
             Route::post('/initiate', [SSOController::class, 'initiate'])->middleware('scopes:sso');
-            Route::get('/sessions', [SSOController::class, 'sessions'])->middleware('scopes:sso');
-            Route::post('/sessions/revoke', [SSOController::class, 'revokeSessions'])->middleware('scopes:sso');
+            Route::get('/sessions', [SsoSessionController::class, 'sessions'])->middleware('scopes:sso');
+            Route::post('/sessions/revoke', [SsoSessionController::class, 'revokeSessions'])->middleware('scopes:sso');
 
             // Individual session management
-            Route::get('/sessions/{session_token}/validate', [SSOController::class, 'validateSpecificSession'])->middleware('scopes:sso');
-            Route::post('/sessions/{session_token}/refresh', [SSOController::class, 'refreshSpecificSession'])->middleware('scopes:sso');
-            Route::post('/sessions/{session_token}/logout', [SSOController::class, 'logoutSpecificSession'])->middleware('scopes:sso');
+            Route::get('/sessions/{session_token}/validate', [SsoSessionController::class, 'validateSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/refresh', [SsoSessionController::class, 'refreshSpecificSession'])->middleware('scopes:sso');
+            Route::post('/sessions/{session_token}/logout', [SsoSessionController::class, 'logoutSpecificSession'])->middleware('scopes:sso');
 
             // Synchronized logout
-            Route::post('/logout/synchronized', [SSOController::class, 'synchronizedLogout'])->middleware('scopes:sso');
+            Route::post('/logout/synchronized', [SsoSessionController::class, 'synchronizedLogout'])->middleware('scopes:sso');
 
             // SSO Configuration Management
-            Route::get('/configurations/{organizationId}', [SSOController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
-            Route::post('/configurations', [SSOController::class, 'createSSOConfiguration'])->middleware('scopes:sso');
-            Route::put('/configurations/{id}', [SSOController::class, 'updateSSOConfiguration'])->middleware('scopes:sso');
-            Route::delete('/configurations/{id}', [SSOController::class, 'deleteSSOConfiguration'])->middleware('scopes:sso');
+            Route::get('/configurations/{organizationId}', [SsoConfigurationController::class, 'getSSOConfiguration'])->middleware('scopes:sso');
+            Route::post('/configurations', [SsoConfigurationController::class, 'createSSOConfiguration'])->middleware('scopes:sso');
+            Route::put('/configurations/{id}', [SsoConfigurationController::class, 'updateSSOConfiguration'])->middleware('scopes:sso');
+            Route::delete('/configurations/{id}', [SsoConfigurationController::class, 'deleteSSOConfiguration'])->middleware('scopes:sso');
         });
 
         // Public SSO endpoints (for client applications)
         Route::post('/callback', [SSOController::class, 'callback']);
-        Route::post('/saml/callback', [SSOController::class, 'samlCallback']);
+        Route::post('/saml/callback', [SamlController::class, 'samlCallback']);
         Route::post('/validate', [SSOController::class, 'validateSession']);
         Route::post('/refresh', [SSOController::class, 'refresh']);
         Route::post('/logout', [SSOController::class, 'logout']);
@@ -321,15 +335,15 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/cleanup', [SSOController::class, 'cleanup']);
 
         // SAML 2.0 endpoints
-        Route::get('/saml/{organizationSlug}/metadata', [SSOController::class, 'spMetadata']);
-        Route::post('/saml/slo', [SSOController::class, 'sloEndpoint']);
-        Route::post('/saml/acs', [SSOController::class, 'idpInitiatedSso']);
+        Route::get('/saml/{organizationSlug}/metadata', [SamlController::class, 'spMetadata']);
+        Route::post('/saml/slo', [SamlController::class, 'sloEndpoint']);
+        Route::post('/saml/acs', [SamlController::class, 'idpInitiatedSso']);
 
         // SAML certificate management (authenticated)
         Route::middleware('auth:api')->group(function () {
-            Route::post('/saml/certificates/{configId}', [SSOController::class, 'updateSamlCertificate'])->middleware('scopes:sso');
-            Route::get('/saml/certificates/{configId}', [SSOController::class, 'viewSamlCertificate'])->middleware('scopes:sso');
-            Route::post('/saml/certificates/{configId}/rotate', [SSOController::class, 'rotateSamlCertificate'])->middleware('scopes:sso');
+            Route::post('/saml/certificates/{configId}', [SamlCertificateController::class, 'updateSamlCertificate'])->middleware('scopes:sso');
+            Route::get('/saml/certificates/{configId}', [SamlCertificateController::class, 'viewSamlCertificate'])->middleware('scopes:sso');
+            Route::post('/saml/certificates/{configId}/rotate', [SamlCertificateController::class, 'rotateSamlCertificate'])->middleware('scopes:sso');
         });
     });
 
@@ -350,13 +364,13 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::get('/metrics/performance', [MetricsController::class, 'performance'])->middleware('api.cache:60');
 
         // Error tracking
-        Route::get('/errors', [MetricsController::class, 'errors']);
-        Route::get('/errors/trends', [MetricsController::class, 'errorTrends']);
-        Route::get('/errors/recent', [MetricsController::class, 'recentErrors']);
+        Route::get('/errors', [ErrorTrackingController::class, 'errors']);
+        Route::get('/errors/trends', [ErrorTrackingController::class, 'errorTrends']);
+        Route::get('/errors/recent', [ErrorTrackingController::class, 'recentErrors']);
 
         // Custom metrics
-        Route::post('/metrics/record', [MetricsController::class, 'recordMetric']);
-        Route::get('/metrics/{name}', [MetricsController::class, 'getMetric']);
+        Route::post('/metrics/record', [CustomMetricController::class, 'recordMetric']);
+        Route::get('/metrics/{name}', [CustomMetricController::class, 'getMetric']);
     });
 
     // Cache Management Endpoints (Admin only)
@@ -428,8 +442,8 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/disable', [WebhookController::class, 'disable']);
 
         // Webhook Analytics & Deliveries
-        Route::get('/{id}/deliveries', [WebhookController::class, 'deliveries']);
-        Route::get('/{id}/stats', [WebhookController::class, 'stats'])->middleware('api.cache:300');
+        Route::get('/{id}/deliveries', [WebhookDeliveryController::class, 'deliveries']);
+        Route::get('/{id}/stats', [WebhookDeliveryController::class, 'stats'])->middleware('api.cache:300');
         Route::get('/{id}/deliveries/{deliveryId}', [WebhookDeliveryController::class, 'show']);
         Route::post('/deliveries/{id}/retry', [WebhookDeliveryController::class, 'retry'])->middleware('throttle:10,1');
     });

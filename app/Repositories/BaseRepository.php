@@ -99,19 +99,11 @@ abstract class BaseRepository implements BaseRepositoryInterface
     }
 
     /**
-     * Find models by criteria
+     * Field and existence lookups on the model
      */
-    public function findBy(string $field, mixed $value): Collection
+    public function lookup(): ModelLookup
     {
-        return $this->query()->where($field, $value)->get();
-    }
-
-    /**
-     * Find first model by criteria
-     */
-    public function findFirstBy(string $field, mixed $value): ?Model
-    {
-        return $this->query()->where($field, $value)->first();
+        return new ModelLookup($this->model);
     }
 
     /**
@@ -124,14 +116,6 @@ abstract class BaseRepository implements BaseRepositoryInterface
         $this->applyFilters($query, $filters);
 
         return $query->count();
-    }
-
-    /**
-     * Check if model exists
-     */
-    public function exists(int $id): bool
-    {
-        return $this->query()->where('id', $id)->exists();
     }
 
     /**
@@ -168,9 +152,9 @@ abstract class BaseRepository implements BaseRepositoryInterface
             return;
         }
 
-        $query->where(function ($q) use ($search, $fields) {
+        $query->where(function ($subQuery) use ($search, $fields) {
             foreach ($fields as $field) {
-                $q->orWhere($field, 'ILIKE', "%{$search}%");
+                $subQuery->orWhere($field, 'ILIKE', "%{$search}%");
             }
         });
     }

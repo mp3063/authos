@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Models\Organization;
+use App\Models\OrganizationBranding;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\OrganizationBranding>
+ * @extends Factory<OrganizationBranding>
  */
 class OrganizationBrandingFactory extends Factory
 {
@@ -37,7 +38,7 @@ class OrganizationBrandingFactory extends Factory
      */
     public function withLogo(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'logo_path' => 'branding/logos/logo-'.fake()->uuid().'.png',
         ]);
     }
@@ -47,7 +48,7 @@ class OrganizationBrandingFactory extends Factory
      */
     public function withBackground(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'login_background_path' => 'branding/backgrounds/bg-'.fake()->uuid().'.jpg',
         ]);
     }
@@ -67,7 +68,7 @@ class OrganizationBrandingFactory extends Factory
      */
     public function withEmailTemplates(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'email_templates' => [
                 'welcome' => [
                     'subject' => 'Welcome to {{app_name}}',

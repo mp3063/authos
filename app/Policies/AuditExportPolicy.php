@@ -81,7 +81,7 @@ class AuditExportPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, AuditExport $auditExport): bool
+    public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
     }

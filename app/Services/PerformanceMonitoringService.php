@@ -14,8 +14,6 @@ class PerformanceMonitoringService
 {
     private array $queryTimes = [];
 
-    private array $performanceMetrics = [];
-
     /**
      * Start query performance monitoring
      */
@@ -66,7 +64,7 @@ class PerformanceMonitoringService
         }
 
         $times = array_column($this->queryTimes, 'time');
-        $slowQueries = array_filter($this->queryTimes, fn ($q) => $q['time'] > 100);
+        $slowQueries = array_filter($this->queryTimes, fn ($queryTime) => $queryTime['time'] > 100);
 
         return [
             'total_queries' => count($this->queryTimes),
@@ -286,7 +284,6 @@ class PerformanceMonitoringService
     private function getSlowEndpoints(): array
     {
         $endpointMetrics = [];
-        $currentHour = date('Y-m-d-H');
 
         // Check last 6 hours of metrics
         for ($i = 0; $i < 6; $i++) {
@@ -324,7 +321,7 @@ class PerformanceMonitoringService
             $metric['error_rate'] = round(($metric['error_count'] / $metric['total_requests']) * 100, 2);
         }
 
-        uasort($endpointMetrics, fn ($a, $b) => $b['average_time'] <=> $a['average_time']);
+        uasort($endpointMetrics, fn ($left, $right) => $right['average_time'] <=> $left['average_time']);
 
         return array_slice(array_values($endpointMetrics), 0, 10);
     }

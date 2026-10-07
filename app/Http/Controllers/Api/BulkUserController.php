@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\ExportUsersRequest;
 use App\Http\Requests\ImportUsersRequest;
 use App\Models\BulkImportJob;
@@ -11,10 +10,11 @@ use App\Services\BulkImport\DTOs\ExportOptions;
 use App\Services\BulkImport\DTOs\ImportOptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class BulkUserController extends Controller
+class BulkUserController extends BaseController
 {
     public function __construct(
         private readonly BulkImportService $service
@@ -333,7 +333,7 @@ class BulkUserController extends Controller
     /**
      * Get job status by UUID (for bulk operations tracking)
      */
-    public function getJobStatus(Request $request, string $jobId): JsonResponse
+    public function getJobStatus(string $jobId): JsonResponse
     {
         // For now, return a mock response since we're using UUIDs as job IDs
         // In production, this would query actual job queue status

@@ -11,6 +11,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\File;
 
 class ListInvitations extends ListRecords
 {
@@ -61,7 +62,7 @@ class ListInvitations extends ListRecords
                     }
 
                     $invitations = [];
-                    $header = fgetcsv($handle);
+                    fgetcsv($handle);
 
                     while (($row = fgetcsv($handle)) !== false) {
                         if (empty($row[0])) {
@@ -75,7 +76,7 @@ class ListInvitations extends ListRecords
                     }
 
                     fclose($handle);
-                    @unlink($path);
+                    File::delete($path);
 
                     if (empty($invitations)) {
                         Notification::make()

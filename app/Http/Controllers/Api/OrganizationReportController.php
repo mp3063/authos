@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Services\AuthenticationLogService;
 use App\Services\OrganizationReportingService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 
-class OrganizationReportController extends Controller
+class OrganizationReportController extends BaseController
 {
+    use AuthorizesRequests;
+
     protected OrganizationReportingService $reportingService;
 
     protected AuthenticationLogService $authLogService;
@@ -26,7 +30,7 @@ class OrganizationReportController extends Controller
     /**
      * Generate user activity report for an organization
      */
-    public function userActivity(Request $request, string $organizationId): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+    public function userActivity(Request $request, string $organizationId): Response|JsonResponse
     {
         $this->authorize('organizations.read');
 
@@ -69,68 +73,11 @@ class OrganizationReportController extends Controller
             $report['filters_applied'] = $dateRange ? ['start_date', 'end_date'] : [];
 
             // Restructure data for test compatibility
-            $formattedReport = [
-                'report_id' => $reportId,
-                'generated_at' => $report['generated_at'],
-                'report_type' => 'user_activity',
-                'organization_id' => $organization->id,
-                'organization_name' => $organization->name,
-                'generated_by' => $currentUser->id,
-                'period' => $request->input('period', '30days'),
-                'filters_applied' => $dateRange ? ['start_date', 'end_date'] : [],
-                'summary' => [
-                    'total_users' => $report['user_statistics']['total_users'],
-                    'active_users' => $report['user_statistics']['active_users'],
-                    'total_logins' => $report['login_statistics']['total_logins'],
-                    'average_logins_per_user' => $report['user_statistics']['total_users'] > 0
-                        ? round($report['login_statistics']['total_logins'] / $report['user_statistics']['total_users'], 2)
-                        : 0,
-                ],
-                'users' => $report['top_users']->map(function ($user) {
-                    return [
-                        'user_id' => $user['id'],
-                        'name' => $user['name'],
-                        'email' => $user['email'],
-                        'login_count' => $user['total_logins'],
-                        'last_login' => $user['last_login_at'],
-                        'activity_score' => min(100, $user['total_logins'] * 5), // Simple scoring
-                    ];
-                }),
-            ];
+            $formattedReport = $this->formatUserActivityReport($report, $organization, $currentUser->id, $reportId, $dateRange, $request->input('period', '30days'));
 
-            // Handle CSV format
-            if ($request->input('format') === 'csv') {
-                $csv = "user_id,name,email,login_count,last_login,activity_score\n";
-                foreach ($formattedReport['users'] as $user) {
-                    $csv .= "{$user['user_id']},{$user['name']},{$user['email']},{$user['login_count']},{$user['last_login']},{$user['activity_score']}\n";
-                }
-
-                return response()->make($csv, 200, [
-                    'Content-Type' => 'text/csv',
-                    'Content-Disposition' => 'attachment; filename="user_activity_report.csv"',
-                ]);
-            }
-
-            // Handle Excel format
-            if ($request->input('format') === 'xlsx') {
-                // For now, return Excel-like response headers
-                return response()->json($formattedReport, 200)
-                    ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                    ->header('Content-Disposition', 'attachment; filename="user_activity_report.xlsx"');
-            }
-
-            // Handle PDF format
-            if ($request->input('format') === 'pdf') {
-                $pdfPath = $this->reportingService->exportReportToPDF($report, 'user_activity');
-
-                return response()->json([
-                    'data' => [
-                        'download_url' => Storage::url($pdfPath),
-                        'filename' => basename($pdfPath),
-                        'expires_at' => now()->addHours(24),
-                    ],
-                    'message' => 'User activity report generated successfully',
-                ]);
+            $exportResponse = $this->exportUserActivityReport($request->input('format'), $report, $formattedReport);
+            if ($exportResponse !== null) {
+                return $exportResponse;
             }
 
             // Log report generation
@@ -156,6 +103,78 @@ class OrganizationReportController extends Controller
                 'error_description' => 'Failed to generate user activity report: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    private function formatUserActivityReport(array $report, Organization $organization, int|string $generatedBy, string $reportId, ?array $dateRange, mixed $period): array
+    {
+        return [
+            'report_id' => $reportId,
+            'generated_at' => $report['generated_at'],
+            'report_type' => 'user_activity',
+            'organization_id' => $organization->id,
+            'organization_name' => $organization->name,
+            'generated_by' => $generatedBy,
+            'period' => $period,
+            'filters_applied' => $dateRange ? ['start_date', 'end_date'] : [],
+            'summary' => [
+                'total_users' => $report['user_statistics']['total_users'],
+                'active_users' => $report['user_statistics']['active_users'],
+                'total_logins' => $report['login_statistics']['total_logins'],
+                'average_logins_per_user' => $report['user_statistics']['total_users'] > 0
+                    ? round($report['login_statistics']['total_logins'] / $report['user_statistics']['total_users'], 2)
+                    : 0,
+            ],
+            'users' => $report['top_users']->map(function ($user) {
+                return [
+                    'user_id' => $user['id'],
+                    'name' => $user['name'],
+                    'email' => $user['email'],
+                    'login_count' => $user['total_logins'],
+                    'last_login' => $user['last_login_at'],
+                    'activity_score' => min(100, $user['total_logins'] * 5), // Simple scoring
+                ];
+            }),
+        ];
+    }
+
+    private function exportUserActivityReport(mixed $format, array $report, array $formattedReport): Response|JsonResponse|null
+    {
+        // Handle CSV format
+        if ($format === 'csv') {
+            $csv = "user_id,name,email,login_count,last_login,activity_score\n";
+            foreach ($formattedReport['users'] as $user) {
+                $csv .= "{$user['user_id']},{$user['name']},{$user['email']},{$user['login_count']},{$user['last_login']},{$user['activity_score']}\n";
+            }
+
+            return response()->make($csv, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="user_activity_report.csv"',
+            ]);
+        }
+
+        // Handle Excel format
+        if ($format === 'xlsx') {
+            // For now, return Excel-like response headers
+            return response()->json($formattedReport, 200)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->header('Content-Disposition', 'attachment; filename="user_activity_report.xlsx"');
+        }
+
+        // Handle PDF format
+        if ($format === 'pdf') {
+            $pdfPath = $this->reportingService->exportReportToPDF($report, 'user_activity');
+
+            return response()->json([
+                'data' => [
+                    'download_url' => Storage::url($pdfPath),
+                    'filename' => basename($pdfPath),
+                    'expires_at' => now()->addHours(24),
+                ],
+                'message' => 'User activity report generated successfully',
+            ]);
+        }
+
+        return null;
     }
 
     /**
@@ -338,7 +357,7 @@ class OrganizationReportController extends Controller
     /**
      * Get available report types and their descriptions
      */
-    public function index(Request $request, string $organizationId): JsonResponse
+    public function index(): JsonResponse
     {
         $this->authorize('organizations.read');
 
@@ -477,7 +496,7 @@ class OrganizationReportController extends Controller
     /**
      * Delete a scheduled report
      */
-    public function deleteSchedule(Request $request, string $organizationId, string $scheduleId): JsonResponse
+    public function deleteSchedule(string $organizationId): JsonResponse
     {
         $this->authorize('organizations.update');
 

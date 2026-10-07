@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Repositories\ModelLookup;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -47,22 +48,12 @@ interface BaseRepositoryInterface
     public function delete(Model $model): bool;
 
     /**
-     * Find models by criteria
+     * Field and existence lookups on the model
      */
-    public function findBy(string $field, mixed $value): Collection;
-
-    /**
-     * Find first model by criteria
-     */
-    public function findFirstBy(string $field, mixed $value): ?Model;
+    public function lookup(): ModelLookup;
 
     /**
      * Count models
      */
     public function count(array $filters = []): int;
-
-    /**
-     * Check if model exists
-     */
-    public function exists(int $id): bool;
 }

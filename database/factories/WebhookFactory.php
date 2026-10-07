@@ -37,7 +37,7 @@ class WebhookFactory extends Factory
 
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'is_active' => false,
             'disabled_at' => now(),
         ]);
@@ -45,7 +45,7 @@ class WebhookFactory extends Factory
 
     public function withFailures(int $count = 5): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'consecutive_failures' => $count,
             'delivery_stats' => [
                 'total_deliveries' => $count,
@@ -58,14 +58,14 @@ class WebhookFactory extends Factory
 
     public function subscribeToEvent(string $event): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'events' => [$event],
         ]);
     }
 
     public function subscribeToAllEvents(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'events' => ['*'],
         ]);
     }

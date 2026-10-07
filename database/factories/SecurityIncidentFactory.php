@@ -14,6 +14,21 @@ class SecurityIncidentFactory extends Factory
 {
     protected $model = SecurityIncident::class;
 
+    private const DESCRIPTIONS = [
+        'brute_force' => 'Multiple failed login attempts detected from the same IP address',
+        'sql_injection' => 'SQL injection pattern detected in request parameters',
+        'xss_attempt' => 'Cross-site scripting attempt detected in user input',
+        'credential_stuffing' => 'Credential stuffing attack detected',
+        'suspicious_activity' => 'Suspicious activity pattern detected',
+    ];
+
+    private const ATTACK_PROFILES = [
+        'brute_force' => ['severity' => 'high', 'action_taken' => 'blocked_ip'],
+        'sql_injection' => ['severity' => 'critical', 'action_taken' => 'blocked_ip'],
+        'xss_attempt' => ['severity' => 'high'],
+        'credential_stuffing' => ['severity' => 'critical', 'action_taken' => 'blocked_ip'],
+    ];
+
     /**
      * Define the model's default state.
      *
@@ -62,65 +77,18 @@ class SecurityIncidentFactory extends Factory
      */
     protected function getDescriptionForType(string $type): string
     {
-        $descriptions = [
-            'brute_force' => 'Multiple failed login attempts detected from the same IP address',
-            'sql_injection' => 'SQL injection pattern detected in request parameters',
-            'xss_attempt' => 'Cross-site scripting attempt detected in user input',
-            'credential_stuffing' => 'Credential stuffing attack detected',
-            'suspicious_activity' => 'Suspicious activity pattern detected',
-        ];
-
-        return $descriptions[$type] ?? 'Security incident detected';
+        return self::DESCRIPTIONS[$type] ?? 'Security incident detected';
     }
 
     /**
-     * Indicate that the incident is a brute force attack.
+     * Indicate that the incident is a specific attack type (brute_force, sql_injection, xss_attempt, credential_stuffing).
      */
-    public function bruteForce(): static
+    public function ofType(string $type): static
     {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'brute_force',
-            'severity' => 'high',
-            'description' => 'Multiple failed login attempts detected from the same IP address',
-            'action_taken' => 'blocked_ip',
-        ]);
-    }
-
-    /**
-     * Indicate that the incident is a SQL injection attempt.
-     */
-    public function sqlInjection(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'sql_injection',
-            'severity' => 'critical',
-            'description' => 'SQL injection pattern detected in request parameters',
-            'action_taken' => 'blocked_ip',
-        ]);
-    }
-
-    /**
-     * Indicate that the incident is an XSS attempt.
-     */
-    public function xssAttempt(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'xss_attempt',
-            'severity' => 'high',
-            'description' => 'Cross-site scripting attempt detected in user input',
-        ]);
-    }
-
-    /**
-     * Indicate that the incident is credential stuffing.
-     */
-    public function credentialStuffing(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'credential_stuffing',
-            'severity' => 'critical',
-            'description' => 'Credential stuffing attack detected',
-            'action_taken' => 'blocked_ip',
+        return $this->state(fn () => [
+            'type' => $type,
+            'description' => $this->getDescriptionForType($type),
+            ...self::ATTACK_PROFILES[$type],
         ]);
     }
 
@@ -129,7 +97,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function severity(string $severity): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'severity' => $severity,
         ]);
     }
@@ -139,7 +107,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function open(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'open',
             'resolved_at' => null,
             'resolution_notes' => null,
@@ -151,7 +119,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function resolved(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'resolved',
             'resolved_at' => now(),
             'resolution_notes' => 'Incident investigated and resolved',
@@ -163,7 +131,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function investigating(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'investigating',
         ]);
     }
@@ -173,7 +141,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function falsePositive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'false_positive',
             'resolved_at' => now(),
             'resolution_notes' => 'Determined to be a false positive',
@@ -185,7 +153,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function forUser(User $user): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'user_id' => $user->id,
             'organization_id' => $user->organization_id,
         ]);
@@ -196,7 +164,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function forOrganization(Organization $organization): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'organization_id' => $organization->id,
         ]);
     }
@@ -206,7 +174,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function forIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }
@@ -216,7 +184,7 @@ class SecurityIncidentFactory extends Factory
      */
     public function withAction(string $action): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'action_taken' => $action,
         ]);
     }

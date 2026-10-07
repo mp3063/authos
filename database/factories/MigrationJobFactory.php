@@ -2,11 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\MigrationJob;
 use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\MigrationJob>
+ * @extends Factory<MigrationJob>
  */
 class MigrationJobFactory extends Factory
 {
@@ -40,7 +41,7 @@ class MigrationJobFactory extends Factory
      */
     public function running(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'running',
             'started_at' => now(),
         ]);
@@ -51,7 +52,7 @@ class MigrationJobFactory extends Factory
      */
     public function completed(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'completed',
             'started_at' => now()->subHours(2),
             'completed_at' => now(),
@@ -68,7 +69,7 @@ class MigrationJobFactory extends Factory
      */
     public function failed(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'status' => 'failed',
             'started_at' => now()->subHours(1),
             'completed_at' => now(),

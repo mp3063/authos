@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\Organizations;
 
 use App\Events\OrganizationSettingsChangedEvent;
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use App\Http\Requests\Organization\StoreOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationRequest;
@@ -14,11 +14,13 @@ use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class OrganizationCrudController extends BaseApiController
+class OrganizationCrudController extends BaseController
 {
+    use ApiControllerHelpers;
     use CacheableResponse;
 
     protected OrganizationAnalyticsService $organizationService;

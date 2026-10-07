@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Auth0\Migration;
 
+use DateTimeImmutable;
+use DateTimeInterface;
+
 class MigrationResult
 {
     public function __construct(
@@ -11,11 +14,11 @@ class MigrationResult
         public ImportResult $roles,
         public ImportResult $applications,
         public ImportResult $users,
-        public ?\DateTimeInterface $startedAt = null,
-        public ?\DateTimeInterface $completedAt = null,
+        public ?DateTimeInterface $startedAt = null,
+        public ?DateTimeInterface $completedAt = null,
         public bool $dryRun = false,
     ) {
-        $this->startedAt = $this->startedAt ?? new \DateTimeImmutable;
+        $this->startedAt = $this->startedAt ?? new DateTimeImmutable;
     }
 
     /**
@@ -23,7 +26,7 @@ class MigrationResult
      */
     public function markCompleted(): void
     {
-        $this->completedAt = new \DateTimeImmutable;
+        $this->completedAt = new DateTimeImmutable;
     }
 
     /**

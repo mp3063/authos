@@ -8,6 +8,7 @@ use App\Events\WebhookUpdatedEvent;
 use App\Models\Organization;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use ErrorException;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -249,62 +250,80 @@ class WebhookService extends BaseService
      */
     protected function validateWebhookUrl(string $url): void
     {
-        // Parse URL
         $parsed = parse_url($url);
 
         if ($parsed === false || ! isset($parsed['scheme'], $parsed['host'])) {
-            throw ValidationException::withMessages([
-                'url' => ['Invalid URL format'],
-            ]);
+            $this->rejectUrl('Invalid URL format');
         }
 
-        // Require HTTPS in production
-        if (app()->environment('production') && $parsed['scheme'] !== 'https') {
-            throw ValidationException::withMessages([
-                'url' => ['HTTPS is required for webhook URLs in production'],
-            ]);
+        $isProduction = app()->environment('production');
+
+        if ($isProduction) {
+            $this->assertProductionSafeUrl($parsed['scheme'], $parsed['host']);
         }
 
-        // Block localhost in production
-        $blockedHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
-        if (in_array($parsed['host'], $blockedHosts) && app()->environment('production')) {
-            throw ValidationException::withMessages([
-                'url' => ['Localhost webhooks are not allowed in production'],
-            ]);
-        }
-
-        // Block credentials in URL
         if (isset($parsed['user']) || isset($parsed['pass'])) {
-            throw ValidationException::withMessages([
-                'url' => ['URLs with credentials are not allowed'],
-            ]);
+            $this->rejectUrl('URLs with credentials are not allowed');
         }
 
-        // Resolve to IP and check private ranges
-        if (app()->environment('production')) {
-            // Check if host is already an IP address
-            if (filter_var($parsed['host'], FILTER_VALIDATE_IP)) {
-                $ip = $parsed['host'];
-            } else {
-                // Resolve hostname to IP
-                $ip = @gethostbyname($parsed['host']);
-            }
-
-            // Validate that IP is public (not private or reserved)
-            if ($ip && filter_var($ip, FILTER_VALIDATE_IP)) {
-                $isPublic = filter_var(
-                    $ip,
-                    FILTER_VALIDATE_IP,
-                    FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-                );
-
-                if ($isPublic === false) {
-                    throw ValidationException::withMessages([
-                        'url' => ['Private IP addresses are not allowed for webhooks'],
-                    ]);
-                }
-            }
+        if ($isProduction) {
+            $this->assertPublicHost($parsed['host']);
         }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertProductionSafeUrl(string $scheme, string $host): void
+    {
+        if ($scheme !== 'https') {
+            $this->rejectUrl('HTTPS is required for webhook URLs in production');
+        }
+
+        if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'])) {
+            $this->rejectUrl('Localhost webhooks are not allowed in production');
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertPublicHost(string $host): void
+    {
+        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : $this->resolveHost($host);
+
+        if (! $ip || ! filter_var($ip, FILTER_VALIDATE_IP)) {
+            return;
+        }
+
+        $isPublic = filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        );
+
+        if ($isPublic === false) {
+            $this->rejectUrl('Private IP addresses are not allowed for webhooks');
+        }
+    }
+
+    private function resolveHost(string $host): string|false
+    {
+        try {
+            return gethostbyname($host);
+        } catch (ErrorException) {
+            return false;
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function rejectUrl(string $message): never
+    {
+        throw ValidationException::withMessages([
+            'url' => [$message],
+        ]);
     }
 
     /**

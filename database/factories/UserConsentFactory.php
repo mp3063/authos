@@ -37,14 +37,14 @@ class UserConsentFactory extends Factory
 
     public function withdrawn(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'withdrawn_at' => now(),
         ]);
     }
 
     public function ofType(string $type): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'consent_type' => $type,
         ]);
     }

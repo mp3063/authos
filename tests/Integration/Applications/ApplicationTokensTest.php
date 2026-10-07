@@ -26,7 +26,7 @@ use Tests\Integration\IntegrationTestCase;
  * - Rotating credentials
  * - Token introspection
  *
- * @covers \App\Http\Controllers\Api\ApplicationController
+ * @covers \App\Http\Controllers\Api\ApplicationTokenController
  */
 class ApplicationTokensTest extends IntegrationTestCase
 {

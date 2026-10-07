@@ -95,82 +95,60 @@ class MigrationJob extends Model
      */
     public function getSummary(): string
     {
-        $parts = [];
+        $parts = $this->stats ? $this->summarizeStats($this->stats) : [];
 
-        if ($this->stats) {
-            // Handle nested format (users => [successful, failed, ...])
-            if (isset($this->stats['users']) && is_array($this->stats['users'])) {
-                $userStats = $this->stats['users'];
-                $successful = $userStats['successful'] ?? 0;
-                $failed = $userStats['failed'] ?? 0;
-
-                if ($successful > 0) {
-                    $parts[] = "{$successful} users migrated";
-                }
-                if ($failed > 0) {
-                    $parts[] = "{$failed} failed";
-                }
-            }
-            // Handle flat format (users_migrated, users_failed)
-            elseif (isset($this->stats['users_migrated'])) {
-                $migrated = $this->stats['users_migrated'];
-                $failed = $this->stats['users_failed'] ?? 0;
-
-                if ($migrated > 0) {
-                    $parts[] = "{$migrated} users migrated";
-                }
-                if ($failed > 0) {
-                    $parts[] = "{$failed} failed";
-                }
-            }
-
-            // Handle nested format for applications
-            if (isset($this->stats['applications']) && is_array($this->stats['applications'])) {
-                $appStats = $this->stats['applications'];
-                $successful = $appStats['successful'] ?? 0;
-
-                if ($successful > 0) {
-                    $parts[] = "{$successful} applications";
-                }
-            }
-            // Handle flat format
-            elseif (isset($this->stats['applications_migrated'])) {
-                $migrated = $this->stats['applications_migrated'];
-
-                if ($migrated > 0) {
-                    $parts[] = "{$migrated} applications";
-                }
-            }
-
-            // Handle nested format for roles
-            if (isset($this->stats['roles']) && is_array($this->stats['roles'])) {
-                $roleStats = $this->stats['roles'];
-                $successful = $roleStats['successful'] ?? 0;
-
-                if ($successful > 0) {
-                    $parts[] = "{$successful} roles";
-                }
-            }
-            // Handle flat format
-            elseif (isset($this->stats['roles_migrated'])) {
-                $migrated = $this->stats['roles_migrated'];
-
-                if ($migrated > 0) {
-                    $parts[] = "{$migrated} roles";
-                }
-            }
-        }
-
-        // Add status
         $parts[] = "Status: {$this->status}";
 
-        // Add duration if completed
         if ($this->completed_at && $this->started_at) {
             $duration = $this->started_at->diffInSeconds($this->completed_at);
             $parts[] = "Duration: {$duration}s";
         }
 
         return implode(', ', $parts);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function summarizeStats(array $stats): array
+    {
+        [$usersMigrated, $usersFailed] = $this->migrationCounts($stats, 'users');
+        [$applicationsMigrated] = $this->migrationCounts($stats, 'applications');
+        [$rolesMigrated] = $this->migrationCounts($stats, 'roles');
+
+        $candidates = [
+            [$usersMigrated, "{$usersMigrated} users migrated"],
+            [$usersFailed, "{$usersFailed} failed"],
+            [$applicationsMigrated, "{$applicationsMigrated} applications"],
+            [$rolesMigrated, "{$rolesMigrated} roles"],
+        ];
+
+        $parts = [];
+        foreach ($candidates as [$count, $label]) {
+            if ($count > 0) {
+                $parts[] = $label;
+            }
+        }
+
+        return $parts;
+    }
+
+    /**
+     * Reads both the nested format (users => [successful, failed]) and the flat one (users_migrated, users_failed).
+     *
+     * @return array{0: mixed, 1: mixed}
+     */
+    private function migrationCounts(array $stats, string $entity): array
+    {
+        if (isset($stats[$entity]) && is_array($stats[$entity])) {
+            return [$stats[$entity]['successful'] ?? 0, $stats[$entity]['failed'] ?? 0];
+        }
+
+        if (isset($stats["{$entity}_migrated"])) {
+            return [$stats["{$entity}_migrated"], $stats["{$entity}_failed"] ?? 0];
+        }
+
+        return [0, 0];
     }
 
     /**

@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 
-class CacheManagementController extends BaseApiController
+class CacheManagementController extends BaseController
 {
+    use ApiControllerHelpers;
     use CacheableResponse;
 
     public function __construct()
@@ -144,7 +146,7 @@ class CacheManagementController extends BaseApiController
     /**
      * Clear cache entries for the authenticated user.
      */
-    public function clearUser(Request $request): JsonResponse
+    public function clearUser(): JsonResponse
     {
         $user = $this->getAuthenticatedUser();
 

@@ -33,7 +33,7 @@ class ScheduledComplianceReportFactory extends Factory
 
     public function due(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'next_run_at' => now()->subMinute(),
             'is_active' => true,
         ]);
@@ -41,14 +41,14 @@ class ScheduledComplianceReportFactory extends Factory
 
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'is_active' => false,
         ]);
     }
 
     public function frequency(string $frequency): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'frequency' => $frequency,
         ]);
     }

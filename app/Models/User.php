@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSocialLogin;
+use App\Models\Concerns\InteractsWithOrganizationRoles;
 use App\Traits\BelongsToOrganization;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,8 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\HasApiTokens;
-use Spatie\Permission\Exceptions\RoleDoesNotExist;
+use Override;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
@@ -22,6 +26,8 @@ class User extends Authenticatable implements FilamentUser
     use HasApiTokens;
     use HasFactory;
     use HasRoles;
+    use HasSocialLogin;
+    use InteractsWithOrganizationRoles;
     use Notifiable;
     use SoftDeletes;
 
@@ -122,32 +128,9 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(SSOSession::class);
     }
 
-    public function customRoles(): BelongsToMany
-    {
-        return $this->belongsToMany(CustomRole::class, 'user_custom_roles')
-            ->withPivot(['granted_at', 'granted_by'])
-            ->withTimestamps();
-    }
-
-    /**
-     * Check if user has a permission via CustomRole
-     */
-    public function hasCustomPermission(string $permission): bool
-    {
-        return $this->customRoles()
-            ->where('is_active', true)
-            ->get()
-            ->contains(fn (CustomRole $role) => $role->hasPermission($permission));
-    }
-
     public function authenticationLogs(): HasMany
     {
         return $this->hasMany(AuthenticationLog::class);
-    }
-
-    public function socialAccounts(): HasMany
-    {
-        return $this->hasMany(SocialAccount::class);
     }
 
     public function hasMfaEnabled(): bool
@@ -163,254 +146,9 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get MFA enabled status as virtual attribute
      */
-    public function getMfaEnabledAttribute(): bool
+    protected function mfaEnabled(): Attribute
     {
-        return $this->hasMfaEnabled();
-    }
-
-    /**
-     * Set the organization context for permission/role operations
-     */
-    public function setPermissionsTeamId($organizationId = null): void
-    {
-        $this->permissionsTeamId = $organizationId ?? $this->organization_id;
-    }
-
-    /**
-     * Get roles for a specific organization
-     */
-    public function getOrganizationRoles($organizationId = null)
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-
-        return $this->roles()
-            ->where(function ($query) use ($orgId) {
-                $query->where('roles.organization_id', $orgId)
-                    ->orWhereNull('roles.organization_id'); // Include global roles
-            })
-            ->get();
-    }
-
-    /**
-     * Get permissions for a specific organization
-     */
-    public function getOrganizationPermissions($organizationId = null)
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-
-        // Get permissions from roles
-        $rolePermissions = $this->getOrganizationRoles($orgId)
-            ->flatMap(fn ($role) => $role->permissions);
-
-        // Get direct permissions
-        $directPermissions = $this->permissions()
-            ->where(function ($query) use ($orgId) {
-                $query->where('permissions.organization_id', $orgId)
-                    ->orWhereNull('permissions.organization_id'); // Include global permissions
-            })
-            ->get();
-
-        return $rolePermissions->merge($directPermissions)->unique('id');
-    }
-
-    /**
-     * Check if user has a role within their organization
-     */
-    public function hasOrganizationRole($role, $organizationId = null): bool
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-        $this->setPermissionsTeamId($orgId);
-
-        return $this->hasRole($role);
-    }
-
-    /**
-     * Check if user has a permission within their organization
-     */
-    public function hasOrganizationPermission($permission, $organizationId = null): bool
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-        $this->setPermissionsTeamId($orgId);
-
-        return $this->hasPermissionTo($permission);
-    }
-
-    /**
-     * Assign role to user within organization context
-     */
-    public function assignOrganizationRole($role, $organizationId = null): void
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-
-        // Find the role within the organization context
-        $roleModel = \Spatie\Permission\Models\Role::where('name', $role)
-            ->where('organization_id', $orgId)
-            ->first();
-
-        if (! $roleModel) {
-            throw new RoleDoesNotExist("Role '$role' does not exist for organization $orgId");
-        }
-
-        // Attach the role with organization context
-        $this->roles()->attach($roleModel->id, ['organization_id' => $orgId]);
-    }
-
-    /**
-     * Assign a global role to user (bypasses organization context)
-     */
-    public function assignGlobalRole($role): void
-    {
-        // For global roles, we directly assign without organization context
-        $this->roles()->attach(
-            \Spatie\Permission\Models\Role::where('name', $role)
-                ->whereNull('organization_id')
-                ->first()
-        );
-    }
-
-    /**
-     * Remove role from user within organization context
-     */
-    public function removeOrganizationRole($role, $organizationId = null): void
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-        $this->setPermissionsTeamId($orgId);
-
-        $this->removeRole($role);
-    }
-
-    /**
-     * Check if user is owner of their organization
-     */
-    public function isOrganizationOwner(): bool
-    {
-        return $this->hasOrganizationRole('Organization Owner');
-    }
-
-    /**
-     * Check if user is admin of their organization
-     */
-    public function isOrganizationAdmin(): bool
-    {
-        return $this->hasOrganizationRole('Organization Admin') ||
-               $this->hasOrganizationRole('organization admin') ||
-               $this->isOrganizationOwner();
-    }
-
-    /**
-     * Check if user has global system roles
-     */
-    public function hasGlobalRole($role): bool
-    {
-        // Temporarily clear team context to check global roles
-        $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
-        $registrarTeamId = $registrar->getPermissionsTeamId();
-
-        // Clear team context
-        $this->setPermissionsTeamId(null);
-        $registrar->setPermissionsTeamId(null);
-
-        try {
-            $hasRole = $this->roles()->where('roles.name', $role)->whereNull('roles.organization_id')->exists();
-        } finally {
-            // Restore original team context
-            $this->setPermissionsTeamId($registrarTeamId);
-            $registrar->setPermissionsTeamId($registrarTeamId);
-        }
-
-        return $hasRole;
-    }
-
-    /**
-     * Check if user is a super admin (global role)
-     */
-    public function isSuperAdmin(): bool
-    {
-        return $this->hasGlobalRole('Super Admin');
-    }
-
-    /**
-     * Check if user is a social login user
-     */
-    public function isSocialUser(): bool
-    {
-        return ! empty($this->provider) && ! empty($this->provider_id);
-    }
-
-    /**
-     * Check if user has a local password
-     */
-    public function hasPassword(): bool
-    {
-        return ! empty($this->password);
-    }
-
-    /**
-     * Get the social provider display name
-     */
-    public function getProviderDisplayName(): string
-    {
-        if (! $this->provider) {
-            return 'Local';
-        }
-
-        return match ($this->provider) {
-            'google' => 'Google',
-            'github' => 'GitHub',
-            'facebook' => 'Facebook',
-            'twitter' => 'Twitter',
-            'linkedin' => 'LinkedIn',
-            default => ucfirst($this->provider)
-        };
-    }
-
-    /**
-     * Find a user by provider and provider ID
-     */
-    public static function findBySocialProvider(string $provider, string $providerId): ?User
-    {
-        return static::where('provider', $provider)
-            ->where('provider_id', $providerId)
-            ->first();
-    }
-
-    /**
-     * Create or update a social user
-     */
-    public static function createOrUpdateFromSocial(
-        string $provider,
-        string $providerId,
-        array $userData,
-        ?string $token = null,
-        ?string $refreshToken = null
-    ): User {
-        $user = static::findBySocialProvider($provider, $providerId);
-
-        $attributes = [
-            'provider' => $provider,
-            'provider_id' => $providerId,
-            'name' => $userData['name'],
-            'email' => $userData['email'],
-            'provider_data' => $userData,
-            'email_verified_at' => now(), // Social providers typically verify emails
-        ];
-
-        if ($token) {
-            $attributes['provider_token'] = $token;
-        }
-
-        if ($refreshToken) {
-            $attributes['provider_refresh_token'] = $refreshToken;
-        }
-
-        if ($user) {
-            $user->update($attributes);
-
-            return $user;
-        }
-
-        // Create new user
-        return static::create($attributes);
+        return Attribute::get(fn (): bool => $this->hasMfaEnabled());
     }
 
     /**
@@ -467,12 +205,13 @@ class User extends Authenticatable implements FilamentUser
         }
 
         // Verify password
-        return \Illuminate\Support\Facades\Hash::check($password, $this->password);
+        return Hash::check($password, $this->password);
     }
 
     /**
      * Check if user can access the Filament admin panel
      */
+    #[Override]
     public function canAccessPanel(Panel $panel): bool
     {
         // Allow access if user has admin permissions or is super admin

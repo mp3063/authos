@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\Api\Enterprise;
 
-use App\Http\Controllers\Api\BaseApiController;
+use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Organization;
 use App\Services\BrandingService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as BaseController;
 
-class BrandingController extends BaseApiController
+class BrandingController extends BaseController
 {
+    use ApiControllerHelpers;
+
     public function __construct(
         private readonly BrandingService $brandingService
     ) {

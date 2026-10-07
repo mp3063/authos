@@ -3,12 +3,13 @@
 namespace Database\Factories;
 
 use App\Models\Application;
+use App\Models\SSOSession;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\SSOSession>
+ * @extends Factory<SSOSession>
  */
 class SSOSessionFactory extends Factory
 {
@@ -43,7 +44,7 @@ class SSOSessionFactory extends Factory
      */
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'expires_at' => now()->subHours(1),
             'last_activity_at' => now()->subHours(2),
         ]);
@@ -54,7 +55,7 @@ class SSOSessionFactory extends Factory
      */
     public function forUser(User $user): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'user_id' => $user->id,
         ]);
     }
@@ -64,7 +65,7 @@ class SSOSessionFactory extends Factory
      */
     public function forApplication(Application $application): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'application_id' => $application->id,
         ]);
     }
@@ -74,7 +75,7 @@ class SSOSessionFactory extends Factory
      */
     public function recentlyActive(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'last_activity_at' => now()->subMinutes(fake()->numberBetween(1, 5)),
             'expires_at' => now()->addHours(fake()->numberBetween(1, 8)),
         ]);
@@ -85,7 +86,7 @@ class SSOSessionFactory extends Factory
      */
     public function fromIp(string $ip): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'ip_address' => $ip,
         ]);
     }
@@ -137,7 +138,7 @@ class SSOSessionFactory extends Factory
      */
     public function loggedOut(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'logged_out_at' => now()->subMinutes(fake()->numberBetween(1, 30)),
         ]);
     }

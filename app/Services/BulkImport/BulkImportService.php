@@ -11,6 +11,8 @@ use App\Services\BulkImport\Parsers\CsvParser;
 use App\Services\BulkImport\Parsers\ExcelParser;
 use App\Services\BulkImport\Parsers\JsonParser;
 use Illuminate\Http\UploadedFile;
+use InvalidArgumentException;
+use RuntimeException;
 
 class BulkImportService
 {
@@ -73,7 +75,7 @@ class BulkImportService
             'csv' => new CsvParser,
             'json' => new JsonParser,
             'xlsx', 'xls' => new ExcelParser,
-            default => throw new \InvalidArgumentException("Unsupported format: {$format}"),
+            default => throw new InvalidArgumentException("Unsupported format: {$format}"),
         };
     }
 
@@ -85,7 +87,7 @@ class BulkImportService
         // Check file size (max 10MB)
         $maxSize = 10 * 1024 * 1024; // 10MB in bytes
         if ($file->getSize() > $maxSize) {
-            throw new \InvalidArgumentException('File size exceeds maximum allowed (10MB)');
+            throw new InvalidArgumentException('File size exceeds maximum allowed (10MB)');
         }
 
         // Check file type
@@ -93,7 +95,7 @@ class BulkImportService
         $extension = strtolower($file->getClientOriginalExtension());
 
         if (! in_array($extension, $allowedExtensions)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'Invalid file type. Allowed types: '.implode(', ', $allowedExtensions)
             );
         }
@@ -108,7 +110,7 @@ class BulkImportService
         ];
 
         if (! in_array($file->getMimeType(), $allowedMimeTypes)) {
-            throw new \InvalidArgumentException('Invalid file MIME type');
+            throw new InvalidArgumentException('Invalid file MIME type');
         }
     }
 
@@ -132,7 +134,7 @@ class BulkImportService
     public function retry(BulkImportJob $job): BulkImportJob
     {
         if (! $job->hasFailed()) {
-            throw new \RuntimeException('Only failed jobs can be retried');
+            throw new RuntimeException('Only failed jobs can be retried');
         }
 
         // Reset job status

@@ -23,7 +23,7 @@ use Tests\Integration\IntegrationTestCase;
  * - Bulk revoking access from multiple users
  * - Viewing user permissions and access metadata
  *
- * @covers \App\Http\Controllers\Api\ApplicationController
+ * @covers \App\Http\Controllers\Api\ApplicationUserController
  */
 class ApplicationUsersTest extends IntegrationTestCase
 {

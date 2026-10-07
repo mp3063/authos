@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Webhook;
 
+use App\Rules\MaxWebhooksPerOrganization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Override;
 
 class StoreWebhookRequest extends FormRequest
 {
@@ -41,12 +43,7 @@ class StoreWebhookRequest extends FormRequest
             'metadata' => 'sometimes|nullable|array',
             'organization_id' => [
                 'sometimes',
-                function ($attribute, $value, $fail) use ($organizationId) {
-                    $webhookCount = \App\Models\Webhook::where('organization_id', $organizationId)->count();
-                    if ($webhookCount >= 10) {
-                        $fail('Maximum of 10 webhooks allowed per organization');
-                    }
-                },
+                new MaxWebhooksPerOrganization($organizationId),
             ],
         ];
     }
@@ -101,6 +98,7 @@ class StoreWebhookRequest extends FormRequest
     /**
      * Get validated data with organization_id
      */
+    #[Override]
     public function validated($key = null, $default = null): array
     {
         $validated = parent::validated();

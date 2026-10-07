@@ -24,12 +24,7 @@ class Auth0ClientDTO
         public array $webOrigins,
         public array $grantTypes,
         public array $clientMetadata,
-        public ?string $description = null,
-        public ?string $logoUri = null,
-        public ?string $clientSecret = null,
-        public bool $isFirstParty = false,
-        public bool $oidcConformant = true,
-        public ?int $tokenEndpointAuthMethod = null,
+        public Auth0ClientSettings $settings = new Auth0ClientSettings,
     ) {}
 
     /**
@@ -49,12 +44,7 @@ class Auth0ClientDTO
             webOrigins: $data['web_origins'] ?? [],
             grantTypes: $data['grant_types'] ?? [],
             clientMetadata: $data['client_metadata'] ?? [],
-            description: $data['description'] ?? null,
-            logoUri: $data['logo_uri'] ?? null,
-            clientSecret: $data['client_secret'] ?? null,
-            isFirstParty: $data['is_first_party'] ?? false,
-            oidcConformant: $data['oidc_conformant'] ?? true,
-            tokenEndpointAuthMethod: $data['token_endpoint_auth_method'] ?? null,
+            settings: Auth0ClientSettings::fromArray($data),
         );
     }
 

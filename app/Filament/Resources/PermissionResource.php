@@ -104,8 +104,8 @@ class PermissionResource extends Resource
                                     ->pluck('name');
 
                                 // Show organization-specific roles + global roles not in organization scope
-                                $query->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                                    $q->where('organization_id', $organizationId)
+                                $query->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                                    $subQuery->where('organization_id', $organizationId)
                                         ->orWhere(function ($q2) use ($orgSpecificNames) {
                                             $q2->whereNull('organization_id')
                                                 ->whereNotIn('name', $orgSpecificNames);
@@ -126,291 +126,311 @@ class PermissionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->columns([
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold')
-                    ->badge()
-                    ->color('success'),
+            ->columns(self::tableColumns())
+            ->filters(self::tableFilters())
+            ->recordActions(self::tableRecordActions())
+            ->toolbarActions(self::tableToolbarActions())
+            ->defaultSort('name');
+    }
 
-                TextColumn::make('guard_name')
-                    ->badge()
-                    ->color('gray')
-                    ->sortable(),
+    private static function tableColumns(): array
+    {
+        return [
+            TextColumn::make('name')
+                ->searchable()
+                ->sortable()
+                ->weight('bold')
+                ->badge()
+                ->color('success'),
 
-                TextColumn::make('organization.name')
-                    ->label('Organization')
-                    ->badge()
-                    ->color(fn ($record) => $record->organization_id ? 'success' : 'warning')
-                    ->formatStateUsing(fn ($state, $record) => $state ?: 'Global')
-                    ->sortable()
-                    ->searchable(),
+            TextColumn::make('guard_name')
+                ->badge()
+                ->color('gray')
+                ->sortable(),
 
-                TextColumn::make('category')
-                    ->label('Category')
-                    ->formatStateUsing(function ($record) {
-                        if (str_contains($record->name, '.')) {
-                            $parts = explode('.', $record->name);
+            TextColumn::make('organization.name')
+                ->label('Organization')
+                ->badge()
+                ->color(fn ($record) => $record->organization_id ? 'success' : 'warning')
+                ->formatStateUsing(fn ($state, $record) => $state ?: 'Global')
+                ->sortable()
+                ->searchable(),
 
-                            return ucfirst($parts[0]);
-                        }
+            TextColumn::make('category')
+                ->label('Category')
+                ->formatStateUsing(function ($record) {
+                    if (str_contains($record->name, '.')) {
+                        $parts = explode('.', $record->name);
 
-                        $parts = explode(' ', $record->name);
+                        return ucfirst($parts[0]);
+                    }
 
-                        return ucfirst($parts[1] ?? 'general');
-                    })
-                    ->badge()
-                    ->color('info'),
+                    $parts = explode(' ', $record->name);
 
-                TextColumn::make('roles_count')
-                    ->label('Roles')
-                    ->getStateUsing(function ($record) {
-                        // CRITICAL FIX: Count only unique roles by filtering guard_name and deduplicating
-                        $guardName = $record->guard_name;
-                        $organizationId = $record->organization_id;
+                    return ucfirst($parts[1] ?? 'general');
+                })
+                ->badge()
+                ->color('info'),
 
-                        // Get organization-specific role names to exclude from global roles
-                        $orgSpecificNames = \Spatie\Permission\Models\Role::query()
-                            ->where('guard_name', $guardName)
-                            ->where('organization_id', $organizationId)
-                            ->pluck('name');
+            TextColumn::make('roles_count')
+                ->label('Roles')
+                ->getStateUsing(function ($record) {
+                    // CRITICAL FIX: Count only unique roles by filtering guard_name and deduplicating
+                    $guardName = $record->guard_name;
+                    $organizationId = $record->organization_id;
 
-                        // Count unique roles matching this permission's guard
-                        return $record->roles()
-                            ->where('guard_name', $guardName)
-                            ->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                                $q->where('organization_id', $organizationId)
-                                    ->orWhere(function ($q2) use ($orgSpecificNames) {
-                                        $q2->whereNull('organization_id')
-                                            ->whereNotIn('name', $orgSpecificNames);
-                                    });
-                            })
-                            ->count();
-                    })
-                    ->sortable()
-                    ->alignCenter(),
+                    // Get organization-specific role names to exclude from global roles
+                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                        ->where('guard_name', $guardName)
+                        ->where('organization_id', $organizationId)
+                        ->pluck('name');
 
-                TextColumn::make('users_count')
-                    ->counts('users')
-                    ->label('Direct Users')
-                    ->sortable()
-                    ->alignCenter(),
+                    // Count unique roles matching this permission's guard
+                    return $record->roles()
+                        ->where('guard_name', $guardName)
+                        ->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                            $subQuery->where('organization_id', $organizationId)
+                                ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                    $q2->whereNull('organization_id')
+                                        ->whereNotIn('name', $orgSpecificNames);
+                                });
+                        })
+                        ->count();
+                })
+                ->sortable()
+                ->alignCenter(),
 
-                TextColumn::make('roles.name')
-                    ->label('Assigned Roles')
-                    ->getStateUsing(function ($record) {
-                        // CRITICAL FIX: Filter roles by permission's guard_name to prevent duplicates
-                        $guardName = $record->guard_name;
-                        $organizationId = $record->organization_id;
+            TextColumn::make('users_count')
+                ->counts('users')
+                ->label('Direct Users')
+                ->sortable()
+                ->alignCenter(),
 
-                        // Get organization-specific role names to exclude from global roles
-                        $orgSpecificNames = \Spatie\Permission\Models\Role::query()
-                            ->where('guard_name', $guardName)
-                            ->where('organization_id', $organizationId)
-                            ->pluck('name');
+            TextColumn::make('roles.name')
+                ->label('Assigned Roles')
+                ->getStateUsing(function ($record) {
+                    // CRITICAL FIX: Filter roles by permission's guard_name to prevent duplicates
+                    $guardName = $record->guard_name;
+                    $organizationId = $record->organization_id;
 
-                        // Get unique roles matching this permission's guard
-                        return $record->roles()
-                            ->where('guard_name', $guardName)
-                            ->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                                $q->where('organization_id', $organizationId)
-                                    ->orWhere(function ($q2) use ($orgSpecificNames) {
-                                        $q2->whereNull('organization_id')
-                                            ->whereNotIn('name', $orgSpecificNames);
-                                    });
-                            })
-                            ->pluck('name')
-                            ->toArray();
-                    })
-                    ->listWithLineBreaks()
-                    ->limitList(3)
-                    ->expandableLimitedList()
-                    ->badge(),
+                    // Get organization-specific role names to exclude from global roles
+                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                        ->where('guard_name', $guardName)
+                        ->where('organization_id', $organizationId)
+                        ->pluck('name');
 
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    // Get unique roles matching this permission's guard
+                    return $record->roles()
+                        ->where('guard_name', $guardName)
+                        ->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                            $subQuery->where('organization_id', $organizationId)
+                                ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                    $q2->whereNull('organization_id')
+                                        ->whereNotIn('name', $orgSpecificNames);
+                                });
+                        })
+                        ->pluck('name')
+                        ->toArray();
+                })
+                ->listWithLineBreaks()
+                ->limitList(3)
+                ->expandableLimitedList()
+                ->badge(),
 
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                SelectFilter::make('guard_name')
-                    ->options([
-                        'web' => 'Web',
-                        'api' => 'API',
-                    ]),
+            TextColumn::make('created_at')
+                ->dateTime()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
 
-                SelectFilter::make('organization_id')
-                    ->label('Organization')
-                    ->relationship('organization', 'name')
-                    ->placeholder('All Organizations')
-                    ->visible(fn () => Filament::auth()->user()->isSuperAdmin()),
+            TextColumn::make('updated_at')
+                ->dateTime()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+        ];
+    }
 
-                Filter::make('scope')
-                    ->label('Permission Scope')
+    private static function tableFilters(): array
+    {
+        return [
+            SelectFilter::make('guard_name')
+                ->options([
+                    'web' => 'Web',
+                    'api' => 'API',
+                ]),
+
+            SelectFilter::make('organization_id')
+                ->label('Organization')
+                ->relationship('organization', 'name')
+                ->placeholder('All Organizations')
+                ->visible(fn () => Filament::auth()->user()->isSuperAdmin()),
+
+            Filter::make('scope')
+                ->label('Permission Scope')
+                ->schema([
+                    Select::make('scope')->options([
+                        'global' => 'Global Permissions',
+                        'organization' => 'Organization Permissions',
+                    ])->placeholder('All Permissions'),
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return match ($data['scope'] ?? null) {
+                        'global' => $query->whereNull('organization_id'),
+                        'organization' => $query->whereNotNull('organization_id'),
+                        default => $query,
+                    };
+                })
+                ->visible(fn () => Filament::auth()->user()->isSuperAdmin()),
+
+            SelectFilter::make('category')
+                ->options([
+                    'users' => 'User Management',
+                    'applications' => 'Application Management',
+                    'organizations' => 'Organization Management',
+                    'roles' => 'Role Management',
+                    'permissions' => 'Permission Management',
+                    'auth_logs' => 'Log Management',
+                    'system' => 'System Administration',
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query->when(
+                        $data['value'],
+                        fn (Builder $query, $category): Builder => $query->where('name', 'like', "$category.%")
+                            ->orWhere('name', 'like', "%$category%"),
+                    );
+                }),
+
+            Filter::make('has_roles')
+                ->query(fn (Builder $query): Builder => $query->has('roles'))
+                ->label('Assigned to Roles'),
+
+            Filter::make('direct_user_permissions')
+                ->query(fn (Builder $query): Builder => $query->has('users'))
+                ->label('Direct User Permissions'),
+        ];
+    }
+
+    private static function tableRecordActions(): array
+    {
+        return [
+            ActionGroup::make([
+                ViewAction::make(),
+                EditAction::make(),
+
+                Action::make('assign_to_role')
+                    ->label('Assign to Role')
+                    ->icon('heroicon-o-plus')
+                    ->color('success')
                     ->schema([
-                        Select::make('scope')->options([
-                            'global' => 'Global Permissions',
-                            'organization' => 'Organization Permissions',
-                        ])->placeholder('All Permissions'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return match ($data['scope'] ?? null) {
-                            'global' => $query->whereNull('organization_id'),
-                            'organization' => $query->whereNotNull('organization_id'),
-                            default => $query,
-                        };
-                    })
-                    ->visible(fn () => Filament::auth()->user()->isSuperAdmin()),
+                        Select::make('role')
+                            ->relationship('roles', 'name', function ($query, $livewire) {
+                                $record = $livewire->getRecord();
+                                $guardName = $record->guard_name;
+                                $organizationId = $record->organization_id;
 
-                SelectFilter::make('category')
-                    ->options([
-                        'users' => 'User Management',
-                        'applications' => 'Application Management',
-                        'organizations' => 'Organization Management',
-                        'roles' => 'Role Management',
-                        'permissions' => 'Permission Management',
-                        'auth_logs' => 'Log Management',
-                        'system' => 'System Administration',
+                                // Filter by guard_name to prevent duplicates
+                                $query->where('guard_name', $guardName);
+
+                                // Deduplicate roles
+                                $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                                    ->where('guard_name', $guardName)
+                                    ->where('organization_id', $organizationId)
+                                    ->pluck('name');
+
+                                $query->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                                    $subQuery->where('organization_id', $organizationId)
+                                        ->orWhere(function ($q2) use ($orgSpecificNames) {
+                                            $q2->whereNull('organization_id')
+                                                ->whereNotIn('name', $orgSpecificNames);
+                                        });
+                                });
+                            })
+                            ->required()
+                            ->searchable()
+                            ->preload(),
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->when(
-                            $data['value'],
-                            fn (Builder $query, $category): Builder => $query->where('name', 'like', "$category.%")
-                                ->orWhere('name', 'like', "%$category%"),
-                        );
+                    ->action(function ($record, $data) {
+                        $record->roles()->syncWithoutDetaching([$data['role']]);
+                        Notification::make()
+                            ->title('Permission assigned to role')
+                            ->success()
+                            ->send();
                     }),
 
-                Filter::make('has_roles')
-                    ->query(fn (Builder $query): Builder => $query->has('roles'))
-                    ->label('Assigned to Roles'),
+                DeleteAction::make()
+                    ->requiresConfirmation()
+                    ->modalDescription('Are you sure you want to delete this permission? This will remove it from all roles and users.')
+                    ->before(function ($record) {
+                        if ($record->roles()->count() > 0 || $record->users()->count() > 0) {
+                            Notification::make()
+                                ->title('Warning: Permission in use')
+                                ->body('This permission is assigned to roles or users.')
+                                ->warning()
+                                ->send();
+                        }
+                    }),
+            ]),
+        ];
+    }
 
-                Filter::make('direct_user_permissions')
-                    ->query(fn (Builder $query): Builder => $query->has('users'))
-                    ->label('Direct User Permissions'),
-            ])
-            ->recordActions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
+    private static function tableToolbarActions(): array
+    {
+        return [
+            BulkActionGroup::make([
+                DeleteBulkAction::make()
+                    ->requiresConfirmation()
+                    ->modalDescription('Are you sure you want to delete these permissions?'),
 
-                    Action::make('assign_to_role')
-                        ->label('Assign to Role')
-                        ->icon('heroicon-o-plus')
-                        ->color('success')
-                        ->schema([
-                            Select::make('role')
-                                ->relationship('roles', 'name', function ($query, $livewire) {
-                                    $record = $livewire->getRecord();
-                                    $guardName = $record->guard_name;
-                                    $organizationId = $record->organization_id;
+                BulkAction::make('assign_to_role')
+                    ->label('Assign to Role')
+                    ->icon('heroicon-o-user-group')
+                    ->color('success')
+                    ->schema([
+                        Select::make('role')
+                            ->options(function ($livewire) {
+                                // Get the first selected record to determine guard and org
+                                $records = $livewire->getSelectedTableRecords();
+                                if ($records->isEmpty()) {
+                                    return [];
+                                }
 
-                                    // Filter by guard_name to prevent duplicates
-                                    $query->where('guard_name', $guardName);
+                                $firstRecord = $records->first();
+                                $guardName = $firstRecord->guard_name;
+                                $organizationId = $firstRecord->organization_id;
 
-                                    // Deduplicate roles
-                                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
-                                        ->where('guard_name', $guardName)
-                                        ->where('organization_id', $organizationId)
-                                        ->pluck('name');
+                                // Filter roles by guard_name and deduplicate
+                                $orgSpecificNames = \Spatie\Permission\Models\Role::query()
+                                    ->where('guard_name', $guardName)
+                                    ->where('organization_id', $organizationId)
+                                    ->pluck('name');
 
-                                    $query->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                                        $q->where('organization_id', $organizationId)
+                                return \Spatie\Permission\Models\Role::query()
+                                    ->where('guard_name', $guardName)
+                                    ->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+                                        $subQuery->where('organization_id', $organizationId)
                                             ->orWhere(function ($q2) use ($orgSpecificNames) {
                                                 $q2->whereNull('organization_id')
                                                     ->whereNotIn('name', $orgSpecificNames);
                                             });
-                                    });
-                                })
-                                ->required()
-                                ->searchable()
-                                ->preload(),
-                        ])
-                        ->action(function ($record, $data) {
-                            $record->roles()->syncWithoutDetaching([$data['role']]);
-                            Notification::make()
-                                ->title('Permission assigned to role')
-                                ->success()
-                                ->send();
-                        }),
-
-                    DeleteAction::make()
-                        ->requiresConfirmation()
-                        ->modalDescription('Are you sure you want to delete this permission? This will remove it from all roles and users.')
-                        ->before(function ($record) {
-                            if ($record->roles()->count() > 0 || $record->users()->count() > 0) {
-                                Notification::make()
-                                    ->title('Warning: Permission in use')
-                                    ->body('This permission is assigned to roles or users.')
-                                    ->warning()
-                                    ->send();
-                            }
-                        }),
-                ]),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make()
-                        ->requiresConfirmation()
-                        ->modalDescription('Are you sure you want to delete these permissions?'),
-
-                    BulkAction::make('assign_to_role')
-                        ->label('Assign to Role')
-                        ->icon('heroicon-o-user-group')
-                        ->color('success')
-                        ->schema([
-                            Select::make('role')
-                                ->options(function ($livewire) {
-                                    // Get the first selected record to determine guard and org
-                                    $records = $livewire->getSelectedTableRecords();
-                                    if ($records->isEmpty()) {
-                                        return [];
-                                    }
-
-                                    $firstRecord = $records->first();
-                                    $guardName = $firstRecord->guard_name;
-                                    $organizationId = $firstRecord->organization_id;
-
-                                    // Filter roles by guard_name and deduplicate
-                                    $orgSpecificNames = \Spatie\Permission\Models\Role::query()
-                                        ->where('guard_name', $guardName)
-                                        ->where('organization_id', $organizationId)
-                                        ->pluck('name');
-
-                                    return \Spatie\Permission\Models\Role::query()
-                                        ->where('guard_name', $guardName)
-                                        ->where(function ($q) use ($organizationId, $orgSpecificNames) {
-                                            $q->where('organization_id', $organizationId)
-                                                ->orWhere(function ($q2) use ($orgSpecificNames) {
-                                                    $q2->whereNull('organization_id')
-                                                        ->whereNotIn('name', $orgSpecificNames);
-                                                });
-                                        })
-                                        ->pluck('name', 'id')
-                                        ->toArray();
-                                })
-                                ->required()
-                                ->searchable()
-                                ->preload(),
-                        ])
-                        ->action(function ($records, $data) {
-                            $role = Role::find($data['role']);
-                            foreach ($records as $record) {
-                                $role->permissions()->syncWithoutDetaching([$record->id]);
-                            }
-                            Notification::make()
-                                ->title('Permissions assigned to role')
-                                ->success()
-                                ->send();
-                        }),
-                ]),
-            ])
-            ->defaultSort('name');
+                                    })
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->action(function ($records, $data) {
+                        $role = Role::find($data['role']);
+                        foreach ($records as $record) {
+                            $role->permissions()->syncWithoutDetaching([$record->id]);
+                        }
+                        Notification::make()
+                            ->title('Permissions assigned to role')
+                            ->success()
+                            ->send();
+                    }),
+            ]),
+        ];
     }
 
     public static function getPages(): array
@@ -456,8 +476,8 @@ class PermissionResource extends Resource
         }
 
         // Organization users can only see their organization's permissions + global permissions
-        return $query->where(function ($q) use ($user) {
-            $q->where('organization_id', $user?->organization_id)
+        return $query->where(function ($subQuery) use ($user) {
+            $subQuery->where('organization_id', $user?->organization_id)
                 ->orWhereNull('organization_id');
         });
     }
