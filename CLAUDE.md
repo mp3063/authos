@@ -585,6 +585,7 @@ herd php artisan config:clear             # Config cache issues
 - Use specialized subagents when appropriate
 - Don't use `--verbose` flag with tests (causes errors)
 - For PhpStorm coverage: add `-d memory_limit=1G` to prevent exhaustion
+- **No code comments unless absolutely necessary** (app code, tests, config). Explain *why* in the commit message instead. Only exception: a one-line comment where the code would otherwise be actively misleading. Pass this rule on to subagents that write code.
 
 ### Laravel Boost Integration
 See `.claude/laravel-boost.md` for comprehensive development guidelines:
