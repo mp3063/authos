@@ -569,6 +569,68 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
     }
 
+    #[Test]
+    public function bulk_assign_roles_rejects_a_role_with_permissions_the_admin_lacks_with_403(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
+                'user_ids' => [$member->id],
+                'role' => 'Organization Owner',
+            ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Owner')->exists());
+    }
+
+    #[Test]
+    public function bulk_assign_roles_rejects_a_custom_role_with_permissions_the_admin_lacks_with_403(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $customRole = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.delete'],
+        ]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
+                'user_ids' => [$member->id],
+                'custom_roles' => [$customRole->id],
+            ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($member->customRoles()->whereKey($customRole->id)->exists());
+    }
+
+    #[Test]
+    public function bulk_assign_roles_rejects_the_admin_targeting_themselves_with_403(): void
+    {
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
+                'user_ids' => [$this->admin->id],
+                'role' => 'Organization Member',
+            ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($this->admin->fresh()->roles()->where('name', 'Organization Member')->exists());
+    }
+
+    #[Test]
+    public function bulk_assign_roles_requires_the_roles_assign_permission_with_403(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $target = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $response = $this->actingAs($member, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
+                'user_ids' => [$target->id],
+                'role' => 'Organization Member',
+            ]);
+
+        $response->assertForbidden();
+    }
+
     /**
      * @param  array<string, mixed>  $options
      */

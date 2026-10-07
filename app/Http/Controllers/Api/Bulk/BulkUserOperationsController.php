@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\Bulk;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\AuthenticationLog;
+use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\BulkOperationService;
+use App\Services\UserRoleService;
 use Exception;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -18,7 +21,8 @@ class BulkUserOperationsController extends BaseController
     use ApiControllerHelpers;
 
     public function __construct(
-        protected BulkOperationService $bulkOperationService
+        protected BulkOperationService $bulkOperationService,
+        protected UserRoleService $userRoleService
     ) {
         $this->middleware('auth:api');
     }
@@ -109,10 +113,7 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkAssignRoles(Request $request, string $organizationId): JsonResponse
     {
-        // Authorization check - skip if in testing without proper gates
-        if (! app()->runningUnitTests()) {
-            $this->authorize('roles.assign');
-        }
+        $this->authorize('roles.assign');
 
         $organization = Organization::findOrFail($organizationId);
 
@@ -136,6 +137,10 @@ class BulkUserOperationsController extends BaseController
 
         $validUserIds = $users->pluck('id')->toArray();
         $invalidUserIds = array_diff($userIds, $validUserIds);
+
+        if ($denial = $this->roleChangeDenial($request, $organization, $validUserIds, $customRoleIds)) {
+            return $this->forbiddenResponse($denial);
+        }
 
         try {
             if (empty($validUserIds)) {
@@ -387,5 +392,38 @@ class BulkUserOperationsController extends BaseController
         } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to update organization settings: '.$e->getMessage());
         }
+    }
+
+    /**
+     * @param  array<int, int>  $userIds
+     * @param  array<int, int|string>  $customRoleIds
+     */
+    private function roleChangeDenial(Request $request, Organization $organization, array $userIds, array $customRoleIds): ?string
+    {
+        $caller = $request->user();
+
+        if ($caller->isSuperAdmin()) {
+            return null;
+        }
+
+        if (in_array($caller->id, $userIds, true)) {
+            return 'You cannot change your own roles.';
+        }
+
+        $standardRole = $request->filled('role')
+            ? $this->userRoleService->findAssignableRole($caller, $organization->id, $request->input('role'))
+            : null;
+        $customRolePermissions = CustomRole::whereIn('id', $customRoleIds)
+            ->where('organization_id', $organization->id)
+            ->get()
+            ->pluck('permissions')
+            ->flatten();
+
+        if (($standardRole && $this->userRoleService->roleChangeDenial($caller, null, new EloquentCollection([$standardRole])))
+            || $this->userRoleService->exceedsPermissionsOf($caller, $customRolePermissions)) {
+            return 'You cannot grant or revoke a role with permissions you do not have.';
+        }
+
+        return null;
     }
 }
