@@ -27,6 +27,32 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_strips_keys_ending_in_a_sensitive_word_from_the_configuration(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $this->createSsoConfiguration($admin, [
+            'configuration' => [
+                'client_id' => 'client-123',
+                'sp_private_key' => 'private-key-value',
+                'bind_password' => 'bind-password-value',
+                'spApiKey' => 'api-key-value',
+                'password_min_length' => 12,
+                'has_password' => true,
+            ],
+        ]);
+
+        $response = $this->actingAsApiUserWithToken($admin, ['sso'])
+            ->getJson("/api/v1/sso/configurations/{$admin->organization_id}");
+
+        $response->assertOk()
+            ->assertJsonPath('configuration.password_min_length', 12)
+            ->assertJsonPath('configuration.has_password', true);
+        $this->assertStringNotContainsString('private-key-value', $response->getContent());
+        $this->assertStringNotContainsString('bind-password-value', $response->getContent());
+        $this->assertStringNotContainsString('api-key-value', $response->getContent());
+    }
+
+    #[Test]
     public function it_rejects_creating_a_configuration_for_another_organizations_application_with_422(): void
     {
         $admin = $this->createApiOrganizationAdmin();

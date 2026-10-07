@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class SanitizeApiResponse
@@ -104,7 +105,7 @@ class SanitizeApiResponse
 
             foreach ($data as $key => $value) {
                 // Remove sensitive fields entirely, unless secrets are allowed
-                if (in_array($key, $this->sensitiveFields)) {
+                if (in_array($key, $this->sensitiveFields) || $this->hasSensitiveSuffix($key, $value)) {
                     if ($allowSecrets && in_array($key, ['secret', 'client_secret'])) {
                         $sanitized[$key] = $value;
 
@@ -126,6 +127,17 @@ class SanitizeApiResponse
         }
 
         return $data;
+    }
+
+    protected function hasSensitiveSuffix(int|string $key, mixed $value): bool
+    {
+        if (! is_string($key) || is_bool($value)) {
+            return false;
+        }
+
+        $pattern = '/(^|_)(password|secret|private_key|api_key)$/i';
+
+        return preg_match($pattern, $key) === 1 || preg_match($pattern, Str::snake($key)) === 1;
     }
 
     /**
