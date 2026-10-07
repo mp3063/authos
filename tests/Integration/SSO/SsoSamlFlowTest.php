@@ -38,6 +38,8 @@ class SsoSamlFlowTest extends IntegrationTestCase
 {
     use SignsSamlResponses;
 
+    private const ACS_URL = 'https://authos.test/api/v1/sso/saml/callback';
+
     protected SSOService $ssoService;
 
     protected function setUp(): void
@@ -79,7 +81,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Create a valid SAML response (simplified XML structure)
-        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="response-123" Version="2.0">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="assertion-123" Version="2.0">
         <saml:Subject>
@@ -94,10 +96,10 @@ class SsoSamlFlowTest extends IntegrationTestCase
             </saml:Attribute>
         </saml:AttributeStatement>
     </saml:Assertion>
-</samlp:Response>');
+</samlp:Response>', self::ACS_URL, 'https://app.example.com/saml/metadata'));
 
         // ACT: Validate SAML response
-        $result = $this->ssoService->validateSAMLResponse($samlResponse, $app->id);
+        $result = $this->ssoService->validateSAMLResponse($samlResponse, $app->id, self::ACS_URL);
 
         // ASSERT: Validation successful
         $this->assertTrue($result['success']);
@@ -130,7 +132,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Invalid SAML response');
 
-        $this->ssoService->validateSAMLResponse('', $app->id);
+        $this->ssoService->validateSAMLResponse('', $app->id, self::ACS_URL);
     }
 
     #[Test]
@@ -158,7 +160,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Could not extract user information from SAML response');
 
-        $this->ssoService->validateSAMLResponse($invalidSaml, $app->id);
+        $this->ssoService->validateSAMLResponse($invalidSaml, $app->id, self::ACS_URL);
     }
 
     // ============================================================
@@ -190,7 +192,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Valid SAML response with assertion
-        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="assertion-456">
         <saml:Subject>
@@ -205,10 +207,10 @@ class SsoSamlFlowTest extends IntegrationTestCase
             </saml:Attribute>
         </saml:AttributeStatement>
     </saml:Assertion>
-</samlp:Response>');
+</samlp:Response>', self::ACS_URL));
 
         // ACT: Parse SAML response
-        $result = $this->ssoService->validateSAMLResponse($samlResponse, $app->id);
+        $result = $this->ssoService->validateSAMLResponse($samlResponse, $app->id, self::ACS_URL);
 
         // ASSERT: User info extracted
         $this->assertTrue($result['success']);
@@ -247,7 +249,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Could not extract user information from SAML response');
 
-        $this->ssoService->validateSAMLResponse($samlResponse, $app->id);
+        $this->ssoService->validateSAMLResponse($samlResponse, $app->id, self::ACS_URL);
     }
 
     // ============================================================
@@ -292,17 +294,17 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Valid SAML response
-        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>
             <saml:NameID>'.$user->email.'</saml:NameID>
         </saml:Subject>
     </saml:Assertion>
-</samlp:Response>');
+</samlp:Response>', self::ACS_URL, null, $relayState));
 
         // ACT: Process SAML callback with relay state
-        $result = $this->ssoService->processSamlCallback($samlResponse, $relayState);
+        $result = $this->ssoService->processSamlCallback($samlResponse, $relayState, self::ACS_URL);
 
         // ASSERT: Callback processed successfully with relay state preserved
         $this->assertArrayHasKey('user', $result);
@@ -351,17 +353,17 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // Valid SAML response
-        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>
             <saml:NameID>'.$user->email.'</saml:NameID>
         </saml:Subject>
     </saml:Assertion>
-</samlp:Response>');
+</samlp:Response>', self::ACS_URL, null, 'default-request'));
 
         // ACT: Process SAML callback without relay state (null)
-        $result = $this->ssoService->processSamlCallback($samlResponse, null);
+        $result = $this->ssoService->processSamlCallback($samlResponse, null, self::ACS_URL);
 
         // ASSERT: Callback should still work
         $this->assertArrayHasKey('user', $result);
@@ -581,7 +583,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         ]);
 
         // SAML response with custom attribute names
-        $samlResponse = $this->signSamlResponse('<?xml version="1.0"?>
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity('<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
     <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
         <saml:Subject>
@@ -596,10 +598,10 @@ class SsoSamlFlowTest extends IntegrationTestCase
             </saml:Attribute>
         </saml:AttributeStatement>
     </saml:Assertion>
-</samlp:Response>');
+</samlp:Response>', self::ACS_URL, null, 'default-request'));
 
         // ACT: Process SAML callback
-        $result = $this->ssoService->processSamlCallback($samlResponse, null);
+        $result = $this->ssoService->processSamlCallback($samlResponse, null, self::ACS_URL);
 
         // ASSERT: User attributes extracted from SAML assertion
         // Note: Simplified parser returns hardcoded 'user@example.com'
@@ -706,7 +708,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->expectExceptionMessage('SSO session not found');
 
         // Use a relay state that doesn't match any session
-        $this->ssoService->validateSAMLResponse($samlResponse, 'nonexistent-request-id');
+        $this->ssoService->validateSAMLResponse($samlResponse, 'nonexistent-request-id', self::ACS_URL);
     }
 
     #[Test]
@@ -733,6 +735,6 @@ class SsoSamlFlowTest extends IntegrationTestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('SSO configuration not found for application');
 
-        $this->ssoService->validateSAMLResponse($samlResponse, $app->id);
+        $this->ssoService->validateSAMLResponse($samlResponse, $app->id, self::ACS_URL);
     }
 }

@@ -301,8 +301,10 @@ class SSOService
      *
      * @throws Exception
      */
-    public function validateSAMLResponse(string $samlResponse, string|int $requestId): array
+    public function validateSAMLResponse(string $samlResponse, string|int $requestId, string $acsUrl): array
     {
+        $expectedInResponseTo = null;
+
         // Find the SSO session by request ID in metadata or external_session_id if it's a string, otherwise treat as application ID
         if (is_string($requestId)) {
             $session = SSOSession::whereJsonContains('metadata->saml_request_id', $requestId)->first() ??
@@ -311,6 +313,7 @@ class SSOService
                 throw new Exception('SSO session not found');
             }
             $application = $session->application;
+            $expectedInResponseTo = $session->metadata['saml_request_id'] ?? null;
         } else {
             $application = Application::findOrFail($requestId);
         }
@@ -329,11 +332,7 @@ class SSOService
             ?? null;
 
         $this->signatureValidator->validate($samlResponse, $x509Cert);
-
-        // Validate time conditions
-        if (! empty($userInfo['conditions'])) {
-            $this->samlService->validateConditions($userInfo['conditions']);
-        }
+        $this->samlService->validateAssertion($userInfo, $ssoConfig, $acsUrl, $expectedInResponseTo);
 
         // Apply attribute mapping
         $userInfo = $this->samlService->applyAttributeMapping($userInfo, $ssoConfig);
@@ -351,10 +350,10 @@ class SSOService
      *
      * @throws Exception
      */
-    public function processSamlCallback(string $samlResponse, ?string $relayState = null): array
+    public function processSamlCallback(string $samlResponse, ?string $relayState, string $acsUrl): array
     {
         // Use existing SAML validation method
-        $validationResult = $this->validateSAMLResponse($samlResponse, $relayState ?? 'default-request');
+        $validationResult = $this->validateSAMLResponse($samlResponse, $relayState ?? 'default-request', $acsUrl);
 
         // Create or find user based on SAML response
         $userInfo = $validationResult['user_info'];

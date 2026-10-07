@@ -39,7 +39,8 @@ class SamlController extends Controller
         try {
             $result = $this->ssoService->processSamlCallback(
                 $request->SAMLResponse,
-                $request->RelayState
+                $request->RelayState,
+                $request->url()
             );
 
             return response()->json([
@@ -204,11 +205,7 @@ class SamlController extends Controller
                 ?? null;
 
             $this->signatureValidator->validate($samlResponse, $x509Cert);
-
-            // Validate time conditions
-            if (! empty($userInfo['conditions'])) {
-                $this->samlService->validateConditions($userInfo['conditions']);
-            }
+            $this->samlService->validateAssertion($userInfo, $ssoConfig, $request->url());
 
             // Apply attribute mapping
             $userInfo = $this->samlService->applyAttributeMapping($userInfo, $ssoConfig);

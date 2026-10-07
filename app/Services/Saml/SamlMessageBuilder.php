@@ -116,9 +116,7 @@ class SamlMessageBuilder
         $configuration = $config->configuration ?? [];
         $settings = $config->settings ?? [];
 
-        $entityId = $configuration['sp_entity_id']
-            ?? $settings['saml_entity_id']
-            ?? $baseUrl.'/api/v1/saml/metadata';
+        $entityId = $this->spEntityId($config, $baseUrl);
 
         $acsUrl = $config->callback_url ?? $baseUrl.'/api/v1/sso/saml/callback';
         $sloUrl = $config->logout_url ?? $baseUrl.'/api/v1/saml/slo';
@@ -131,6 +129,13 @@ class SamlMessageBuilder
         $shortFormat = $this->mapNameIdFormat($nameIdFormat);
 
         return $this->generateSpMetadataXml($entityId, $acsUrl, $sloUrl, $certificate, $shortFormat);
+    }
+
+    public function spEntityId(SSOConfiguration $config, string $baseUrl): string
+    {
+        return $config->configuration['sp_entity_id']
+            ?? $config->settings['saml_entity_id']
+            ?? $baseUrl.'/api/v1/saml/metadata';
     }
 
     /**

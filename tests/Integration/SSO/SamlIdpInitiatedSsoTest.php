@@ -15,6 +15,8 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
 
     private const IDP_ENTITY_ID = 'https://idp.example.com';
 
+    private const SP_ENTITY_ID = 'https://authos.example.com/saml/sp';
+
     #[Test]
     public function it_creates_a_session_for_an_assertion_signed_by_the_configured_idp(): void
     {
@@ -84,7 +86,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
-            'SAMLResponse' => base64_encode($this->responseXml($user->email)),
+            'SAMLResponse' => base64_encode($this->spInitiatedResponseXml($user->email)),
             'RelayState' => 'request-1',
         ]);
 
@@ -136,7 +138,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
-            'SAMLResponse' => $this->signSamlResponse($this->responseXml($assertedUser->email)),
+            'SAMLResponse' => $this->signSamlResponse($this->spInitiatedResponseXml($assertedUser->email)),
             'RelayState' => 'request-1',
         ]);
 
@@ -155,12 +157,89 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
-            'SAMLResponse' => $this->signSamlResponse($this->responseXml($outsider->email)),
+            'SAMLResponse' => $this->signSamlResponse($this->spInitiatedResponseXml($outsider->email)),
             'RelayState' => 'request-1',
         ]);
 
         $response->assertBadRequest()->assertJsonPath('message', 'User not found: '.$outsider->email);
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $outsider->id]);
+    }
+
+    #[Test]
+    public function it_rejects_an_assertion_for_another_audience_with_400(): void
+    {
+        $user = $this->createUser();
+        $this->createSamlApplication($user, $this->samlIdpCertificate());
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['audience' => 'https://other-sp.example.com'])),
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion audience does not match this service provider');
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+    }
+
+    #[Test]
+    public function it_rejects_an_assertion_without_conditions_with_400(): void
+    {
+        $user = $this->createUser();
+        $this->createSamlApplication($user, $this->samlIdpCertificate());
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['conditions' => false])),
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion has no validity period');
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+    }
+
+    #[Test]
+    public function it_rejects_an_assertion_issued_for_another_recipient_with_400(): void
+    {
+        $user = $this->createUser();
+        $this->createSamlApplication($user, $this->samlIdpCertificate());
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['recipient' => 'https://other-sp.example.com/acs'])),
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion recipient does not match this endpoint');
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+    }
+
+    #[Test]
+    public function it_rejects_a_replayed_assertion_with_400(): void
+    {
+        $user = $this->createUser();
+        $this->createSamlApplication($user, $this->samlIdpCertificate());
+        $samlResponse = $this->signSamlResponse($this->responseXml($user->email));
+
+        $this->postJson('/api/v1/sso/saml/acs', ['SAMLResponse' => $samlResponse])->assertOk();
+        $replay = $this->postJson('/api/v1/sso/saml/acs', ['SAMLResponse' => $samlResponse]);
+
+        $replay->assertBadRequest()->assertJsonPath('message', 'SAML assertion has already been used');
+        $this->assertDatabaseCount('sso_sessions', 1);
+    }
+
+    #[Test]
+    public function sp_initiated_callback_rejects_an_assertion_for_another_request_with_400(): void
+    {
+        $user = $this->createUser();
+        $application = $this->createSamlApplication($user, $this->samlIdpCertificate());
+        SSOSession::factory()->forUser($user)->create([
+            'application_id' => $application->id,
+            'metadata' => ['saml_request_id' => 'request-1'],
+        ]);
+
+        $response = $this->postJson('/api/v1/sso/saml/callback', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, [
+                'recipient' => url('/api/v1/sso/saml/callback'),
+                'in_response_to' => 'request-2',
+            ])),
+            'RelayState' => 'request-1',
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion does not answer the pending request');
     }
 
     private function createSamlApplication(User $user, ?string $certificate): Application
@@ -178,6 +257,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'is_active' => true,
             'configuration' => [
                 'idp_entity_id' => self::IDP_ENTITY_ID,
+                'sp_entity_id' => self::SP_ENTITY_ID,
                 'x509_cert' => $certificate,
             ],
         ]);
@@ -185,14 +265,41 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         return $application;
     }
 
-    private function responseXml(string $email): string
+    /**
+     * @param  array{audience?: string, recipient?: string, in_response_to?: ?string, conditions?: bool}  $options
+     */
+    private function responseXml(string $email, array $options = []): string
     {
+        $options += [
+            'audience' => self::SP_ENTITY_ID,
+            'recipient' => url('/api/v1/sso/saml/acs'),
+            'in_response_to' => null,
+            'conditions' => true,
+        ];
+        $notOnOrAfter = gmdate('Y-m-d\TH:i:s\Z', time() + 300);
+        $inResponseTo = $options['in_response_to'] ? ' InResponseTo="'.$options['in_response_to'].'"' : '';
+        $conditions = $options['conditions']
+            ? '<saml:Conditions NotOnOrAfter="'.$notOnOrAfter.'"><saml:AudienceRestriction><saml:Audience>'.$options['audience'].'</saml:Audience></saml:AudienceRestriction></saml:Conditions>'
+            : '';
+
         return '<?xml version="1.0"?>'
             .'<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="response-1" Version="2.0">'
             .'<saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="assertion-1" Version="2.0">'
             .'<saml:Issuer>'.self::IDP_ENTITY_ID.'</saml:Issuer>'
-            .'<saml:Subject><saml:NameID>'.$email.'</saml:NameID></saml:Subject>'
+            .'<saml:Subject><saml:NameID>'.$email.'</saml:NameID>'
+            .'<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">'
+            .'<saml:SubjectConfirmationData Recipient="'.$options['recipient'].'" NotOnOrAfter="'.$notOnOrAfter.'"'.$inResponseTo.'/>'
+            .'</saml:SubjectConfirmation></saml:Subject>'
+            .$conditions
             .'</saml:Assertion>'
             .'</samlp:Response>';
+    }
+
+    private function spInitiatedResponseXml(string $email): string
+    {
+        return $this->responseXml($email, [
+            'recipient' => url('/api/v1/sso/saml/callback'),
+            'in_response_to' => 'request-1',
+        ]);
     }
 }

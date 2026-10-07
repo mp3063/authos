@@ -31,6 +31,34 @@ trait SignsSamlResponses
         return $this->signSamlResponseWith($xml, self::attackerKeyPair());
     }
 
+    /**
+     * Add the Conditions and bearer SubjectConfirmation an SP requires to the response's assertion.
+     */
+    protected function withSamlValidity(string $xml, string $recipient, ?string $audience = null, ?string $inResponseTo = null): string
+    {
+        $doc = new DOMDocument;
+        $doc->loadXML($xml);
+        $assertion = $doc->getElementsByTagNameNS(SamlXml::SAML_NS, 'Assertion')->item(0);
+        $subject = $doc->getElementsByTagNameNS(SamlXml::SAML_NS, 'Subject')->item(0);
+        $notOnOrAfter = gmdate('Y-m-d\TH:i:s\Z', time() + 300);
+
+        $confirmation = $subject->appendChild($doc->createElementNS(SamlXml::SAML_NS, 'saml:SubjectConfirmation'));
+        $confirmation->setAttribute('Method', 'urn:oasis:names:tc:SAML:2.0:cm:bearer');
+        $data = $confirmation->appendChild($doc->createElementNS(SamlXml::SAML_NS, 'saml:SubjectConfirmationData'));
+        $data->setAttribute('Recipient', $recipient);
+        $data->setAttribute('NotOnOrAfter', $notOnOrAfter);
+        if ($inResponseTo !== null) {
+            $data->setAttribute('InResponseTo', $inResponseTo);
+        }
+
+        $conditions = $assertion->insertBefore($doc->createElementNS(SamlXml::SAML_NS, 'saml:Conditions'), $subject->nextSibling);
+        $conditions->setAttribute('NotOnOrAfter', $notOnOrAfter);
+        $conditions->appendChild($doc->createElementNS(SamlXml::SAML_NS, 'saml:AudienceRestriction'))
+            ->appendChild($doc->createElementNS(SamlXml::SAML_NS, 'saml:Audience', $audience ?? config('app.url').'/api/v1/saml/metadata'));
+
+        return $doc->saveXML();
+    }
+
     protected function signSamlLogoutRequest(string $xml): string
     {
         return $this->signSamlXml($xml, self::idpKeyPair(), fn (DOMDocument $doc) => $doc->documentElement);

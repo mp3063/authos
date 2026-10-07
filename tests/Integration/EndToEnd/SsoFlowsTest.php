@@ -121,6 +121,7 @@ class SsoFlowsTest extends EndToEndTestCase
                 'sso_url' => 'https://saml-idp.example.com/sso',
                 'sls_url' => 'https://saml-idp.example.com/sls',
                 'x509_cert' => $this->samlIdpCertificate(),
+                'sp_entity_id' => 'https://authos.test/saml/sp',
             ],
             'is_active' => true,
         ]);
@@ -342,7 +343,7 @@ class SsoFlowsTest extends EndToEndTestCase
         ]);
 
         // Step 2: Simulate SAML response from IdP
-        $samlResponse = $this->signSamlResponse(
+        $samlResponse = $this->signSamlResponse($this->withSamlValidity(
             '<?xml version="1.0"?>
             <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
                 <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
@@ -360,7 +361,7 @@ class SsoFlowsTest extends EndToEndTestCase
                         </saml:Attribute>
                     </saml:AttributeStatement>
                 </saml:Assertion>
-            </samlp:Response>'
+            </samlp:Response>', url('/api/v1/sso/saml/callback'), 'https://authos.test/saml/sp', $samlRequestId)
         );
 
         // Step 3: Process SAML callback
@@ -411,7 +412,7 @@ class SsoFlowsTest extends EndToEndTestCase
      */
     public function test_saml_assertion_validation(): void
     {
-        $validSamlResponse = $this->signSamlResponse(
+        $validSamlResponse = $this->signSamlResponse($this->withSamlValidity(
             '<?xml version="1.0"?>
             <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
                 <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
@@ -419,10 +420,10 @@ class SsoFlowsTest extends EndToEndTestCase
                         <saml:NameID>test@example.com</saml:NameID>
                     </saml:Subject>
                 </saml:Assertion>
-            </samlp:Response>'
+            </samlp:Response>', 'https://authos.test/api/v1/sso/saml/callback', 'https://authos.test/saml/sp')
         );
 
-        $result = $this->ssoService->validateSAMLResponse($validSamlResponse, $this->samlApplication->id);
+        $result = $this->ssoService->validateSAMLResponse($validSamlResponse, $this->samlApplication->id, 'https://authos.test/api/v1/sso/saml/callback');
 
         $this->assertTrue($result['success']);
         $this->assertEquals($this->samlApplication->id, $result['application_id']);

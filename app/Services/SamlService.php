@@ -3,13 +3,21 @@
 namespace App\Services;
 
 use App\Models\SSOConfiguration;
+use App\Services\Saml\SamlMessageBuilder;
 use App\Services\Saml\SamlXml;
+use DOMElement;
 use DOMNode;
 use DOMXPath;
 use Exception;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class SamlService
 {
+    private const CLOCK_SKEW_SECONDS = 120;
+
+    public function __construct(private SamlMessageBuilder $messageBuilder) {}
+
     /**
      * Parse SAML assertion from a base64-encoded SAML response.
      *
@@ -68,6 +76,8 @@ class SamlService
 
         $name = $this->resolveDisplayName($attributes);
 
+        $root = $assertion->ownerDocument->documentElement;
+
         return [
             'id' => 'saml_'.md5($nameId ?? $email ?? uniqid()),
             'email' => $email,
@@ -78,6 +88,27 @@ class SamlService
             'issuer' => SamlXml::firstText($xpath, 'saml:Issuer', $assertion),
             'session_index' => $this->extractSessionIndex($xpath, $assertion),
             'conditions' => $this->extractConditions($xpath, $assertion),
+            'assertion_id' => $assertion instanceof DOMElement ? $assertion->getAttribute('ID') : null,
+            'destination' => $root !== $assertion ? ($root->getAttribute('Destination') ?: null) : null,
+            'subject_confirmation' => $this->extractSubjectConfirmation($xpath, $assertion),
+        ];
+    }
+
+    private function extractSubjectConfirmation(DOMXPath $xpath, DOMNode $assertion): array
+    {
+        $data = $xpath->query(
+            'saml:Subject/saml:SubjectConfirmation[@Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"]/saml:SubjectConfirmationData',
+            $assertion
+        )->item(0);
+
+        if (! $data instanceof DOMElement) {
+            return [];
+        }
+
+        return [
+            'recipient' => $data->getAttribute('Recipient') ?: null,
+            'not_on_or_after' => $data->getAttribute('NotOnOrAfter') ?: null,
+            'in_response_to' => $data->getAttribute('InResponseTo') ?: null,
         ];
     }
 
@@ -136,6 +167,14 @@ class SamlService
             $cond = $conditionNodes->item(0);
             $conditions['not_before'] = $cond->getAttribute('NotBefore') ?: null;
             $conditions['not_on_or_after'] = $cond->getAttribute('NotOnOrAfter') ?: null;
+            $conditions['audience_restrictions'] = [];
+            foreach ($xpath->query('saml:AudienceRestriction', $cond) as $restriction) {
+                $audiences = [];
+                foreach ($xpath->query('saml:Audience', $restriction) as $audience) {
+                    $audiences[] = trim($audience->textContent);
+                }
+                $conditions['audience_restrictions'][] = $audiences;
+            }
         }
 
         return $conditions;
@@ -251,30 +290,73 @@ class SamlService
     }
 
     /**
+     * Validate a parsed, signature-verified assertion for this SP and endpoint, then mark it as consumed.
+     *
+     * @throws Exception
+     */
+    public function validateAssertion(array $userInfo, SSOConfiguration $config, string $acsUrl, ?string $expectedInResponseTo = null): void
+    {
+        $conditions = $userInfo['conditions'] ?? [];
+        $this->validateConditions($conditions);
+
+        $spEntityId = $this->messageBuilder->spEntityId($config, config('app.url', url('/')));
+        $restrictions = $conditions['audience_restrictions'] ?? [];
+        if ($restrictions === [] || collect($restrictions)->contains(fn (array $audiences) => ! in_array($spEntityId, $audiences, true))) {
+            throw new Exception('SAML assertion audience does not match this service provider');
+        }
+
+        $confirmation = $userInfo['subject_confirmation'] ?? [];
+        if (($confirmation['recipient'] ?? null) !== $acsUrl) {
+            throw new Exception('SAML assertion recipient does not match this endpoint');
+        }
+
+        $confirmationExpiry = strtotime($confirmation['not_on_or_after'] ?? '');
+        if ($confirmationExpiry === false || time() >= $confirmationExpiry + self::CLOCK_SKEW_SECONDS) {
+            throw new Exception('SAML subject confirmation has expired');
+        }
+
+        if (($userInfo['destination'] ?? null) !== null && $userInfo['destination'] !== $acsUrl) {
+            throw new Exception('SAML response destination does not match this endpoint');
+        }
+
+        if ($expectedInResponseTo !== null && ($confirmation['in_response_to'] ?? null) !== $expectedInResponseTo) {
+            throw new Exception('SAML assertion does not answer the pending request');
+        }
+
+        if (empty($userInfo['assertion_id'])) {
+            throw new Exception('SAML assertion has no ID');
+        }
+
+        $expiresAt = max(strtotime($conditions['not_on_or_after']), $confirmationExpiry) + self::CLOCK_SKEW_SECONDS;
+        $replayKey = 'saml_assertion:'.hash('sha256', ($userInfo['issuer'] ?? '').'|'.$userInfo['assertion_id']);
+        if (! Cache::add($replayKey, true, Carbon::createFromTimestamp($expiresAt))) {
+            throw new Exception('SAML assertion has already been used');
+        }
+    }
+
+    /**
      * Validate time conditions of a SAML assertion.
      *
      * @throws Exception
      */
-    public function validateConditions(array $conditions, int $clockSkewSeconds = 120): bool
+    public function validateConditions(array $conditions, int $clockSkewSeconds = self::CLOCK_SKEW_SECONDS): bool
     {
-        if (empty($conditions)) {
-            return true;
+        if (empty($conditions['not_on_or_after'])) {
+            throw new Exception('SAML assertion has no validity period');
         }
 
         $now = time();
 
         if (! empty($conditions['not_before'])) {
             $notBefore = strtotime($conditions['not_before']);
-            if ($notBefore !== false && $now < ($notBefore - $clockSkewSeconds)) {
+            if ($notBefore === false || $now < ($notBefore - $clockSkewSeconds)) {
                 throw new Exception('SAML assertion is not yet valid');
             }
         }
 
-        if (! empty($conditions['not_on_or_after'])) {
-            $notOnOrAfter = strtotime($conditions['not_on_or_after']);
-            if ($notOnOrAfter !== false && $now >= ($notOnOrAfter + $clockSkewSeconds)) {
-                throw new Exception('SAML assertion has expired');
-            }
+        $notOnOrAfter = strtotime($conditions['not_on_or_after']);
+        if ($notOnOrAfter === false || $now >= ($notOnOrAfter + $clockSkewSeconds)) {
+            throw new Exception('SAML assertion has expired');
         }
 
         return true;
