@@ -55,7 +55,7 @@ class SamlService
 
     private function extractAssertionData(DOMXPath $xpath, DOMNode $assertion): array
     {
-        $nameIdNodes = $xpath->query('.//saml:Subject/saml:NameID', $assertion);
+        $nameIdNodes = $xpath->query('saml:Subject/saml:NameID', $assertion);
         $nameId = $nameIdNodes->length > 0 ? trim($nameIdNodes->item(0)->textContent) : null;
         $nameIdFormat = $nameIdNodes->length > 0 ? $nameIdNodes->item(0)->getAttribute('Format') : null;
 
@@ -75,7 +75,7 @@ class SamlService
             'name_id' => $nameId,
             'name_id_format' => $nameIdFormat,
             'attributes' => $attributes,
-            'issuer' => SamlXml::firstText($xpath, './/saml:Issuer', $assertion),
+            'issuer' => SamlXml::firstText($xpath, 'saml:Issuer', $assertion),
             'session_index' => $this->extractSessionIndex($xpath, $assertion),
             'conditions' => $this->extractConditions($xpath, $assertion),
         ];
@@ -84,7 +84,7 @@ class SamlService
     private function extractAttributes(DOMXPath $xpath, DOMNode $assertion): array
     {
         $attributes = [];
-        $attrStatements = $xpath->query('.//saml:AttributeStatement/saml:Attribute', $assertion);
+        $attrStatements = $xpath->query('saml:AttributeStatement/saml:Attribute', $assertion);
 
         foreach ($attrStatements as $attr) {
             $attrName = $attr->getAttribute('Name');
@@ -131,7 +131,7 @@ class SamlService
     private function extractConditions(DOMXPath $xpath, DOMNode $assertion): array
     {
         $conditions = [];
-        $conditionNodes = $xpath->query('.//saml:Conditions', $assertion);
+        $conditionNodes = $xpath->query('saml:Conditions', $assertion);
         if ($conditionNodes->length > 0) {
             $cond = $conditionNodes->item(0);
             $conditions['not_before'] = $cond->getAttribute('NotBefore') ?: null;
@@ -143,7 +143,7 @@ class SamlService
 
     private function extractSessionIndex(DOMXPath $xpath, DOMNode $assertion): ?string
     {
-        $authnStatements = $xpath->query('.//saml:AuthnStatement', $assertion);
+        $authnStatements = $xpath->query('saml:AuthnStatement', $assertion);
         if ($authnStatements->length === 0) {
             return null;
         }

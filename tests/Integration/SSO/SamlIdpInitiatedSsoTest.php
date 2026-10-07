@@ -94,6 +94,22 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_ignores_a_forged_subject_injected_into_the_unsigned_signature_key_info(): void
+    {
+        $signer = $this->createUser();
+        $victim = $this->createUser(['organization_id' => $signer->organization_id]);
+        $this->createSamlApplication($signer, $this->samlIdpCertificate());
+        $signed = base64_decode($this->signSamlResponse($this->responseXml($signer->email)));
+        $forgedSubject = '<ds:KeyInfo><saml:Subject><saml:NameID>'.$victim->email.'</saml:NameID></saml:Subject></ds:KeyInfo>';
+        $injected = str_replace('</ds:SignatureValue>', '</ds:SignatureValue>'.$forgedSubject, $signed);
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', ['SAMLResponse' => base64_encode($injected)]);
+
+        $response->assertOk()->assertJsonPath('user.id', $signer->id);
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $victim->id]);
+    }
+
+    #[Test]
     public function it_does_not_log_in_a_user_from_another_organization_with_404(): void
     {
         $owner = $this->createUser();
