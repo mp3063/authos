@@ -77,6 +77,9 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
     {
         parent::setUp();
 
+        // Static dedupe cache outlives the test; rolled-back IDs repeat, so stale keys could swallow events
+        (new \ReflectionProperty(WebhookEventSubscriber::class, 'processedEvents'))->setValue(null, []);
+
         // Create test organization
         $this->organization = $this->createOrganization(['name' => 'Pattern Test Organization']);
 
@@ -155,6 +158,9 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
     #[Test]
     public function wildcard_match_triggers_for_all_event_types()
     {
+        // Payloads carry a second-precision timestamp that feeds the subscriber's dedupe key
+        $this->freezeTime();
+
         // ARRANGE: Create webhook subscribed to ALL events via wildcard "*"
         $webhook = Webhook::factory()->create([
             'organization_id' => $this->organization->id,
@@ -215,10 +221,17 @@ class WebhookPatternMatchingTest extends IntegrationTestCase
             'event_type' => 'organization.updated',
         ]);
 
-        // ASSERT: Total delivery count matches event count
-        // 5 manually dispatched + 1 from ApplicationObserver auto-dispatching ApplicationCreatedEvent
-        $deliveryCount = WebhookDelivery::where('webhook_id', $webhook->id)->count();
-        $this->assertEquals(6, $deliveryCount, 'Wildcard should match all dispatched events (5 manual + 1 observer)');
+        // Observers already fired user.created/application.created with identical payloads (time is frozen),
+        // so the manual copies are deduplicated; the observer also fires application.updated.
+        $eventTypes = WebhookDelivery::where('webhook_id', $webhook->id)->orderBy('event_type')->pluck('event_type')->all();
+        $this->assertSame([
+            'application.created',
+            'application.updated',
+            'organization.updated',
+            'user.created',
+            'user.deleted',
+            'user.updated',
+        ], $eventTypes);
     }
 
     // ============================================================
