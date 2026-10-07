@@ -69,6 +69,24 @@ class SsoRedirectUriValidationTest extends IntegrationTestCase
         $this->initiate($user, $config, 'http://localhost:8080/cb')->assertOk();
     }
 
+    #[Test]
+    public function it_rejects_an_sso_configuration_of_another_application_with_422(): void
+    {
+        [$user, $config] = $this->createUserWithSsoConfiguration();
+        $otherApplication = $this->createOAuthApplication(['organization_id' => $user->organization_id]);
+        $user->applications()->attach($otherApplication->id, ['granted_at' => now()]);
+
+        $response = $this->actingAsApiUserWithToken($user, ['sso'])
+            ->postJson('/api/v1/sso/initiate', [
+                'application_id' => $otherApplication->id,
+                'sso_configuration_id' => $config->id,
+                'redirect_uri' => self::CALLBACK_URL,
+            ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('sso_configuration_id');
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+    }
+
     /**
      * @return array{User, SSOConfiguration}
      */

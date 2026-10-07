@@ -45,6 +45,12 @@ class SSOController extends Controller
                 ], 403);
             }
 
+            if ($ssoConfig->application_id !== $application->id) {
+                throw ValidationException::withMessages([
+                    'sso_configuration_id' => ['SSO configuration does not belong to this application'],
+                ]);
+            }
+
             // Check if user has access to the application
             if (! $user->applications()->where('applications.id', $application->id)->exists()) {
                 return response()->json([
