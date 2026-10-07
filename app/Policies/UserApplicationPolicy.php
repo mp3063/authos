@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Application;
 use App\Models\User;
 use App\Models\UserApplication;
 
@@ -33,7 +34,8 @@ class UserApplicationPolicy
             return true;
         }
 
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->belongsToUserOrganization($user, $userApplication)
+            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
     }
 
     /**
@@ -57,7 +59,8 @@ class UserApplicationPolicy
             return true;
         }
 
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->belongsToUserOrganization($user, $userApplication)
+            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
     }
 
     /**
@@ -69,7 +72,8 @@ class UserApplicationPolicy
             return true;
         }
 
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->belongsToUserOrganization($user, $userApplication)
+            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
     }
 
     /**
@@ -86,5 +90,13 @@ class UserApplicationPolicy
     public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
+    }
+
+    private function belongsToUserOrganization(User $user, UserApplication $userApplication): bool
+    {
+        return Application::query()
+            ->whereKey($userApplication->application_id)
+            ->where('organization_id', $user->organization_id)
+            ->exists();
     }
 }
