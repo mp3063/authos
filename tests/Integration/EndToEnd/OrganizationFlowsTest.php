@@ -978,7 +978,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
 
     public function test_organization_role_creation(): void
     {
-        $this->actingAsTestUser('organization_admin');
+        $this->actingAsTestUser('super_admin');
 
         // Create custom role for organization
         $roleData = [
@@ -1018,7 +1018,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
 
     public function test_organization_permission_assignment(): void
     {
-        $this->actingAsTestUser('organization_admin');
+        $this->actingAsTestUser('super_admin');
 
         // Use valid permissions from the available permissions list
         $permissions = [
@@ -1058,6 +1058,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
         $user = User::factory()->create([
             'organization_id' => $this->defaultOrganization->id,
         ]);
+        $this->actingAsTestUser('organization_admin');
 
         if ($customRole) {
             $response = $this->postJson("/api/v1/organizations/{$this->defaultOrganization->id}/custom-roles/{$customRole->id}/assign-users", [

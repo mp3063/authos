@@ -37,45 +37,31 @@ class CustomRolePolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, CustomRole $customRole): bool
+    public function update(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $customRole->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, CustomRole $customRole): bool
+    public function delete(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $customRole->organization_id
-            && $user->hasRole('Organization Owner');
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, CustomRole $customRole): bool
+    public function restore(User $user): bool
     {
-        return $this->delete($user, $customRole);
+        return $this->delete($user);
     }
 
     /**

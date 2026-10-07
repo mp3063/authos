@@ -34,6 +34,8 @@ class CustomRolesTest extends IntegrationTestCase
 {
     protected User $admin;
 
+    protected User $superAdmin;
+
     protected Organization $organization;
 
     protected function setUp(): void
@@ -44,6 +46,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->admin = $this->createApiOrganizationAdmin([
             'organization_id' => $this->organization->id,
         ]);
+        $this->superAdmin = $this->createApiSuperAdmin();
     }
 
     #[Test]
@@ -63,7 +66,7 @@ class CustomRolesTest extends IntegrationTestCase
         ];
 
         // ACT: Create custom role
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles", $roleData);
 
         // ASSERT: Verify response
@@ -130,7 +133,7 @@ class CustomRolesTest extends IntegrationTestCase
             ],
         ];
 
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->putJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}", $updateData);
 
         // ASSERT: Verify response
@@ -159,7 +162,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
 
         // ACT: Delete role
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->deleteJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}");
 
         // ASSERT: Verify response
@@ -341,7 +344,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to create duplicate role
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles", [
                 'name' => 'existing_role', // Duplicate name
                 'display_name' => 'Another Role',
@@ -405,7 +408,7 @@ class CustomRolesTest extends IntegrationTestCase
         }
 
         // ACT: Attempt to delete role
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->deleteJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}");
 
         // ASSERT: Verify deletion prevented (409 Conflict is correct)
@@ -428,7 +431,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to update system role
-        $updateResponse = $this->actingAs($this->admin, 'api')
+        $updateResponse = $this->actingAs($this->superAdmin, 'api')
             ->putJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$systemRole->id}", [
                 'display_name' => 'Modified Name',
             ]);
@@ -437,7 +440,7 @@ class CustomRolesTest extends IntegrationTestCase
         $updateResponse->assertStatus(403);
 
         // ACT: Attempt to delete system role
-        $deleteResponse = $this->actingAs($this->admin, 'api')
+        $deleteResponse = $this->actingAs($this->superAdmin, 'api')
             ->deleteJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$systemRole->id}");
 
         // ASSERT: Verify deletion prevented (409 Conflict for system roles)
@@ -521,7 +524,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
 
         // ACT: Clone role
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->superAdmin, 'api')
             ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$sourceRole->id}/clone", [
                 'name' => 'cloned_role',
                 'display_name' => 'Cloned Role',
@@ -574,32 +577,22 @@ class CustomRolesTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function an_admin_cannot_create_a_custom_role_with_permissions_they_lack_with_403(): void
-    {
-        $response = $this->actingAs($this->admin, 'api')
-            ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles", [
-                'name' => 'deleter',
-                'permissions' => ['users.read', 'users.delete'],
-            ]);
-
-        $response->assertForbidden();
-        $this->assertDatabaseMissing('custom_roles', ['name' => 'deleter']);
-    }
-
-    #[Test]
-    public function an_admin_cannot_add_permissions_they_lack_to_a_custom_role_with_403(): void
+    public function an_organization_admin_cannot_define_custom_roles_with_403(): void
     {
         $role = CustomRole::factory()->create([
             'organization_id' => $this->organization->id,
             'permissions' => ['users.read'],
         ]);
+        $baseUrl = "/api/v1/organizations/{$this->organization->id}/custom-roles";
+        $api = $this->actingAs($this->admin, 'api');
 
-        $response = $this->actingAs($this->admin, 'api')
-            ->putJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}", [
-                'permissions' => ['users.read', 'users.delete'],
-            ]);
+        $api->postJson($baseUrl, ['name' => 'reader', 'permissions' => ['users.read']])->assertForbidden();
+        $api->putJson("{$baseUrl}/{$role->id}", ['permissions' => ['users.read', 'applications.read']])->assertForbidden();
+        $api->postJson("{$baseUrl}/{$role->id}/clone", ['name' => 'reader_copy'])->assertForbidden();
+        $api->deleteJson("{$baseUrl}/{$role->id}")->assertForbidden();
 
-        $response->assertForbidden();
+        $this->assertDatabaseMissing('custom_roles', ['name' => 'reader']);
+        $this->assertDatabaseMissing('custom_roles', ['name' => 'reader_copy']);
         $this->assertSame(['users.read'], $role->fresh()->permissions);
     }
 

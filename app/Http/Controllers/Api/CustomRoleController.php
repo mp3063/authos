@@ -117,6 +117,10 @@ class CustomRoleController extends BaseController
     {
         $this->authorize('roles.create');
 
+        if (! auth()->user()->isSuperAdmin()) {
+            return $this->errorResponse('Only super admins can define custom roles.', 403);
+        }
+
         $request->validate([
             'name' => [
                 'required',
@@ -142,10 +146,6 @@ class CustomRoleController extends BaseController
         // Check organization access
         if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
             return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
-        }
-
-        if ($this->userRoleService->exceedsPermissionsOf($currentUser, collect($request->permissions))) {
-            return $this->errorResponse('You cannot grant permissions you do not have.', 403);
         }
 
         $customRole = CustomRole::create([
@@ -214,6 +214,10 @@ class CustomRoleController extends BaseController
     {
         $this->authorize('roles.update');
 
+        if (! auth()->user()->isSuperAdmin()) {
+            return $this->errorResponse('Only super admins can define custom roles.', 403);
+        }
+
         $request->validate([
             'name' => [
                 'sometimes',
@@ -246,11 +250,6 @@ class CustomRoleController extends BaseController
         // Check if it's a system role
         if ($customRole->isSystemRole()) {
             return $this->errorResponse('System roles cannot be modified.', 403);
-        }
-
-        $touchedPermissions = collect($customRole->permissions ?? [])->merge($request->input('permissions', []));
-        if ($this->userRoleService->exceedsPermissionsOf($currentUser, $touchedPermissions)) {
-            return $this->errorResponse('You cannot change a role with permissions you do not have.', 403);
         }
 
         $updateData = $request->only(['name', 'display_name', 'description', 'permissions', 'is_active']);
@@ -286,6 +285,10 @@ class CustomRoleController extends BaseController
     public function destroy(string $organizationId, string $id): JsonResponse
     {
         $this->authorize('roles.delete');
+
+        if (! auth()->user()->isSuperAdmin()) {
+            return $this->errorResponse('Only super admins can define custom roles.', 403);
+        }
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
@@ -332,6 +335,10 @@ class CustomRoleController extends BaseController
     public function clone(Request $request, string $organizationId, string $id): JsonResponse
     {
         $this->authorize('roles.create');
+
+        if (! auth()->user()->isSuperAdmin()) {
+            return $this->errorResponse('Only super admins can define custom roles.', 403);
+        }
 
         $request->validate([
             'name' => [

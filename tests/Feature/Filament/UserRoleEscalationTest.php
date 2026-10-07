@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Resources\CustomRoleResource;
 use App\Filament\Resources\PermissionResource\Pages\ListPermissions;
 use App\Filament\Resources\RoleResource\Pages\EditRole;
 use App\Filament\Resources\RoleResource\Pages\ListRoles;
 use App\Filament\Resources\UserResource\Pages\EditUser;
+use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
@@ -108,6 +110,21 @@ class UserRoleEscalationTest extends IntegrationTestCase
 
         Livewire::test(EditRole::class, ['record' => $this->webRole('Organization Member')->getRouteKey()])
             ->assertFormFieldIsDisabled('permissions');
+    }
+
+    #[Test]
+    public function only_super_admins_can_define_custom_roles_in_the_panel(): void
+    {
+        $customRole = CustomRole::factory()->create(['organization_id' => $this->organization->id]);
+
+        $this->assertFalse(CustomRoleResource::canCreate());
+        $this->assertFalse(CustomRoleResource::canEdit($customRole));
+        $this->assertFalse(CustomRoleResource::canDelete($customRole));
+
+        $this->actingAs($this->createSuperAdmin());
+
+        $this->assertTrue(CustomRoleResource::canCreate());
+        $this->assertTrue(CustomRoleResource::canEdit($customRole));
     }
 
     private function webRole(string $name): Role
