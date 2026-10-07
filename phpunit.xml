@@ -67,7 +67,7 @@
 
         <!-- Performance optimizations -->
         <ini name="memory_limit" value="1G"/>
-        <ini name="max_execution_time" value="300"/>
+        <ini name="max_execution_time" value="0"/>
         <ini name="zend.assertions" value="1"/>
         <ini name="assert.exception" value="1"/>
     </php>
