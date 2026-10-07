@@ -126,9 +126,8 @@ class AuthorizationServiceProvider extends ServiceProvider
                 if ($user->hasPermissionTo($ability)) {
                     return true;
                 }
-            } catch (PermissionDoesNotExist $e) {
-                // Permission doesn't exist, return false instead of throwing
-                return false;
+            } catch (PermissionDoesNotExist) {
+                return null;
             }
 
             // Fallback: Manual check for organization-scoped permissions
