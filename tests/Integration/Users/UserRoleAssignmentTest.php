@@ -3,7 +3,10 @@
 namespace Tests\Integration\Users;
 
 use App\Models\Role;
+use App\Models\User;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
 
 class UserRoleAssignmentTest extends IntegrationTestCase
@@ -52,6 +55,24 @@ class UserRoleAssignmentTest extends IntegrationTestCase
 
         $response->assertUnprocessable()->assertJsonValidationErrors(['roles.0' => 'The selected roles.0 is invalid.']);
         $this->assertFalse($member->fresh()->isSuperAdmin());
+    }
+
+    #[Test]
+    public function a_user_without_an_organization_cannot_assign_themselves_a_global_role_with_422(): void
+    {
+        $this->createApiSuperAdmin();
+        $superAdminRole = Role::where('name', 'Super Admin')->whereNull('organization_id')->firstOrFail();
+        $roleAssigner = Role::create(['name' => 'Platform Support', 'guard_name' => 'api', 'organization_id' => null]);
+        $roleAssigner->givePermissionTo(Permission::firstOrCreate(['name' => 'roles.assign', 'guard_name' => 'api']));
+        $orphan = User::factory()->create(['organization_id' => null]);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $orphan->assignRole($roleAssigner);
+
+        $response = $this->actingAsApiUserWithToken($orphan)
+            ->postJson("/api/v1/users/{$orphan->id}/roles", ['role_id' => $superAdminRole->id]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['role_id' => 'The selected role id is invalid.']);
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $orphan->id, 'role_id' => $superAdminRole->id]);
     }
 
     #[Test]

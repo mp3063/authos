@@ -98,7 +98,9 @@ class UserRoleController extends BaseController
         $callerIsSuperAdmin = $request->user()->isSuperAdmin();
 
         return Rule::exists('roles', $column)->where(function ($query) use ($user, $callerIsSuperAdmin) {
-            $query->where('organization_id', $user->organization_id);
+            $query->where(fn ($organizationRoles) => $organizationRoles
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $user->organization_id));
 
             if ($callerIsSuperAdmin) {
                 $query->orWhereNull('organization_id');
