@@ -93,6 +93,60 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $this->assertSame($pendingSession->session_token, $pendingSession->fresh()->session_token);
     }
 
+    #[Test]
+    public function it_does_not_log_in_a_user_from_another_organization_with_404(): void
+    {
+        $owner = $this->createUser();
+        $this->createSamlApplication($owner, $this->samlIdpCertificate());
+        $outsider = $this->createUser();
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($outsider->email)),
+        ]);
+
+        $response->assertNotFound();
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $outsider->id]);
+    }
+
+    #[Test]
+    public function sp_initiated_callback_logs_in_the_asserted_user_not_the_pending_session_owner(): void
+    {
+        $initiator = $this->createUser();
+        $assertedUser = $this->createUser(['organization_id' => $initiator->organization_id]);
+        $application = $this->createSamlApplication($initiator, $this->samlIdpCertificate());
+        SSOSession::factory()->forUser($initiator)->create([
+            'application_id' => $application->id,
+            'metadata' => ['saml_request_id' => 'request-1'],
+        ]);
+
+        $response = $this->postJson('/api/v1/sso/saml/callback', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($assertedUser->email)),
+            'RelayState' => 'request-1',
+        ]);
+
+        $response->assertOk()->assertJsonPath('user.id', $assertedUser->id);
+    }
+
+    #[Test]
+    public function sp_initiated_callback_rejects_a_user_from_another_organization_with_400(): void
+    {
+        $initiator = $this->createUser();
+        $application = $this->createSamlApplication($initiator, $this->samlIdpCertificate());
+        $outsider = $this->createUser();
+        SSOSession::factory()->forUser($initiator)->create([
+            'application_id' => $application->id,
+            'metadata' => ['saml_request_id' => 'request-1'],
+        ]);
+
+        $response = $this->postJson('/api/v1/sso/saml/callback', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($outsider->email)),
+            'RelayState' => 'request-1',
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'User not found: '.$outsider->email);
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $outsider->id]);
+    }
+
     private function createSamlApplication(User $user, ?string $certificate): Application
     {
         $application = $this->createOAuthApplication(['organization_id' => $user->organization_id]);

@@ -359,28 +359,19 @@ class SSOService
         // Create or find user based on SAML response
         $userInfo = $validationResult['user_info'];
 
-        // Try to find the session by relay state or default identifier
-        $session = null;
-        $lookupId = $relayState ?? 'default-request';
-        $session = SSOSession::whereJsonContains('metadata->saml_request_id', $lookupId)->first() ??
-                  SSOSession::where('external_session_id', $lookupId)->first();
-
-        if ($session && $session->user) {
-            $user = $session->user;
-        } else {
-            // Try NameID first (raw identifier before attribute mapping), then mapped email
-            $user = User::where('email', $userInfo['name_id'] ?? $userInfo['email'])->first()
-                ?? User::where('email', $userInfo['email'])->first();
-
-            if (! $user) {
-                throw new Exception('User not found: '.$userInfo['email']);
-            }
-        }
-
         // Find or create application
         $application = Application::find($validationResult['application_id']);
         if (! $application) {
             throw new Exception('Application not found');
+        }
+
+        // Try NameID first (raw identifier before attribute mapping), then mapped email
+        $organizationUsers = User::where('organization_id', $application->organization_id);
+        $user = (clone $organizationUsers)->where('email', $userInfo['name_id'] ?? $userInfo['email'])->first()
+            ?? (clone $organizationUsers)->where('email', $userInfo['email'])->first();
+
+        if (! $user) {
+            throw new Exception('User not found: '.$userInfo['email']);
         }
 
         // Create SSO session

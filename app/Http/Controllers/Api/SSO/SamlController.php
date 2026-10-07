@@ -222,16 +222,18 @@ class SamlController extends Controller
             // Apply attribute mapping
             $userInfo = $this->samlService->applyAttributeMapping($userInfo, $ssoConfig);
 
+            $application = $ssoConfig->application;
+
             // Find or match user
-            $user = User::where('email', $userInfo['email'])->first();
+            $user = User::where('organization_id', $application->organization_id)
+                ->where('email', $userInfo['email'])
+                ->first();
             if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'User not found for SAML assertion email: '.$userInfo['email'],
                 ], 404);
             }
-
-            $application = $ssoConfig->application;
 
             // Create SSO session
             $session = SSOSession::create([
