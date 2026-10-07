@@ -161,16 +161,8 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $csvData .= "Jane Smith,jane@example.com,Organization Member\n";
         $csvData .= "Bob Johnson,bob@example.com,User\n";
 
-        $tmpFile = tmpfile();
-        fwrite($tmpFile, $csvData);
-        $tmpPath = stream_get_meta_data($tmpFile)['uri'];
-
         // ACT: Bulk import users
-        $response = $this->actingAs($this->admin, 'api')
-            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", [
-                'file_path' => $tmpPath,
-                'format' => 'csv',
-            ]);
+        $response = $this->importCsv($csvData);
 
         // ASSERT: Verify response
         $response->assertStatus(201)
@@ -185,9 +177,23 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
 
         $importData = $response->json('data');
         $this->assertEquals(3, $importData['total_records']);
+    }
 
-        // Clean up
-        fclose($tmpFile);
+    #[Test]
+    public function import_does_not_read_a_file_from_the_server_path_with_422(): void
+    {
+        $serverFile = tempnam(sys_get_temp_dir(), 'import');
+        file_put_contents($serverFile, "name,email\nserver-secret-value,not-an-email\n");
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", [
+                'file_path' => $serverFile,
+                'format' => 'csv',
+            ]);
+
+        unlink($serverFile);
+        $response->assertUnprocessable()->assertJsonValidationErrors(['file']);
+        $this->assertStringNotContainsString('server-secret-value', $response->getContent());
     }
 
     #[Test]
@@ -374,16 +380,8 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $invalidCsv = "name,role\n"; // Missing required 'email' column
         $invalidCsv .= "John Doe,User\n";
 
-        $tmpFile = tmpfile();
-        fwrite($tmpFile, $invalidCsv);
-        $tmpPath = stream_get_meta_data($tmpFile)['uri'];
-
         // ACT: Attempt import with invalid format
-        $response = $this->actingAs($this->admin, 'api')
-            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", [
-                'file_path' => $tmpPath,
-                'format' => 'csv',
-            ]);
+        $response = $this->importCsv($invalidCsv);
 
         // ASSERT: Verify it still processes but with failures in the response
         // Since the import service handles row-level validation, it returns 201 with failed records
@@ -391,9 +389,6 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
 
         $importData = $response->json('data');
         $this->assertGreaterThan(0, count($importData['failed']));
-
-        // Clean up
-        fclose($tmpFile);
     }
 
     #[Test]

@@ -7,7 +7,6 @@ use App\Models\Organization;
 use App\Services\BulkUserDataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -94,8 +93,7 @@ class BulkDataController extends BaseController
         $organization = Organization::findOrFail($organizationId);
 
         $request->validate([
-            'file' => 'required_without:file_path|file|mimes:csv,xlsx,json|max:10240',
-            'file_path' => 'required_without:file|string', // Allow file_path for test compatibility
+            'file' => 'required|file|mimes:csv,xlsx,json|max:10240',
             'format' => 'sometimes|string|in:csv,xlsx,json',
             'send_invitations' => 'sometimes|boolean',
             'default_role' => 'sometimes|string|exists:roles,name',
@@ -114,16 +112,7 @@ class BulkDataController extends BaseController
         ]);
 
         try {
-            // Handle both file uploads and file_path (for testing)
-            if ($request->has('file_path')) {
-                $filePath = $request->get('file_path');
-                $format = $request->get('format', 'csv');
-                // Create a fake UploadedFile from the path with proper extension
-                $filename = 'import.'.$format;
-                $file = new UploadedFile($filePath, $filename, null, null, true);
-            } else {
-                $file = $request->file('file');
-            }
+            $file = $request->file('file');
 
             $requestOptions = $request->get('options', []);
 
