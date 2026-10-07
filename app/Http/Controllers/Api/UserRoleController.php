@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\UserRoleService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -67,11 +70,16 @@ class UserRoleController extends BaseController
 
         $request->validate([
             'roles' => 'required|array',
-            'roles.*' => ['required', 'string', $this->assignableRoleRule($request, $user, 'name')],
+            'roles.*' => ['required', 'string', $this->assignableRoleRule($request, $user, 'name')->where('guard_name', 'api')],
         ]);
 
-        // Sync roles (replace all current roles with new ones)
-        $user->syncRoles($request->input('roles'));
+        $roles = Role::query()
+            ->where('guard_name', 'api')
+            ->whereIn('name', $request->input('roles'))
+            ->where(fn (Builder $query) => $this->scopeToAssignableRoles($query, $request, $user))
+            ->get();
+
+        $user->syncRoles($roles);
 
         return $this->successResponse([], 'User roles updated successfully');
     }
@@ -95,16 +103,17 @@ class UserRoleController extends BaseController
 
     private function assignableRoleRule(Request $request, User $user, string $column): Exists
     {
-        $callerIsSuperAdmin = $request->user()->isSuperAdmin();
+        return Rule::exists('roles', $column)->where(fn (QueryBuilder $query) => $this->scopeToAssignableRoles($query, $request, $user));
+    }
 
-        return Rule::exists('roles', $column)->where(function ($query) use ($user, $callerIsSuperAdmin) {
-            $query->where(fn ($organizationRoles) => $organizationRoles
-                ->whereNotNull('organization_id')
-                ->where('organization_id', $user->organization_id));
+    private function scopeToAssignableRoles(Builder|QueryBuilder $query, Request $request, User $user): void
+    {
+        $query->where(fn ($organizationRoles) => $organizationRoles
+            ->whereNotNull('organization_id')
+            ->where('organization_id', $user->organization_id));
 
-            if ($callerIsSuperAdmin) {
-                $query->orWhereNull('organization_id');
-            }
-        });
+        if ($request->user()->isSuperAdmin()) {
+            $query->orWhereNull('organization_id');
+        }
     }
 }

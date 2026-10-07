@@ -104,4 +104,23 @@ class UserRoleAssignmentTest extends IntegrationTestCase
         $response->assertCreated();
         $this->assertDatabaseHas('model_has_roles', ['model_id' => $member->id, 'role_id' => $ownRole->id]);
     }
+
+    #[Test]
+    public function an_organization_admin_can_replace_a_members_roles_with_api_roles_of_their_organization(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $member = $this->createUser(['organization_id' => $admin->organization_id], 'User', 'api');
+        $userRole = $member->roles()->firstOrFail();
+        $adminRole = Role::where('name', 'Organization Admin')
+            ->where('organization_id', $admin->organization_id)
+            ->where('guard_name', 'api')
+            ->firstOrFail();
+
+        $response = $this->actingAsApiUserWithToken($admin)
+            ->putJson("/api/v1/users/{$member->id}/roles", ['roles' => ['Organization Admin']]);
+
+        $response->assertOk();
+        $this->assertSame([$adminRole->id], $member->fresh()->roles()->pluck('roles.id')->all());
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $userRole->id]);
+    }
 }
