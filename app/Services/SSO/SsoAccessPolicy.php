@@ -62,7 +62,7 @@ class SsoAccessPolicy
         // Validate against allowed domains
         $allowedDomains = $config->allowed_domains ?? [];
         if (empty($allowedDomains)) {
-            return true; // No domain restrictions
+            return in_array($redirectUri, $this->registeredRedirectUris($config), true);
         }
 
         return $this->hostMatchesAny($host, $allowedDomains);
@@ -77,6 +77,17 @@ class SsoAccessPolicy
 
         // Check if user has access to this specific application
         return $user->applications()->where('application_id', $application->id)->exists();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function registeredRedirectUris(SSOConfiguration $config): array
+    {
+        return array_values(array_filter([
+            $config->callback_url,
+            ...($config->application?->redirect_uris ?? []),
+        ]));
     }
 
     private function hostMatchesAny(string $host, array $domains): bool
