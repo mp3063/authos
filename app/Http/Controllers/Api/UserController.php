@@ -189,6 +189,10 @@ class UserController extends BaseController
     {
         $user = User::findOrFail($id);
 
+        if ($this->userRoleService->exceedsPermissionsOf($request->user(), $this->userRoleService->effectivePermissionNames($user))) {
+            return $this->forbiddenResponse('You cannot update a user with permissions you do not have.');
+        }
+
         $updateData = $request->only(['name', 'email', 'organization_id', 'profile', 'is_active']);
 
         if ($request->has('password')) {

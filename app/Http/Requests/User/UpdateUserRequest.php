@@ -33,16 +33,20 @@ class UpdateUserRequest extends FormRequest
                 'max:255',
                 Rule::unique('users', 'email')->ignore($userId),
             ],
-            'password' => [
-                'sometimes',
-                'string',
-                Password::min(8)
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(),
-            ],
-            'organization_id' => ['sometimes', 'integer', 'exists:organizations,id'],
+            'password' => $this->user()->isSuperAdmin()
+                ? [
+                    'sometimes',
+                    'string',
+                    Password::min(8)
+                        ->mixedCase()
+                        ->numbers()
+                        ->symbols()
+                        ->uncompromised(),
+                ]
+                : ['prohibited'],
+            'organization_id' => $this->user()->isSuperAdmin()
+                ? ['sometimes', 'integer', 'exists:organizations,id']
+                : ['prohibited'],
             'profile' => ['sometimes', 'array'],
             'profile.timezone' => ['sometimes', 'string', 'timezone'],
             'profile.language' => ['sometimes', 'string', 'in:en,es,fr,de,it,pt,nl,ru,ja,zh'],
