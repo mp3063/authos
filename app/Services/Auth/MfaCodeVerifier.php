@@ -45,8 +45,7 @@ class MfaCodeVerifier
         }
 
         try {
-            // Get current recovery codes (already decoded as array by User model cast)
-            $recoveryCodes = $user->two_factor_recovery_codes;
+            $recoveryCodes = $user->mfa_backup_codes;
 
             if (! is_array($recoveryCodes) || empty($recoveryCodes)) {
                 return false;
