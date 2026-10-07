@@ -16,6 +16,8 @@ class SamlService
 {
     private const CLOCK_SKEW_SECONDS = 120;
 
+    private const LOGOUT_REQUEST_MAX_AGE_SECONDS = 300;
+
     public function __construct(private SamlMessageBuilder $messageBuilder) {}
 
     /**
@@ -286,7 +288,47 @@ class SamlService
             'name_id' => SamlXml::firstText($xpath, 'saml:NameID', $request),
             'session_index' => SamlXml::firstText($xpath, 'samlp:SessionIndex', $request),
             'issuer' => SamlXml::firstText($xpath, 'saml:Issuer', $request),
+            'issue_instant' => $request->getAttribute('IssueInstant') ?: null,
+            'not_on_or_after' => $request->getAttribute('NotOnOrAfter') ?: null,
+            'destination' => $request->getAttribute('Destination') ?: null,
         ];
+    }
+
+    /**
+     * Validate a parsed, signature-verified LogoutRequest for this endpoint, then mark it as consumed.
+     *
+     * @throws Exception
+     */
+    public function validateLogoutRequest(array $logoutData, string $sloUrl): void
+    {
+        $now = time();
+        $issuedAt = strtotime($logoutData['issue_instant'] ?? '');
+        if ($issuedAt === false
+            || $issuedAt > $now + self::CLOCK_SKEW_SECONDS
+            || $now >= $issuedAt + self::LOGOUT_REQUEST_MAX_AGE_SECONDS + self::CLOCK_SKEW_SECONDS) {
+            throw new Exception('SAML logout request has expired');
+        }
+
+        if (! empty($logoutData['not_on_or_after'])) {
+            $notOnOrAfter = strtotime($logoutData['not_on_or_after']);
+            if ($notOnOrAfter === false || $now >= $notOnOrAfter + self::CLOCK_SKEW_SECONDS) {
+                throw new Exception('SAML logout request has expired');
+            }
+        }
+
+        if (($logoutData['destination'] ?? null) !== $sloUrl) {
+            throw new Exception('SAML logout request destination does not match this endpoint');
+        }
+
+        if (empty($logoutData['request_id'])) {
+            throw new Exception('SAML logout request has no ID');
+        }
+
+        $expiresAt = $issuedAt + self::LOGOUT_REQUEST_MAX_AGE_SECONDS + self::CLOCK_SKEW_SECONDS;
+        $replayKey = 'saml_logout_request:'.hash('sha256', ($logoutData['issuer'] ?? '').'|'.$logoutData['request_id']);
+        if (! Cache::add($replayKey, true, Carbon::createFromTimestamp($expiresAt))) {
+            throw new Exception('SAML logout request has already been used');
+        }
     }
 
     /**

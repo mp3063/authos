@@ -105,6 +105,65 @@ class SamlSingleLogoutTest extends IntegrationTestCase
         $this->assertNull($victimSession->fresh()->logged_out_at);
     }
 
+    #[Test]
+    public function it_rejects_a_replayed_logout_request_with_400(): void
+    {
+        $user = $this->createUser();
+        $application = $this->createSamlApplication($user);
+        $samlRequest = $this->signSamlLogoutRequest($this->logoutRequestXml($user->email));
+        $this->postJson('/api/v1/sso/saml/slo', ['SAMLRequest' => $samlRequest])->assertOk();
+        $laterSession = $this->createActiveSession($user, $application);
+
+        $replay = $this->postJson('/api/v1/sso/saml/slo', ['SAMLRequest' => $samlRequest]);
+
+        $replay->assertBadRequest()->assertJsonPath('message', 'SAML logout request has already been used');
+        $this->assertNull($laterSession->fresh()->logged_out_at);
+    }
+
+    #[Test]
+    public function it_rejects_a_stale_logout_request_with_400(): void
+    {
+        $user = $this->createUser();
+        $session = $this->createActiveSession($user, $this->createSamlApplication($user));
+
+        $response = $this->postJson('/api/v1/sso/saml/slo', [
+            'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email, options: ['issue_instant' => time() - 3600])),
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML logout request has expired');
+        $this->assertNull($session->fresh()->logged_out_at);
+    }
+
+    #[Test]
+    public function it_rejects_a_logout_request_for_another_destination_with_400(): void
+    {
+        $user = $this->createUser();
+        $session = $this->createActiveSession($user, $this->createSamlApplication($user));
+
+        $response = $this->postJson('/api/v1/sso/saml/slo', [
+            'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email, options: ['destination' => 'https://other-sp.example.com/slo'])),
+        ]);
+
+        $response->assertBadRequest()->assertJsonPath('message', 'SAML logout request destination does not match this endpoint');
+        $this->assertNull($session->fresh()->logged_out_at);
+    }
+
+    #[Test]
+    public function it_keeps_the_users_sessions_in_other_applications_of_the_organization(): void
+    {
+        $user = $this->createUser();
+        $samlSession = $this->createActiveSession($user, $this->createSamlApplication($user));
+        $otherSession = $this->createActiveSession($user, $this->createOAuthApplication(['organization_id' => $user->organization_id]));
+
+        $response = $this->postJson('/api/v1/sso/saml/slo', [
+            'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email)),
+        ]);
+
+        $response->assertOk();
+        $this->assertNotNull($samlSession->fresh()->logged_out_at);
+        $this->assertNull($otherSession->fresh()->logged_out_at);
+    }
+
     private function createSamlApplication(User $user): Application
     {
         $application = $this->createOAuthApplication(['organization_id' => $user->organization_id]);
@@ -136,11 +195,17 @@ class SamlSingleLogoutTest extends IntegrationTestCase
         ]);
     }
 
-    private function logoutRequestXml(string $email, string $issuer = self::IDP_ENTITY_ID): string
+    /**
+     * @param  array{issue_instant?: int, destination?: string}  $options
+     */
+    private function logoutRequestXml(string $email, string $issuer = self::IDP_ENTITY_ID, array $options = []): string
     {
+        $options += ['issue_instant' => time(), 'destination' => url('/api/v1/sso/saml/slo')];
+
         return '<?xml version="1.0"?>'
             .'<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" '
-            .'xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="logout-1" Version="2.0">'
+            .'xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="logout-1" Version="2.0" '
+            .'IssueInstant="'.gmdate('Y-m-d\TH:i:s\Z', $options['issue_instant']).'" Destination="'.$options['destination'].'">'
             .'<saml:Issuer>'.$issuer.'</saml:Issuer>'
             .'<saml:NameID>'.$email.'</saml:NameID>'
             .'<samlp:SessionIndex>session-1</samlp:SessionIndex>'

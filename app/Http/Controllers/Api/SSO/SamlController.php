@@ -123,12 +123,14 @@ class SamlController extends Controller
                     ], 400);
                 }
 
+                $this->samlService->validateLogoutRequest($logoutData, $request->url());
+
                 $user = User::where('organization_id', $ssoConfig->application->organization_id)
                     ->where('email', $logoutData['name_id'])
                     ->first();
 
                 if ($user) {
-                    $this->sessions->revokeUserSessions($user->id);
+                    $this->sessions->revokeUserSessions($user->id, $ssoConfig->application_id);
                 }
 
                 $spEntityId = $ssoConfig->configuration['sp_entity_id'] ?? config('app.url');

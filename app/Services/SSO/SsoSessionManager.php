@@ -113,10 +113,11 @@ class SsoSessionManager
     /**
      * Revoke all sessions for a user
      */
-    public function revokeUserSessions(int $userId): int
+    public function revokeUserSessions(int $userId, ?int $applicationId = null): int
     {
         // Get all sessions that are not already logged out
         $sessions = SSOSession::where('user_id', $userId)
+            ->when($applicationId !== null, fn ($query) => $query->where('application_id', $applicationId))
             ->whereNull('logged_out_at')
             ->get();
 
