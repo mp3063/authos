@@ -49,7 +49,7 @@ AuthOS is an authentication and authorization service that provides:
 - PKCE support (S256 + plain)
 - Refresh token rotation and token revocation
 - Scope-based permissions
-- Role-based access control (RBAC)
+- Role-based access control (RBAC): super admins define roles, permissions and custom roles; organization owners and admins assign roles of their own organization, never to themselves and never carrying permissions they don't hold
 
 ### Enterprise Features
 - Multi-tenant organizations
@@ -303,6 +303,10 @@ Security-relevant behavior worth knowing:
 
 - Organization isolation is enforced by the `org.boundary` middleware and org-scoped lookups; cross-organization IDs generally return 404 (Super Admin is unscoped)
 - SAML responses and logout requests must be signed by the configured IdP certificate; unsigned or unconfigured IdPs are rejected
+- SAML assertions are checked for audience, recipient, expiry, InResponseTo and replay; logout requests for IssueInstant, Destination and replay, and only end sessions of the matching application
+- SSO redirect URIs must use https (plain http only for localhost in local/testing) and match the configuration's allowed domains or registered URIs
+- Role assignment through the API, invitations, bulk import and the admin panel goes through the same rule: assignable roles are limited to the caller's organization and permissions
+- API responses drop keys that look like secrets (`*_password`, `*_secret`, `*_private_key`, `*_api_key`)
 - Disabling MFA requires the password plus a TOTP or recovery code
 - Exports are written to the private disk and served only through authorized download endpoints
 
