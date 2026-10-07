@@ -86,6 +86,7 @@ class RoleResource extends Resource
 
             Section::make('Permissions')->schema([
                 CheckboxList::make('permissions')
+                    ->disabled(fn (): bool => ! auth()->user()?->isSuperAdmin())
                     ->relationship('permissions', 'name', function ($query, $get, $record) {
                         // Get the role's guard_name (from form data or existing record)
                         $guardName = $get('guard_name') ?? $record?->guard_name ?? 'web';
@@ -309,6 +310,7 @@ class RoleResource extends Resource
                 DeleteBulkAction::make()->requiresConfirmation()->modalDescription('Are you sure you want to delete these roles?'),
 
                 BulkAction::make('assign_permission')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->label('Assign Permission')
                     ->icon('heroicon-o-plus')
                     ->color('success')

@@ -7,8 +7,11 @@ use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Filament\Resources\UserResource\Pages\ViewUser;
 use App\Filament\Resources\UserResource\RelationManagers\ApplicationsRelationManager;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -37,6 +40,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use UnitEnum;
 
@@ -104,13 +108,35 @@ class UserResource extends Resource
 
             Section::make('Roles & Permissions')->schema([
                 Select::make('roles')
-                    ->relationship('roles', 'name')
                     ->multiple()
-                    ->preload()
                     ->searchable()
+                    ->options(fn (?User $record): array => static::roleOptions($record))
+                    ->afterStateHydrated(fn (Select $component, ?User $record) => $component->state(
+                        $record ? app(UserRoleService::class)->assignedRoleIds($record)->all() : []
+                    ))
+                    ->disabled(fn (?User $record): bool => $record !== null && ! auth()->user()->isSuperAdmin() && auth()->user()->is($record))
+                    ->rule(fn (?User $record) => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
+                        $denial = app(UserRoleService::class)->roleSyncDenial(
+                            auth()->user(),
+                            $record,
+                            $record?->organization_id ?? auth()->user()->organization_id,
+                            collect($value)->map(fn ($id) => (int) $id)
+                        );
+
+                        if ($denial) {
+                            $fail($denial);
+                        }
+                    })
+                    ->saveRelationshipsUsing(fn (User $record, ?array $state) => app(UserRoleService::class)->syncRolesAs(
+                        auth()->user(),
+                        $record,
+                        collect($state)->map(fn ($id) => (int) $id)
+                    ))
+                    ->dehydrated(false)
                     ->helperText('Assign roles to this user'),
 
                 Select::make('permissions')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->relationship('permissions', 'name')
                     ->multiple()
                     ->preload()
@@ -238,6 +264,22 @@ class UserResource extends Resource
             'view' => ViewUser::route('/{record}'),
             'edit' => EditUser::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function roleOptions(?User $record): array
+    {
+        $editor = auth()->user();
+        $roleService = app(UserRoleService::class);
+
+        $grantable = $editor->isSuperAdmin()
+            ? Role::query()->get()
+            : $roleService->manageableRoles($editor, $record?->organization_id ?? $editor->organization_id);
+        $assigned = $record ? Role::whereKey($roleService->assignedRoleIds($record))->get() : new Collection;
+
+        return $grantable->merge($assigned)->pluck('name', 'id')->all();
     }
 
     public static function getEloquentQuery(): Builder

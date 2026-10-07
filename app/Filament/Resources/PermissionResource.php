@@ -316,7 +316,7 @@ class PermissionResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
 
-                Action::make('assign_to_role')
+                Action::make('assign_to_role')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
                     ->label('Assign to Role')
                     ->icon('heroicon-o-plus')
                     ->color('success')
@@ -380,7 +380,7 @@ class PermissionResource extends Resource
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these permissions?'),
 
-                BulkAction::make('assign_to_role')
+                BulkAction::make('assign_to_role')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
                     ->label('Assign to Role')
                     ->icon('heroicon-o-user-group')
                     ->color('success')

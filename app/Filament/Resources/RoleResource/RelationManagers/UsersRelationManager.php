@@ -67,15 +67,15 @@ class UsersRelationManager extends RelationManager
 
             ])
             ->headerActions([
-                AttachAction::make()
+                AttachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->preloadRecordSelect(),
             ])
             ->recordActions([
-                DetachAction::make(),
+                DetachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make(),
+                    DetachBulkAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
                 ]),
             ]);
     }
