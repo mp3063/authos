@@ -313,6 +313,24 @@ class MfaManagementTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function regenerating_recovery_codes_requires_the_password_with_422(): void
+    {
+        $oldBackupCodes = $this->generateBackupCodes();
+        $this->user->update([
+            'two_factor_secret' => encrypt($this->google2fa->generateSecretKey()),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+            'two_factor_recovery_codes' => json_encode($oldBackupCodes),
+        ]);
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson('/api/v1/mfa/recovery-codes/regenerate');
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The password field is required.']);
+        $this->assertSame($oldBackupCodes, json_decode($this->user->fresh()->two_factor_recovery_codes, true));
+    }
+
+    #[Test]
     public function recovery_code_operations_require_mfa_enabled(): void
     {
         // ARRANGE: User without MFA enabled

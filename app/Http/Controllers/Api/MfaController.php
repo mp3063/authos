@@ -228,17 +228,13 @@ class MfaController extends BaseController
      */
     public function regenerateRecoveryCodes(Request $request): JsonResponse
     {
-        // In testing environment with authenticated user, password is optional
-        $passwordRequired = ! (app()->environment('testing') && Auth::check());
-
         $request->validate([
-            'password' => $passwordRequired ? 'required|string' : 'nullable|string',
+            'password' => 'required|string',
         ]);
 
         $user = Auth::user();
 
-        // Verify password if provided
-        if ($request->has('password') && ! Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Password is incorrect.',
