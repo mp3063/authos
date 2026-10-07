@@ -8,11 +8,6 @@ use App\Models\User;
 
 class SsoAccessPolicy
 {
-    private const TEST_DOMAINS = [
-        'app-a.example.com', 'app-b.example.com', 'app-c.example.com',
-        'localhost', '127.0.0.1', 'test.local', 'authos.test',
-    ];
-
     /**
      * Get allowed scopes for application based on configuration
      */
@@ -46,17 +41,10 @@ class SsoAccessPolicy
             return false;
         }
 
-        // Check for dangerous schemes
-        $scheme = $parsedUri['scheme'] ?? '';
-        if (in_array(strtolower($scheme), ['javascript', 'data', 'vbscript'])) {
+        $host = strtolower($parsedUri['host']);
+
+        if (! $this->hasSecureScheme(strtolower($parsedUri['scheme'] ?? ''), $host)) {
             return false;
-        }
-
-        $host = $parsedUri['host'];
-
-        // In test environment, be more permissive for cross-app scenarios
-        if (app()->environment('testing') && $this->hostMatchesAny($host, self::TEST_DOMAINS)) {
-            return true;
         }
 
         // Validate against allowed domains
@@ -88,6 +76,17 @@ class SsoAccessPolicy
             $config->callback_url,
             ...($config->application?->redirect_uris ?? []),
         ]));
+    }
+
+    private function hasSecureScheme(string $scheme, string $host): bool
+    {
+        if ($scheme === 'https') {
+            return true;
+        }
+
+        return $scheme === 'http'
+            && in_array($host, ['localhost', '127.0.0.1'], true)
+            && app()->environment('local', 'testing');
     }
 
     private function hostMatchesAny(string $host, array $domains): bool

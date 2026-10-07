@@ -33,10 +33,46 @@ class SsoRedirectUriValidationTest extends IntegrationTestCase
         $this->assertDatabaseHas('sso_sessions', ['user_id' => $user->id]);
     }
 
+    #[Test]
+    public function it_rejects_a_plain_http_redirect_uri_on_an_allowed_domain_with_422(): void
+    {
+        [$user, $config] = $this->createUserWithSsoConfiguration(['allowed.example.com']);
+
+        $response = $this->initiate($user, $config, 'http://allowed.example.com/cb');
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('redirect_uri');
+        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+    }
+
+    #[Test]
+    public function it_accepts_an_https_redirect_uri_on_an_allowed_domain(): void
+    {
+        [$user, $config] = $this->createUserWithSsoConfiguration(['allowed.example.com']);
+
+        $this->initiate($user, $config, 'https://allowed.example.com/cb')->assertOk();
+    }
+
+    #[Test]
+    public function it_does_not_let_hard_coded_test_domains_bypass_allowed_domains(): void
+    {
+        [$user, $config] = $this->createUserWithSsoConfiguration(['allowed.example.com']);
+
+        $this->initiate($user, $config, 'https://app-a.example.com/cb')->assertUnprocessable();
+        $this->initiate($user, $config, 'http://localhost/cb')->assertUnprocessable();
+    }
+
+    #[Test]
+    public function it_accepts_plain_http_on_localhost_outside_production_when_allowed(): void
+    {
+        [$user, $config] = $this->createUserWithSsoConfiguration(['localhost']);
+
+        $this->initiate($user, $config, 'http://localhost:8080/cb')->assertOk();
+    }
+
     /**
      * @return array{User, SSOConfiguration}
      */
-    private function createUserWithSsoConfiguration(): array
+    private function createUserWithSsoConfiguration(array $allowedDomains = []): array
     {
         $user = $this->createApiUser();
         $application = $this->createOAuthApplication(['organization_id' => $user->organization_id]);
@@ -46,7 +82,7 @@ class SsoRedirectUriValidationTest extends IntegrationTestCase
             'application_id' => $application->id,
             'provider' => 'oidc',
             'callback_url' => self::CALLBACK_URL,
-            'allowed_domains' => [],
+            'allowed_domains' => $allowedDomains,
             'is_active' => true,
         ]);
 

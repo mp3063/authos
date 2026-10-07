@@ -669,6 +669,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $appBConfig = SSOConfiguration::factory()->create([
             'application_id' => $appB->id,
             'provider' => 'oidc',
+            'allowed_domains' => ['app-b.example.com'],
             'is_active' => true,
         ]);
 
