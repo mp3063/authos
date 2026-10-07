@@ -32,7 +32,6 @@ class MfaController extends BaseController
             'data' => [
                 'mfa_enabled' => $user->hasMfaEnabled(),
                 'mfa_methods' => $user->mfa_methods ?? [],
-                'backup_codes' => $user->mfa_backup_codes ?? [],
                 'backup_codes_count' => count($user->mfa_backup_codes ?? []),
                 'totp_configured' => ! empty($user->two_factor_secret),
             ],
@@ -108,10 +107,7 @@ class MfaController extends BaseController
         }
 
         // Generate backup codes
-        $backupCodes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $backupCodes[] = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
-        }
+        $backupCodes = $this->generateBackupCodes();
 
         // Enable MFA
         $user->update([
@@ -257,10 +253,7 @@ class MfaController extends BaseController
         }
 
         // Generate new backup codes
-        $backupCodes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $backupCodes[] = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
-        }
+        $backupCodes = $this->generateBackupCodes();
 
         $user->update(['two_factor_recovery_codes' => json_encode($backupCodes)]);
 
@@ -311,10 +304,7 @@ class MfaController extends BaseController
         }
 
         // Generate backup codes
-        $backupCodes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $backupCodes[] = strtoupper(substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8));
-        }
+        $backupCodes = $this->generateBackupCodes();
 
         // Enable MFA
         $user->update([
@@ -359,6 +349,13 @@ class MfaController extends BaseController
 
         $user = Auth::user();
 
+        if (! Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'error' => 'authentication_failed',
+                'error_description' => 'Password is incorrect.',
+            ], 401);
+        }
+
         // Disable MFA for the user
         $user->update([
             'two_factor_secret' => null,
@@ -385,5 +382,18 @@ class MfaController extends BaseController
             ],
             'message' => 'MFA disabled successfully',
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function generateBackupCodes(): array
+    {
+        $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+        return array_map(
+            fn (): string => implode('', array_map(fn (): string => $alphabet[random_int(0, 35)], range(1, 8))),
+            range(1, 8),
+        );
     }
 }

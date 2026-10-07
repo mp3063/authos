@@ -369,7 +369,6 @@ class MfaManagementTest extends IntegrationTestCase
             'data' => [
                 'mfa_enabled',
                 'mfa_methods',
-                'backup_codes',
                 'backup_codes_count',
                 'totp_configured',
             ],
@@ -497,6 +496,68 @@ class MfaManagementTest extends IntegrationTestCase
             'user_id' => $this->user->id,
             'event' => 'mfa_disabled',
         ]);
+    }
+
+    #[Test]
+    public function disable_endpoint_rejects_incorrect_password_and_keeps_mfa_enabled(): void
+    {
+        $this->user->update([
+            'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+        ]);
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson('/api/v1/mfa/disable', [
+                'password' => 'not-the-password',
+            ]);
+
+        $response->assertUnauthorized();
+        $response->assertJson(['error' => 'authentication_failed']);
+        $this->user->refresh();
+        $this->assertNotNull($this->user->two_factor_secret);
+        $this->assertNotNull($this->user->two_factor_confirmed_at);
+    }
+
+    #[Test]
+    public function mfa_status_does_not_expose_recovery_codes(): void
+    {
+        $this->user->update([
+            'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+        ]);
+
+        $data = $this->actingAs($this->user, 'api')
+            ->getJson('/api/v1/mfa/status')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertArrayNotHasKey('backup_codes', $data);
+        $this->assertSame(8, $data['backup_codes_count']);
+    }
+
+    #[Test]
+    public function generated_recovery_codes_are_eight_uppercase_alphanumeric_codes(): void
+    {
+        $this->user->update([
+            'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+        ]);
+
+        $codes = $this->actingAs($this->user, 'api')
+            ->postJson('/api/v1/mfa/recovery-codes/regenerate', ['password' => 'password123'])
+            ->assertOk()
+            ->json('data.recovery_codes');
+
+        $this->assertCount(8, $codes);
+        foreach ($codes as $code) {
+            $this->assertMatchesRegularExpression('/^[0-9A-Z]{8}$/', $code);
+        }
     }
 
     #[Test]

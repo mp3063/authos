@@ -144,7 +144,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
 
         $statusData = $mfaStatusResponse->json('data');
         $this->assertFalse($statusData['mfa_enabled']);
-        $this->assertEmpty($statusData['backup_codes']);
+        $this->assertSame(0, $statusData['backup_codes_count']);
 
         // Step 2: Generate TOTP secret
         $setupResponse = $this->postJson('/api/v1/mfa/setup');
