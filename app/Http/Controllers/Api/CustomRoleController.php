@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Traits\ApiResponse;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Services\AuthenticationLogService;
+use App\Services\UserRoleService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class CustomRoleController extends BaseController
 
     protected AuthenticationLogService $authLogService;
 
-    public function __construct(AuthenticationLogService $authLogService)
+    public function __construct(AuthenticationLogService $authLogService, protected UserRoleService $userRoleService)
     {
         $this->authLogService = $authLogService;
         $this->middleware('auth:api');
@@ -143,6 +144,10 @@ class CustomRoleController extends BaseController
             return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
         }
 
+        if ($this->userRoleService->exceedsPermissionsOf($currentUser, collect($request->permissions))) {
+            return $this->errorResponse('You cannot grant permissions you do not have.', 403);
+        }
+
         $customRole = CustomRole::create([
             'organization_id' => $organization->id,
             'name' => $request->name,
@@ -241,6 +246,11 @@ class CustomRoleController extends BaseController
         // Check if it's a system role
         if ($customRole->isSystemRole()) {
             return $this->errorResponse('System roles cannot be modified.', 403);
+        }
+
+        $touchedPermissions = collect($customRole->permissions ?? [])->merge($request->input('permissions', []));
+        if ($this->userRoleService->exceedsPermissionsOf($currentUser, $touchedPermissions)) {
+            return $this->errorResponse('You cannot change a role with permissions you do not have.', 403);
         }
 
         $updateData = $request->only(['name', 'display_name', 'description', 'permissions', 'is_active']);
@@ -386,7 +396,7 @@ class CustomRoleController extends BaseController
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:1000',
-            'user_ids.*' => 'required|integer|exists:users,id',
+            'user_ids.*' => ['required', 'integer', Rule::exists('users', 'id')->where('organization_id', (int) $organizationId)],
         ]);
 
         $organization = Organization::findOrFail($organizationId);
@@ -398,6 +408,10 @@ class CustomRoleController extends BaseController
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
+
+        if ($denial = $this->membershipChangeDenial($customRole, $request->user_ids)) {
+            return $this->errorResponse($denial, 403);
+        }
 
         $userIds = $request->user_ids;
         $syncData = [];
@@ -439,7 +453,7 @@ class CustomRoleController extends BaseController
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:1000',
-            'user_ids.*' => 'required|integer|exists:users,id',
+            'user_ids.*' => ['required', 'integer', Rule::exists('users', 'id')->where('organization_id', (int) $organizationId)],
         ]);
 
         $organization = Organization::findOrFail($organizationId);
@@ -451,6 +465,11 @@ class CustomRoleController extends BaseController
         }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
+
+        if ($denial = $this->membershipChangeDenial($customRole, $request->user_ids)) {
+            return $this->errorResponse($denial, 403);
+        }
+
         $userIds = $request->user_ids;
 
         $customRole->users()->detach($userIds);
@@ -472,6 +491,28 @@ class CustomRoleController extends BaseController
             ['removed_count' => count($userIds)],
             sprintf('Custom role removed from %d users successfully', count($userIds))
         );
+    }
+
+    /**
+     * @param  array<int, int|string>  $userIds
+     */
+    private function membershipChangeDenial(CustomRole $customRole, array $userIds): ?string
+    {
+        $currentUser = auth()->user();
+
+        if ($currentUser->isSuperAdmin()) {
+            return null;
+        }
+
+        if (in_array($currentUser->id, array_map('intval', $userIds), true)) {
+            return 'You cannot change your own roles.';
+        }
+
+        if ($this->userRoleService->exceedsPermissionsOf($currentUser, collect($customRole->permissions ?? []))) {
+            return 'You cannot grant or revoke a role with permissions you do not have.';
+        }
+
+        return null;
     }
 
     /**

@@ -24,6 +24,7 @@ trait InteractsWithOrganizationRoles
     {
         return $this->customRoles()
             ->where('is_active', true)
+            ->where('custom_roles.organization_id', $this->organization_id)
             ->get()
             ->contains(fn (CustomRole $role) => $role->hasPermission($permission));
     }

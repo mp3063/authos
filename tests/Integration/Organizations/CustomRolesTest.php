@@ -5,6 +5,7 @@ namespace Tests\Integration\Organizations;
 use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -45,7 +46,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_create_custom_role(): void
     {
         // ARRANGE: Prepare role data
@@ -106,7 +107,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertContains('users.read', $role->permissions);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_update_custom_role(): void
     {
         // ARRANGE: Create a custom role
@@ -148,7 +149,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertContains('users.update', $role->permissions);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_delete_custom_role(): void
     {
         // ARRANGE: Create a custom role with no users
@@ -170,7 +171,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_list_custom_roles(): void
     {
         // ARRANGE: Create multiple custom roles
@@ -209,7 +210,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(7, count($roles));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_assign_role_to_user(): void
     {
         // ARRANGE: Create custom role and user
@@ -240,12 +241,13 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertTrue($role->users()->where('user_id', $user->id)->exists());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_remove_role_from_user(): void
     {
         // ARRANGE: Create role and assign to user
         $role = CustomRole::factory()->create([
             'organization_id' => $this->organization->id,
+            'permissions' => ['users.read'],
         ]);
 
         $user = $this->createUser(['organization_id' => $this->organization->id]);
@@ -270,7 +272,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertFalse($role->users()->where('user_id', $user->id)->exists());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_role_permissions_are_enforced(): void
     {
         // ARRANGE: Create role with limited permissions
@@ -297,7 +299,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_role_hierarchy_validation(): void
     {
         // ARRANGE: Create parent and child roles
@@ -329,7 +331,7 @@ class CustomRolesTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_duplicate_role_name_validation(): void
     {
         // ARRANGE: Create existing role
@@ -351,7 +353,7 @@ class CustomRolesTest extends IntegrationTestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_permission_inheritance_across_roles(): void
     {
         // ARRANGE: Create base role with permissions
@@ -385,7 +387,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertTrue($extendedRole->hasPermission('applications.update'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_cannot_delete_role_with_assigned_users(): void
     {
         // ARRANGE: Create role and assign to users
@@ -415,7 +417,7 @@ class CustomRolesTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_system_roles_cannot_be_modified(): void
     {
         // ARRANGE: Create system role
@@ -442,7 +444,7 @@ class CustomRolesTest extends IntegrationTestCase
         $deleteResponse->assertStatus(409);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_role_listing_includes_user_counts(): void
     {
         // ARRANGE: Create roles with different user counts
@@ -480,7 +482,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertEquals(0, $role2Data['users_count']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_roles_respect_organization_boundaries(): void
     {
         // ARRANGE: Create role in different organization
@@ -507,7 +509,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertNotContains($otherRole->id, $roleIds);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_clone_existing_role(): void
     {
         // ARRANGE: Create source role
@@ -538,7 +540,7 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertEquals('Cloned Role', $clonedRole->display_name);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_role_permission_categories_are_grouped(): void
     {
         // ARRANGE: Create role with permissions from multiple categories
@@ -569,5 +571,102 @@ class CustomRolesTest extends IntegrationTestCase
         $this->assertArrayHasKey('applications', $grouped);
         $this->assertArrayHasKey('organizations', $grouped);
         $this->assertCount(2, $grouped['users']); // users.read, users.create
+    }
+
+    #[Test]
+    public function an_admin_cannot_create_a_custom_role_with_permissions_they_lack_with_403(): void
+    {
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles", [
+                'name' => 'deleter',
+                'permissions' => ['users.read', 'users.delete'],
+            ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('custom_roles', ['name' => 'deleter']);
+    }
+
+    #[Test]
+    public function an_admin_cannot_add_permissions_they_lack_to_a_custom_role_with_403(): void
+    {
+        $role = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.read'],
+        ]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->putJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}", [
+                'permissions' => ['users.read', 'users.delete'],
+            ]);
+
+        $response->assertForbidden();
+        $this->assertSame(['users.read'], $role->fresh()->permissions);
+    }
+
+    #[Test]
+    public function an_admin_cannot_assign_a_custom_role_to_a_user_of_another_organization_with_422(): void
+    {
+        $role = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.read'],
+        ]);
+        $outsider = $this->createUser();
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}/assign-users", [
+                'user_ids' => [$outsider->id],
+            ]);
+
+        $response->assertUnprocessable();
+        $this->assertFalse($role->users()->whereKey($outsider->id)->exists());
+    }
+
+    #[Test]
+    public function an_admin_cannot_assign_a_custom_role_with_permissions_they_lack_with_403(): void
+    {
+        $role = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.delete'],
+        ]);
+        $member = $this->createUser(['organization_id' => $this->organization->id]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}/assign-users", [
+                'user_ids' => [$member->id],
+            ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($role->users()->whereKey($member->id)->exists());
+    }
+
+    #[Test]
+    public function an_admin_cannot_assign_a_custom_role_to_themselves_with_403(): void
+    {
+        $role = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.read'],
+        ]);
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/custom-roles/{$role->id}/assign-users", [
+                'user_ids' => [$this->admin->id],
+            ]);
+
+        $response->assertForbidden();
+        $this->assertFalse($role->users()->whereKey($this->admin->id)->exists());
+    }
+
+    #[Test]
+    public function a_custom_role_of_another_organization_grants_no_permissions(): void
+    {
+        $foreignRole = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['users.delete'],
+            'is_active' => true,
+        ]);
+        $outsider = $this->createUser();
+        $outsider->customRoles()->attach($foreignRole->id, ['granted_at' => now()]);
+
+        $this->assertFalse($outsider->hasCustomPermission('users.delete'));
     }
 }

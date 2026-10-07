@@ -97,7 +97,10 @@ class UserRoleService
     public function effectivePermissionNames(User $user): Collection
     {
         return $user->getAllPermissions()->pluck('name')
-            ->merge($user->customRoles()->where('is_active', true)->get()->pluck('permissions')->flatten())
+            ->merge($user->customRoles()
+                ->where('is_active', true)
+                ->where('custom_roles.organization_id', $user->organization_id)
+                ->get()->pluck('permissions')->flatten())
             ->unique()
             ->values();
     }
