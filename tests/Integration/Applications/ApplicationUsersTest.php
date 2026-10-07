@@ -170,6 +170,25 @@ class ApplicationUsersTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_answers_revoking_another_organizations_user_like_a_nonexistent_user(): void
+    {
+        $outsider = $this->createApiUser();
+        $missingUserId = User::max('id') + 1000;
+
+        $outsiderResponse = $this->actingAsApiUserWithToken($this->adminUser)
+            ->deleteJson("/api/v1/applications/{$this->application->id}/users/{$outsider->id}");
+        $missingResponse = $this->actingAsApiUserWithToken($this->adminUser)
+            ->deleteJson("/api/v1/applications/{$this->application->id}/users/{$missingUserId}");
+
+        $outsiderResponse->assertNotFound();
+        $missingResponse->assertNotFound();
+        $this->assertSame(
+            str_replace((string) $missingUserId, '{id}', $missingResponse->getContent()),
+            str_replace((string) $outsider->id, '{id}', $outsiderResponse->getContent()),
+        );
+    }
+
+    #[Test]
     public function it_grants_user_access_to_application(): void
     {
         // ARRANGE: Create user without access

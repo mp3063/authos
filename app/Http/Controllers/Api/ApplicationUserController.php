@@ -90,7 +90,7 @@ class ApplicationUserController extends BaseController
         $this->authorize('applications.update');
 
         $application = $this->findApplicationWithOrgScope($id);
-        $user = User::findOrFail($userId);
+        $user = User::where('organization_id', $application->organization_id)->findOrFail($userId);
 
         if (! $application->users()->where('user_id', $user->id)->exists()) {
             return response()->json([
