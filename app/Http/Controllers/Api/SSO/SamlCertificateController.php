@@ -16,13 +16,14 @@ class SamlCertificateController extends Controller
      */
     public function updateSamlCertificate(Request $request, int $configId): JsonResponse
     {
+        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.update');
+
         $request->validate([
             'x509_cert' => 'required|string',
             'cert_type' => 'sometimes|string|in:idp,sp',
         ]);
 
         try {
-            $ssoConfig = SSOConfiguration::findOrFail($configId);
             $certType = $request->input('cert_type', 'idp');
 
             $configuration = $ssoConfig->configuration ?? [];
@@ -49,10 +50,11 @@ class SamlCertificateController extends Controller
     /**
      * View SAML certificate info for an SSO configuration
      */
-    public function viewSamlCertificate(int $configId): JsonResponse
+    public function viewSamlCertificate(Request $request, int $configId): JsonResponse
     {
+        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.read');
+
         try {
-            $ssoConfig = SSOConfiguration::findOrFail($configId);
             $configuration = $ssoConfig->configuration ?? [];
 
             $certs = [];
@@ -92,13 +94,14 @@ class SamlCertificateController extends Controller
      */
     public function rotateSamlCertificate(Request $request, int $configId): JsonResponse
     {
+        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.update');
+
         $request->validate([
             'new_x509_cert' => 'required|string',
             'cert_type' => 'sometimes|string|in:idp,sp',
         ]);
 
         try {
-            $ssoConfig = SSOConfiguration::findOrFail($configId);
             $certType = $request->input('cert_type', 'idp');
 
             $configuration = $ssoConfig->configuration ?? [];
@@ -125,5 +128,21 @@ class SamlCertificateController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
+    }
+
+    private function findAuthorizedConfiguration(Request $request, int $configId, string $permission): SSOConfiguration
+    {
+        $user = $request->user();
+
+        $ssoConfig = SSOConfiguration::query()
+            ->when(! $user->isSuperAdmin(), fn ($query) => $query->whereHas(
+                'application',
+                fn ($applicationQuery) => $applicationQuery->where('organization_id', $user->organization_id)
+            ))
+            ->findOrFail($configId);
+
+        $this->authorize($permission);
+
+        return $ssoConfig;
     }
 }
