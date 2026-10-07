@@ -4,11 +4,13 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\CustomRole;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -601,6 +603,25 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
 
         $response->assertForbidden();
         $this->assertFalse($member->customRoles()->whereKey($customRole->id)->exists());
+    }
+
+    #[Test]
+    public function bulk_assign_roles_checks_the_role_that_is_actually_assigned(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $harmless = Role::query()->create(['name' => 'escalator', 'guard_name' => 'api', 'organization_id' => $this->organization->id]);
+        $harmless->givePermissionTo(Permission::where('name', 'users.read')->where('guard_name', 'api')->where('organization_id', $this->organization->id)->firstOrFail());
+        $powerful = Role::query()->create(['name' => 'Escalator', 'guard_name' => 'api', 'organization_id' => $this->organization->id]);
+        $powerful->givePermissionTo(Permission::where('name', 'users.delete')->where('guard_name', 'api')->where('organization_id', $this->organization->id)->firstOrFail());
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
+                'user_ids' => [$member->id],
+                'role' => 'Escalator',
+            ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $powerful->id]);
     }
 
     #[Test]

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\AuthenticationLog;
 use App\Models\CustomRole;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkOperationService;
 use App\Services\UserRoleService;
@@ -410,16 +411,18 @@ class BulkUserOperationsController extends BaseController
             return 'You cannot change your own roles.';
         }
 
-        $standardRole = $request->filled('role')
-            ? $this->userRoleService->findAssignableRole($caller, $organization->id, $request->input('role'))
-            : null;
+        $standardRoles = $request->has('role')
+            ? Role::where('organization_id', $organization->id)
+                ->whereRaw('LOWER(name) = LOWER(?)', [(string) $request->input('role')])
+                ->get()
+            : new EloquentCollection;
         $customRolePermissions = CustomRole::whereIn('id', $customRoleIds)
             ->where('organization_id', $organization->id)
             ->get()
             ->pluck('permissions')
             ->flatten();
 
-        if (($standardRole && $this->userRoleService->roleChangeDenial($caller, null, new EloquentCollection([$standardRole])))
+        if ($this->userRoleService->roleChangeDenial($caller, null, $standardRoles)
             || $this->userRoleService->exceedsPermissionsOf($caller, $customRolePermissions)) {
             return 'You cannot grant or revoke a role with permissions you do not have.';
         }
