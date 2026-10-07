@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\TextSize;
 
 class ViewBulkImportJob extends ViewRecord
 {
@@ -152,7 +153,7 @@ class ViewBulkImportJob extends ViewRecord
                         $record->getProgressPercentage() > 0 => 'warning',
                         default => 'gray',
                     })
-                    ->size(TextEntry\TextEntrySize::Large),
+                    ->size(TextSize::Large),
 
                 TextEntry::make('total_records')
                     ->label('Total Records')
