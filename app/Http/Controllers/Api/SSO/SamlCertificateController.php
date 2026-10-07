@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\SSO;
 
+use App\Http\Controllers\Api\Traits\FindsOrgScopedSsoConfigurations;
 use App\Http\Controllers\Controller;
 use App\Models\SSOConfiguration;
 use App\Services\Saml\SamlCertificate;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class SamlCertificateController extends Controller
 {
+    use FindsOrgScopedSsoConfigurations;
+
     /**
      * Upload/update SAML certificate for an SSO configuration
      */
@@ -132,14 +135,7 @@ class SamlCertificateController extends Controller
 
     private function findAuthorizedConfiguration(Request $request, int $configId, string $permission): SSOConfiguration
     {
-        $user = $request->user();
-
-        $ssoConfig = SSOConfiguration::query()
-            ->when(! $user->isSuperAdmin(), fn ($query) => $query->whereHas(
-                'application',
-                fn ($applicationQuery) => $applicationQuery->where('organization_id', $user->organization_id)
-            ))
-            ->findOrFail($configId);
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $configId);
 
         $this->authorize($permission);
 

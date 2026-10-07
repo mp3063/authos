@@ -2,20 +2,26 @@
 
 namespace App\Http\Controllers\Api\SSO;
 
+use App\Http\Controllers\Api\Traits\FindsOrgScopedSsoConfigurations;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\SSOConfiguration;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SsoConfigurationController extends Controller
 {
+    use FindsOrgScopedSsoConfigurations;
+
     /**
      * Get SSO configuration for an organization
      */
     public function getSSOConfiguration(Request $request, int $organizationId): JsonResponse
     {
+        $this->authorize('applications.read');
+
         try {
             // Check if user belongs to the organization or is super admin
             $user = $request->user();
@@ -68,8 +74,19 @@ class SsoConfigurationController extends Controller
      */
     public function createSSOConfiguration(Request $request): JsonResponse
     {
+        $this->authorize('applications.update');
+
+        $user = $request->user();
+
         $validated = $request->validate([
-            'application_id' => 'required|integer|exists:applications,id',
+            'application_id' => [
+                'required',
+                'integer',
+                Rule::exists('applications', 'id')->when(
+                    ! $user->isSuperAdmin(),
+                    fn ($rule) => $rule->where('organization_id', $user->organization_id)
+                ),
+            ],
             'logout_url' => 'required|url',
             'callback_url' => 'required|url',
             'allowed_domains' => 'sometimes|array',
@@ -105,6 +122,8 @@ class SsoConfigurationController extends Controller
      */
     public function updateSSOConfiguration(Request $request, int $id): JsonResponse
     {
+        $this->authorize('applications.update');
+
         $validated = $request->validate([
             'logout_url' => 'sometimes|url',
             'callback_url' => 'sometimes|url',
@@ -115,7 +134,7 @@ class SsoConfigurationController extends Controller
         ]);
 
         try {
-            $ssoConfig = SSOConfiguration::findOrFail($id);
+            $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id);
             $ssoConfig->update($validated);
 
             return response()->json([
@@ -141,10 +160,12 @@ class SsoConfigurationController extends Controller
     /**
      * Delete SSO configuration
      */
-    public function deleteSSOConfiguration(int $id): JsonResponse
+    public function deleteSSOConfiguration(Request $request, int $id): JsonResponse
     {
+        $this->authorize('applications.delete');
+
         try {
-            $ssoConfig = SSOConfiguration::findOrFail($id);
+            $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id);
             $ssoConfig->delete();
 
             return response()->json([
