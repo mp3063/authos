@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\RefreshToken;
 use Laravel\Passport\Token;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\Integration\IntegrationTestCase;
 
@@ -70,7 +71,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_lists_active_tokens_for_application(): void
     {
         // ARRANGE: Create multiple tokens with different states
@@ -144,7 +145,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertContains('openid', $firstToken['scopes']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_views_token_details_with_metadata(): void
     {
         // ARRANGE: Create token with specific metadata
@@ -186,7 +187,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertEquals('tokenuser@example.com', $tokenData['user']['email']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_revokes_specific_token_successfully(): void
     {
         // ARRANGE: Create token with refresh token
@@ -236,7 +237,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_revokes_all_tokens_for_application(): void
     {
         // ARRANGE: Create multiple tokens for different users
@@ -282,7 +283,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertDatabaseHas('oauth_access_tokens', ['id' => $otherAppToken]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_token_expiration_correctly(): void
     {
         // ARRANGE: Create tokens with different expiration times
@@ -343,7 +344,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_regenerates_client_secret_and_invalidates_tokens(): void
     {
         // ARRANGE: Create tokens for the application
@@ -397,7 +398,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         $this->assertDatabaseMissing('oauth_access_tokens', ['id' => $token2]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_rotates_credentials_without_breaking_active_flows(): void
     {
         // ARRANGE: Setup application with specific settings
@@ -443,7 +444,7 @@ class ApplicationTokensTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_prevents_token_operations_across_organizations(): void
     {
         // ARRANGE: Create application and token in different organization

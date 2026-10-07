@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\Integration\IntegrationTestCase;
 
@@ -67,7 +68,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_lists_users_with_access_to_application(): void
     {
         // ARRANGE: Create users with different access patterns
@@ -154,7 +155,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertNotContains($userWithoutAccess->id, $userIds);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_grants_user_access_to_application(): void
     {
         // ARRANGE: Create user without access
@@ -196,7 +197,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertNull($pivot->last_login_at);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_prevents_duplicate_user_access_grants(): void
     {
         // ARRANGE: Create user with existing access
@@ -231,7 +232,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertEquals(5, $pivot->login_count);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_revokes_user_access_and_invalidates_tokens(): void
     {
         // ARRANGE: Create user with access and active tokens
@@ -290,7 +291,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertFalse($this->application->users()->where('user_id', $user->id)->exists());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_revoking_access_for_non_existent_user(): void
     {
         // ARRANGE: Create user without access
@@ -317,7 +318,7 @@ class ApplicationUsersTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_validates_user_access_operations(): void
     {
         // ACT: Attempt to grant access without user_id
@@ -355,7 +356,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $typeResponse->assertStatus(422);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_enforces_organization_boundaries_for_user_access(): void
     {
         // ARRANGE: Create users in different organizations
@@ -403,7 +404,7 @@ class ApplicationUsersTest extends IntegrationTestCase
         $this->assertTrue($app2->users()->where('user_id', $user2->id)->exists());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_tracks_user_login_metadata_in_pivot_table(): void
     {
         // ARRANGE: Create user with access

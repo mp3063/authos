@@ -2,12 +2,15 @@
 
 namespace Tests\Integration\Profile;
 
+use App\Http\Controllers\Api\SocialAccountController;
+use App\Http\Controllers\Api\SocialAuthController;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -22,8 +25,8 @@ use Tests\Integration\IntegrationTestCase;
  * - Multiple providers per user support
  * - Legacy social account compatibility
  *
- * @see \App\Http\Controllers\Api\SocialAccountController::socialAccounts()
- * @see \App\Http\Controllers\Api\SocialAuthController
+ * @see SocialAccountController::socialAccounts()
+ * @see SocialAuthController
  */
 class SocialAccountsTest extends IntegrationTestCase
 {
@@ -48,7 +51,7 @@ class SocialAccountsTest extends IntegrationTestCase
         parent::tearDown();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_list_connected_social_accounts(): void
     {
         // ARRANGE: User with connected social accounts
@@ -117,7 +120,7 @@ class SocialAccountsTest extends IntegrationTestCase
         $this->assertTrue($data['available_providers']['github']['connected']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_link_google_account(): void
     {
         // ARRANGE: Mock Google OAuth response
@@ -171,7 +174,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_link_github_account(): void
     {
         // Configure GitHub provider
@@ -216,7 +219,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_link_facebook_account(): void
     {
         // Configure Facebook provider
@@ -261,7 +264,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_unlink_social_account(): void
     {
         // ARRANGE: User with password and linked social account
@@ -292,7 +295,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cannot_unlink_social_account_without_password(): void
     {
         // ARRANGE: User without password (social-only login)
@@ -317,7 +320,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function duplicate_social_account_link_prevented(): void
     {
         // ARRANGE: Another user with the same Google account
@@ -371,7 +374,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_can_have_multiple_social_providers(): void
     {
         // ARRANGE: Create multiple social accounts for same user
@@ -415,7 +418,7 @@ class SocialAccountsTest extends IntegrationTestCase
         $this->assertTrue($availableProviders['facebook']['connected']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function social_login_creates_new_user_if_not_exists(): void
     {
         // ARRANGE: Mock Google OAuth response for new user
@@ -479,7 +482,7 @@ class SocialAccountsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function unsupported_provider_rejected(): void
     {
         // ARRANGE: Unsupported provider
@@ -502,7 +505,7 @@ class SocialAccountsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function legacy_social_account_included_in_list(): void
     {
         // ARRANGE: User with legacy social provider (stored on user table)
@@ -527,7 +530,7 @@ class SocialAccountsTest extends IntegrationTestCase
         $this->assertTrue($legacyAccount['legacy'] ?? false);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function unauthorized_user_cannot_access_social_accounts(): void
     {
         // ARRANGE: No authentication
