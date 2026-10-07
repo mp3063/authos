@@ -112,18 +112,16 @@ class SamlController extends Controller
                 // IdP-initiated logout - parse LogoutRequest and revoke sessions
                 $logoutData = $this->samlService->parseLogoutRequest($samlRequest);
 
-                $ssoConfig = $this->findSamlConfigurationForIssuer($logoutData['issuer']);
+                $ssoConfig = $this->findSamlConfigurationForIssuer(
+                    $logoutData['issuer'],
+                    fn (?string $x509Cert) => $this->signatureValidator->validateLogoutRequest($samlRequest, $x509Cert)
+                );
                 if (! $ssoConfig) {
                     return response()->json([
                         'success' => false,
                         'message' => 'No SAML configuration found for IdP: '.($logoutData['issuer'] ?? 'unknown'),
                     ], 400);
                 }
-
-                $this->signatureValidator->validateLogoutRequest(
-                    $samlRequest,
-                    $ssoConfig->configuration['x509_cert'] ?? $ssoConfig->settings['x509_cert'] ?? null
-                );
 
                 $user = User::where('organization_id', $ssoConfig->application->organization_id)
                     ->where('email', $logoutData['name_id'])
@@ -190,7 +188,10 @@ class SamlController extends Controller
             // Parse the assertion to get user info and issuer
             $userInfo = $this->samlService->parseAssertion($samlResponse);
 
-            $ssoConfig = $this->findSamlConfigurationForIssuer($userInfo['issuer']);
+            $ssoConfig = $this->findSamlConfigurationForIssuer(
+                $userInfo['issuer'],
+                fn (?string $x509Cert) => $this->signatureValidator->validate($samlResponse, $x509Cert)
+            );
 
             if (! $ssoConfig) {
                 // Fall back to finding by application in RelayState
@@ -200,11 +201,6 @@ class SamlController extends Controller
                 ], 400);
             }
 
-            $x509Cert = $ssoConfig->configuration['x509_cert']
-                ?? $ssoConfig->settings['x509_cert']
-                ?? null;
-
-            $this->signatureValidator->validate($samlResponse, $x509Cert);
             $this->samlService->validateAssertion($userInfo, $ssoConfig, $request->url());
 
             // Apply attribute mapping
@@ -268,23 +264,48 @@ class SamlController extends Controller
         }
     }
 
-    private function findSamlConfigurationForIssuer(?string $issuer): ?SSOConfiguration
+    /**
+     * Find the active SAML configuration for the issuer whose IdP certificate verifies the message's signature.
+     *
+     * @param  callable(?string): mixed  $verifySignature
+     *
+     * @throws Exception when configurations match the issuer but none of their certificates verifies the signature
+     */
+    private function findSamlConfigurationForIssuer(?string $issuer, callable $verifySignature): ?SSOConfiguration
     {
         if (! $issuer) {
             return null;
         }
 
-        return SSOConfiguration::where('is_active', true)
+        $candidates = SSOConfiguration::with('application')
+            ->where('is_active', true)
             ->where(function ($providerQuery) {
                 $providerQuery->where('provider', 'saml2')->orWhere('provider', 'saml');
             })
             ->get()
-            ->first(function ($config) use ($issuer) {
+            ->filter(function ($config) use ($issuer) {
                 $idpEntityId = $config->configuration['idp_entity_id']
                     ?? $config->settings['saml_entity_id']
                     ?? null;
 
                 return $idpEntityId === $issuer;
             });
+
+        $lastFailure = null;
+        foreach ($candidates as $config) {
+            try {
+                $verifySignature($config->configuration['x509_cert'] ?? $config->settings['x509_cert'] ?? null);
+
+                return $config;
+            } catch (Exception $e) {
+                $lastFailure = $e;
+            }
+        }
+
+        if ($lastFailure) {
+            throw $lastFailure;
+        }
+
+        return null;
     }
 }

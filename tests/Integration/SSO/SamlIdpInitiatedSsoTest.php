@@ -166,6 +166,23 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_uses_the_configuration_whose_certificate_verifies_when_organizations_share_an_issuer(): void
+    {
+        $shadowingOwner = $this->createUser();
+        $this->createSamlApplication($shadowingOwner, $this->samlUntrustedCertificate());
+        $user = $this->createUser();
+        $application = $this->createSamlApplication($user, $this->samlIdpCertificate());
+
+        $response = $this->postJson('/api/v1/sso/saml/acs', [
+            'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email)),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('application.id', $application->id);
+    }
+
+    #[Test]
     public function it_rejects_an_assertion_for_another_audience_with_400(): void
     {
         $user = $this->createUser();

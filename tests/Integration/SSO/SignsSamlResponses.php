@@ -21,6 +21,11 @@ trait SignsSamlResponses
         return self::idpKeyPair()['cert'];
     }
 
+    protected function samlUntrustedCertificate(): string
+    {
+        return self::attackerKeyPair()['cert'];
+    }
+
     protected function signSamlResponse(string $xml): string
     {
         return $this->signSamlResponseWith($xml, self::idpKeyPair());
