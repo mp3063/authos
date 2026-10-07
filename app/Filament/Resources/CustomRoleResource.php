@@ -239,7 +239,7 @@ class CustomRoleResource extends Resource
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
-                Action::make('clone')
+                Action::make('clone')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
                     ->icon('heroicon-o-document-duplicate')
                     ->color('info')
                     ->form([
@@ -281,7 +281,7 @@ class CustomRoleResource extends Resource
     {
         return [
             BulkActionGroup::make([
-                BulkAction::make('activate')
+                BulkAction::make('activate')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -294,7 +294,7 @@ class CustomRoleResource extends Resource
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
-                BulkAction::make('deactivate')
+                BulkAction::make('deactivate')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
                     ->icon('heroicon-o-x-circle')
                     ->color('warning')
                     ->requiresConfirmation()

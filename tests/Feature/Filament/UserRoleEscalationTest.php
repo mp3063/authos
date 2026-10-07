@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\CustomRoleResource;
+use App\Filament\Resources\CustomRoleResource\Pages\ListCustomRoles;
 use App\Filament\Resources\PermissionResource\Pages\ListPermissions;
 use App\Filament\Resources\RoleResource\Pages\EditRole;
 use App\Filament\Resources\RoleResource\Pages\ListRoles;
@@ -120,6 +121,12 @@ class UserRoleEscalationTest extends IntegrationTestCase
         $this->assertFalse(CustomRoleResource::canCreate());
         $this->assertFalse(CustomRoleResource::canEdit($customRole));
         $this->assertFalse(CustomRoleResource::canDelete($customRole));
+
+        Livewire::test(ListCustomRoles::class)
+            ->assertTableActionHidden('clone', $customRole)
+            ->assertTableBulkActionHidden('activate')
+            ->assertTableBulkActionHidden('deactivate')
+            ->assertTableBulkActionHidden('delete');
 
         $this->actingAs($this->createSuperAdmin());
 
