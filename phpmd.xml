@@ -80,7 +80,15 @@
     </rule>
 
     <!-- Unused Code Rules -->
-    <rule ref="rulesets/unusedcode.xml"/>
+    <rule ref="rulesets/unusedcode.xml">
+        <exclude name="UnusedFormalParameter"/>
+    </rule>
+
+    <rule ref="rulesets/unusedcode.xml/UnusedFormalParameter">
+        <properties>
+            <property name="exceptions" value="notifiable"/>
+        </properties>
+    </rule>
 
     <!-- Controversial Rules (disabled - too strict for Laravel) -->
     <!--
