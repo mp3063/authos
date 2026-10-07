@@ -1,8 +1,29 @@
 <?php
 
+use App\Http\Middleware\ApiMonitoring;
+use App\Http\Middleware\ApiResponseCache;
+use App\Http\Middleware\ApiVersioning;
+use App\Http\Middleware\EnforceOrganizationBoundary;
+use App\Http\Middleware\OAuthSecurity;
+use App\Http\Middleware\SanitizeApiResponse;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetPermissionContext;
+use App\Http\Traits\ApiErrorResponse;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Laravel\Passport\Http\Middleware\CheckToken;
+use Laravel\Passport\Http\Middleware\CheckTokenForAnyScope;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,94 +37,94 @@ return Application::configure(basePath: dirname(__DIR__))
         // In production, specify actual proxy IPs instead of '*'
         $middleware->trustProxies(
             at: env('TRUSTED_PROXIES', '*'),
-            headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR |
-                    \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST |
-                    \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT |
-                    \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
+            headers: Request::HEADER_X_FORWARDED_FOR |
+                    Request::HEADER_X_FORWARDED_HOST |
+                    Request::HEADER_X_FORWARDED_PORT |
+                    Request::HEADER_X_FORWARDED_PROTO
         );
 
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeaders::class,
+            SecurityHeaders::class,
         ]);
 
         // API middleware setup for Passport OAuth
 
         $middleware->web(append: [
-            \Illuminate\Http\Middleware\HandleCors::class,
+            HandleCors::class,
         ]);
 
         $middleware->api(append: [
-            \Illuminate\Http\Middleware\HandleCors::class,
-            \App\Http\Middleware\SecurityHeaders::class,
-            \App\Http\Middleware\SetPermissionContext::class,
-            \App\Http\Middleware\SanitizeApiResponse::class,
+            HandleCors::class,
+            SecurityHeaders::class,
+            SetPermissionContext::class,
+            SanitizeApiResponse::class,
         ]);
 
         $middleware->throttleApi();
 
         $middleware->alias([
-            'scopes' => \Laravel\Passport\Http\Middleware\CheckToken::class,
-            'scope' => \Laravel\Passport\Http\Middleware\CheckTokenForAnyScope::class,
-            'oauth.security' => \App\Http\Middleware\OAuthSecurity::class,
-            'api.version' => \App\Http\Middleware\ApiVersioning::class,
-            'api.cache' => \App\Http\Middleware\ApiResponseCache::class,
-            'api.monitor' => \App\Http\Middleware\ApiMonitoring::class,
-            'org.boundary' => \App\Http\Middleware\EnforceOrganizationBoundary::class,
-            'permission.context' => \App\Http\Middleware\SetPermissionContext::class,
+            'scopes' => CheckToken::class,
+            'scope' => CheckTokenForAnyScope::class,
+            'oauth.security' => OAuthSecurity::class,
+            'api.version' => ApiVersioning::class,
+            'api.cache' => ApiResponseCache::class,
+            'api.monitor' => ApiMonitoring::class,
+            'org.boundary' => EnforceOrganizationBoundary::class,
+            'permission.context' => SetPermissionContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Use standardized error responses for API requests
-        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
+        $exceptions->render(function (ValidationException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->validationErrorResponse($e);
             }
         });
 
-        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+        $exceptions->render(function (AuthenticationException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->authenticationErrorResponse('Unauthenticated.');
             }
         });
 
-        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+        $exceptions->render(function (AuthorizationException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->authorizationErrorResponse('Insufficient permissions');
             }
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
+        $exceptions->render(function (AccessDeniedHttpException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->authorizationErrorResponse('Insufficient permissions');
             }
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+        $exceptions->render(function (NotFoundHttpException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->notFoundErrorResponse();
             }
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e, $request) {
+        $exceptions->render(function (MethodNotAllowedHttpException $e, $request) {
             if ($request->is('api/*')) {
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->errorResponse(
                     'Method not allowed',
                     405,
@@ -114,28 +135,28 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e, $request) {
+        $exceptions->render(function (TooManyRequestsHttpException $e, $request) {
             if ($request->is('api/*')) {
                 $retryAfter = $e->getHeaders()['Retry-After'] ?? null;
 
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->rateLimitErrorResponse($retryAfter);
             }
         });
 
         // Catch-all for any other exceptions in API routes
-        $exceptions->render(function (\Throwable $e, $request) {
+        $exceptions->render(function (Throwable $e, $request) {
             if ($request->is('api/*')) {
                 // Don't catch HTTP exceptions that were already handled above
-                if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+                if ($e instanceof HttpException) {
                     return null; // Let other handlers manage it
                 }
 
                 return (new class
                 {
-                    use \App\Http\Traits\ApiErrorResponse;
+                    use ApiErrorResponse;
                 })->serverErrorResponse(
                     app()->environment(['local', 'development']) ? $e->getMessage() : null,
                     $e
