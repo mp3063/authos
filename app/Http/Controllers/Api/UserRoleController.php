@@ -8,6 +8,8 @@ use App\Services\UserRoleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 class UserRoleController extends BaseController
 {
@@ -39,11 +41,12 @@ class UserRoleController extends BaseController
     {
         $this->authorize('roles.assign');
 
+        $user = User::findOrFail($id);
+
         $request->validate([
-            'role_id' => 'required|integer|exists:roles,id',
+            'role_id' => ['required', 'integer', $this->assignableRoleRule($request, $user, 'id')],
         ]);
 
-        $user = User::findOrFail($id);
         $assigned = $this->userRoleService->assignRole($user, (string) $request->role_id);
 
         if (! $assigned) {
@@ -60,12 +63,12 @@ class UserRoleController extends BaseController
     {
         $this->authorize('roles.assign');
 
+        $user = User::findOrFail($id);
+
         $request->validate([
             'roles' => 'required|array',
-            'roles.*' => 'required|string|exists:roles,name',
+            'roles.*' => ['required', 'string', $this->assignableRoleRule($request, $user, 'name')],
         ]);
-
-        $user = User::findOrFail($id);
 
         // Sync roles (replace all current roles with new ones)
         $user->syncRoles($request->input('roles'));
@@ -88,5 +91,18 @@ class UserRoleController extends BaseController
         }
 
         return $this->successResponse([], 'Role removed successfully');
+    }
+
+    private function assignableRoleRule(Request $request, User $user, string $column): Exists
+    {
+        $callerIsSuperAdmin = $request->user()->isSuperAdmin();
+
+        return Rule::exists('roles', $column)->where(function ($query) use ($user, $callerIsSuperAdmin) {
+            $query->where('organization_id', $user->organization_id);
+
+            if ($callerIsSuperAdmin) {
+                $query->orWhereNull('organization_id');
+            }
+        });
     }
 }
