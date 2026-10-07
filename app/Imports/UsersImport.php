@@ -6,9 +6,12 @@ use App\Mail\OrganizationInvitation;
 use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\InvitationService;
+use App\Services\UserRoleService;
 use Exception;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -16,7 +19,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class UsersImport implements ToCollection, WithHeadingRow
@@ -46,7 +48,8 @@ class UsersImport implements ToCollection, WithHeadingRow
         bool $sendInvitations,
         string $defaultRole,
         bool $updateExisting,
-        InvitationService $invitationService
+        InvitationService $invitationService,
+        protected UserRoleService $userRoleService
     ) {
         $this->organization = $organization;
         $this->currentUser = $currentUser;
@@ -108,11 +111,24 @@ class UsersImport implements ToCollection, WithHeadingRow
             return;
         }
 
+        if ($denial = $this->grantDenial($role, $customRole)) {
+            $this->results['failed'][] = ['row' => $rowData, 'reason' => $denial];
+
+            return;
+        }
+
         // Check if user already exists
         $existingUser = User::where('email', $email)->first();
 
         if ($existingUser) {
-            if ($this->updateExisting) {
+            if ($existingUser->organization_id !== $this->organization->id) {
+                $this->results['failed'][] = ['row' => $rowData, 'reason' => 'Email address is already in use'];
+            } elseif ($this->updateExisting && $this->exceedsCaller($existingUser)) {
+                $this->results['failed'][] = [
+                    'row' => $rowData,
+                    'reason' => 'You cannot update a user with permissions you do not have',
+                ];
+            } elseif ($this->updateExisting) {
                 $this->updateExistingUser($existingUser, $rowData);
             } else {
                 $this->results['failed'][] = [
@@ -160,10 +176,7 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         // Assign custom role if provided
         if ($customRole) {
-            $customRoleModel = CustomRole::where('organization_id', $this->organization->id)
-                ->where('name', $customRole)
-                ->active()
-                ->first();
+            $customRoleModel = $this->findCustomRole($customRole);
 
             if ($customRoleModel) {
                 $user->customRoles()->attach($customRoleModel->id, [
@@ -225,11 +238,7 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         $customRoleId = null;
         if ($customRole) {
-            $customRoleModel = CustomRole::where('organization_id', $this->organization->id)
-                ->where('name', $customRole)
-                ->active()
-                ->first();
-            $customRoleId = $customRoleModel?->id;
+            $customRoleId = $this->findCustomRole($customRole)?->id;
         }
 
         $invitation = Invitation::create([
@@ -276,70 +285,12 @@ class UsersImport implements ToCollection, WithHeadingRow
 
     protected function isValidRole(string $role): bool
     {
-        // Check if the role exists for this organization or is a global role (case-insensitive)
-        $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
-            ->where(function ($query) {
-                $query->where('organization_id', $this->organization->id)
-                    ->orWhereNull('organization_id');
-            })
-            ->first();
-
-        // If not found, also check for common role variations
-        if (! $roleModel) {
-            $rolesToTry = [];
-            if (strtolower($role) === 'user') {
-                $rolesToTry = ['User', 'user'];
-            } elseif (strtolower($role) === 'organization admin') {
-                $rolesToTry = ['Organization Admin', 'organization admin'];
-            }
-
-            foreach ($rolesToTry as $tryRole) {
-                $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
-                    ->where(function ($query) {
-                        $query->where('organization_id', $this->organization->id)
-                            ->orWhereNull('organization_id');
-                    })
-                    ->first();
-                if ($roleModel) {
-                    break;
-                }
-            }
-        }
-
-        return $roleModel !== null;
+        return $this->findRole($role) !== null;
     }
 
     protected function assignRoleToUser(User $user, string $role): void
     {
-        // Find the role using case-insensitive search
-        $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
-            ->where(function ($query) {
-                $query->where('organization_id', $this->organization->id)
-                    ->orWhereNull('organization_id');
-            })
-            ->first();
-
-        // If not found, also check for common role variations
-        if (! $roleModel) {
-            $rolesToTry = [];
-            if (strtolower($role) === 'user') {
-                $rolesToTry = ['User', 'user'];
-            } elseif (strtolower($role) === 'organization admin') {
-                $rolesToTry = ['Organization Admin', 'organization admin'];
-            }
-
-            foreach ($rolesToTry as $tryRole) {
-                $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
-                    ->where(function ($query) {
-                        $query->where('organization_id', $this->organization->id)
-                            ->orWhereNull('organization_id');
-                    })
-                    ->first();
-                if ($roleModel) {
-                    break;
-                }
-            }
-        }
+        $roleModel = $this->findRole($role);
 
         if ($roleModel) {
             // Set the team context for proper role assignment
@@ -351,5 +302,49 @@ class UsersImport implements ToCollection, WithHeadingRow
         } else {
             throw new Exception("Role '$role' does not exist for organization {$this->organization->id}");
         }
+    }
+
+    protected function findRole(string $role): ?Role
+    {
+        return Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+            ->where(function ($query) {
+                $query->where('organization_id', $this->organization->id);
+
+                if ($this->currentUser->isSuperAdmin()) {
+                    $query->orWhereNull('organization_id');
+                }
+            })
+            ->first();
+    }
+
+    protected function findCustomRole(string $customRole): ?CustomRole
+    {
+        return CustomRole::where('organization_id', $this->organization->id)
+            ->where('name', $customRole)
+            ->active()
+            ->first();
+    }
+
+    protected function grantDenial(?string $role, ?string $customRole): ?string
+    {
+        $roleModel = $role ? $this->findRole($role) : null;
+        if ($roleModel && $this->userRoleService->roleChangeDenial($this->currentUser, null, new EloquentCollection([$roleModel]))) {
+            return "You cannot grant the role '{$role}'";
+        }
+
+        $customRoleModel = $customRole ? $this->findCustomRole($customRole) : null;
+        if ($customRoleModel && $this->userRoleService->exceedsPermissionsOf($this->currentUser, collect($customRoleModel->permissions ?? []))) {
+            return "You cannot grant the custom role '{$customRole}'";
+        }
+
+        return null;
+    }
+
+    protected function exceedsCaller(User $user): bool
+    {
+        return $this->userRoleService->exceedsPermissionsOf(
+            $this->currentUser,
+            $this->userRoleService->effectivePermissionNames($user)
+        );
     }
 }

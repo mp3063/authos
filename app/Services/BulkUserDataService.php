@@ -16,7 +16,10 @@ use SplTempFileObject;
 
 class BulkUserDataService
 {
-    public function __construct(protected InvitationService $invitationService) {}
+    public function __construct(
+        protected InvitationService $invitationService,
+        protected UserRoleService $userRoleService,
+    ) {}
 
     /**
      * Export users to CSV or Excel format
@@ -122,7 +125,8 @@ class BulkUserDataService
             $sendInvitations,
             $defaultRole,
             $updateExisting,
-            $this->invitationService
+            $this->invitationService,
+            $this->userRoleService
         );
 
         Excel::import($import, $file);

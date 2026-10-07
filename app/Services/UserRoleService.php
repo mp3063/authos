@@ -51,13 +51,36 @@ class UserRoleService
             return 'You cannot change your own roles.';
         }
 
-        $callerPermissions = $caller->getAllPermissions()->pluck('name');
-        $exceedsCaller = $roles->load('permissions')
-            ->flatMap(fn (Role $role) => $role->permissions->pluck('name'))
-            ->diff($callerPermissions)
-            ->isNotEmpty();
+        $rolePermissions = $roles->load('permissions')->flatMap(fn (Role $role) => $role->permissions->pluck('name'));
 
-        return $exceedsCaller ? 'You cannot grant or revoke a role with permissions you do not have.' : null;
+        return $this->exceedsPermissionsOf($caller, $rolePermissions)
+            ? 'You cannot grant or revoke a role with permissions you do not have.'
+            : null;
+    }
+
+    /**
+     * @param  Collection<int, string>  $permissionNames
+     */
+    public function exceedsPermissionsOf(User $caller, Collection $permissionNames): bool
+    {
+        if ($caller->isSuperAdmin()) {
+            return false;
+        }
+
+        return $permissionNames->diff($this->effectivePermissionNames($caller))->isNotEmpty();
+    }
+
+    /**
+     * Permission names granted through Spatie roles, direct permissions and active custom roles.
+     *
+     * @return Collection<int, string>
+     */
+    public function effectivePermissionNames(User $user): Collection
+    {
+        return $user->getAllPermissions()->pluck('name')
+            ->merge($user->customRoles()->where('is_active', true)->get()->pluck('permissions')->flatten())
+            ->unique()
+            ->values();
     }
 
     private function scopeToAssignableRoles(Builder|QueryBuilder $query, User $caller, ?int $organizationId): void

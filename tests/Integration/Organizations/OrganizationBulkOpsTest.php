@@ -2,8 +2,13 @@
 
 namespace Tests\Integration\Organizations;
 
+use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -42,7 +47,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_assign_roles(): void
     {
         // ARRANGE: Create multiple users
@@ -80,7 +85,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_revoke_access(): void
     {
         // ARRANGE: Create users with access
@@ -114,7 +119,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_update_settings(): void
     {
         // ARRANGE: Create multiple organizations (super admin scenario)
@@ -147,7 +152,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_import_users(): void
     {
         // ARRANGE: Prepare CSV data
@@ -185,7 +190,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         fclose($tmpFile);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_export_users(): void
     {
         // ARRANGE: Create users to export
@@ -217,7 +222,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertNotNull($exportData['download_url']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_delete_users(): void
     {
         // ARRANGE: Create users to delete
@@ -248,7 +253,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_enable_mfa(): void
     {
         // ARRANGE: Create users without MFA
@@ -276,7 +281,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertEquals(5, $responseData['enabled_count']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_job_status_tracking(): void
     {
         // ARRANGE: Create users for bulk operation
@@ -313,7 +318,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_operations_handle_errors_gracefully(): void
     {
         // ARRANGE: Create mix of valid and invalid user IDs
@@ -339,7 +344,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertArrayHasKey('errors', $responseData);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_operations_respect_organization_boundaries(): void
     {
         // ARRANGE: Create users in different organization
@@ -362,7 +367,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertEquals(3, $responseData['failed_count']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_import_validates_data_format(): void
     {
         // ARRANGE: Prepare invalid CSV (missing email which is required)
@@ -391,7 +396,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         fclose($tmpFile);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_export_supports_multiple_formats(): void
     {
         // ARRANGE: Create users
@@ -427,7 +432,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $this->assertEquals('xlsx', $excelResponse->json('data.format'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_operations_create_audit_trail(): void
     {
         // ARRANGE: Create users
@@ -453,7 +458,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_invite_users(): void
     {
         // ARRANGE: Prepare bulk invitation data
@@ -495,5 +500,90 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
                 'status' => 'pending',
             ]);
         }
+    }
+
+    #[Test]
+    public function import_does_not_reset_the_password_of_a_user_in_another_organization(): void
+    {
+        $outsider = $this->createUser(['password' => Hash::make('Original-Pass-1')]);
+
+        $this->importCsv("name,email,password\nTaken Over,{$outsider->email},Attacker-Pass-1", ['update_existing' => true]);
+
+        $outsider->refresh();
+        $this->assertTrue(Hash::check('Original-Pass-1', $outsider->password));
+        $this->assertNotSame('Taken Over', $outsider->name);
+    }
+
+    #[Test]
+    public function import_does_not_reset_the_password_of_a_user_with_permissions_the_caller_lacks(): void
+    {
+        $owner = $this->createUser(
+            ['organization_id' => $this->organization->id, 'password' => Hash::make('Original-Pass-1')],
+            'Organization Owner',
+            'api'
+        );
+
+        $this->importCsv("name,email,password\nOwner,{$owner->email},Attacker-Pass-1", ['update_existing' => true]);
+
+        $this->assertTrue(Hash::check('Original-Pass-1', $owner->fresh()->password));
+    }
+
+    #[Test]
+    public function import_updates_a_member_of_the_callers_organization(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $this->importCsv("name,email,password\nRenamed Member,{$member->email},Updated-Pass-1", ['update_existing' => true])
+            ->assertCreated();
+
+        $member->refresh();
+        $this->assertSame('Renamed Member', $member->name);
+        $this->assertTrue(Hash::check('Updated-Pass-1', $member->password));
+    }
+
+    #[Test]
+    public function import_does_not_grant_the_global_super_admin_role(): void
+    {
+        $this->createApiSuperAdmin();
+
+        $this->importCsv("name,email,password,role\nNew Admin,new.admin@example.com,New-Pass-123,Super Admin");
+
+        $this->assertDatabaseMissing('users', ['email' => 'new.admin@example.com']);
+    }
+
+    #[Test]
+    public function import_does_not_grant_a_role_with_permissions_the_caller_lacks(): void
+    {
+        $this->importCsv("name,email,password,role\nNew Owner,new.owner@example.com,New-Pass-123,Organization Owner");
+
+        $this->assertDatabaseMissing('users', ['email' => 'new.owner@example.com']);
+    }
+
+    #[Test]
+    public function import_does_not_grant_a_custom_role_with_permissions_the_caller_lacks(): void
+    {
+        CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'name' => 'Escalated',
+            'permissions' => ['users.delete'],
+            'is_active' => true,
+        ]);
+
+        $this->importCsv("name,email,password,role,custom_role\nNew User,new.user@example.com,New-Pass-123,User,Escalated");
+
+        $this->assertDatabaseMissing('users', ['email' => 'new.user@example.com']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function importCsv(string $csv, array $options = []): TestResponse
+    {
+        return $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", [
+                'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
+                'format' => 'csv',
+                ...$options,
+            ]);
     }
 }
