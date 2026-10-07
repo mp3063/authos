@@ -2,10 +2,12 @@
 
 namespace Tests\Integration\Enterprise;
 
+use App\Http\Controllers\Api\Enterprise\AuditController;
 use App\Jobs\ProcessAuditExportJob;
 use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\User;
+use App\Services\AuditExportService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,9 +36,9 @@ use Tests\Integration\IntegrationTestCase;
  * - Verifies multi-tenant isolation
  * - Tests error handling and validation
  *
- * @see \App\Http\Controllers\Api\Enterprise\AuditController
- * @see \App\Services\AuditExportService
- * @see \App\Jobs\ProcessAuditExportJob
+ * @see AuditController
+ * @see AuditExportService
+ * @see ProcessAuditExportJob
  */
 class AuditExportTest extends IntegrationTestCase
 {
@@ -419,7 +421,7 @@ admin,admin@test.com,login');
 
         // ACT: Process the export job
         $job = new ProcessAuditExportJob($export);
-        $job->handle(app(\App\Services\AuditExportService::class));
+        $job->handle(app(AuditExportService::class));
 
         // ASSERT: Export status updated to completed
         $export->refresh();
@@ -430,6 +432,40 @@ admin,admin@test.com,login');
 
         // ASSERT: File exists in storage
         Storage::disk('public')->assertExists($export->file_path);
+    }
+
+    #[Test]
+    public function csv_export_contains_only_filtered_logs_of_the_exporting_organization(): void
+    {
+        $organization = $this->createOrganization();
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        AuthenticationLog::factory()->count(3)->create([
+            'user_id' => $admin->id,
+            'ip_address' => '10.0.0.1',
+            'created_at' => now(),
+        ]);
+
+        $otherOrganization = $this->createOrganization();
+        $outsider = $this->createUser(['organization_id' => $otherOrganization->id]);
+        AuthenticationLog::factory()->count(2)->create([
+            'user_id' => $outsider->id,
+            'ip_address' => '203.0.113.99',
+            'created_at' => now(),
+        ]);
+
+        $export = AuditExport::factory()->create([
+            'organization_id' => $organization->id,
+            'user_id' => $admin->id,
+            'type' => 'csv',
+            'filters' => [],
+            'status' => 'pending',
+        ]);
+
+        (new ProcessAuditExportJob($export))->handle(app(AuditExportService::class));
+
+        $content = Storage::disk('public')->get($export->refresh()->file_path);
+        $this->assertStringNotContainsString('203.0.113.99', $content);
+        $this->assertSame(3, substr_count($content, '10.0.0.1'));
     }
 
     #[Test]
@@ -461,7 +497,7 @@ admin,admin@test.com,login');
 
         // ACT: Process the export job
         $job = new ProcessAuditExportJob($export);
-        $job->handle(app(\App\Services\AuditExportService::class));
+        $job->handle(app(AuditExportService::class));
 
         // ASSERT: Export completed
         $export->refresh();
@@ -504,7 +540,7 @@ admin,admin@test.com,login');
 
         // ACT: Process the export job
         $job = new ProcessAuditExportJob($export);
-        $job->handle(app(\App\Services\AuditExportService::class));
+        $job->handle(app(AuditExportService::class));
 
         // ASSERT: Export completed (Excel export may have different behavior)
         $export->refresh();
@@ -547,7 +583,7 @@ admin,admin@test.com,login');
 
         // ACT: Process the large export
         $job = new ProcessAuditExportJob($export);
-        $job->handle(app(\App\Services\AuditExportService::class));
+        $job->handle(app(AuditExportService::class));
 
         // ASSERT: Export completed successfully
         $export->refresh();
@@ -682,7 +718,7 @@ admin,admin@test.com,login');
         $job = new ProcessAuditExportJob($export);
 
         try {
-            $job->handle(app(\App\Services\AuditExportService::class));
+            $job->handle(app(AuditExportService::class));
         } catch (\Exception $e) {
             // Exception expected
         }
