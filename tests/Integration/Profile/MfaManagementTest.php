@@ -122,7 +122,7 @@ class MfaManagementTest extends IntegrationTestCase
         $this->assertTrue($this->user->hasMfaEnabled());
         $this->assertNotNull($this->user->two_factor_confirmed_at);
         $this->assertEquals(['totp'], $this->user->mfa_methods);
-        $this->assertNotNull($this->user->two_factor_recovery_codes);
+        $this->assertSame($backupCodes, json_decode($this->user->getAttributes()['two_factor_recovery_codes'], true));
 
         // ASSERT: MFA enabled event logged
         $this->assertAuthenticationLogged([
@@ -169,7 +169,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($backupCodes),
+            'two_factor_recovery_codes' => $backupCodes,
         ]);
 
         $this->assertTrue($this->user->hasMfaEnabled());
@@ -244,7 +244,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $this->generateBackupCodes(),
         ]);
 
         // ACT: Get recovery codes with password
@@ -277,7 +277,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($oldBackupCodes),
+            'two_factor_recovery_codes' => $oldBackupCodes,
         ]);
 
         // ACT: Regenerate recovery codes
@@ -303,8 +303,7 @@ class MfaManagementTest extends IntegrationTestCase
 
         // Verify stored in database
         $this->user->refresh();
-        $storedCodes = json_decode($this->user->two_factor_recovery_codes, true);
-        $this->assertEquals($newCodes, $storedCodes);
+        $this->assertSame($newCodes, json_decode($this->user->getAttributes()['two_factor_recovery_codes'], true));
 
         // ASSERT: Regeneration logged
         $this->assertAuthenticationLogged([
@@ -321,14 +320,14 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($this->google2fa->generateSecretKey()),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($oldBackupCodes),
+            'two_factor_recovery_codes' => $oldBackupCodes,
         ]);
 
         $response = $this->actingAs($this->user, 'api')
             ->postJson('/api/v1/mfa/recovery-codes/regenerate');
 
         $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The password field is required.']);
-        $this->assertSame($oldBackupCodes, json_decode($this->user->fresh()->two_factor_recovery_codes, true));
+        $this->assertSame($oldBackupCodes, $this->user->fresh()->two_factor_recovery_codes);
     }
 
     #[Test]
@@ -374,7 +373,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($backupCodes),
+            'two_factor_recovery_codes' => $backupCodes,
             'mfa_backup_codes' => $backupCodes,
         ]);
 
@@ -480,7 +479,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $this->generateBackupCodes(),
         ]);
 
         // ACT: Disable MFA via /disable endpoint
@@ -577,7 +576,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($recoveryCodes ?? $this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $recoveryCodes ?? $this->generateBackupCodes(),
         ]);
 
         return $secret;
@@ -590,7 +589,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $this->generateBackupCodes(),
         ]);
 
         $response = $this->actingAs($this->user, 'api')
@@ -613,7 +612,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $this->generateBackupCodes(),
         ]);
 
         $data = $this->actingAs($this->user, 'api')
@@ -632,7 +631,7 @@ class MfaManagementTest extends IntegrationTestCase
             'two_factor_secret' => encrypt((new Google2FA)->generateSecretKey()),
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($this->generateBackupCodes()),
+            'two_factor_recovery_codes' => $this->generateBackupCodes(),
         ]);
 
         $codes = $this->actingAs($this->user, 'api')

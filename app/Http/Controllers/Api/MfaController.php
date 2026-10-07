@@ -117,7 +117,7 @@ class MfaController extends BaseController
         // Enable MFA
         $user->update([
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode($backupCodes),
+            'two_factor_recovery_codes' => $backupCodes,
             'two_factor_confirmed_at' => now(),
         ]);
 
@@ -214,7 +214,7 @@ class MfaController extends BaseController
 
         return response()->json([
             'data' => [
-                'recovery_codes' => json_decode($user->two_factor_recovery_codes, true) ?? [],
+                'recovery_codes' => $user->mfa_backup_codes,
             ],
         ]);
     }
@@ -247,7 +247,7 @@ class MfaController extends BaseController
         // Generate new backup codes
         $backupCodes = $this->generateBackupCodes();
 
-        $user->update(['two_factor_recovery_codes' => json_encode($backupCodes)]);
+        $user->update(['two_factor_recovery_codes' => $backupCodes]);
 
         // Log recovery codes regenerated
         $this->authLogService->logAuthenticationEvent(

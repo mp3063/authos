@@ -17,6 +17,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
@@ -86,6 +87,7 @@ class UserResource extends Resource
                 Textarea::make('two_factor_recovery_codes')
                     ->label('Recovery Codes')
                     ->rows(3)
+                    ->formatStateUsing(fn (?User $record): string => implode("\n", $record?->mfa_backup_codes ?? []))
                     ->disabled()
                     ->dehydrated(false)
                     ->helperText('Auto-generated recovery codes (view only)'),
@@ -241,7 +243,7 @@ class UserResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
 
         // Super admins can see all users
         if ($user->isSuperAdmin()) {

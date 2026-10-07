@@ -301,8 +301,7 @@ class MfaFlowsTest extends EndToEndTestCase
 
         // Verify codes are stored in user record
         $user->refresh();
-        $storedCodes = json_decode($user->two_factor_recovery_codes, true);
-        $this->assertEquals($codes, $storedCodes);
+        $this->assertSame($codes, json_decode($user->getAttributes()['two_factor_recovery_codes'], true));
     }
 
     /**
@@ -816,10 +815,10 @@ class MfaFlowsTest extends EndToEndTestCase
         $user->update([
             'two_factor_secret' => encrypt($this->testTotpSecret),
             'mfa_methods' => ['totp'],
-            'two_factor_recovery_codes' => json_encode([
+            'two_factor_recovery_codes' => [
                 'ABC12345', 'DEF67890', 'GHI23456', 'JKL78901',
                 'MNO34567', 'PQR89012', 'STU45678', 'VWX90123',
-            ]),
+            ],
             'two_factor_confirmed_at' => now(),
         ]);
     }

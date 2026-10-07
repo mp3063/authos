@@ -231,7 +231,7 @@ class ProfileController extends BaseController
             'data' => [
                 'mfa_enabled' => $user->hasMfaEnabled(),
                 'mfa_methods' => $user->mfa_methods ?? [],
-                'recovery_codes_count' => is_array($user->two_factor_recovery_codes) ? count(json_decode($user->two_factor_recovery_codes, true) ?? []) : 0,
+                'recovery_codes_count' => count($user->mfa_backup_codes),
                 'password_changed_at' => $user->password_changed_at,
                 'active_sessions' => $user->tokens()->where('expires_at', '>', now())->count(),
                 'recent_logins' => AuthenticationLog::where('user_id', $user->id)
