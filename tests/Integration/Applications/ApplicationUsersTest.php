@@ -156,6 +156,20 @@ class ApplicationUsersTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_rejects_granting_access_to_a_user_from_another_organization_with_422(): void
+    {
+        $outsider = $this->createApiUser();
+
+        $response = $this->actingAsApiUserWithToken($this->adminUser)
+            ->postJson("/api/v1/applications/{$this->application->id}/users", [
+                'user_id' => $outsider->id,
+            ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['user_id' => 'The selected user id is invalid.']);
+        $this->assertDatabaseMissing('user_applications', ['user_id' => $outsider->id]);
+    }
+
+    #[Test]
     public function it_grants_user_access_to_application(): void
     {
         // ARRANGE: Create user without access

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
 use App\Models\Application;
 use App\Models\User;
 use App\Services\UserManagementService;
@@ -13,6 +14,7 @@ use Illuminate\Routing\Controller as BaseController;
 class UserApplicationController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedApplications;
 
     public function __construct(protected UserManagementService $userManagementService)
     {
@@ -158,7 +160,7 @@ class UserApplicationController extends BaseController
         ]);
 
         $currentUser = auth()->user();
-        $application = Application::findOrFail($request->application_id);
+        $application = $this->findApplicationWithOrgScope((string) $request->application_id);
 
         $users = User::whereIn('id', $request->user_ids)
             ->where('organization_id', $application->organization_id)

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Validation\Rule;
 use Laravel\Passport\Token;
 
 class ApplicationUserController extends BaseController
@@ -51,11 +52,16 @@ class ApplicationUserController extends BaseController
     {
         $this->authorize('applications.update');
 
+        $application = $this->findApplicationWithOrgScope($id);
+
         $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
+            'user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where('organization_id', $application->organization_id),
+            ],
         ]);
 
-        $application = $this->findApplicationWithOrgScope($id);
         $user = User::findOrFail($request->user_id);
 
         // Check if access already exists

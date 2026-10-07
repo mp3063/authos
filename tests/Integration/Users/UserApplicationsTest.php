@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
@@ -58,7 +59,7 @@ class UserApplicationsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_lists_users_applications_with_permissions(): void
     {
         // ARRANGE
@@ -116,7 +117,7 @@ class UserApplicationsTest extends TestCase
         $this->assertNotEmpty($firstApp['pivot']['permissions']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_grants_application_access_to_user(): void
     {
         // ARRANGE
@@ -160,7 +161,7 @@ class UserApplicationsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_revokes_application_access_from_user(): void
     {
         // ARRANGE
@@ -199,7 +200,7 @@ class UserApplicationsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_views_application_specific_permissions(): void
     {
         // ARRANGE
@@ -234,7 +235,7 @@ class UserApplicationsTest extends TestCase
         $this->assertEquals($this->adminUser->id, $application['pivot']['granted_by']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_bulk_grants_application_access(): void
     {
         // ARRANGE
@@ -279,7 +280,47 @@ class UserApplicationsTest extends TestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
+    public function it_hides_another_organizations_application_from_bulk_grant_with_404(): void
+    {
+        Passport::actingAs($this->adminUser, ['applications.update']);
+        $foreignOrganization = Organization::factory()->create();
+        $foreignApplication = Application::factory()->create(['organization_id' => $foreignOrganization->id]);
+        $foreignUser = User::factory()->create(['organization_id' => $foreignOrganization->id]);
+
+        $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
+            'application_id' => $foreignApplication->id,
+            'user_ids' => [$foreignUser->id],
+            'permissions' => ['read'],
+            'bulk' => true,
+        ]);
+
+        $response->assertNotFound();
+        $this->assertDatabaseMissing('user_applications', ['user_id' => $foreignUser->id]);
+    }
+
+    #[Test]
+    public function it_hides_another_organizations_application_from_bulk_revoke_with_404(): void
+    {
+        Passport::actingAs($this->adminUser, ['applications.update']);
+        $foreignOrganization = Organization::factory()->create();
+        $foreignApplication = Application::factory()->create(['organization_id' => $foreignOrganization->id]);
+        $foreignUser = User::factory()->create(['organization_id' => $foreignOrganization->id]);
+        $foreignUser->applications()->attach($foreignApplication->id, ['granted_at' => now()]);
+
+        $response = $this->deleteJson("/api/v1/users/{$this->regularUser->id}/applications/{$foreignApplication->id}", [
+            'user_ids' => [$foreignUser->id],
+            'bulk' => true,
+        ]);
+
+        $response->assertNotFound();
+        $this->assertDatabaseHas('user_applications', [
+            'user_id' => $foreignUser->id,
+            'application_id' => $foreignApplication->id,
+        ]);
+    }
+
+    #[Test]
     public function it_bulk_revokes_application_access(): void
     {
         // ARRANGE
@@ -322,7 +363,7 @@ class UserApplicationsTest extends TestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_updates_existing_application_permissions(): void
     {
         // ARRANGE
@@ -356,7 +397,7 @@ class UserApplicationsTest extends TestCase
         $this->assertEquals($newPermissions, $storedPermissions);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_enforces_organization_boundary_for_applications(): void
     {
         // ARRANGE
@@ -377,7 +418,7 @@ class UserApplicationsTest extends TestCase
         $this->assertTrue(in_array($response->status(), [403, 404, 422]));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function regular_user_can_view_own_applications(): void
     {
         // ARRANGE
@@ -401,7 +442,7 @@ class UserApplicationsTest extends TestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function regular_user_cannot_view_other_users_applications(): void
     {
         // ARRANGE
@@ -418,7 +459,7 @@ class UserApplicationsTest extends TestCase
         $response->assertStatus(403);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_validates_permissions_format(): void
     {
         // ARRANGE
@@ -435,7 +476,7 @@ class UserApplicationsTest extends TestCase
             ->assertJsonValidationErrors(['permissions']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_nonexistent_application_gracefully(): void
     {
         // ARRANGE
@@ -454,7 +495,7 @@ class UserApplicationsTest extends TestCase
             ->assertJsonValidationErrors(['application_id']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_tracks_login_count_and_last_login(): void
     {
         // ARRANGE
@@ -482,7 +523,7 @@ class UserApplicationsTest extends TestCase
         $this->assertNotNull($application['pivot']['last_login_at']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_lists_applications_with_pagination(): void
     {
         // ARRANGE
@@ -520,7 +561,7 @@ class UserApplicationsTest extends TestCase
         $this->assertEquals(15, $response->json('meta.total'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_filters_applications_by_permission(): void
     {
         // ARRANGE
