@@ -3,11 +3,9 @@
 ## Project Overview
 Enterprise authentication service - Auth0/Okta alternative with Filament 5 admin, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
 
-**Status**: In Development (99%+ test pass rate)
-- **83 Integration test files**, **475+ test methods**, **~46,500 lines of test code**
-- **206 API endpoints**, **12 Filament resources**
-- **Test Coverage**: 99%+ pass rate overall (~750 tests)
-- **Production-Ready Categories**: Security (100% ✅), SSO (100% ✅), OAuth (100% ✅), Webhooks (100% ✅), Cache (100% ✅), Bulk Operations (100% ✅), Monitoring (100% ✅), Model Lifecycle (100% ✅), Organizations (100% ✅), Users (100% ✅), Applications (100% ✅), Profile/MFA (100% ✅), Jobs (100% ✅), Enterprise (99% ✅)
+**Status**: In Development, not production ready
+- **1,750 tests**, full suite passing (a handful skipped or incomplete)
+- **220+ API routes**, **27 Filament resources**, **13 dashboard widgets**
 - Multi-tenant with organization isolation
 - Complete OAuth 2.0 + PKCE, OIDC, SAML 2.0
 - 5 social providers (Google, GitHub, Facebook, Twitter, LinkedIn)
@@ -52,8 +50,8 @@ herd php artisan migrate:refresh --seed
 herd php artisan passport:keys
 
 
-# Testing (Sequential Execution - 100% Reliable)
-./run-tests.sh                             # All tests (sequential, timeout protected)
+# Testing
+./run-tests.sh                             # All tests (parallel, timeout protected)
 ./run-tests.sh tests/Unit/                 # Unit tests only (~8 seconds)
 ./run-tests.sh tests/Integration/OAuth/    # OAuth integration tests
 herd composer test                         # All tests via composer
@@ -64,20 +62,20 @@ herd php artisan test                      # Direct PHPUnit execution
 
 # Test by category (Integration)
 herd php artisan test tests/Integration/                   # All integration tests
-herd php artisan test tests/Integration/Security/          # Security tests (100% ✅)
-herd php artisan test tests/Integration/SSO/               # SSO tests (100% ✅)
-herd php artisan test tests/Integration/OAuth/             # OAuth tests (100% ✅)
-herd php artisan test tests/Integration/Webhooks/          # Webhook tests (100% ✅)
-herd php artisan test tests/Integration/Cache/             # Cache tests (100% ✅)
-herd php artisan test tests/Integration/BulkOperations/    # Bulk ops tests (100% ✅)
-herd php artisan test tests/Integration/Monitoring/        # Monitoring tests (100% ✅)
-herd php artisan test tests/Integration/Models/            # Model lifecycle (100% ✅)
-herd php artisan test tests/Integration/Organizations/     # Organization tests (100% ✅)
-herd php artisan test tests/Integration/Users/             # User tests (100% ✅)
-herd php artisan test tests/Integration/Applications/      # Application tests (100% ✅)
-herd php artisan test tests/Integration/Profile/           # Profile/MFA tests (100% ✅)
-herd php artisan test tests/Integration/Jobs/              # Job tests (100% ✅)
-herd php artisan test tests/Integration/Enterprise/        # Enterprise tests (99% ✅)
+herd php artisan test tests/Integration/Security/          # Security tests
+herd php artisan test tests/Integration/SSO/               # SSO tests
+herd php artisan test tests/Integration/OAuth/             # OAuth tests
+herd php artisan test tests/Integration/Webhooks/          # Webhook tests
+herd php artisan test tests/Integration/Cache/             # Cache tests
+herd php artisan test tests/Integration/BulkOperations/    # Bulk ops tests
+herd php artisan test tests/Integration/Monitoring/        # Monitoring tests
+herd php artisan test tests/Integration/Models/            # Model lifecycle
+herd php artisan test tests/Integration/Organizations/     # Organization tests
+herd php artisan test tests/Integration/Users/             # User tests
+herd php artisan test tests/Integration/Applications/      # Application tests
+herd php artisan test tests/Integration/Profile/           # Profile/MFA tests
+herd php artisan test tests/Integration/Jobs/              # Job tests
+herd php artisan test tests/Integration/Enterprise/        # Enterprise tests
 
 # Code Quality
 herd composer quality                      # Run all quality checks
@@ -102,7 +100,6 @@ herd php artisan monitor:health            # Health check
 - Authorization code flow (RFC 6749)
 - PKCE support (S256 + plain)
 - Refresh token rotation
-- Token introspection (RFC 7662)
 - OpenID Connect Discovery
 
 ### Key Models
@@ -118,254 +115,17 @@ herd php artisan monitor:health            # Health check
 ## Test Suite Architecture
 
 ### Overview
-- **83 Integration test files** across 19 categories
-- **475+ test methods** with **~46,500 lines** of test code
-- **99%+ overall pass rate** (~750 tests passing)
-- **14 production-ready categories** at 100% pass rate
-- **Average execution time**: ~45-60 seconds (full suite)
-
-### Test Organization
-
-```
-tests/Integration/
-├── Security/          (5 files, 99 tests, 100% ✅)
-│   ├── IntrusionDetectionTest.php       - Brute force, SQL injection, XSS detection
-│   ├── ProgressiveLockoutTest.php       - Account lockout policies (5min → 24hrs)
-│   ├── IpBlockingTest.php               - Automatic IP blocking and unblocking
-│   ├── SecurityHeadersTest.php          - CSP, HSTS, Permissions-Policy
-│   └── OrganizationBoundaryTest.php     - Multi-tenant isolation enforcement
-│
-├── SSO/               (5 files, 45 tests, 100% ✅)
-│   ├── SsoOidcFlowTest.php              - OpenID Connect authentication
-│   ├── SsoSamlFlowTest.php              - SAML 2.0 authentication
-│   ├── SsoTokenRefreshTest.php          - Token refresh mechanisms
-│   ├── SsoSynchronizedLogoutTest.php    - Multi-session logout
-│   └── EnhancedOidcFlowTest.php         - Advanced OIDC scenarios
-│
-├── OAuth/             (6 files, 10 tests, 100% ✅)
-│   ├── AuthorizationCodeFlowTest.php    - OAuth 2.0 authorization code
-│   ├── ClientCredentialsFlowTest.php    - Machine-to-machine auth
-│   ├── PasswordGrantFlowTest.php        - Resource owner password
-│   ├── TokenManagementTest.php          - Token lifecycle
-│   ├── TokenRefreshTest.php             - Refresh token rotation
-│   └── OpenIdConnectTest.php            - OIDC integration
-│
-├── Webhooks/          (4 files, 62 tests, 100% ✅)
-│   ├── WebhookDeliveryFlowTest.php      - Webhook delivery lifecycle
-│   ├── WebhookRetryFlowTest.php         - Retry logic & exponential backoff
-│   ├── WebhookEventDispatchTest.php     - Event dispatching (44 event types)
-│   └── WebhookPatternMatchingTest.php   - Event pattern matching
-│
-├── Cache/             (3 files, 28 tests, 100% ✅)
-│   ├── CacheStatsTest.php               - Cache statistics tracking
-│   ├── CacheClearTest.php               - Cache invalidation strategies
-│   └── ApiCachingTest.php               - API response caching
-│
-├── BulkOperations/    (2 files, 39 tests, 100% ✅)
-│   ├── BulkUserImportTest.php           - CSV/Excel/JSON import
-│   └── BulkUserExportTest.php           - CSV/Excel/JSON export
-│
-├── Monitoring/        (5 files, 38 tests, 100% ✅)
-│   ├── HealthCheckTest.php              - Health check endpoints
-│   ├── MetricsCollectionTest.php        - Metrics gathering
-│   ├── PerformanceMetricsTest.php       - Performance tracking
-│   ├── ErrorTrackingTest.php            - Error logging & tracking
-│   └── CustomMetricsTest.php            - Custom metric definitions
-│
-├── Models/            (3 files, 40 tests, 100% ✅)
-│   ├── ApplicationLifecycleTest.php     - Application model lifecycle
-│   ├── SsoSessionLifecycleTest.php      - SSO session lifecycle
-│   └── CacheInvalidationTest.php        - Model-triggered cache clearing
-│
-├── Profile/           (3 files, 38 tests, 100% ✅)
-│   ├── ProfileManagementTest.php        - Profile updates, avatar
-│   ├── MfaManagementTest.php            - TOTP setup, recovery codes
-│   └── SocialAccountsTest.php           - Social account linking
-│
-├── Applications/      (4 files, 27 tests, 100% ✅)
-│   ├── ApplicationCrudTest.php          - OAuth client management
-│   ├── ApplicationTokensTest.php        - Token generation
-│   ├── ApplicationAnalyticsTest.php     - Usage analytics
-│   └── ApplicationUsersTest.php         - User permissions
-│
-├── Jobs/              (8 files, 50 tests, 100% ✅)
-│   ├── DeliverWebhookJobTest.php        - Webhook delivery job
-│   ├── ProcessBulkImportJobTest.php     - Bulk import processing
-│   ├── ProcessBulkExportJobTest.php     - Bulk export processing
-│   ├── ExportUsersJobTest.php           - User export job
-│   ├── ProcessAuditExportJobTest.php    - Audit log export
-│   ├── GenerateComplianceReportJobTest.php - Compliance reporting
-│   ├── SyncLdapUsersJobTest.php         - LDAP synchronization
-│   └── ProcessAuth0MigrationJobTest.php - Auth0 migration
-│
-├── Organizations/     (8 files, 102 tests, 100% ✅)
-│   ├── OrganizationCrudTest.php         - CRUD operations
-│   ├── OrganizationSettingsTest.php     - Organization settings
-│   ├── OrganizationUsersTest.php        - User management
-│   ├── OrganizationAnalyticsTest.php    - Analytics & reporting
-│   ├── OrganizationInvitationsTest.php  - User invitations
-│   ├── OrganizationBulkOpsTest.php      - Bulk operations
-│   ├── OrganizationReportsTest.php      - Reporting
-│   └── CustomRolesTest.php              - Custom role management
-│
-├── Users/             (4 files, 53 tests, 100% ✅)
-│   ├── UserCrudTest.php                 - CRUD operations
-│   ├── UserProfileTest.php              - Profile management
-│   ├── UserSessionsTest.php             - Session management
-│   └── UserApplicationsTest.php         - Application access
-│
-├── Enterprise/        (5 files, 88 tests, 99% ✅)
-│   ├── LdapAuthenticationTest.php       - LDAP/AD integration
-│   ├── BrandingTest.php                 - Custom branding
-│   ├── DomainVerificationTest.php       - DNS verification
-│   ├── AuditExportTest.php              - Audit log export
-│   └── ComplianceReportTest.php         - Compliance reporting
-│
-└── EndToEnd/          (15 files, comprehensive E2E flows)
-    ├── BasicE2EWorkflowTest.php         - Basic user workflows
-    ├── AuthenticationFlowsTest.php      - Auth flows
-    ├── OAuthFlowsTest.php               - OAuth flows
-    ├── SocialAuthFlowsTest.php          - Social auth
-    ├── MfaFlowsTest.php                 - MFA workflows
-    ├── SsoFlowsTest.php                 - SSO workflows
-    ├── ApplicationFlowsTest.php         - Application workflows
-    ├── OrganizationFlowsTest.php        - Organization workflows
-    ├── AdminPanelFlowsTest.php          - Admin panel
-    ├── ApiIntegrationFlowsTest.php      - API integration
-    ├── OAuthSecurityFlowsTest.php       - OAuth security
-    ├── SocialAuthMfaFlowsTest.php       - Social + MFA
-    ├── SecurityComplianceTest.php       - Security compliance
-    ├── CompleteUserJourneyTest.php      - End-to-end user journey
-    └── EndToEndTestCase.php             - Base test case
-```
+- **1,750 tests** in ~143 files: `tests/Unit`, `tests/Feature` and `tests/Integration` (~100 files across Security, SSO, OAuth, Webhooks, Cache, BulkOperations, Monitoring, Models, Profile, Applications, Jobs, Organizations, Users, Enterprise, EndToEnd and more)
+- The full suite passes; a handful of tests are skipped or marked incomplete
+- Tests run against in-memory SQLite, in parallel via ParaTest
 
 ### Running Tests
-
-**All Integration Tests:**
 ```bash
-herd php artisan test tests/Integration/
-./run-tests.sh tests/Integration/
+./run-tests.sh                                       # All tests (parallel, timeout protected)
+herd php artisan test --compact tests/Integration/SSO/
+herd php artisan test --compact tests/Integration/Security/IntrusionDetectionTest.php
+herd php artisan test --compact --filter=it_rejects_a_plain_http_redirect_uri
 ```
-
-**By Category (All Production-Ready):**
-```bash
-herd php artisan test tests/Integration/Security/         # 5 files, 99 tests
-herd php artisan test tests/Integration/SSO/              # 5 files, 45 tests
-herd php artisan test tests/Integration/OAuth/            # 6 files, 10 tests
-herd php artisan test tests/Integration/Webhooks/         # 4 files, 62 tests
-herd php artisan test tests/Integration/Cache/            # 3 files, 28 tests
-herd php artisan test tests/Integration/BulkOperations/   # 2 files, 39 tests
-herd php artisan test tests/Integration/Monitoring/       # 5 files, 38 tests
-herd php artisan test tests/Integration/Models/           # 3 files, 40 tests
-herd php artisan test tests/Integration/Organizations/    # 8 files, 102 tests
-herd php artisan test tests/Integration/Users/            # 4 files, 53 tests
-herd php artisan test tests/Integration/Applications/     # 4 files, 27 tests
-herd php artisan test tests/Integration/Profile/          # 3 files, 38 tests
-herd php artisan test tests/Integration/Jobs/             # 8 files, 50 tests
-herd php artisan test tests/Integration/Enterprise/       # 5 files, 88 tests
-```
-
-**Specific Test File:**
-```bash
-herd php artisan test tests/Integration/Security/IntrusionDetectionTest.php
-herd php artisan test tests/Integration/SSO/SsoOidcFlowTest.php
-```
-
-**With Profiling:**
-```bash
-herd php artisan test tests/Integration/ --profile
-```
-
-### Test Categories
-
-**Production-Ready (100% Passing):**
-
-1. **Security (5 files, 99 tests)**
-   - OWASP Top 10 (2021) compliance
-   - Intrusion detection (brute force, SQL injection, XSS)
-   - Progressive lockout (5min → 1hr → 24hrs)
-   - Automatic IP blocking
-   - Enhanced security headers (CSP, HSTS)
-   - Multi-tenant boundary enforcement
-
-2. **SSO & OAuth (11 files, 55 tests)**
-   - OpenID Connect (OIDC) flow
-   - SAML 2.0 flow
-   - Token refresh mechanisms
-   - Synchronized logout
-   - OAuth 2.0 authorization code flow
-   - PKCE support
-   - Token introspection
-
-3. **Webhooks (4 files, 62 tests)**
-   - Delivery lifecycle
-   - Retry logic with exponential backoff
-   - Event dispatching (44 event types)
-   - Pattern matching
-   - Signature verification
-
-4. **Cache (3 files, 28 tests)**
-   - Cache statistics
-   - Cache invalidation strategies
-   - API response caching
-   - Multi-layer caching
-
-5. **Bulk Operations (2 files, 39 tests)**
-   - CSV/Excel/JSON import
-   - CSV/Excel/JSON export
-   - Job queue management
-   - Progress tracking
-
-6. **Monitoring (5 files, 38 tests)**
-   - Health check endpoints
-   - Metrics collection
-   - Performance tracking
-   - Error tracking
-   - Custom metrics
-
-7. **Model Lifecycle (3 files, 40 tests)**
-   - Application auto-generation
-   - SSO session management
-   - Cache invalidation observers
-
-8. **Organizations (8 files, 102 tests)**
-   - CRUD operations
-   - Settings management
-   - User management
-   - Analytics & reporting
-   - Invitations
-   - Custom roles
-
-9. **Users (4 files, 53 tests)**
-   - CRUD operations
-   - Profile management
-   - Session management
-   - Application access
-
-10. **Applications (4 files, 27 tests)**
-    - OAuth client management
-    - Token generation
-    - Usage analytics
-    - User permissions
-
-11. **Profile/MFA (3 files, 38 tests)**
-    - Profile updates
-    - TOTP setup/verification
-    - Recovery codes
-    - Social account linking
-
-12. **Jobs (8 files, 50 tests)**
-    - Background job testing
-    - Queue operations
-    - Job retry logic
-    - Job failure handling
-
-13. **Enterprise (5 files, 88 tests)**
-    - LDAP/AD integration
-    - Custom branding
-    - Domain verification
-    - Audit log export
-    - Compliance reporting (SOC2, ISO 27001, GDPR)
 
 ### Test Writing Guidelines
 
@@ -416,23 +176,16 @@ public function it_describes_expected_behavior(): void
 
 ## Admin Panel (Filament 5)
 
-### Resources (16)
-1. **Users** - MFA controls, bulk operations, session management
-2. **Organizations** - Settings, security policies, branding
-3. **Applications** - OAuth client management, credentials
-4. **Roles** - Custom role management (RBAC)
-5. **Permissions** - Permission management (RBAC)
-6. **Authentication Logs** - Security monitoring, audit trail
-7. **Social Accounts** - Provider management, connections
-8. **Invitations** - User invitation workflow
-9. **LDAP Configurations** - AD integration settings
-10. **Custom Domains** - Domain verification, DNS records
-11. **Webhooks** - Event subscriptions, configuration
-12. **Webhook Deliveries** - Delivery logs, retry management
-13. **Security Incidents** - Read-only incident list with severity/type filters, resolve/dismiss actions
-14. **Account Lockouts** - Read-only lockout list with unlock action, bulk unlock
-15. **IP Blocklist** - Create/delete blocked IPs, unblock/reblock actions, bulk unblock
-16. **Failed Login Attempts** - Read-only audit log with time-based tabs
+### Resources (27)
+- **Users, Organizations, Organization Branding, Invitations**
+- **Applications, Application Groups**
+- **Roles, Permissions, Custom Roles** - defined by super admins only; org owners/admins assign them
+- **SSO Configurations, SSO Sessions, LDAP Configurations, Social Accounts, Custom Domains**
+- **Authentication Logs, Failed Login Attempts** - read-only audit
+- **Security Incidents, Account Lockouts, IP Blocklist** - resolve/dismiss, unlock, block/unblock actions
+- **Webhooks, Webhook Events, Webhook Deliveries**
+- **Audit Exports, Compliance Reports, Scheduled Compliance Reports**
+- **Bulk Import Jobs, Migration Jobs**
 
 ### Dashboard Widgets (13)
 - **System Health** - Real-time health status
@@ -449,7 +202,7 @@ public function it_describes_expected_behavior(): void
 - **Organization Overview** - Org statistics
 - **Application Access Matrix** - OAuth app permissions
 
-## API Endpoints (154 Total)
+## API Endpoints (220+ routes)
 
 ### Core Categories
 - **Auth** (12) - register, login, logout, MFA, social (5 providers)
@@ -460,7 +213,7 @@ public function it_describes_expected_behavior(): void
 - **MFA** (10) - TOTP setup/verify, recovery codes
 - **SSO** (15+) - OIDC/SAML login, sessions, configurations
 - **Enterprise** (15+) - LDAP, Branding, Domains, Audit/Compliance
-- **OAuth** (10) - authorize, token, introspect, userinfo, jwks, revoke
+- **OAuth** (10) - authorize, token, userinfo, jwks, revoke
 - **Webhooks** (10+) - CRUD, test, deliveries, events
 - **Bulk Operations** (8+) - Import/export users, migration tools
 - **Monitoring** (20+) - Health checks, Metrics, Errors
