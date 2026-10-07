@@ -43,55 +43,39 @@ class RolePolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasRole('Organization Owner');
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Role $role): bool
+    public function update(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Only org-scoped roles can be modified by org owners
-        if ($role->organization_id) {
-            return $user->organization_id === $role->organization_id
-                && $user->hasRole('Organization Owner');
-        }
-
-        // Global roles can only be modified by super admin
-        return false;
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Role $role): bool
+    public function delete(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->isSuperAdmin();
+    }
 
-        if ($role->organization_id) {
-            return $user->organization_id === $role->organization_id
-                && $user->hasRole('Organization Owner');
-        }
-
-        return false;
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Role $role): bool
+    public function restore(User $user): bool
     {
-        return $this->delete($user, $role);
+        return $this->delete($user);
     }
 
     /**

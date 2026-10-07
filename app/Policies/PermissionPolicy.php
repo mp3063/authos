@@ -35,11 +35,7 @@ class PermissionPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasRole('Organization Owner');
+        return $user->isSuperAdmin();
     }
 
     /**
@@ -55,6 +51,14 @@ class PermissionPolicy
      * Determine whether the user can delete the model.
      */
     public function delete(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
     {
         return $user->isSuperAdmin();
     }

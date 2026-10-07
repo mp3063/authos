@@ -484,41 +484,18 @@ class PermissionResource extends Resource
 
     public static function canCreate(): bool
     {
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        return ($user && $user->isSuperAdmin()) ||
-               ($user && $user->hasOrganizationPermission('permissions.create'));
+        return (bool) Filament::auth()->user()?->isSuperAdmin();
     }
 
     public static function canEdit($record): bool
     {
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can edit all permissions
-        if ($user && $user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization users can only edit their organization's permissions
-        return $user && $record->organization_id === $user->organization_id &&
-               $user->hasOrganizationPermission('permissions.update');
+        return (bool) Filament::auth()->user()?->isSuperAdmin();
     }
 
     public static function canDelete($record): bool
     {
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can delete permissions (except global system permissions)
-        if ($user && $user->isSuperAdmin()) {
-            return ! str_starts_with($record->name, 'system.') &&
-                   ! in_array($record->name, ['admin.access', 'access admin panel']);
-        }
-
-        // Organization users can only delete their organization's permissions
-        return $user && $record->organization_id === $user->organization_id &&
-               $user->hasOrganizationPermission('permissions.delete');
+        return Filament::auth()->user()?->isSuperAdmin()
+            && ! str_starts_with($record->name, 'system.')
+            && ! in_array($record->name, ['admin.access', 'access admin panel']);
     }
 }

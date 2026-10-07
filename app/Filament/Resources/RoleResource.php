@@ -380,40 +380,17 @@ class RoleResource extends Resource
 
     public static function canCreate(): bool
     {
-        $user = Filament::auth()->user();
-
-        return $user->isSuperAdmin() ||
-               $user->hasOrganizationPermission('roles.create');
+        return (bool) Filament::auth()->user()?->isSuperAdmin();
     }
 
     public static function canEdit($record): bool
     {
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can edit all roles
-        if ($user && $user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization users can only edit their organization's roles
-        return $user && $record->organization_id === $user->organization_id &&
-               $user->hasOrganizationPermission('roles.update');
+        return (bool) Filament::auth()->user()?->isSuperAdmin();
     }
 
     public static function canDelete($record): bool
     {
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can delete all roles (except global system roles)
-        if ($user && $user->isSuperAdmin()) {
-            return ! in_array($record->name, ['Super Admin', 'System Administrator']);
-        }
-
-        // Organization users can only delete their organization's roles
-        return $user && $record->organization_id === $user->organization_id &&
-               $user->hasOrganizationPermission('roles.delete') &&
-               $record->name != 'Organization Owner'; // Prevent deleting owner role
+        return Filament::auth()->user()?->isSuperAdmin()
+            && ! in_array($record->name, ['Super Admin', 'System Administrator']);
     }
 }

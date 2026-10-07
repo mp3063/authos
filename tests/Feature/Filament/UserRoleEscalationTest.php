@@ -4,8 +4,9 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\CustomRoleResource;
 use App\Filament\Resources\CustomRoleResource\Pages\ListCustomRoles;
+use App\Filament\Resources\PermissionResource;
 use App\Filament\Resources\PermissionResource\Pages\ListPermissions;
-use App\Filament\Resources\RoleResource\Pages\EditRole;
+use App\Filament\Resources\RoleResource;
 use App\Filament\Resources\RoleResource\Pages\ListRoles;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Models\CustomRole;
@@ -104,13 +105,21 @@ class UserRoleEscalationTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function organization_owners_cannot_change_a_roles_permissions(): void
+    public function only_super_admins_can_define_roles_and_permissions_in_the_panel(): void
     {
         $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner');
-        $this->actingAs($owner);
+        $role = $this->webRole('Organization Member');
 
-        Livewire::test(EditRole::class, ['record' => $this->webRole('Organization Member')->getRouteKey()])
-            ->assertFormFieldIsDisabled('permissions');
+        foreach ([$this->admin, $owner] as $user) {
+            $this->actingAs($user);
+
+            $this->assertFalse(RoleResource::canCreate());
+            $this->assertFalse(RoleResource::canEdit($role));
+            $this->assertFalse(RoleResource::canDelete($role));
+            $this->assertFalse(RoleResource::canDeleteAny());
+            $this->assertFalse(PermissionResource::canCreate());
+            $this->assertFalse(PermissionResource::canDeleteAny());
+        }
     }
 
     #[Test]
