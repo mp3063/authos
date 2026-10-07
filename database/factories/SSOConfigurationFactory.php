@@ -149,7 +149,7 @@ class SSOConfigurationFactory extends Factory
             $settings['saml_sso_url'] = fake()->url().'/saml/sso';
             $settings['saml_sls_url'] = fake()->url().'/saml/sls';
             $settings['saml_entity_id'] = fake()->url().'/saml/metadata';
-            $settings['x509_cert'] = 'test-certificate-content';
+            $settings['x509_cert'] = null;
             $settings['name_id_format'] = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
 
             return [
@@ -159,7 +159,7 @@ class SSOConfigurationFactory extends Factory
                     'sso_url' => fake()->url().'/saml/sso',
                     'sls_url' => fake()->url().'/saml/sls',
                     'entity_id' => fake()->url().'/saml/metadata',
-                    'x509_cert' => 'test-certificate-content',
+                    'x509_cert' => null,
                 ],
             ];
         });
