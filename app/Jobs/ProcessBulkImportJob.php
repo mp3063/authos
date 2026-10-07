@@ -12,8 +12,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class ProcessBulkImportJob implements ShouldQueue
@@ -234,7 +236,7 @@ class ProcessBulkImportJob implements ShouldQueue
                         $userData = [
                             'name' => $record['name'] ?? 'Unknown',
                             'email' => $record['email'],
-                            'password' => bcrypt('password'),
+                            'password' => Hash::make(Str::random(64)),
                             'organization_id' => $this->importJob->organization_id,
                             'email_verified_at' => now(),
                         ];

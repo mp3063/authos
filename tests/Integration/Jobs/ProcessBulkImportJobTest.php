@@ -7,7 +7,9 @@ namespace Tests\Integration\Jobs;
 use App\Jobs\ProcessBulkImportJob;
 use App\Models\BulkImportJob;
 use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
@@ -158,6 +160,23 @@ class ProcessBulkImportJobTest extends TestCase
 
         $this->importJob->refresh();
         $this->assertEquals(BulkImportJob::STATUS_COMPLETED, $this->importJob->status);
+    }
+
+    #[Test]
+    public function imported_users_do_not_get_a_shared_known_password(): void
+    {
+        $this->importJob->update([
+            'records' => [
+                ['name' => 'User 1', 'email' => 'user1@example.com'],
+                ['name' => 'User 2', 'email' => 'user2@example.com'],
+            ],
+        ]);
+
+        (new ProcessBulkImportJob($this->importJob))->handle();
+
+        $passwords = User::whereIn('email', ['user1@example.com', 'user2@example.com'])->pluck('password');
+        $this->assertCount(2, $passwords);
+        $passwords->each(fn (string $hash) => $this->assertFalse(Hash::check('password', $hash)));
     }
 
     protected function tearDown(): void
