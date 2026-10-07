@@ -524,16 +524,16 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function import_updates_a_member_of_the_callers_organization(): void
+    public function import_updates_a_members_name_but_never_their_password(): void
     {
-        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $member = $this->createApiUser(['organization_id' => $this->organization->id, 'password' => Hash::make('Original-Pass-1')]);
 
-        $this->importCsv("name,email,password\nRenamed Member,{$member->email},Updated-Pass-1", ['update_existing' => true])
-            ->assertCreated();
+        $response = $this->importCsv("name,email,password\nRenamed Member,{$member->email},Updated-Pass-1", ['update_existing' => true]);
 
+        $response->assertCreated()->assertJsonPath('data.updated.0.updated_fields', ['name']);
         $member->refresh();
         $this->assertSame('Renamed Member', $member->name);
-        $this->assertTrue(Hash::check('Updated-Pass-1', $member->password));
+        $this->assertTrue(Hash::check('Original-Pass-1', $member->password));
     }
 
     #[Test]

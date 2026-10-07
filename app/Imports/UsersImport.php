@@ -203,10 +203,6 @@ class UsersImport implements ToCollection, WithHeadingRow
             $updateData['name'] = trim($rowData['name']);
         }
 
-        if (! empty($rowData['password'])) {
-            $updateData['password'] = Hash::make($rowData['password']);
-        }
-
         if (! empty($updateData)) {
             $user->update($updateData);
         }
