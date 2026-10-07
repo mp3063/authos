@@ -3,10 +3,13 @@
 namespace Tests\Integration\Organizations;
 
 use App\Models\Application;
+use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\SecurityIncident;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -42,7 +45,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_get_user_count_metrics(): void
     {
         // ARRANGE: Create users with different states
@@ -86,7 +89,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(2, $metrics['mfa_enabled_users']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_get_login_activity_stats(): void
     {
         // ARRANGE: Create authentication logs
@@ -133,7 +136,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEquals(5, $analytics['unique_users_logged_in']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_get_application_usage_stats(): void
     {
         // ARRANGE: Create applications and usage data
@@ -199,7 +202,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEquals(3, $app1Metrics['total_users']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_get_mfa_adoption_rate(): void
     {
         // ARRANGE: Create users with MFA
@@ -235,7 +238,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEqualsWithDelta($expectedRate, $metrics['mfa_adoption_rate'], 1);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_get_security_incident_summary(): void
     {
         // ARRANGE: Create security incidents
@@ -282,7 +285,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEquals(4, $byType['password_reset']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_export_analytics_data(): void
     {
         // ARRANGE: Create some activity data
@@ -314,7 +317,26 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertNotNull($exportData['download_url']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
+    public function test_user_export_is_stored_on_the_private_disk(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/export", [
+                'format' => 'csv',
+                'data_type' => 'users',
+                'period' => '30days',
+            ]);
+
+        $response->assertOk();
+        $filePath = AuditExport::findOrFail($response->json('data.export_id'))->file_path;
+        Storage::disk('local')->assertExists($filePath);
+        Storage::disk('public')->assertMissing($filePath);
+    }
+
+    #[Test]
     public function test_analytics_respect_time_period_filter(): void
     {
         // ARRANGE: Create logs with different dates
@@ -348,7 +370,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEquals(5, $analytics30['total_logins']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_analytics_isolation_between_organizations(): void
     {
         // ARRANGE: Create another organization with data
@@ -375,7 +397,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertLessThan(50, $analytics['total_logins']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_export_analytics_in_multiple_formats(): void
     {
         // ARRANGE: Create some data
@@ -414,7 +436,7 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
         $this->assertEquals('xlsx', $excelResponse->json('data.format'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_analytics_caching_improves_performance(): void
     {
         // ARRANGE: Create substantial data

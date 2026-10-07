@@ -224,7 +224,7 @@ class OrganizationAnalyticsController extends BaseController
             $timestamp = now()->format('Y-m-d_His');
             $filePath = "exports/org-{$organization->id}-{$dataType}-{$timestamp}.{$fileExtension}";
 
-            Storage::disk('public')->put($filePath, $content);
+            Storage::disk('local')->put($filePath, $content);
 
             // Update AuditExport record
             $recordsCount = is_array($exportData) ? count($exportData) : 0;
@@ -305,13 +305,13 @@ class OrganizationAnalyticsController extends BaseController
             return $this->notFoundResponse('Export not found');
         }
 
-        if (! Storage::disk('public')->exists($export->file_path)) {
+        if (! Storage::disk('local')->exists($export->file_path)) {
             return $this->notFoundResponse('Export file not found');
         }
 
         $filename = basename($export->file_path);
 
-        return Storage::disk('public')->download($export->file_path, $filename);
+        return Storage::disk('local')->download($export->file_path, $filename);
     }
 
     /**

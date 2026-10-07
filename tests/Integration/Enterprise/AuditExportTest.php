@@ -394,7 +394,7 @@ admin,admin@test.com,login');
     public function export_job_processes_csv_format_correctly()
     {
         // ARRANGE: Create real storage (not fake for this test)
-        Storage::fake('public');
+        Storage::fake('local');
 
         $organization = $this->createOrganization();
         $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
@@ -431,7 +431,8 @@ admin,admin@test.com,login');
         $this->assertEquals(5, $export->records_count);
 
         // ASSERT: File exists in storage
-        Storage::disk('public')->assertExists($export->file_path);
+        Storage::disk('local')->assertExists($export->file_path);
+        Storage::disk('public')->assertMissing($export->file_path);
     }
 
     #[Test]
@@ -463,7 +464,7 @@ admin,admin@test.com,login');
 
         (new ProcessAuditExportJob($export))->handle(app(AuditExportService::class));
 
-        $content = Storage::disk('public')->get($export->refresh()->file_path);
+        $content = Storage::disk('local')->get($export->refresh()->file_path);
         $this->assertStringNotContainsString('203.0.113.99', $content);
         $this->assertSame(3, substr_count($content, '10.0.0.1'));
     }
@@ -472,7 +473,7 @@ admin,admin@test.com,login');
     public function export_job_processes_json_format_correctly()
     {
         // ARRANGE: Create real storage
-        Storage::fake('public');
+        Storage::fake('local');
 
         $organization = $this->createOrganization();
         $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
@@ -505,8 +506,8 @@ admin,admin@test.com,login');
         $this->assertEquals(3, $export->records_count);
 
         // ASSERT: JSON file exists and is valid
-        Storage::disk('public')->assertExists($export->file_path);
-        $content = Storage::disk('public')->get($export->file_path);
+        Storage::disk('local')->assertExists($export->file_path);
+        $content = Storage::disk('local')->get($export->file_path);
         $data = json_decode($content, true);
         $this->assertIsArray($data);
         $this->assertCount(3, $data);
@@ -516,7 +517,7 @@ admin,admin@test.com,login');
     public function export_job_handles_excel_format_correctly()
     {
         // ARRANGE: Create real storage
-        Storage::fake('public');
+        Storage::fake('local');
 
         $organization = $this->createOrganization();
         $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
@@ -554,14 +555,14 @@ admin,admin@test.com,login');
         $this->assertEquals(4, $export->records_count);
 
         // ASSERT: Excel file exists
-        Storage::disk('public')->assertExists($export->file_path);
+        Storage::disk('local')->assertExists($export->file_path);
     }
 
     #[Test]
     public function large_exports_with_1000_plus_records_are_handled()
     {
         // ARRANGE: Create real storage
-        Storage::fake('public');
+        Storage::fake('local');
 
         $admin = $this->createApiOrganizationAdmin();
 
@@ -592,10 +593,10 @@ admin,admin@test.com,login');
         $this->assertGreaterThan(1000, $export->records_count);
 
         // ASSERT: File exists
-        Storage::disk('public')->assertExists($export->file_path);
+        Storage::disk('local')->assertExists($export->file_path);
 
         // ASSERT: File size is reasonable (should contain all records)
-        $fileSize = Storage::disk('public')->size($export->file_path);
+        $fileSize = Storage::disk('local')->size($export->file_path);
         $this->assertGreaterThan(1000, $fileSize); // At least 1KB for 1200 records
     }
 

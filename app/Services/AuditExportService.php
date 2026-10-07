@@ -64,9 +64,9 @@ class AuditExportService
 
             // Export based on type
             if ($export->type === 'json') {
-                Storage::disk('public')->put($path, json_encode($logs->toArray(), JSON_PRETTY_PRINT));
+                Storage::disk('local')->put($path, json_encode($logs->toArray(), JSON_PRETTY_PRINT));
             } elseif ($export->type === 'csv' || $export->type === 'excel') {
-                Excel::store(new AuditLogsExport($logs), $path, 'public');
+                Excel::store(new AuditLogsExport($logs), $path, 'local');
             }
 
             $export->update([
@@ -139,7 +139,7 @@ class AuditExportService
 
         foreach ($exports as $export) {
             if ($export->file_path) {
-                Storage::disk('public')->delete($export->file_path);
+                Storage::disk('local')->delete($export->file_path);
             }
             $export->delete();
             $count++;

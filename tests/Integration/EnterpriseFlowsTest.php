@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -36,6 +37,7 @@ class EnterpriseFlowsTest extends TestCase
         parent::setUp();
 
         Storage::fake('public');
+        Storage::fake('local');
         Mail::fake();
 
         $this->organization = Organization::factory()->create([
@@ -57,7 +59,7 @@ class EnterpriseFlowsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function complete_domain_verification_workflow(): void
     {
         $domainService = app(DomainVerificationService::class);
@@ -105,7 +107,7 @@ class EnterpriseFlowsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function complete_branding_customization_workflow(): void
     {
         $brandingService = app(BrandingService::class);
@@ -160,7 +162,7 @@ class EnterpriseFlowsTest extends TestCase
         $this->assertNull($updated->login_background_path);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function complete_audit_export_workflow(): void
     {
         $auditService = app(AuditExportService::class);
@@ -200,7 +202,7 @@ class EnterpriseFlowsTest extends TestCase
         $this->assertEquals('completed', $export->status);
         $this->assertNotNull($export->file_path);
         $this->assertNotNull($export->completed_at);
-        Storage::disk('public')->assertExists($export->file_path);
+        Storage::disk('local')->assertExists($export->file_path);
 
         // Step 4: List exports
         $exports = $auditService->getExports($this->organization->id);
@@ -215,7 +217,7 @@ class EnterpriseFlowsTest extends TestCase
             'file_path' => 'exports/old-export.json',
         ]);
 
-        Storage::disk('public')->put($oldExport->file_path, 'test');
+        Storage::disk('local')->put($oldExport->file_path, 'test');
 
         $deleted = $auditService->cleanupOldExports(30);
 
@@ -223,7 +225,7 @@ class EnterpriseFlowsTest extends TestCase
         $this->assertDatabaseMissing('audit_exports', ['id' => $oldExport->id]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function complete_compliance_reporting_workflow(): void
     {
         Queue::fake();
@@ -277,7 +279,7 @@ class EnterpriseFlowsTest extends TestCase
         Queue::assertPushed(GenerateComplianceReportJob::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function complete_ldap_sync_workflow(): void
     {
         Queue::fake();
@@ -310,7 +312,7 @@ class EnterpriseFlowsTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function end_to_end_enterprise_setup_workflow(): void
     {
         Queue::fake();
