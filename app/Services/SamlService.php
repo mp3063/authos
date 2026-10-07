@@ -244,9 +244,9 @@ class SamlService
 
         return [
             'request_id' => $request->getAttribute('ID'),
-            'name_id' => SamlXml::firstText($xpath, './/saml:NameID', $request),
-            'session_index' => SamlXml::firstText($xpath, './/samlp:SessionIndex', $request),
-            'issuer' => SamlXml::firstText($xpath, './/saml:Issuer', $request),
+            'name_id' => SamlXml::firstText($xpath, 'saml:NameID', $request),
+            'session_index' => SamlXml::firstText($xpath, 'samlp:SessionIndex', $request),
+            'issuer' => SamlXml::firstText($xpath, 'saml:Issuer', $request),
         ];
     }
 

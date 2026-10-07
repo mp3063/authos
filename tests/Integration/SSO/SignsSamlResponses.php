@@ -4,6 +4,7 @@ namespace Tests\Integration\SSO;
 
 use App\Services\Saml\SamlXml;
 use DOMDocument;
+use DOMElement;
 use RobRichards\XMLSecLibs\XMLSecurityDSig;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
 
@@ -27,9 +28,17 @@ trait SignsSamlResponses
 
     protected function signSamlResponseWithUntrustedKey(string $xml): string
     {
-        self::$samlAttackerKeyPair ??= self::generateKeyPair();
+        return $this->signSamlResponseWith($xml, self::attackerKeyPair());
+    }
 
-        return $this->signSamlResponseWith($xml, self::$samlAttackerKeyPair);
+    protected function signSamlLogoutRequest(string $xml): string
+    {
+        return $this->signSamlXml($xml, self::idpKeyPair(), fn (DOMDocument $doc) => $doc->documentElement);
+    }
+
+    protected function signSamlLogoutRequestWithUntrustedKey(string $xml): string
+    {
+        return $this->signSamlXml($xml, self::attackerKeyPair(), fn (DOMDocument $doc) => $doc->documentElement);
     }
 
     /**
@@ -37,14 +46,27 @@ trait SignsSamlResponses
      */
     private function signSamlResponseWith(string $xml, array $keyPair): string
     {
+        return $this->signSamlXml(
+            $xml,
+            $keyPair,
+            fn (DOMDocument $doc) => $doc->getElementsByTagNameNS(SamlXml::SAML_NS, 'Assertion')->item(0)
+        );
+    }
+
+    /**
+     * @param  array{key: string, cert: string}  $keyPair
+     * @param  callable(DOMDocument): DOMElement  $selectSignedElement
+     */
+    private function signSamlXml(string $xml, array $keyPair, callable $selectSignedElement): string
+    {
         $doc = new DOMDocument;
         $doc->loadXML($xml);
-        $assertion = $doc->getElementsByTagNameNS(SamlXml::SAML_NS, 'Assertion')->item(0);
+        $signedElement = $selectSignedElement($doc);
 
         $dsig = new XMLSecurityDSig;
         $dsig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
         $dsig->addReference(
-            $assertion,
+            $signedElement,
             XMLSecurityDSig::SHA256,
             ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N],
             ['id_name' => 'ID', 'overwrite' => false]
@@ -53,7 +75,7 @@ trait SignsSamlResponses
         $key = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
         $key->loadKey($keyPair['key']);
         $dsig->sign($key);
-        $dsig->insertSignature($assertion, $assertion->firstChild);
+        $dsig->insertSignature($signedElement, $signedElement->firstChild);
 
         return base64_encode($doc->saveXML());
     }
@@ -64,6 +86,14 @@ trait SignsSamlResponses
     private static function idpKeyPair(): array
     {
         return self::$samlIdpKeyPair ??= self::generateKeyPair();
+    }
+
+    /**
+     * @return array{key: string, cert: string}
+     */
+    private static function attackerKeyPair(): array
+    {
+        return self::$samlAttackerKeyPair ??= self::generateKeyPair();
     }
 
     /**

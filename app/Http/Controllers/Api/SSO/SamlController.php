@@ -111,19 +111,25 @@ class SamlController extends Controller
                 // IdP-initiated logout - parse LogoutRequest and revoke sessions
                 $logoutData = $this->samlService->parseLogoutRequest($samlRequest);
 
-                // Find user by NameID and revoke sessions
-                $user = User::where('email', $logoutData['name_id'])->first();
+                $ssoConfig = $this->findSamlConfigurationForIssuer($logoutData['issuer']);
+                if (! $ssoConfig) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No SAML configuration found for IdP: '.($logoutData['issuer'] ?? 'unknown'),
+                    ], 400);
+                }
+
+                $this->signatureValidator->validateLogoutRequest(
+                    $samlRequest,
+                    $ssoConfig->configuration['x509_cert'] ?? $ssoConfig->settings['x509_cert'] ?? null
+                );
+
+                $user = User::where('organization_id', $ssoConfig->application->organization_id)
+                    ->where('email', $logoutData['name_id'])
+                    ->first();
 
                 if ($user) {
                     $this->sessions->revokeUserSessions($user->id);
-                }
-
-                // Find the SSO config to get SP entity ID for the response
-                $ssoConfig = null;
-                if ($logoutData['issuer']) {
-                    $ssoConfig = SSOConfiguration::where('is_active', true)
-                        ->whereJsonContains('configuration->idp_entity_id', $logoutData['issuer'])
-                        ->first();
                 }
 
                 $spEntityId = $ssoConfig->configuration['sp_entity_id'] ?? config('app.url');
@@ -183,22 +189,7 @@ class SamlController extends Controller
             // Parse the assertion to get user info and issuer
             $userInfo = $this->samlService->parseAssertion($samlResponse);
 
-            // Find the SSO configuration by IdP issuer
-            $ssoConfig = null;
-            if ($userInfo['issuer']) {
-                $ssoConfig = SSOConfiguration::where('is_active', true)
-                    ->where(function ($providerQuery) {
-                        $providerQuery->where('provider', 'saml2')->orWhere('provider', 'saml');
-                    })
-                    ->get()
-                    ->first(function ($config) use ($userInfo) {
-                        $idpEntityId = $config->configuration['idp_entity_id']
-                            ?? $config->settings['saml_entity_id']
-                            ?? null;
-
-                        return $idpEntityId === $userInfo['issuer'];
-                    });
-            }
+            $ssoConfig = $this->findSamlConfigurationForIssuer($userInfo['issuer']);
 
             if (! $ssoConfig) {
                 // Fall back to finding by application in RelayState
@@ -278,5 +269,25 @@ class SamlController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
+    }
+
+    private function findSamlConfigurationForIssuer(?string $issuer): ?SSOConfiguration
+    {
+        if (! $issuer) {
+            return null;
+        }
+
+        return SSOConfiguration::where('is_active', true)
+            ->where(function ($providerQuery) {
+                $providerQuery->where('provider', 'saml2')->orWhere('provider', 'saml');
+            })
+            ->get()
+            ->first(function ($config) use ($issuer) {
+                $idpEntityId = $config->configuration['idp_entity_id']
+                    ?? $config->settings['saml_entity_id']
+                    ?? null;
+
+                return $idpEntityId === $issuer;
+            });
     }
 }
