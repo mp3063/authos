@@ -27,7 +27,7 @@ class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         $this->includeActivity = $includeActivity;
     }
 
-    public function collection()
+    public function collection(): Collection
     {
         return $this->users;
     }
@@ -98,7 +98,7 @@ class UsersExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         return $row;
     }
 
-    public function styles(Worksheet $sheet)
+    public function styles(Worksheet $sheet): ?array
     {
         return [
             // Style the first row as bold text

@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Mail\OrganizationInvitation;
 use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
@@ -9,9 +10,13 @@ use App\Models\User;
 use App\Services\InvitationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class UsersImport implements ToCollection, WithHeadingRow
 {
@@ -50,7 +55,7 @@ class UsersImport implements ToCollection, WithHeadingRow
         $this->invitationService = $invitationService;
     }
 
-    public function collection(Collection $rows)
+    public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
             try {
@@ -231,7 +236,7 @@ class UsersImport implements ToCollection, WithHeadingRow
             'email' => $email,
             'role' => $role,
             'inviter_id' => $this->currentUser->id,
-            'token' => \Illuminate\Support\Str::random(64),
+            'token' => Str::random(64),
             'expires_at' => now()->addDays(7),
             'metadata' => [
                 'imported_name' => $name,
@@ -242,8 +247,8 @@ class UsersImport implements ToCollection, WithHeadingRow
 
         // Send invitation email
         try {
-            \Illuminate\Support\Facades\Mail::to($invitation->email)
-                ->send(new \App\Mail\OrganizationInvitation($invitation));
+            Mail::to($invitation->email)
+                ->send(new OrganizationInvitation($invitation));
         } catch (\Exception $e) {
             // Log email failure but don't fail the import
             logger()->error('Failed to send invitation email during import', [
@@ -271,7 +276,7 @@ class UsersImport implements ToCollection, WithHeadingRow
     protected function isValidRole(string $role): bool
     {
         // Check if the role exists for this organization or is a global role (case-insensitive)
-        $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+        $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
             ->where(function ($query) {
                 $query->where('organization_id', $this->organization->id)
                     ->orWhereNull('organization_id');
@@ -288,7 +293,7 @@ class UsersImport implements ToCollection, WithHeadingRow
             }
 
             foreach ($rolesToTry as $tryRole) {
-                $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
+                $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
                     ->where(function ($query) {
                         $query->where('organization_id', $this->organization->id)
                             ->orWhereNull('organization_id');
@@ -306,7 +311,7 @@ class UsersImport implements ToCollection, WithHeadingRow
     protected function assignRoleToUser(User $user, string $role): void
     {
         // Find the role using case-insensitive search
-        $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+        $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
             ->where(function ($query) {
                 $query->where('organization_id', $this->organization->id)
                     ->orWhereNull('organization_id');
@@ -323,7 +328,7 @@ class UsersImport implements ToCollection, WithHeadingRow
             }
 
             foreach ($rolesToTry as $tryRole) {
-                $roleModel = \Spatie\Permission\Models\Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
+                $roleModel = Role::whereRaw('LOWER(name) = LOWER(?)', [$tryRole])
                     ->where(function ($query) {
                         $query->where('organization_id', $this->organization->id)
                             ->orWhereNull('organization_id');
@@ -338,7 +343,7 @@ class UsersImport implements ToCollection, WithHeadingRow
         if ($roleModel) {
             // Set the team context for proper role assignment
             $user->setPermissionsTeamId($this->organization->id);
-            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->organization->id);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($this->organization->id);
 
             // Assign the role using Spatie's method
             $user->assignRole($roleModel);
