@@ -14,6 +14,8 @@ use Illuminate\Support\Str;
 
 class BulkInvitationService
 {
+    public function __construct(protected UserRoleService $userRoles) {}
+
     /**
      * Bulk invite multiple users to an organization
      */
@@ -39,7 +41,7 @@ class BulkInvitationService
                     }
 
                     // Validate invitation requirements
-                    $validationResult = $this->validateInvitationData($invitationData, $organization);
+                    $validationResult = $this->validateInvitationData($invitationData, $organization, $inviter);
                     if ($validationResult) {
                         $results[$validationResult['type']][] = $validationResult['data'];
 
@@ -82,8 +84,18 @@ class BulkInvitationService
     /**
      * Validate invitation data and check for conflicts
      */
-    private function validateInvitationData(array $invitationData, Organization $organization): ?array
+    private function validateInvitationData(array $invitationData, Organization $organization, User $inviter): ?array
     {
+        if (! $this->userRoles->canGrantRoleNamed($inviter, $organization->id, $invitationData['role'] ?? 'user')) {
+            return [
+                'type' => 'failed',
+                'data' => [
+                    'email' => $invitationData['email'],
+                    'reason' => 'You cannot invite users with this role',
+                ],
+            ];
+        }
+
         // Check if the user already exists
         $existingUser = User::where('email', $invitationData['email'])->first();
         if ($existingUser) {

@@ -37,6 +37,25 @@ class UserRoleService
     }
 
     /**
+     * The role with this name (case-insensitive) that the caller may grant to a member of the organization, if any.
+     */
+    public function findAssignableRole(User $caller, ?int $organizationId, string $name, ?string $guard = null): ?Role
+    {
+        return Role::query()
+            ->whereRaw('LOWER(name) = LOWER(?)', [$name])
+            ->when($guard !== null, fn (Builder $query) => $query->where('guard_name', $guard))
+            ->where(fn (Builder $query) => $this->scopeToAssignableRoles($query, $caller, $organizationId))
+            ->first();
+    }
+
+    public function canGrantRoleNamed(User $caller, ?int $organizationId, string $name): bool
+    {
+        $role = $this->findAssignableRole($caller, $organizationId, $name);
+
+        return $role !== null && $this->roleChangeDenial($caller, null, new EloquentCollection([$role])) === null;
+    }
+
+    /**
      * Why the caller may not grant or revoke these roles for the target (null for a user being created), if not allowed.
      *
      * @param  EloquentCollection<int, Role>  $roles

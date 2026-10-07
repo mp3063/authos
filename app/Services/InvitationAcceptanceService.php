@@ -6,12 +6,14 @@ use App\Mail\InvitationAccepted;
 use App\Models\Invitation;
 use App\Models\User;
 use Exception;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
 class InvitationAcceptanceService
 {
+    public function __construct(protected UserRoleService $userRoles) {}
+
     public function acceptAsNewUser(string $token, array $userData): User
     {
         $invitation = Invitation::where('token', $token)->first();
@@ -68,6 +70,10 @@ class InvitationAcceptanceService
             throw new Exception('Invitation email does not match your account email');
         }
 
+        if ($user->organization_id !== $invitation->organization_id) {
+            throw new Exception('This invitation is for a different organization than your account');
+        }
+
         return DB::transaction(function () use ($invitation, $user) {
             // Accept the invitation
             $invitation->accept($user);
@@ -83,54 +89,34 @@ class InvitationAcceptanceService
         });
     }
 
+    /**
+     * @throws Exception when the role carries permissions the inviter can no longer grant
+     */
     private function assignInvitedRole(User $user, Invitation $invitation): void
     {
-        // Ensure permissions team context is set
-        $user->setPermissionsTeamId($user->organization_id);
+        $inviter = $invitation->inviter;
+        $role = $inviter
+            ? $this->userRoles->findAssignableRole($inviter, $invitation->organization_id, $invitation->role, $user->getDefaultGuardName())
+            : null;
 
-        if ($this->userHasInvitedRole($user, $invitation)) {
-            return;
-        }
-
-        try {
-            $user->assignRole($invitation->role);
-        } catch (RoleDoesNotExist $e) {
-            // Role doesn't exist, log and continue without error
+        if (! $role) {
             logger()->warning('Unable to assign role during invitation acceptance', [
                 'role' => $invitation->role,
                 'user_id' => $user->id,
-                'error' => $e->getMessage(),
             ]);
-        } catch (Exception $e) {
-            // If role assignment fails due to constraint violation, it means user already has the role
-            if (strpos($e->getMessage(), 'UNIQUE constraint failed') === false) {
-                throw $e;
-            }
-        }
-    }
 
-    private function userHasInvitedRole(User $user, Invitation $invitation): bool
-    {
-        // Check if user already has this role for this organization
-        try {
-            $hasRole = $user->hasRole($invitation->role);
-        } catch (RoleDoesNotExist $e) {
-            // Role doesn't exist for this guard, skip role assignment
-            $hasRole = false;
-            logger()->warning('Role not found during invitation acceptance', [
-                'role' => $invitation->role,
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
+            return;
         }
 
-        // Testing environment fallback
-        if (! $hasRole && app()->environment('testing')) {
-            $userRoles = $user->roles()->get()->pluck('name')->toArray();
-            $hasRole = in_array($invitation->role, $userRoles);
+        if ($this->userRoles->roleChangeDenial($inviter, null, new EloquentCollection([$role]))) {
+            throw new Exception('The invited role grants permissions the inviter cannot grant');
         }
 
-        return $hasRole;
+        $user->setPermissionsTeamId($invitation->organization_id);
+
+        if (! $user->hasRole($role)) {
+            $user->assignRole($role);
+        }
     }
 
     private function notifyInviter(Invitation $invitation, User $user): void

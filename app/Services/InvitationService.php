@@ -16,6 +16,7 @@ class InvitationService
     public function __construct(
         protected InvitationAuthorizer $authorizer,
         protected InvitationAcceptanceService $acceptance,
+        protected UserRoleService $userRoles,
     ) {}
 
     public function sendInvitation(
@@ -43,6 +44,10 @@ class InvitationService
         // Validate that the inviter has permission to invite to this organization
         if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
+        }
+
+        if (! $this->userRoles->canGrantRoleNamed($inviterUser, $organizationId, $role)) {
+            throw ValidationException::withMessages(['role' => 'You cannot invite users with this role.']);
         }
 
         // Check if user is already a member of the organization

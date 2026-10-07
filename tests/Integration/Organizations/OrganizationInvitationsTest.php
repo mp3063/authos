@@ -4,7 +4,9 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\Invitation;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -42,7 +44,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_create_invitation(): void
     {
         // ARRANGE: Prepare invitation data
@@ -87,7 +89,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_resend_invitation(): void
     {
         // ARRANGE: Create an invitation
@@ -118,7 +120,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertTrue($invitation->expires_at->isFuture());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_bulk_invite_users(): void
     {
         // ARRANGE: Prepare bulk invitation data
@@ -165,13 +167,15 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_accept_invitation(): void
     {
         // ARRANGE: Create a pending invitation
         $invitation = Invitation::factory()->create([
             'organization_id' => $this->organization->id,
+            'inviter_id' => $this->admin->id,
             'email' => 'newuser@example.com',
+            'role' => 'User',
             'status' => 'pending',
             'expires_at' => now()->addDays(7),
         ]);
@@ -199,7 +203,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertEquals($newUser->id, $invitation->accepted_by);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_decline_invitation(): void
     {
         // ARRANGE: Create a pending invitation
@@ -228,7 +232,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertEquals('Not interested at this time', $invitation->decline_reason);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_cancel_invitation(): void
     {
         // ARRANGE: Create a pending invitation
@@ -256,7 +260,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertEquals($this->admin->id, $invitation->cancelled_by);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_list_pending_invitations(): void
     {
         // ARRANGE: Create various invitations
@@ -303,7 +307,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_invitation_expiration_handling(): void
     {
         // ARRANGE: Create expired invitation
@@ -335,7 +339,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertEquals('pending', $expiredInvitation->status);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_cannot_accept_already_accepted_invitation(): void
     {
         // ARRANGE: Create and accept invitation
@@ -357,7 +361,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_invitation_respects_organization_boundary(): void
     {
         // ARRANGE: Create invitation in other organization
@@ -386,7 +390,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $cancelResponse->assertNotFound();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_invite_handles_duplicates(): void
     {
         // ARRANGE: Create existing invitation
@@ -417,7 +421,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(1, $responseData['failed_count']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_invitation_includes_expiration_countdown(): void
     {
         // ARRANGE: Create invitation expiring in 3 days
@@ -445,7 +449,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertGreaterThan(new \DateTime, $expiresAt);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_resending_invitation_extends_expiration(): void
     {
         // ARRANGE: Create invitation expiring soon
@@ -471,7 +475,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertTrue($invitation->expires_at->isAfter(now()->addDays(6)));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_invitation_validation_rejects_invalid_emails(): void
     {
         // ARRANGE: Prepare invalid invitation data
@@ -487,5 +491,90 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         // ASSERT: Verify validation error
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
+    }
+
+    #[Test]
+    public function an_admin_cannot_invite_with_a_role_they_could_not_grant_with_422(): void
+    {
+        $this->createApiSuperAdmin();
+
+        foreach (['Organization Owner', 'Super Admin', 'Nonexistent Role'] as $index => $role) {
+            $response = $this->actingAs($this->admin, 'api')
+                ->postJson("/api/v1/organizations/{$this->organization->id}/invitations", [
+                    'email' => "invitee{$index}@example.com",
+                    'role' => $role,
+                ]);
+
+            $response->assertUnprocessable()->assertJsonValidationErrors(['role']);
+        }
+
+        $this->assertDatabaseCount('invitations', 0);
+    }
+
+    #[Test]
+    public function bulk_invite_users_rejects_a_role_the_admin_could_not_grant(): void
+    {
+        $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/invite-users", [
+                'emails' => ['invitee@example.com'],
+                'role' => 'Organization Owner',
+            ]);
+
+        $this->assertDatabaseMissing('invitations', ['email' => 'invitee@example.com']);
+    }
+
+    #[Test]
+    public function a_member_of_another_organization_cannot_accept_an_invitation_with_400(): void
+    {
+        $outsider = $this->createApiUser();
+        $invitation = Invitation::factory()->create([
+            'organization_id' => $this->organization->id,
+            'inviter_id' => $this->admin->id,
+            'email' => $outsider->email,
+            'role' => 'Organization Admin',
+        ]);
+
+        $response = $this->actingAs($outsider, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept");
+
+        $response->assertStatus(400);
+        $this->assertSame('pending', $invitation->fresh()->status);
+        $this->assertFalse($outsider->fresh()->roles()->where('name', 'Organization Admin')->exists());
+    }
+
+    #[Test]
+    public function accepting_an_invitation_does_not_grant_a_role_beyond_the_inviters_permissions(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $invitation = Invitation::factory()->create([
+            'organization_id' => $this->organization->id,
+            'inviter_id' => $this->admin->id,
+            'email' => $member->email,
+            'role' => 'Organization Owner',
+        ]);
+
+        $response = $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept");
+
+        $response->assertStatus(400);
+        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Owner')->exists());
+    }
+
+    #[Test]
+    public function accepting_an_invitation_grants_the_invited_role_of_the_organization(): void
+    {
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $memberRole = Role::where('name', 'Organization Member')
+            ->where('organization_id', $this->organization->id)
+            ->where('guard_name', 'api')
+            ->firstOrFail();
+        $invitation = Invitation::factory()->create([
+            'organization_id' => $this->organization->id,
+            'inviter_id' => $this->admin->id,
+            'email' => $member->email,
+            'role' => 'Organization Member',
+        ]);
+
+        $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept")->assertOk();
+
+        $this->assertTrue($member->fresh()->roles()->whereKey($memberRole->id)->exists());
     }
 }

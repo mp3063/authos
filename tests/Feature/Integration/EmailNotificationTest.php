@@ -30,6 +30,8 @@ class EmailNotificationTest extends TestCase
 
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
+        Role::query()->create(['name' => 'user', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
+        Role::query()->create(['name' => 'organization admin', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
 
         $this->inviter->assignRole('organization admin');
 

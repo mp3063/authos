@@ -8,10 +8,12 @@ use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Comprehensive Organization Management End-to-End Tests
@@ -447,7 +449,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
         // Invite existing user to current organization
         $invitationData = [
             'email' => 'existing@example.com',
-            'role' => 'Organization Member',
+            'role' => 'User',
         ];
 
         $response = $this->postJson("/api/v1/organizations/{$this->defaultOrganization->id}/invitations", $invitationData);
@@ -458,14 +460,13 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
         $this->assertNotNull($invitation);
 
-        // Existing user accepts invitation
+        // A user of another organization cannot accept: users belong to a single organization
         $this->actingAs($existingUser, 'api');
         $response = $this->postJson("/api/v1/invitations/{$invitation->token}/accept");
-        $response->assertStatus(200);
+        $response->assertStatus(400);
 
-        // Verify user now has access to both organizations
         $invitation->refresh();
-        $this->assertEquals('accepted', $invitation->status);
+        $this->assertEquals('pending', $invitation->status);
     }
 
     public function test_invitation_expiration_handling(): void
@@ -565,7 +566,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ],
             [
                 'email' => 'bulk2@testorg.com',
-                'role' => 'Organization Member',
+                'role' => 'Organization Admin',
                 'metadata' => ['department' => 'Marketing'],
             ],
             [
@@ -796,7 +797,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
         // Test that Org A user cannot see Org B data
         $this->actingAs($orgAUser, 'api');
         $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
 
         // Should only see users from their organization
         $response = $this->getJson('/api/v1/users');
@@ -858,7 +859,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
 
         $this->actingAs($orgAAdmin, 'api');
         $orgAAdmin->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
 
         // Admin should be able to manage their organization
         $response = $this->getJson("/api/v1/organizations/{$this->defaultOrganization->id}");
@@ -945,7 +946,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
 
         $this->actingAs($orgAUser, 'api');
         $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
 
         // Should see only their organization's applications
         $response = $this->getJson('/api/v1/applications');
@@ -1106,14 +1107,14 @@ class OrganizationFlowsTest extends EndToEndTestCase
         // Test senior permissions
         $this->actingAs($seniorDev, 'api');
         $seniorDev->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
         $this->assertTrue($seniorDev->hasPermissionTo('applications.create'));
         $this->assertTrue($seniorDev->hasPermissionTo('users.create'));
 
         // Test junior permissions restrictions
         $this->actingAs($juniorDev, 'api');
         $juniorDev->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
         $this->assertFalse($juniorDev->hasPermissionTo('applications.create'));
         $this->assertFalse($juniorDev->hasPermissionTo('users.create'));
         $this->assertTrue($juniorDev->hasPermissionTo('applications.read'));
@@ -1130,23 +1131,23 @@ class OrganizationFlowsTest extends EndToEndTestCase
             'organization_id' => $this->defaultOrganization->id,
         ]);
         $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
         $orgAUser->assignRole($orgARole);
 
         $orgBUser = User::factory()->create([
             'organization_id' => $this->isolatedOrganization->id,
         ]);
         $orgBUser->setPermissionsTeamId($this->isolatedOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->isolatedOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->isolatedOrganization->id);
         $orgBUser->assignRole($orgBRole);
 
         // Verify role isolation with proper organization context
         $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->defaultOrganization->id);
         $this->assertFalse($orgAUser->hasPermissionTo('applications.create', 'api'));
 
         $orgBUser->setPermissionsTeamId($this->isolatedOrganization->id);
-        app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($this->isolatedOrganization->id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId($this->isolatedOrganization->id);
         $this->assertTrue($orgBUser->hasPermissionTo('applications.create', 'api'));
 
         // Verify roles are organization-specific
@@ -1480,7 +1481,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
     /**
      * Create multiple test users for bulk operations
      */
-    protected function createTestUsers(int $count, Organization $organization): \Illuminate\Database\Eloquent\Collection
+    protected function createTestUsers(int $count, Organization $organization): Collection
     {
         return User::factory()->count($count)->create([
             'organization_id' => $organization->id,
