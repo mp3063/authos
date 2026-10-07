@@ -4,7 +4,7 @@
 Enterprise authentication service - Auth0/Okta alternative with Filament 5 admin, OAuth 2.0, OpenID Connect, MFA, SSO, and social authentication.
 
 **Status**: In Development, not production ready
-- **1,750 tests**, full suite passing (a handful skipped or incomplete)
+- **1,750+ tests**, full suite passing (a handful skipped or incomplete)
 - **220+ API routes**, **27 Filament resources**, **13 dashboard widgets**
 - Multi-tenant with organization isolation
 - Complete OAuth 2.0 + PKCE, OIDC, SAML 2.0
@@ -115,7 +115,7 @@ herd php artisan monitor:health            # Health check
 ## Test Suite Architecture
 
 ### Overview
-- **1,750 tests** in ~143 files: `tests/Unit`, `tests/Feature` and `tests/Integration` (~100 files across Security, SSO, OAuth, Webhooks, Cache, BulkOperations, Monitoring, Models, Profile, Applications, Jobs, Organizations, Users, Enterprise, EndToEnd and more)
+- **1,750+ tests** in ~143 files: `tests/Unit`, `tests/Feature` and `tests/Integration` (~100 files across Security, SSO, OAuth, Webhooks, Cache, BulkOperations, Monitoring, Models, Profile, Applications, Jobs, Organizations, Users, Enterprise, EndToEnd and more)
 - The full suite passes; a handful of tests are skipped or marked incomplete
 - Tests run against in-memory SQLite, in parallel via ParaTest
 

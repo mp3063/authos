@@ -17,7 +17,7 @@
 
 ---
 
-> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. Core features are functional and the full test suite (1,750 tests) passes. See the [Testing](#testing) section for details.
+> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. Core features are functional and the full test suite (1,750+ tests) passes. See the [Testing](#testing) section for details.
 
 ---
 
@@ -199,7 +199,7 @@ The Filament-powered admin panel provides:
 
 ## Testing
 
-AuthOS has **1,750 tests** in ~143 test files (unit, feature and integration). The full suite passes; a handful of tests are skipped or marked incomplete. Tests run against in-memory SQLite and in parallel via ParaTest.
+AuthOS has **1,750+ tests** in ~143 test files (unit, feature and integration). The full suite passes; a handful of tests are skipped or marked incomplete. Tests run against in-memory SQLite and in parallel via ParaTest.
 
 ```bash
 # Run all tests (parallel, with timeout protection)
