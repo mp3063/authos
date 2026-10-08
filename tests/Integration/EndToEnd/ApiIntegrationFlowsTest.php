@@ -1072,13 +1072,16 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
     {
         $admin = $this->actingAsTestUser('organization_admin');
 
-        // Test cache stats endpoint
-        $cacheStatsResponse = $this->getJson('/api/v1/cache/stats');
-        $this->assertUnifiedApiResponse($cacheStatsResponse, 200);
+        $this->getJson('/api/v1/cache/stats')->assertForbidden();
+        $this->deleteJson('/api/v1/cache/clear-all')->assertForbidden();
 
-        // Test cache clearing (admin only)
         $clearCacheResponse = $this->deleteJson('/api/v1/cache/clear-user');
         $this->assertUnifiedApiResponse($clearCacheResponse, 200);
+
+        $this->actingAsTestUser('super_admin');
+
+        $cacheStatsResponse = $this->getJson('/api/v1/cache/stats');
+        $this->assertUnifiedApiResponse($cacheStatsResponse, 200);
 
         $clearAllResponse = $this->deleteJson('/api/v1/cache/clear-all');
         $this->assertUnifiedApiResponse($clearAllResponse, 200);
