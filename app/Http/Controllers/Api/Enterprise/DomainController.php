@@ -25,6 +25,8 @@ class DomainController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('organizations.read');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -67,6 +69,8 @@ class DomainController extends BaseController
 
     public function verify(int $domainId): JsonResponse
     {
+        $this->authorize('organizations.update');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -92,6 +96,8 @@ class DomainController extends BaseController
 
     public function destroy(int $domainId): JsonResponse
     {
+        $this->authorize('organizations.update');
+
         try {
             $user = $this->getAuthenticatedUser();
 

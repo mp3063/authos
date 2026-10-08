@@ -26,8 +26,8 @@ use Tests\Integration\IntegrationTestCase;
  * This test suite verifies that organizations can add, verify, and manage
  * custom domains with proper DNS validation and security checks.
  *
- * @see \App\Services\DomainVerificationService
- * @see \App\Models\CustomDomain
+ * @see DomainVerificationService
+ * @see CustomDomain
  */
 class DomainVerificationTest extends IntegrationTestCase
 {
@@ -582,5 +582,20 @@ class DomainVerificationTest extends IntegrationTestCase
 
         // ASSERT: Access denied (should return 404 to prevent info leakage)
         $response->assertNotFound();
+    }
+
+    #[Test]
+    public function it_forbids_a_regular_member_from_deleting_or_verifying_a_domain_with_403()
+    {
+        $organization = $this->createOrganization();
+        $member = $this->createApiUser(['organization_id' => $organization->id]);
+        $domain = CustomDomain::factory()->create(['organization_id' => $organization->id]);
+
+        $verify = $this->actingAs($member, 'api')->postJson("/api/v1/enterprise/domains/{$domain->id}/verify");
+        $destroy = $this->actingAs($member, 'api')->deleteJson("/api/v1/enterprise/domains/{$domain->id}");
+
+        $verify->assertForbidden();
+        $destroy->assertForbidden();
+        $this->assertDatabaseHas('custom_domains', ['id' => $domain->id, 'status' => $domain->status]);
     }
 }
