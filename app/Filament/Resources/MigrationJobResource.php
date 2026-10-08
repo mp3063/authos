@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\MigrationJobResource\Pages\ListMigrationJobs;
 use App\Filament\Resources\MigrationJobResource\Pages\ViewMigrationJob;
 use App\Models\MigrationJob;
@@ -23,6 +24,8 @@ use UnitEnum;
 
 class MigrationJobResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = MigrationJob::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -227,21 +230,6 @@ class MigrationJobResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['organization']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can see all migration jobs
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see migration jobs from their organization
-        if ($user && $user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery()->with(['organization']));
     }
 }

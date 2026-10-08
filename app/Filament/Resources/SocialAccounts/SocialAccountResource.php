@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SocialAccounts;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\SocialAccounts\Pages\CreateSocialAccount;
 use App\Filament\Resources\SocialAccounts\Pages\EditSocialAccount;
 use App\Filament\Resources\SocialAccounts\Pages\ListSocialAccounts;
@@ -11,10 +12,13 @@ use App\Models\SocialAccount;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class SocialAccountResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = SocialAccount::class;
 
     protected static string|UnitEnum|null $navigationGroup = 'User Management';
@@ -36,6 +40,11 @@ class SocialAccountResource extends Resource
         return [
 
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return static::scopeToOrganizationThrough(parent::getEloquentQuery(), 'user');
     }
 
     public static function getPages(): array

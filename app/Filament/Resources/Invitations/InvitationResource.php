@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Invitations;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\Invitations\Pages\CreateInvitation;
 use App\Filament\Resources\Invitations\Pages\EditInvitation;
 use App\Filament\Resources\Invitations\Pages\ListInvitations;
@@ -13,10 +14,13 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class InvitationResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = Invitation::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -56,8 +60,13 @@ class InvitationResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return static::scopeToOrganization(parent::getEloquentQuery());
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::pending()->count();
+        return static::getEloquentQuery()->pending()->count();
     }
 }

@@ -2,15 +2,14 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\SecurityIncidentResource\Pages\ListSecurityIncidents;
 use App\Filament\Resources\SecurityIncidentResource\Pages\ViewSecurityIncident;
 use App\Models\SecurityIncident;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -26,6 +25,8 @@ use UnitEnum;
 
 class SecurityIncidentResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = SecurityIncident::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -287,23 +288,6 @@ class SecurityIncidentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['user']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can see all security incidents
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see incidents from their organization
-        if ($user && $user->organization_id) {
-            $query->whereHas('user', function ($subQuery) use ($user) {
-                $subQuery->where('organization_id', $user->organization_id);
-            });
-        }
-
-        return $query;
+        return static::scopeToOrganizationOrThrough(parent::getEloquentQuery()->with(['user']), 'user');
     }
 }

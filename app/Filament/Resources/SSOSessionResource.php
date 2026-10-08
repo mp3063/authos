@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\SSOSessionResource\Pages\ListSSOSessions;
 use App\Filament\Resources\SSOSessionResource\Pages\ViewSSOSession;
 use App\Models\Application;
@@ -26,6 +27,8 @@ use UnitEnum;
 
 class SSOSessionResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = SSOSession::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -209,23 +212,6 @@ class SSOSessionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['user', 'application']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can see all SSO sessions
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see sessions from their organization
-        if ($user && $user->organization_id) {
-            $query->whereHas('user', function ($subQuery) use ($user) {
-                $subQuery->where('organization_id', $user->organization_id);
-            });
-        }
-
-        return $query;
+        return static::scopeToOrganizationThrough(parent::getEloquentQuery()->with(['user', 'application']), 'user');
     }
 }

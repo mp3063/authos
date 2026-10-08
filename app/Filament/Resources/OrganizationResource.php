@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\OrganizationResource\Pages\CreateOrganization;
 use App\Filament\Resources\OrganizationResource\Pages\EditOrganization;
 use App\Filament\Resources\OrganizationResource\Pages\ListOrganizations;
@@ -14,7 +15,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
@@ -37,6 +37,8 @@ use UnitEnum;
 
 class OrganizationResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = Organization::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -217,20 +219,7 @@ class OrganizationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        // Super admins can see all organizations
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see their own organization
-        if ($user->organization_id) {
-            $query->where('id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery(), 'id');
     }
 
     public static function getNavigationBadge(): ?string

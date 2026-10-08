@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
@@ -20,7 +21,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
@@ -46,6 +46,8 @@ use UnitEnum;
 
 class UserResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -284,20 +286,7 @@ class UserResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        // Super admins can see all users
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see users from their organization
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

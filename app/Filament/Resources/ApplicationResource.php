@@ -2,13 +2,13 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\ApplicationResource\Pages\CreateApplication;
 use App\Filament\Resources\ApplicationResource\Pages\EditApplication;
 use App\Filament\Resources\ApplicationResource\Pages\ListApplications;
 use App\Filament\Resources\ApplicationResource\Pages\ViewApplication;
 use App\Filament\Resources\ApplicationResource\RelationManagers\UsersRelationManager;
 use App\Models\Application;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -18,7 +18,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
@@ -40,6 +39,8 @@ use UnitEnum;
 
 class ApplicationResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = Application::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -225,25 +226,7 @@ class ApplicationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        // Ensure user is properly typed and authenticated
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0'); // Return empty results if not authenticated properly
-        }
-
-        // Super admins can see all applications
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see applications from their organization
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

@@ -2,19 +2,18 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\SSOConfigurationResource\Pages\CreateSSOConfiguration;
 use App\Filament\Resources\SSOConfigurationResource\Pages\EditSSOConfiguration;
 use App\Filament\Resources\SSOConfigurationResource\Pages\ListSSOConfigurations;
 use App\Filament\Resources\SSOConfigurationResource\Pages\ViewSSOConfiguration;
 use App\Models\SSOConfiguration;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -36,6 +35,8 @@ use UnitEnum;
 
 class SSOConfigurationResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = SSOConfiguration::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -382,26 +383,7 @@ class SSOConfigurationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        // Super admins can see all SSO configurations
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see SSO configurations from their organization's applications
-        if ($user->organization_id) {
-            $query->whereHas('application', function (Builder $subQuery) use ($user) {
-                $subQuery->where('organization_id', $user->organization_id);
-            });
-        }
-
-        return $query;
+        return static::scopeToOrganizationThrough(parent::getEloquentQuery(), 'application');
     }
 
     public static function getNavigationBadge(): ?string

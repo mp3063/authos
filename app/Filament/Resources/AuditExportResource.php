@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\AuditExportResource\Pages\ListAuditExports;
 use App\Filament\Resources\AuditExportResource\Pages\ViewAuditExport;
 use App\Models\AuditExport;
@@ -22,6 +23,8 @@ use UnitEnum;
 
 class AuditExportResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = AuditExport::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -168,21 +171,6 @@ class AuditExportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['organization', 'user']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can see all audit exports
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see exports from their organization
-        if ($user && $user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery()->with(['organization', 'user']));
     }
 }

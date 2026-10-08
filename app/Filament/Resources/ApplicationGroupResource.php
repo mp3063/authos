@@ -2,12 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\ApplicationGroupResource\Pages\CreateApplicationGroup;
 use App\Filament\Resources\ApplicationGroupResource\Pages\EditApplicationGroup;
 use App\Filament\Resources\ApplicationGroupResource\Pages\ListApplicationGroups;
 use App\Filament\Resources\ApplicationGroupResource\Pages\ViewApplicationGroup;
 use App\Models\ApplicationGroup;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -36,6 +36,8 @@ use UnitEnum;
 
 class ApplicationGroupResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = ApplicationGroup::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -243,22 +245,7 @@ class ApplicationGroupResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

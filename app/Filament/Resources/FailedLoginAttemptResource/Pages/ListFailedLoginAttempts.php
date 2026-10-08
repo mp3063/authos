@@ -43,7 +43,7 @@ class ListFailedLoginAttempts extends ListRecords
                         ->success()
                         ->send();
                 })
-                ->visible(fn () => auth()->user()?->hasRole('Super Admin')),
+                ->visible(fn () => auth()->user()?->isSuperAdmin()),
         ];
     }
 

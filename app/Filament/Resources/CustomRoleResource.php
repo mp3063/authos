@@ -2,12 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\CustomRoleResource\Pages\CreateCustomRole;
 use App\Filament\Resources\CustomRoleResource\Pages\EditCustomRole;
 use App\Filament\Resources\CustomRoleResource\Pages\ListCustomRoles;
 use App\Filament\Resources\CustomRoleResource\Pages\ViewCustomRole;
 use App\Models\CustomRole;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -39,6 +39,8 @@ use UnitEnum;
 
 class CustomRoleResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = CustomRole::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -332,22 +334,7 @@ class CustomRoleResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

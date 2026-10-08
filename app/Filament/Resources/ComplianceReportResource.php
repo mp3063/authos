@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\ComplianceReportResource\Pages\ListComplianceReports;
 use App\Filament\Resources\ComplianceReportResource\Pages\ViewComplianceReport;
 use App\Models\ComplianceReport;
@@ -26,6 +27,8 @@ use UnitEnum;
 
 class ComplianceReportResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = ComplianceReport::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -230,19 +233,6 @@ class ComplianceReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['organization', 'generatedBy']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        if ($user && $user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery()->with(['organization', 'generatedBy']));
     }
 }

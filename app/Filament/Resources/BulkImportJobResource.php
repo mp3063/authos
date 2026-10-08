@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\BulkImportJobResource\Pages\ListBulkImportJobs;
 use App\Filament\Resources\BulkImportJobResource\Pages\ViewBulkImportJob;
 use App\Models\BulkImportJob;
@@ -22,6 +23,8 @@ use UnitEnum;
 
 class BulkImportJobResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = BulkImportJob::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -265,22 +268,7 @@ class BulkImportJobResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['organization', 'createdBy']);
-
-        /** @var User|null $user */
-        $user = Filament::auth()->user();
-
-        // Super admins can see all jobs
-        if ($user && $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see jobs from their organization
-        if ($user && $user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery()->with(['organization', 'createdBy']));
     }
 
     protected static function isSuperAdmin(): bool

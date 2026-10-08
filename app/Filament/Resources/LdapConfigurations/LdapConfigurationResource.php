@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LdapConfigurations;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\LdapConfigurations\Pages\CreateLdapConfiguration;
 use App\Filament\Resources\LdapConfigurations\Pages\EditLdapConfiguration;
 use App\Filament\Resources\LdapConfigurations\Pages\ListLdapConfigurations;
@@ -18,6 +19,8 @@ use UnitEnum;
 
 class LdapConfigurationResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = LdapConfiguration::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -63,20 +66,7 @@ class LdapConfigurationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = \Filament\Facades\Filament::auth()->user();
-
-        // Super admins can see all LDAP configurations
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see their organization's configurations
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

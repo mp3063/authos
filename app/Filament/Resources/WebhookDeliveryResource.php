@@ -3,9 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Enums\WebhookDeliveryStatus;
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\WebhookDeliveryResource\Pages\ListWebhookDeliveries;
 use App\Filament\Resources\WebhookDeliveryResource\Pages\ViewWebhookDelivery;
-use App\Models\User;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
 use BackedEnum;
@@ -15,7 +15,6 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -32,6 +31,8 @@ use UnitEnum;
 
 class WebhookDeliveryResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = WebhookDelivery::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -325,27 +326,7 @@ class WebhookDeliveryResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with('webhook');
-        $user = Filament::auth()->user();
-
-        // Ensure user is properly typed and authenticated
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        // Super admins can see all deliveries
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see deliveries from their organization's webhooks
-        if ($user->organization_id) {
-            $query->whereHas('webhook', function ($subQuery) use ($user) {
-                $subQuery->where('organization_id', $user->organization_id);
-            });
-        }
-
-        return $query;
+        return static::scopeToOrganizationThrough(parent::getEloquentQuery()->with('webhook'), 'webhook');
     }
 
     public static function getNavigationBadge(): ?string

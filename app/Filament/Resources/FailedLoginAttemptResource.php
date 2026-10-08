@@ -167,7 +167,7 @@ class FailedLoginAttemptResource extends Resource
                     ->label('Delete Selected')
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these failed login attempts? This action cannot be undone.')
-                    ->visible(fn () => auth()->user()?->hasRole('Super Admin')),
+                    ->visible(fn () => auth()->user()?->isSuperAdmin()),
 
                 BulkAction::make('export')
                     ->label('Export Selected')

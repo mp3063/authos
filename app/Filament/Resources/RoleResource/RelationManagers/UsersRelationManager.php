@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RoleResource\RelationManagers;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DetachAction;
@@ -11,9 +12,12 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UsersRelationManager extends RelationManager
 {
+    use ScopesToOrganization;
+
     protected static string $relationship = 'users';
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -38,6 +42,7 @@ class UsersRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
+            ->modifyQueryUsing(fn (Builder $query): Builder => static::scopeToOrganization($query))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()

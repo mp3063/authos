@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomDomains;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\CustomDomains\Pages\CreateCustomDomain;
 use App\Filament\Resources\CustomDomains\Pages\EditCustomDomain;
 use App\Filament\Resources\CustomDomains\Pages\ListCustomDomains;
@@ -17,6 +18,8 @@ use UnitEnum;
 
 class CustomDomainResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = CustomDomain::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -61,20 +64,7 @@ class CustomDomainResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = \Filament\Facades\Filament::auth()->user();
-
-        // Super admins can see all custom domains
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see their organization's domains
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

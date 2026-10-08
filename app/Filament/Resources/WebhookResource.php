@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\WebhookResource\Pages\CreateWebhook;
 use App\Filament\Resources\WebhookResource\Pages\EditWebhook;
 use App\Filament\Resources\WebhookResource\Pages\ListWebhooks;
 use App\Filament\Resources\WebhookResource\Pages\ViewWebhook;
-use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookEvent;
 use App\Services\WebhookService;
@@ -43,6 +43,8 @@ use UnitEnum;
 
 class WebhookResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = Webhook::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -440,25 +442,7 @@ class WebhookResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        // Ensure user is properly typed and authenticated
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0'); // Return empty results if not authenticated properly
-        }
-
-        // Super admins can see all webhooks
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see webhooks from their organization
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string

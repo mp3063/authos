@@ -2,12 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\OrganizationBrandingResource\Pages\CreateOrganizationBranding;
 use App\Filament\Resources\OrganizationBrandingResource\Pages\EditOrganizationBranding;
 use App\Filament\Resources\OrganizationBrandingResource\Pages\ListOrganizationBrandings;
 use App\Filament\Resources\OrganizationBrandingResource\Pages\ViewOrganizationBranding;
 use App\Models\OrganizationBranding;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -30,6 +30,8 @@ use UnitEnum;
 
 class OrganizationBrandingResource extends Resource
 {
+    use ScopesToOrganization;
+
     protected static ?string $model = OrganizationBranding::class;
 
     protected static string|BackedEnum|null $navigationIcon = null;
@@ -186,24 +188,7 @@ class OrganizationBrandingResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = Filament::auth()->user();
-
-        if (! $user instanceof User) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        // Super admins can see all branding records
-        if ($user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // Other users can only see branding from their organization
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query;
+        return static::scopeToOrganization(parent::getEloquentQuery());
     }
 
     public static function getNavigationBadge(): ?string
