@@ -22,6 +22,8 @@ class BrandingController extends BaseController
 
     public function show(int $organizationId): JsonResponse
     {
+        $this->authorize('organizations.read');
+
         try {
             if (! $this->validateOrganizationAccess($organizationId)) {
                 return $this->forbiddenResponse();
@@ -56,6 +58,8 @@ class BrandingController extends BaseController
 
     public function update(Request $request, int $organizationId): JsonResponse
     {
+        $this->authorize('organizations.update');
+
         $validated = $request->validate([
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -101,6 +105,8 @@ class BrandingController extends BaseController
 
     public function uploadLogo(Request $request, int $organizationId): JsonResponse
     {
+        $this->authorize('organizations.update');
+
         $request->validate([
             'logo' => ['required', 'image', 'max:2048', 'mimes:png,jpg,jpeg,svg', 'dimensions:min_width=200,min_height=200'],
         ]);
@@ -126,6 +132,8 @@ class BrandingController extends BaseController
 
     public function uploadBackground(Request $request, int $organizationId): JsonResponse
     {
+        $this->authorize('organizations.update');
+
         $request->validate([
             'background' => ['required', 'image', 'max:5120', 'mimes:png,jpg,jpeg'],
         ]);
