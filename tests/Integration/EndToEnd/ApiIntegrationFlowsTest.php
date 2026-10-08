@@ -453,6 +453,8 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         $healthResponse->assertStatus(200);
         $healthResponse->assertJson(['status' => 'ok']);
 
+        $this->actingAsTestUser('super_admin');
+
         $detailedHealthResponse = $this->getJson('/api/health/detailed');
         $detailedHealthResponse->assertStatus(200);
         $detailedHealthResponse->assertJsonStructure([
@@ -707,7 +709,7 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         $token = $tokenResult->accessToken;
 
         // Simulate token expiration by updating the database directly
-        \Laravel\Passport\Token::where('id', $tokenResult->token->id)->update(['expires_at' => now()->subHour()]);
+        Token::where('id', $tokenResult->token->id)->update(['expires_at' => now()->subHour()]);
 
         $expiredTokenResponse = $this->withHeaders([
             'Authorization' => "Bearer {$token}",
@@ -978,7 +980,7 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
         $this->assertUnifiedApiResponse($response, 200);
 
         // Verify request was logged (if logging is enabled)
-        $logCount = \App\Models\AuthenticationLog::where('user_id', $user->id)->count();
+        $logCount = AuthenticationLog::where('user_id', $user->id)->count();
         if ($logCount > 0) {
             // Logging is enabled - verify the entry exists
             $this->assertDatabaseHas('authentication_logs', [
@@ -996,7 +998,7 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
     #[Test]
     public function test_api_performance_metrics(): void
     {
-        $admin = $this->actingAsTestUser('organization_admin');
+        $admin = $this->actingAsTestUser('super_admin');
 
         // Make some API requests to generate metrics
         for ($i = 0; $i < 5; $i++) {

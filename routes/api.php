@@ -66,12 +66,14 @@ Route::get('/version', function () {
     ]);
 });
 
-// Health Check Endpoints (public access)
+// Health Check Endpoints (basic, readiness and liveness are public)
 Route::get('/health', [HealthCheckController::class, 'index']);
-Route::get('/health/detailed', [HealthCheckController::class, 'detailed']);
 Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
 Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
-Route::get('/health/{component}', [HealthCheckController::class, 'component']);
+Route::middleware(['auth:api', 'super.admin'])->group(function () {
+    Route::get('/health/detailed', [HealthCheckController::class, 'detailed']);
+    Route::get('/health/{component}', [HealthCheckController::class, 'component']);
+});
 
 // API v1 Routes
 Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(function () {
@@ -327,7 +329,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/logout', [SSOController::class, 'logout']);
         Route::get('/configuration/{applicationId}', [SSOController::class, 'configuration']);
         Route::get('/metadata/{organizationSlug}', [SSOController::class, 'metadata']);
-        Route::post('/cleanup', [SSOController::class, 'cleanup']);
+        Route::post('/cleanup', [SSOController::class, 'cleanup'])->middleware(['auth:api', 'super.admin']);
 
         // SAML 2.0 endpoints
         Route::get('/saml/{organizationSlug}/metadata', [SamlController::class, 'spMetadata']);
@@ -343,7 +345,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
     });
 
     // API Monitoring and Metrics (Admin only)
-    Route::middleware(['auth:api', 'throttle:api'])->prefix('monitoring')->group(function () {
+    Route::middleware(['auth:api', 'super.admin', 'throttle:api'])->prefix('monitoring')->group(function () {
         // Health check endpoint (requires authentication)
         Route::get('/health', [HealthCheckController::class, 'detailed']);
 

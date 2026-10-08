@@ -5,6 +5,7 @@ namespace Tests\Integration\Monitoring;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -25,10 +26,10 @@ class PerformanceMetricsTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->user = $this->createUser();
+        $this->user = $this->createApiSuperAdmin();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function average_response_time_per_endpoint_is_tracked(): void
     {
         // ARRANGE: Make requests to different endpoints
@@ -75,7 +76,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         $this->assertIsNumeric($data['min_response_time_ms']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function percentile_response_times_show_performance_distribution(): void
     {
         // ARRANGE: Generate varied request load
@@ -113,7 +114,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function slow_queries_detection_identifies_database_bottlenecks(): void
     {
         // ARRANGE: Enable query logging and make database-heavy requests
@@ -149,7 +150,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_hit_rate_measures_caching_efficiency(): void
     {
         // ARRANGE: Generate cache hits and misses
@@ -188,7 +189,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         Cache::forget('test_metric_key');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function requests_per_minute_shows_system_throughput(): void
     {
         // ARRANGE: Generate request traffic
@@ -217,7 +218,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         $this->assertIsInt($data['slow_queries_count']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function performance_metrics_identify_bottlenecks(): void
     {
         // ARRANGE: Generate mixed workload with different characteristics
@@ -266,7 +267,7 @@ class PerformanceMetricsTest extends IntegrationTestCase
         $this->assertLessThanOrEqual(100, $data['cache']['hit_rate']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function performance_metrics_are_real_time_and_accurate(): void
     {
         // ARRANGE: Make initial request to establish baseline

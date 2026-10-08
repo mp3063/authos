@@ -9,7 +9,9 @@ use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Passport\Token;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -41,10 +43,10 @@ class MetricsCollectionTest extends IntegrationTestCase
         parent::setUp();
 
         $this->organization = $this->createOrganization();
-        $this->user = $this->createUser(['organization_id' => $this->organization->id]);
+        $this->user = $this->createApiSuperAdmin(['organization_id' => $this->organization->id]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function authentication_metrics_show_login_statistics(): void
     {
         // ARRANGE: Create authentication logs with various statuses
@@ -97,7 +99,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertLessThanOrEqual(100, $data['today']['success_rate']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function oauth_metrics_show_token_generation_statistics(): void
     {
         // ARRANGE: Create OAuth application and tokens
@@ -108,7 +110,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         // Create active tokens manually (Token doesn't have factory)
         for ($i = 0; $i < 3; $i++) {
             $token = new Token;
-            $token->id = \Illuminate\Support\Str::random(100);
+            $token->id = Str::random(100);
             $token->user_id = $this->user->id;
             $token->client_id = $app->client_id;
             $token->name = 'Test Token '.$i;
@@ -120,7 +122,7 @@ class MetricsCollectionTest extends IntegrationTestCase
 
         // Create revoked token
         $revokedToken = new Token;
-        $revokedToken->id = \Illuminate\Support\Str::random(100);
+        $revokedToken->id = Str::random(100);
         $revokedToken->user_id = $this->user->id;
         $revokedToken->client_id = $app->client_id;
         $revokedToken->name = 'Revoked Token';
@@ -152,7 +154,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(3, $data['active_tokens']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function api_metrics_track_request_counts_and_response_times(): void
     {
         // ARRANGE: Make several API requests to generate metrics
@@ -187,7 +189,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertIsArray($data['top_endpoints']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function webhook_metrics_show_delivery_statistics(): void
     {
         // ARRANGE: Create webhooks and deliveries
@@ -239,7 +241,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertIsNumeric($data['success_rate']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function user_metrics_show_active_users_and_registrations(): void
     {
         // ARRANGE: Create users with various activity patterns
@@ -294,7 +296,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(3, $data['total_users']); // Setup + 2 created
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function organization_metrics_show_organization_statistics(): void
     {
         // ARRANGE: Create multiple organizations with varying user counts
@@ -329,7 +331,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(3, $data['total_organizations']); // Setup + 2 created
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function mfa_metrics_show_adoption_rates(): void
     {
         // ARRANGE: Create users with and without MFA
@@ -377,7 +379,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(0, $data['enabled_users']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function performance_metrics_show_response_times_and_throughput(): void
     {
         // ARRANGE: Authenticated user, make some requests to generate data
@@ -411,7 +413,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertIsNumeric($data['cache']['hit_rate']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function all_metrics_endpoint_returns_comprehensive_data(): void
     {
         // ARRANGE: Authenticated user with access to metrics
@@ -448,7 +450,7 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->assertNotEmpty($data['timestamp']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function metrics_are_cached_for_performance(): void
     {
         // ARRANGE: Authenticated user
@@ -478,5 +480,23 @@ class MetricsCollectionTest extends IntegrationTestCase
         // Note: Cache middleware should reduce queries, but actual count
         // depends on cache configuration. This validates both responses work.
         $this->assertNotNull($response2->json());
+    }
+
+    #[Test]
+    public function it_forbids_a_regular_member_from_reading_monitoring_metrics_and_errors_with_403(): void
+    {
+        $this->actingAsApiUserWithToken($this->createApiUser(['organization_id' => $this->organization->id]));
+
+        foreach (['/monitoring/health', '/monitoring/metrics', '/monitoring/metrics/users', '/monitoring/metrics/custom_name', '/monitoring/errors', '/monitoring/errors/trends', '/monitoring/errors/recent'] as $path) {
+            $this->getJson('/api/v1'.$path)->assertForbidden();
+        }
+    }
+
+    #[Test]
+    public function it_forbids_a_regular_member_from_recording_custom_metrics_with_403(): void
+    {
+        $this->actingAsApiUserWithToken($this->createApiUser(['organization_id' => $this->organization->id]));
+
+        $this->postJson('/api/v1/monitoring/metrics/record', ['name' => 'x', 'value' => 1])->assertForbidden();
     }
 }

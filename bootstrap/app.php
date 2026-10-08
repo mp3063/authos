@@ -4,6 +4,7 @@ use App\Http\Middleware\ApiMonitoring;
 use App\Http\Middleware\ApiResponseCache;
 use App\Http\Middleware\ApiVersioning;
 use App\Http\Middleware\EnforceOrganizationBoundary;
+use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\OAuthSecurity;
 use App\Http\Middleware\SanitizeApiResponse;
 use App\Http\Middleware\SecurityHeaders;
@@ -71,6 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.cache' => ApiResponseCache::class,
             'api.monitor' => ApiMonitoring::class,
             'org.boundary' => EnforceOrganizationBoundary::class,
+            'super.admin' => EnsureSuperAdmin::class,
             'permission.context' => SetPermissionContext::class,
         ]);
     })

@@ -3,6 +3,7 @@
 namespace Tests\Integration\Monitoring;
 
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -24,10 +25,10 @@ class CustomMetricsTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->user = $this->createUser();
+        $this->user = $this->createApiSuperAdmin();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function record_custom_metric_successfully(): void
     {
         // ARRANGE: Authenticated user with metric data
@@ -57,7 +58,7 @@ class CustomMetricsTest extends IntegrationTestCase
         $this->assertEquals('api.custom.signup_conversions', $data['metric']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function increment_counter_metric(): void
     {
         // ARRANGE: Record initial counter value
@@ -97,7 +98,7 @@ class CustomMetricsTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(6, $data['count']); // Initial + 5 increments
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function record_timing_metric_for_performance_tracking(): void
     {
         // ARRANGE: Timing metric for custom operation
@@ -131,7 +132,7 @@ class CustomMetricsTest extends IntegrationTestCase
         $this->assertEquals('api.custom.export_duration', $data['name']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function query_custom_metrics_with_date_filter(): void
     {
         // ARRANGE: Record metrics over multiple days
@@ -173,7 +174,7 @@ class CustomMetricsTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function validation_prevents_invalid_metric_data(): void
     {
         // ARRANGE & ACT: Attempt to record invalid metrics
@@ -216,7 +217,7 @@ class CustomMetricsTest extends IntegrationTestCase
         $response4->assertJsonValidationErrors(['tags']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function query_nonexistent_metric_returns_error(): void
     {
         // ARRANGE: Authenticated user
@@ -235,7 +236,7 @@ class CustomMetricsTest extends IntegrationTestCase
         $this->assertEquals('Metric not found', $data['error']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function custom_metrics_support_complex_tag_filtering(): void
     {
         // ARRANGE: Record metrics with multiple tags

@@ -5,6 +5,7 @@ namespace Tests\Integration\Monitoring;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -28,10 +29,10 @@ class HealthCheckTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->user = $this->createUser();
+        $this->user = $this->createApiSuperAdmin();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function basic_health_check_returns_ok_status(): void
     {
         // ARRANGE: System is running normally
@@ -51,7 +52,7 @@ class HealthCheckTest extends IntegrationTestCase
         $this->assertNotEmpty($data['timestamp']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function detailed_health_check_includes_all_components(): void
     {
         // ARRANGE: Authenticated user with monitoring access (using Passport token)
@@ -93,7 +94,7 @@ class HealthCheckTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function readiness_check_verifies_critical_services(): void
     {
         // ARRANGE: Authenticated user
@@ -119,7 +120,7 @@ class HealthCheckTest extends IntegrationTestCase
         $this->assertArrayHasKey('database', $data['checks']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function liveness_check_confirms_application_running(): void
     {
         // ARRANGE: Authenticated user
@@ -140,7 +141,7 @@ class HealthCheckTest extends IntegrationTestCase
         $this->assertNotEmpty($data['timestamp']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function database_component_health_check_succeeds(): void
     {
         // ARRANGE: Authenticated user, database is operational
@@ -148,6 +149,8 @@ class HealthCheckTest extends IntegrationTestCase
 
         // Verify database is accessible
         $this->assertTrue(DB::connection()->getDatabaseName() !== null);
+
+        $this->actingAsApiUserWithToken($this->user);
 
         // ACT: Check database component health
         $response = $this->getJson('/api/health/database');
@@ -170,7 +173,7 @@ class HealthCheckTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_component_health_check_succeeds(): void
     {
         // ARRANGE: Authenticated user, cache is operational
@@ -179,6 +182,8 @@ class HealthCheckTest extends IntegrationTestCase
         // Verify cache is working
         Cache::put('health_check_test', 'ok', 10);
         $this->assertEquals('ok', Cache::get('health_check_test'));
+
+        $this->actingAsApiUserWithToken($this->user);
 
         // ACT: Check cache component health
         $response = $this->getJson('/api/health/cache');
@@ -204,11 +209,13 @@ class HealthCheckTest extends IntegrationTestCase
         Cache::forget('health_check_test');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function invalid_component_returns_error(): void
     {
         // ARRANGE: Authenticated user
         $this->actingAs($this->user);
+
+        $this->actingAsApiUserWithToken($this->user);
 
         // ACT: Request health check for invalid component
         $response = $this->getJson('/api/health/invalid_component');
@@ -223,5 +230,32 @@ class HealthCheckTest extends IntegrationTestCase
         $data = $response->json();
         $this->assertIsArray($data['valid_components']);
         $this->assertNotEmpty($data['valid_components']);
+    }
+
+    #[Test]
+    public function it_requires_a_super_admin_for_detailed_health(): void
+    {
+        $this->getJson('/api/health/detailed')->assertUnauthorized();
+        $this->getJson('/api/health/database')->assertUnauthorized();
+
+        $this->actingAsApiUserWithToken($this->createApiUser());
+        $this->getJson('/api/health/detailed')->assertForbidden();
+        $this->getJson('/api/health/database')->assertForbidden();
+
+        $this->actingAsApiUserWithToken($this->createApiSuperAdmin());
+        $this->getJson('/api/health/detailed')->assertSuccessful();
+        $this->getJson('/api/health/database')->assertSuccessful();
+    }
+
+    #[Test]
+    public function it_requires_authentication_for_sso_cleanup(): void
+    {
+        $this->postJson('/api/v1/sso/cleanup')->assertUnauthorized();
+
+        $this->actingAsApiUserWithToken($this->createApiUser());
+        $this->postJson('/api/v1/sso/cleanup')->assertForbidden();
+
+        $this->actingAsApiUserWithToken($this->createApiSuperAdmin());
+        $this->postJson('/api/v1/sso/cleanup')->assertSuccessful();
     }
 }

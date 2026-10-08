@@ -4,6 +4,7 @@ namespace Tests\Integration\Monitoring;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -26,10 +27,10 @@ class ErrorTrackingTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->user = $this->createUser();
+        $this->user = $this->createApiSuperAdmin();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function list_recent_errors_returns_error_logs(): void
     {
         // ARRANGE: Generate some application errors
@@ -71,7 +72,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function view_error_statistics_for_specific_date(): void
     {
         // ARRANGE: Log errors for today
@@ -102,7 +103,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         $this->assertIsArray($data['by_hour']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function get_error_trends_over_seven_days(): void
     {
         // ARRANGE: Log errors over multiple days
@@ -141,7 +142,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function filter_errors_by_type(): void
     {
         // ARRANGE: Log errors of different types
@@ -185,7 +186,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function error_count_by_endpoint_shows_problematic_routes(): void
     {
         // ARRANGE: Log errors from different endpoints
@@ -221,7 +222,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         $this->assertIsArray($data['by_type']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function export_error_logs_for_analysis(): void
     {
         // ARRANGE: Log several errors with context
@@ -262,7 +263,7 @@ class ErrorTrackingTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function error_trends_can_be_requested_for_custom_period(): void
     {
         // ARRANGE: Log errors over time
