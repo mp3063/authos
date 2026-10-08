@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\AuditExport;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class AuditExportPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Auditor']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class AuditExportPolicy
      */
     public function view(User $user, AuditExport $auditExport): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $auditExport->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Auditor']);
+        return $this->permits($user, 'auth_logs.read', $auditExport->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class AuditExportPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Auditor']);
+        return $this->permits($user, 'auth_logs.export', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class AuditExportPolicy
      */
     public function update(User $user, AuditExport $auditExport): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $auditExport->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return false;
     }
 
     /**
@@ -62,12 +47,15 @@ class AuditExportPolicy
      */
     public function delete(User $user, AuditExport $auditExport): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'auth_logs.export', $auditExport->organization_id);
+    }
 
-        return $user->organization_id === $auditExport->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'auth_logs.export', $user->organization_id);
     }
 
     /**

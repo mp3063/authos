@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\MigrationJob;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class MigrationJobPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'organizations.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class MigrationJobPolicy
      */
     public function view(User $user, MigrationJob $migrationJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $migrationJob->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'organizations.read', $migrationJob->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class MigrationJobPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class MigrationJobPolicy
      */
     public function update(User $user, MigrationJob $migrationJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $migrationJob->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'organizations.update', $migrationJob->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class MigrationJobPolicy
      */
     public function delete(User $user, MigrationJob $migrationJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'organizations.update', $migrationJob->organization_id);
+    }
 
-        return $user->organization_id === $migrationJob->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**

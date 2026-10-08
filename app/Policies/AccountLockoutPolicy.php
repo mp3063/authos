@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\AccountLockout;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class AccountLockoutPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -24,24 +23,14 @@ class AccountLockoutPolicy
      */
     public function view(User $user, AccountLockout $accountLockout): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        if ($accountLockout->user_id) {
-            return $user->organization_id === $accountLockout->user?->organization_id
-                && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
-        }
-
-        return false;
+        return $this->permits($user, 'auth_logs.read', $accountLockout->user?->organization_id);
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(): bool
+    public function create(User $user): bool
     {
-        // Lockouts are system-generated
         return false;
     }
 
@@ -50,23 +39,21 @@ class AccountLockoutPolicy
      */
     public function update(User $user, AccountLockout $accountLockout): bool
     {
-        // Admins can unlock accounts in their org
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        if ($accountLockout->user_id) {
-            return $user->organization_id === $accountLockout->user?->organization_id
-                && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
-        }
-
-        return false;
+        return $this->permits($user, 'users.update', $accountLockout->user?->organization_id);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user): bool
+    public function delete(User $user, AccountLockout $accountLockout): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -74,9 +61,9 @@ class AccountLockoutPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user): bool
+    public function restore(User $user, AccountLockout $accountLockout): bool
     {
-        return $user->isSuperAdmin();
+        return $this->delete($user, $accountLockout);
     }
 
     /**

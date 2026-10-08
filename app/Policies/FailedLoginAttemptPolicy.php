@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\FailedLoginAttempt;
 use App\Models\User;
 
 class FailedLoginAttemptPolicy
@@ -11,48 +12,45 @@ class FailedLoginAttemptPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user): bool
+    public function view(User $user, FailedLoginAttempt $failedLoginAttempt): bool
     {
-        // Failed login attempts are global (IP/email based), not org-scoped
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(): bool
+    public function create(User $user): bool
     {
-        // System-generated records
-        return false;
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(): bool
+    public function update(User $user, FailedLoginAttempt $failedLoginAttempt): bool
     {
-        // Immutable audit records
-        return false;
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user): bool
+    public function delete(User $user, FailedLoginAttempt $failedLoginAttempt): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -60,7 +58,7 @@ class FailedLoginAttemptPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user): bool
+    public function restore(User $user, FailedLoginAttempt $failedLoginAttempt): bool
     {
         return $user->isSuperAdmin();
     }

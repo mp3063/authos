@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\SecurityIncident;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class SecurityIncidentPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -24,26 +23,14 @@ class SecurityIncidentPolicy
      */
     public function view(User $user, SecurityIncident $securityIncident): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Incidents with a user_id are scoped to the user's org
-        if ($securityIncident->user_id) {
-            return $user->organization_id === $securityIncident->user?->organization_id
-                && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
-        }
-
-        // Incidents without a user (IP-based) are super admin only
-        return false;
+        return $this->permits($user, 'auth_logs.read', $this->organizationIdOf($securityIncident));
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(): bool
+    public function create(User $user): bool
     {
-        // Security incidents are system-generated
         return false;
     }
 
@@ -52,23 +39,21 @@ class SecurityIncidentPolicy
      */
     public function update(User $user, SecurityIncident $securityIncident): bool
     {
-        // Admins can resolve/dismiss incidents in their org
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        if ($securityIncident->user_id) {
-            return $user->organization_id === $securityIncident->user?->organization_id
-                && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
-        }
-
-        return false;
+        return $this->permits($user, 'organizations.update', $this->organizationIdOf($securityIncident));
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user): bool
+    public function delete(User $user, SecurityIncident $securityIncident): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
     {
         return $user->isSuperAdmin();
     }
@@ -76,9 +61,9 @@ class SecurityIncidentPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user): bool
+    public function restore(User $user, SecurityIncident $securityIncident): bool
     {
-        return $user->isSuperAdmin();
+        return $this->delete($user, $securityIncident);
     }
 
     /**
@@ -87,5 +72,10 @@ class SecurityIncidentPolicy
     public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
+    }
+
+    private function organizationIdOf(SecurityIncident $securityIncident): ?int
+    {
+        return $securityIncident->organization_id ?? $securityIncident->user?->organization_id;
     }
 }

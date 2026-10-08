@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\BulkImportJob;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class BulkImportJobPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'users.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class BulkImportJobPolicy
      */
     public function view(User $user, BulkImportJob $bulkImportJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $bulkImportJob->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'users.read', $bulkImportJob->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class BulkImportJobPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'users.create', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class BulkImportJobPolicy
      */
     public function update(User $user, BulkImportJob $bulkImportJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $bulkImportJob->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'users.create', $bulkImportJob->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class BulkImportJobPolicy
      */
     public function delete(User $user, BulkImportJob $bulkImportJob): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'users.delete', $bulkImportJob->organization_id);
+    }
 
-        return $user->organization_id === $bulkImportJob->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'users.delete', $user->organization_id);
     }
 
     /**

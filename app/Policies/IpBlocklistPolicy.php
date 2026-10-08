@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\IpBlocklist;
 use App\Models\User;
 
 class IpBlocklistPolicy
@@ -11,23 +12,15 @@ class IpBlocklistPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user): bool
+    public function view(User $user, IpBlocklist $ipBlocklist): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
@@ -35,43 +28,39 @@ class IpBlocklistPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user): bool
+    public function update(User $user, IpBlocklist $ipBlocklist): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user): bool
+    public function delete(User $user, IpBlocklist $ipBlocklist): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->isSuperAdmin();
+    }
 
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user): bool
+    public function restore(User $user, IpBlocklist $ipBlocklist): bool
     {
-        return $this->delete($user);
+        return $user->isSuperAdmin();
     }
 
     /**
