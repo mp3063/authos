@@ -11,12 +11,7 @@ class WebhookEventPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Webhook events are a global reference table; any admin can view
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return true;
     }
 
     /**
@@ -24,11 +19,7 @@ class WebhookEventPolicy
      */
     public function view(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return true;
     }
 
     /**
@@ -36,7 +27,6 @@ class WebhookEventPolicy
      */
     public function create(User $user): bool
     {
-        // Only super admins can define new webhook event types
         return $user->isSuperAdmin();
     }
 
@@ -52,6 +42,14 @@ class WebhookEventPolicy
      * Determine whether the user can delete the model.
      */
     public function delete(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
     {
         return $user->isSuperAdmin();
     }

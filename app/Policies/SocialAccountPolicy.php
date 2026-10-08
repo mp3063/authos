@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class SocialAccountPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'users.read', $user->organization_id);
     }
 
     /**
@@ -24,26 +23,16 @@ class SocialAccountPolicy
      */
     public function view(User $user, SocialAccount $socialAccount): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can view their own social accounts
-        if ($user->id === $socialAccount->user_id) {
-            return true;
-        }
-
-        return $user->organization_id === $socialAccount->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->id === $socialAccount->user_id
+            || $this->permits($user, 'users.read', $socialAccount->user?->organization_id);
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(): bool
+    public function create(User $user): bool
     {
-        // Social accounts are created through OAuth flow
-        return true;
+        return $user->isSuperAdmin();
     }
 
     /**
@@ -51,17 +40,7 @@ class SocialAccountPolicy
      */
     public function update(User $user, SocialAccount $socialAccount): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can update their own social accounts
-        if ($user->id === $socialAccount->user_id) {
-            return true;
-        }
-
-        return $user->organization_id === $socialAccount->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->isSuperAdmin() || $user->id === $socialAccount->user_id;
     }
 
     /**
@@ -69,17 +48,16 @@ class SocialAccountPolicy
      */
     public function delete(User $user, SocialAccount $socialAccount): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->id === $socialAccount->user_id
+            || $this->permits($user, 'users.update', $socialAccount->user?->organization_id);
+    }
 
-        // Users can unlink their own social accounts
-        if ($user->id === $socialAccount->user_id) {
-            return true;
-        }
-
-        return $user->organization_id === $socialAccount->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'users.update', $user->organization_id);
     }
 
     /**

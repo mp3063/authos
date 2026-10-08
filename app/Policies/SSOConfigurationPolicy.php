@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\SSOConfiguration;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class SSOConfigurationPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class SSOConfigurationPolicy
      */
     public function view(User $user, SSOConfiguration $ssoConfiguration): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $ssoConfiguration->application?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $ssoConfiguration->application?->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class SSOConfigurationPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class SSOConfigurationPolicy
      */
     public function update(User $user, SSOConfiguration $ssoConfiguration): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $ssoConfiguration->application?->organization_id
-            && $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $ssoConfiguration->application?->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class SSOConfigurationPolicy
      */
     public function delete(User $user, SSOConfiguration $ssoConfiguration): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'organizations.update', $ssoConfiguration->application?->organization_id);
+    }
 
-        return $user->organization_id === $ssoConfiguration->application?->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**

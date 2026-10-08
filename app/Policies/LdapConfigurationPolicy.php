@@ -4,21 +4,18 @@ namespace App\Policies;
 
 use App\Models\LdapConfiguration;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class LdapConfigurationPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        // Super admins can view all LDAP configurations
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners and admins can view their org's configurations
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -26,14 +23,7 @@ class LdapConfigurationPolicy
      */
     public function view(User $user, LdapConfiguration $ldapConfiguration): bool
     {
-        // Super admins can view all configurations
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can only view configurations from their organization
-        return $user->organization_id === $ldapConfiguration->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $ldapConfiguration->organization_id);
     }
 
     /**
@@ -41,13 +31,7 @@ class LdapConfigurationPolicy
      */
     public function create(User $user): bool
     {
-        // Super admins can create for any organization
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners can create LDAP configurations
-        return $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -55,14 +39,7 @@ class LdapConfigurationPolicy
      */
     public function update(User $user, LdapConfiguration $ldapConfiguration): bool
     {
-        // Super admins can update any configuration
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners can update their org's configurations
-        return $user->organization_id === $ldapConfiguration->organization_id
-            && $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $ldapConfiguration->organization_id);
     }
 
     /**
@@ -70,14 +47,15 @@ class LdapConfigurationPolicy
      */
     public function delete(User $user, LdapConfiguration $ldapConfiguration): bool
     {
-        // Super admins can delete any configuration
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'organizations.update', $ldapConfiguration->organization_id);
+    }
 
-        // Organization owners can delete their org's configurations
-        return $user->organization_id === $ldapConfiguration->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -93,7 +71,6 @@ class LdapConfigurationPolicy
      */
     public function forceDelete(User $user): bool
     {
-        // Only super admins can force delete
         return $user->isSuperAdmin();
     }
 }

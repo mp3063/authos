@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Webhook;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class WebhookPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class WebhookPolicy
      */
     public function view(User $user, Webhook $webhook): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $webhook->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.read', $webhook->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class WebhookPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.create', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class WebhookPolicy
      */
     public function update(User $user, Webhook $webhook): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $webhook->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.update', $webhook->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class WebhookPolicy
      */
     public function delete(User $user, Webhook $webhook): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'webhooks.delete', $webhook->organization_id);
+    }
 
-        return $user->organization_id === $webhook->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'webhooks.delete', $user->organization_id);
     }
 
     /**

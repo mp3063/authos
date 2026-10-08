@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\SSOSession;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class SSOSessionPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -24,17 +23,8 @@ class SSOSessionPolicy
      */
     public function view(User $user, SSOSession $ssoSession): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can view their own sessions
-        if ($user->id === $ssoSession->user_id) {
-            return true;
-        }
-
-        return $user->organization_id === $ssoSession->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->id === $ssoSession->user_id
+            || $this->permits($user, 'auth_logs.read', $ssoSession->user?->organization_id);
     }
 
     /**
@@ -42,7 +32,6 @@ class SSOSessionPolicy
      */
     public function create(User $user): bool
     {
-        // SSO sessions are created by the system during authentication
         return $user->isSuperAdmin();
     }
 
@@ -51,12 +40,8 @@ class SSOSessionPolicy
      */
     public function update(User $user, SSOSession $ssoSession): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $ssoSession->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $user->id === $ssoSession->user_id
+            || $this->permits($user, 'users.update', $ssoSession->user?->organization_id);
     }
 
     /**
@@ -64,17 +49,15 @@ class SSOSessionPolicy
      */
     public function delete(User $user, SSOSession $ssoSession): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->update($user, $ssoSession);
+    }
 
-        // Users can terminate their own sessions
-        if ($user->id === $ssoSession->user_id) {
-            return true;
-        }
-
-        return $user->organization_id === $ssoSession->user?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'users.update', $user->organization_id);
     }
 
     /**

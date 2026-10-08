@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\WebhookDelivery;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class WebhookDeliveryPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class WebhookDeliveryPolicy
      */
     public function view(User $user, WebhookDelivery $webhookDelivery): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $webhookDelivery->webhook?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.read', $webhookDelivery->webhook?->organization_id);
     }
 
     /**
@@ -37,7 +31,6 @@ class WebhookDeliveryPolicy
      */
     public function create(User $user): bool
     {
-        // Webhook deliveries are created by the system, not manually
         return $user->isSuperAdmin();
     }
 
@@ -46,13 +39,7 @@ class WebhookDeliveryPolicy
      */
     public function update(User $user, WebhookDelivery $webhookDelivery): bool
     {
-        // Deliveries are system-managed; admins can retry
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $webhookDelivery->webhook?->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'webhooks.update', $webhookDelivery->webhook?->organization_id);
     }
 
     /**
@@ -60,12 +47,15 @@ class WebhookDeliveryPolicy
      */
     public function delete(User $user, WebhookDelivery $webhookDelivery): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->isSuperAdmin();
+    }
 
-        return $user->organization_id === $webhookDelivery->webhook?->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->isSuperAdmin();
     }
 
     /**

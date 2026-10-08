@@ -4,21 +4,18 @@ namespace App\Policies;
 
 use App\Models\CustomDomain;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class CustomDomainPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        // Super admins can view all custom domains
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners and admins can view their org's domains
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $user->organization_id);
     }
 
     /**
@@ -26,14 +23,7 @@ class CustomDomainPolicy
      */
     public function view(User $user, CustomDomain $customDomain): bool
     {
-        // Super admins can view all domains
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can only view domains from their organization
-        return $user->organization_id === $customDomain->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'auth_logs.read', $customDomain->organization_id);
     }
 
     /**
@@ -41,13 +31,7 @@ class CustomDomainPolicy
      */
     public function create(User $user): bool
     {
-        // Super admins can create for any organization
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners can create custom domains
-        return $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -55,14 +39,7 @@ class CustomDomainPolicy
      */
     public function update(User $user, CustomDomain $customDomain): bool
     {
-        // Super admins can update any domain
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Organization owners can update their org's domains
-        return $user->organization_id === $customDomain->organization_id
-            && $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $customDomain->organization_id);
     }
 
     /**
@@ -70,14 +47,15 @@ class CustomDomainPolicy
      */
     public function delete(User $user, CustomDomain $customDomain): bool
     {
-        // Super admins can delete any domain
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'organizations.update', $customDomain->organization_id);
+    }
 
-        // Organization owners can delete their org's domains
-        return $user->organization_id === $customDomain->organization_id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'organizations.update', $user->organization_id);
     }
 
     /**
@@ -93,7 +71,6 @@ class CustomDomainPolicy
      */
     public function forceDelete(User $user): bool
     {
-        // Only super admins can force delete
         return $user->isSuperAdmin();
     }
 }
