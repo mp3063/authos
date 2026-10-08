@@ -244,6 +244,10 @@ class UserController extends BaseController
             'action' => 'required|string|in:activate,deactivate,delete',
         ]);
 
+        if ($request->input('action') === 'delete') {
+            $this->authorize('users.delete');
+        }
+
         try {
             $result = $this->userManagementService->performBulkOperation(
                 $request->input('user_ids'),

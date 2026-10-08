@@ -69,4 +69,40 @@ class BulkUserGuardsTest extends IntegrationTestCase
         $this->assertFalse((bool) $peer->fresh()->is_active);
         $this->assertFalse((bool) $member->fresh()->is_active);
     }
+
+    #[Test]
+    public function it_forbids_users_bulk_delete_without_users_delete_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $member = User::factory()->create(['organization_id' => $this->organization->id]);
+
+        $this->actingAs($admin, 'api')
+            ->patchJson('/api/v1/users/bulk', ['user_ids' => [$member->id], 'action' => 'delete'])
+            ->assertForbidden();
+
+        $this->assertNotSoftDeleted('users', ['id' => $member->id]);
+    }
+
+    #[Test]
+    public function it_skips_the_caller_and_users_exceeding_the_caller_in_users_bulk_delete(): void
+    {
+        $caller = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $caller->givePermissionTo('users.delete');
+        $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api');
+        $peer = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $member = User::factory()->create(['organization_id' => $this->organization->id]);
+
+        $this->actingAs($caller, 'api')
+            ->patchJson('/api/v1/users/bulk', [
+                'user_ids' => [$caller->id, $owner->id, $peer->id, $member->id],
+                'action' => 'delete',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.affected_count', 2);
+
+        $this->assertNotSoftDeleted('users', ['id' => $caller->id]);
+        $this->assertNotSoftDeleted('users', ['id' => $owner->id]);
+        $this->assertSoftDeleted('users', ['id' => $peer->id]);
+        $this->assertSoftDeleted('users', ['id' => $member->id]);
+    }
 }
