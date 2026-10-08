@@ -3,19 +3,18 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class PermissionPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'permissions.read', $user->organization_id);
     }
 
     /**
@@ -23,11 +22,7 @@ class PermissionPolicy
      */
     public function view(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'permissions.read', $user->organization_id);
     }
 
     /**
@@ -43,7 +38,6 @@ class PermissionPolicy
      */
     public function update(User $user): bool
     {
-        // Only super admins can modify permissions
         return $user->isSuperAdmin();
     }
 

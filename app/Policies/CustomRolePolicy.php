@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\CustomRole;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class CustomRolePolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'roles.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class CustomRolePolicy
      */
     public function view(User $user, CustomRole $customRole): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $customRole->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'roles.read', $customRole->organization_id);
     }
 
     /**

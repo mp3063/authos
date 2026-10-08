@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class RolePolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'roles.read', $user->organization_id);
     }
 
     /**
@@ -24,18 +23,7 @@ class RolePolicy
      */
     public function view(User $user, Role $role): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Roles scoped to the user's organization or global roles
-        if ($role->organization_id) {
-            return $user->organization_id === $role->organization_id
-                && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
-        }
-
-        // Global roles can be viewed by any admin
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'roles.read', $role->organization_id, $role->organization_id !== null);
     }
 
     /**
