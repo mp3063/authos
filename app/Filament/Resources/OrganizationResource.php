@@ -14,6 +14,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
@@ -139,7 +140,7 @@ class OrganizationResource extends Resource
                             ->collapsible()
                             ->collapsed(),
                     ]),
-            ]),
+            ])->columnSpanFull(),
         ]);
     }
 
@@ -217,7 +218,7 @@ class OrganizationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
 
         // Super admins can see all organizations
         if ($user->isSuperAdmin()) {
