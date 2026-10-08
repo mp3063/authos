@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomDomains\Schemas;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -10,9 +11,12 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class CustomDomainForm
 {
+    use ScopesToOrganization;
+
     /**
      * @throws \Throwable
      */
@@ -23,7 +27,8 @@ class CustomDomainForm
                 Section::make('Domain Configuration')->schema([
                     Grid::make()->schema([
                         Select::make('organization_id')
-                            ->relationship('organization', 'name')
+                            ->relationship('organization', 'name', fn (Builder $query) => static::scopeToOrganization($query, 'id'))
+                            ->visible(fn () => static::canChooseOrganization())
                             ->required()
                             ->searchable()
                             ->preload()

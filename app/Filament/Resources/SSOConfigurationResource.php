@@ -83,7 +83,7 @@ class SSOConfigurationResource extends Resource
 
             Select::make('application_id')
                 ->label('Application')
-                ->relationship('application', 'name')
+                ->relationship('application', 'name', fn (Builder $query) => static::scopeToOrganization($query))
                 ->searchable()
                 ->preload()
                 ->required()

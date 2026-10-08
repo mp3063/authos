@@ -2,24 +2,31 @@
 
 namespace App\Filament\Resources\WebhookResource\Pages;
 
+use App\Filament\Concerns\ForcesCallerOrganization;
 use App\Filament\Resources\WebhookResource;
+use App\Models\Organization;
 use App\Models\Webhook;
 use App\Services\WebhookService;
+use App\Services\WebhookSignatureService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 class CreateWebhook extends CreateRecord
 {
+    use ForcesCallerOrganization;
+
     protected static string $resource = WebhookResource::class;
 
     protected string $generatedSecret = '';
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $data = $this->forceCallerOrganization($data);
+
         // Generate secret if not provided
         if (empty($data['secret'])) {
-            $data['secret'] = app(\App\Services\WebhookSignatureService::class)->generateSecret();
+            $data['secret'] = app(WebhookSignatureService::class)->generateSecret();
 
             // Store the generated secret to show in notification
             $this->generatedSecret = $data['secret'];
@@ -31,7 +38,7 @@ class CreateWebhook extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         // Use the WebhookService to create the webhook properly
-        $organization = \App\Models\Organization::find($data['organization_id']);
+        $organization = Organization::find($data['organization_id']);
 
         return app(WebhookService::class)->createWebhook($organization, $data);
     }

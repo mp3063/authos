@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LdapConfigurations\Schemas;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -10,9 +11,12 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class LdapConfigurationForm
 {
+    use ScopesToOrganization;
+
     /**
      * @throws \Throwable
      */
@@ -35,7 +39,8 @@ class LdapConfigurationForm
         return Section::make('Basic Information')->schema([
             Grid::make()->schema([
                 Select::make('organization_id')
-                    ->relationship('organization', 'name')
+                    ->relationship('organization', 'name', fn (Builder $query) => static::scopeToOrganization($query, 'id'))
+                    ->visible(fn () => static::canChooseOrganization())
                     ->required()
                     ->searchable()
                     ->preload()

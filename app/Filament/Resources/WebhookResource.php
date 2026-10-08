@@ -83,7 +83,8 @@ class WebhookResource extends Resource
 
                 Select::make('organization_id')
                     ->label('Organization')
-                    ->relationship('organization', 'name')
+                    ->relationship('organization', 'name', fn (Builder $query) => static::scopeToOrganization($query, 'id'))
+                    ->visible(fn () => static::canChooseOrganization())
                     ->searchable()
                     ->preload()
                     ->required()

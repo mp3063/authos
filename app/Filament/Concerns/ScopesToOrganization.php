@@ -59,6 +59,11 @@ trait ScopesToOrganization
         });
     }
 
+    protected static function canChooseOrganization(): bool
+    {
+        return static::organizationIdToScope() === false;
+    }
+
     private static function organizationIdToScope(): int|false|null
     {
         $user = Filament::auth()->user();
