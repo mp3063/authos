@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSocialLogin;
 use App\Models\Concerns\InteractsWithOrganizationRoles;
+use App\Models\Concerns\ResolvesOrganizationPermissions;
 use App\Traits\BelongsToOrganization;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -29,6 +30,7 @@ class User extends Authenticatable implements FilamentUser
     use HasSocialLogin;
     use InteractsWithOrganizationRoles;
     use Notifiable;
+    use ResolvesOrganizationPermissions;
     use SoftDeletes;
 
     /**

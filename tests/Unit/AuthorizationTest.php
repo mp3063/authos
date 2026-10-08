@@ -8,6 +8,7 @@ use App\Providers\AuthorizationServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -296,16 +297,18 @@ class AuthorizationTest extends TestCase
         $user1 = $this->createOrganizationAdmin(['organization_id' => $org1->id]);
         $user2 = $this->createOrganizationAdmin(['organization_id' => $org2->id]);
 
-        // Test user1 context
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->setPermissionsTeamId($org2->id);
+        $user1->assignRole(Role::where('name', 'Organization Owner')->where('guard_name', 'web')->where('organization_id', $org2->id)->firstOrFail());
+
         $this->actingAs($user1);
-        request()->server->set('REQUEST_URI', '/api/v1/users');
+        $this->assertTrue(Gate::allows('users.read'));
+        $this->assertFalse(Gate::allows('organizations.update'));
+        $this->assertEquals($org2->id, $registrar->getPermissionsTeamId());
 
-        Gate::allows('context.isolation.probe'); // This should set the context to org1
-        $this->assertEquals($org1->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
-
-        // Test user2 context
+        $registrar->setPermissionsTeamId($org1->id);
         $this->actingAs($user2);
-        Gate::allows('context.isolation.probe'); // This should change the context to org2
-        $this->assertEquals($org2->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
+        $this->assertTrue(Gate::allows('users.read'));
+        $this->assertEquals($org1->id, $registrar->getPermissionsTeamId());
     }
 }

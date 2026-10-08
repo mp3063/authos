@@ -86,17 +86,6 @@ trait InteractsWithOrganizationRoles
     }
 
     /**
-     * Check if user has a permission within their organization
-     */
-    public function hasOrganizationPermission($permission, $organizationId = null): bool
-    {
-        $orgId = $organizationId ?? $this->organization_id;
-        $this->setPermissionsTeamId($orgId);
-
-        return $this->hasPermissionTo($permission);
-    }
-
-    /**
      * Assign role to user within organization context
      */
     public function assignOrganizationRole($role, $organizationId = null): void
