@@ -56,7 +56,7 @@ class AuditExportTest extends IntegrationTestCase
     public function audit_logs_can_be_exported_as_csv()
     {
         // ARRANGE: Create organization admin with proper scopes
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // Create authentication logs for the admin's organization
@@ -104,7 +104,7 @@ class AuditExportTest extends IntegrationTestCase
     public function audit_logs_can_be_exported_as_json()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // Create authentication logs
@@ -137,7 +137,7 @@ class AuditExportTest extends IntegrationTestCase
     public function audit_logs_can_be_exported_as_excel()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // Create authentication logs
@@ -165,7 +165,7 @@ class AuditExportTest extends IntegrationTestCase
     public function exports_can_be_filtered_by_date_range()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // Create logs at different dates
@@ -201,7 +201,7 @@ class AuditExportTest extends IntegrationTestCase
     public function exports_can_be_filtered_by_event_type()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // Create logs with different event types
@@ -234,7 +234,7 @@ class AuditExportTest extends IntegrationTestCase
     public function exports_can_be_filtered_by_specific_user()
     {
         // ARRANGE: Create organization admin and another user
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         $otherUser = User::factory()->create([
@@ -269,7 +269,7 @@ class AuditExportTest extends IntegrationTestCase
     public function export_list_shows_all_organization_exports()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.read']);
 
         // Create multiple exports
@@ -310,7 +310,7 @@ class AuditExportTest extends IntegrationTestCase
     public function completed_export_can_be_downloaded()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.read']);
 
         // Create completed export with file
@@ -338,7 +338,7 @@ admin,admin@test.com,login');
     public function pending_export_cannot_be_downloaded()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.read']);
 
         // Create pending export (not completed)
@@ -365,7 +365,7 @@ admin,admin@test.com,login');
     public function export_from_different_organization_cannot_be_accessed()
     {
         // ARRANGE: Create two organizations with admins
-        $admin1 = $this->createApiOrganizationAdmin();
+        $admin1 = $this->createApiOrganizationOwner();
         $org2 = $this->createOrganization();
         $admin2 = User::factory()->create(['organization_id' => $org2->id]);
 
@@ -397,7 +397,7 @@ admin,admin@test.com,login');
         Storage::fake('local');
 
         $organization = $this->createOrganization();
-        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Owner', 'api');
 
         // Create authentication logs for this organization's user
         AuthenticationLog::factory()->count(5)->create([
@@ -439,7 +439,7 @@ admin,admin@test.com,login');
     public function csv_export_contains_only_filtered_logs_of_the_exporting_organization(): void
     {
         $organization = $this->createOrganization();
-        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Owner', 'api');
         AuthenticationLog::factory()->count(3)->create([
             'user_id' => $admin->id,
             'ip_address' => '10.0.0.1',
@@ -476,7 +476,7 @@ admin,admin@test.com,login');
         Storage::fake('local');
 
         $organization = $this->createOrganization();
-        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Owner', 'api');
 
         // Create authentication logs
         AuthenticationLog::factory()->count(3)->create([
@@ -520,7 +520,7 @@ admin,admin@test.com,login');
         Storage::fake('local');
 
         $organization = $this->createOrganization();
-        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Owner', 'api');
 
         // Create authentication logs
         AuthenticationLog::factory()->count(4)->create([
@@ -564,7 +564,7 @@ admin,admin@test.com,login');
         // ARRANGE: Create real storage
         Storage::fake('local');
 
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
 
         // Create 1000+ authentication logs
         AuthenticationLog::factory()->count(1200)->create([
@@ -604,7 +604,7 @@ admin,admin@test.com,login');
     public function export_requires_valid_date_range()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // ACT: Request export with invalid date range (end before start)
@@ -629,7 +629,7 @@ admin,admin@test.com,login');
     public function export_requires_valid_format()
     {
         // ARRANGE: Create organization admin
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // ACT: Request export with invalid format
@@ -650,7 +650,7 @@ admin,admin@test.com,login');
     public function export_requires_proper_oauth_scopes()
     {
         // ARRANGE: Create user without proper scopes
-        $user = $this->createApiOrganizationAdmin();
+        $user = $this->createApiOrganizationOwner();
         $this->actingAsApiUserWithToken($user, ['profile.read']); // Wrong scope
 
         // ACT: Attempt to create export
@@ -674,7 +674,7 @@ admin,admin@test.com,login');
     public function export_download_requires_proper_oauth_scopes()
     {
         // ARRANGE: Create completed export
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
 
         $export = AuditExport::factory()->create([
             'organization_id' => $admin->organization_id,
@@ -705,7 +705,7 @@ admin,admin@test.com,login');
     public function export_job_handles_failures_gracefully()
     {
         // ARRANGE: Create export with invalid type (will cause failure)
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
 
         $export = AuditExport::factory()->create([
             'organization_id' => $admin->organization_id,
@@ -744,7 +744,7 @@ admin,admin@test.com,login');
             ],
         ]);
 
-        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Admin', 'api');
+        $admin = $this->createUser(['organization_id' => $organization->id], 'Organization Owner', 'api');
         $this->actingAsApiUserWithToken($admin, ['enterprise.audit.manage']);
 
         // ACT: Attempt to create export

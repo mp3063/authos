@@ -4,16 +4,25 @@ namespace Tests;
 
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Laravel\Passport\Client;
+use Laravel\Passport\ClientRepository;
 use Laravel\Passport\Passport;
+use Laravel\Passport\Token;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 abstract class TestCase extends BaseTestCase
 {
     // Use RefreshDatabase for much better performance (migrates once, uses transactions)
     // This is safe with PHP 8.4 and SQLite :memory: database
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    use RefreshDatabase;
 
     // Memory optimization: Cache expensive operations (parallel-safe with static state)
     protected static bool $passportInitialized = false;
@@ -28,8 +37,8 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         // CRITICAL: Clear Spatie Permission cache aggressively for parallel test isolation
-        if (class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
-            $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+        if (class_exists(PermissionRegistrar::class)) {
+            $registrar = app(PermissionRegistrar::class);
 
             // Clear all permission caches
             $registrar->forgetCachedPermissions();
@@ -40,7 +49,7 @@ abstract class TestCase extends BaseTestCase
             // Clear any Laravel cache that might store permissions
             if (app()->bound('cache')) {
                 try {
-                    \Illuminate\Support\Facades\Cache::tags(['spatie.permission.cache'])->flush();
+                    Cache::tags(['spatie.permission.cache'])->flush();
                 } catch (\Exception $e) {
                     // Some cache drivers don't support tags, that's okay
                 }
@@ -74,8 +83,8 @@ abstract class TestCase extends BaseTestCase
         }
 
         // CRITICAL: Aggressively clear Spatie Permission cache to prevent test pollution
-        if (class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
-            $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+        if (class_exists(PermissionRegistrar::class)) {
+            $registrar = app(PermissionRegistrar::class);
 
             // Clear all permission caches
             $registrar->forgetCachedPermissions();
@@ -86,7 +95,7 @@ abstract class TestCase extends BaseTestCase
             // Clear Laravel cache for permissions
             if (app()->bound('cache')) {
                 try {
-                    \Illuminate\Support\Facades\Cache::tags(['spatie.permission.cache'])->flush();
+                    Cache::tags(['spatie.permission.cache'])->flush();
                 } catch (\Exception $e) {
                     // Some cache drivers don't support tags
                 }
@@ -143,13 +152,13 @@ abstract class TestCase extends BaseTestCase
         // Parallel-safe: Each process/transaction gets its own clients
         // RefreshDatabase trait ensures each test starts fresh via transactions
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('oauth_clients')) {
-                $existingClient = \Laravel\Passport\Client::where('personal_access_client', true)
+            if (Schema::hasTable('oauth_clients')) {
+                $existingClient = Client::where('personal_access_client', true)
                     ->where('provider', 'users')
                     ->first();
 
                 if (! $existingClient) {
-                    $clientRepository = app(\Laravel\Passport\ClientRepository::class);
+                    $clientRepository = app(ClientRepository::class);
                     $clientRepository->createPersonalAccessGrantClient(
                         'Test Personal Access Client',
                         'users'
@@ -188,7 +197,7 @@ abstract class TestCase extends BaseTestCase
             $this->setupRoleWithPermissions($role, $guard, $user->organization_id);
 
             // CRITICAL FIX: Set the team context BEFORE role operations
-            app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
 
             // Find the role (should exist after setup)
             $roleModel = Role::where('name', $role)
@@ -200,7 +209,7 @@ abstract class TestCase extends BaseTestCase
                 // CRITICAL FIX: Set team context based on role type
                 $teamId = $role === 'Super Admin' ? null : $user->organization_id;
                 $user->setPermissionsTeamId($teamId);
-                app(\Spatie\Permission\PermissionRegistrar::class)->setPermissionsTeamId($teamId);
+                app(PermissionRegistrar::class)->setPermissionsTeamId($teamId);
 
                 // Assign role with proper team context
                 $user->assignRole($roleModel);
@@ -244,6 +253,11 @@ abstract class TestCase extends BaseTestCase
         return $this->createUser($attributes, 'Organization Admin', 'api');
     }
 
+    protected function createApiOrganizationOwner(array $attributes = []): User
+    {
+        return $this->createUser($attributes, 'Organization Owner', 'api');
+    }
+
     protected function createApiUser(array $attributes = []): User
     {
         return $this->createUser($attributes, 'User', 'api');
@@ -277,8 +291,8 @@ abstract class TestCase extends BaseTestCase
     {
         if ($clientId !== null) {
             // Create token with specific client ID for integration tests
-            $tokenId = \Illuminate\Support\Str::random(80);
-            \Laravel\Passport\Token::create([
+            $tokenId = Str::random(80);
+            Token::create([
                 'id' => $tokenId,
                 'user_id' => $user->id,
                 'client_id' => $clientId,
@@ -325,7 +339,7 @@ abstract class TestCase extends BaseTestCase
         if (! empty($permissions)) {
             // Create permissions with organization context (global for Super Admin)
             foreach ($permissions as $permissionName) {
-                \Spatie\Permission\Models\Permission::firstOrCreate([
+                Permission::firstOrCreate([
                     'name' => $permissionName,
                     'guard_name' => $guard,
                     'organization_id' => $role === 'Super Admin' ? null : $organizationId,
@@ -333,7 +347,7 @@ abstract class TestCase extends BaseTestCase
             }
 
             // Sync permissions to role
-            $query = \Spatie\Permission\Models\Permission::whereIn('name', $permissions)
+            $query = Permission::whereIn('name', $permissions)
                 ->where('guard_name', $guard);
 
             if ($role === 'Super Admin') {
@@ -396,7 +410,6 @@ abstract class TestCase extends BaseTestCase
                 'users.read',
                 'applications.read',
                 'organizations.read',
-                'auth_logs.read',
             ],
         ];
 

@@ -8,7 +8,8 @@ class ListComplianceReportsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->tokenCan('enterprise.compliance.read') ?? false;
+        return ($this->user()?->tokenCan('enterprise.compliance.read') ?? false)
+            && $this->user()->can('auth_logs.read');
     }
 
     public function rules(): array

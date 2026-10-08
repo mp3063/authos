@@ -20,7 +20,7 @@ class ComplianceReportDownloadTest extends IntegrationTestCase
         parent::setUp();
         Storage::fake('local');
         $this->organization = Organization::factory()->create();
-        $this->admin = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $this->admin = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
     }
 
     private function makeCompletedReport(array $overrides = []): ComplianceReport

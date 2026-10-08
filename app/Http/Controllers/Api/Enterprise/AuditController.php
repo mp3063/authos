@@ -25,6 +25,8 @@ class AuditController extends BaseController
 
     public function export(Request $request): JsonResponse
     {
+        $this->authorize('auth_logs.export');
+
         $request->validate([
             'format' => ['required', 'string', 'in:csv,json,xlsx'],
             'start_date' => ['required', 'date'],
@@ -85,6 +87,8 @@ class AuditController extends BaseController
 
     public function listExports(Request $request): JsonResponse
     {
+        $this->authorize('auth_logs.read');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -123,6 +127,8 @@ class AuditController extends BaseController
 
     public function download(int $exportId): StreamedResponse|JsonResponse
     {
+        $this->authorize('auth_logs.read');
+
         try {
             $user = $this->getAuthenticatedUser();
 

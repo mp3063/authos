@@ -21,7 +21,7 @@ class ScheduledComplianceReportTest extends IntegrationTestCase
     {
         parent::setUp();
         $this->organization = Organization::factory()->create();
-        $this->admin = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $this->admin = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
     }
 
     #[Test]

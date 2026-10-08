@@ -64,7 +64,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with compliance data
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create authentication logs for compliance metrics
         User::factory()->count(5)->create([
@@ -118,7 +118,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with compliance data
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create users for provisioning metrics
         User::factory()->count(10)->create([
@@ -174,7 +174,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with data subjects
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create data subjects (users) - 7 additional + 1 admin = 8 total
         User::factory()->count(7)->create([
@@ -230,7 +230,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization and fake queue
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         Queue::fake();
 
         $token = $this->createAccessToken($user, ['*']);
@@ -349,7 +349,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with rich compliance data
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create comprehensive test data
         User::factory()->count(20)->create([
@@ -484,7 +484,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with time-stamped data
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create users at different times
         User::factory()->count(5)->create([
@@ -535,7 +535,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create org + generate report (Job persists ComplianceReport row)
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         Storage::fake('local');
 
         $job = new GenerateComplianceReportJob($organization, 'soc2', []);
@@ -587,7 +587,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create user with proper authorization
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         $token = $this->createAccessToken($user, ['*']);
 
@@ -622,7 +622,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create user with proper authorization
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         Queue::fake();
         $token = $this->createAccessToken($user, ['*']);
@@ -661,7 +661,7 @@ class ComplianceReportTest extends IntegrationTestCase
         $org1 = Organization::factory()->create(['name' => 'Organization 1']);
         $org2 = Organization::factory()->create(['name' => 'Organization 2']);
 
-        $user1 = $this->createApiOrganizationAdmin(['organization_id' => $org1->id]);
+        $user1 = $this->createApiOrganizationOwner(['organization_id' => $org1->id]);
 
         // Create data in org2
         User::factory()->count(10)->create(['organization_id' => $org2->id]);
@@ -695,7 +695,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create user with proper scope
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         $token = $this->createAccessToken($user, ['*']);
 
@@ -723,7 +723,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create user with proper scope
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         $token = $this->createAccessToken($user, ['*']);
 
@@ -751,7 +751,7 @@ class ComplianceReportTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with mixed MFA adoption
         $organization = Organization::factory()->create();
-        $user = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $user = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create 10 users with MFA enabled (90% adoption)
         User::factory()->count(9)->create([
@@ -965,7 +965,7 @@ class ComplianceReportTest extends IntegrationTestCase
         // ARRANGE: report owned by org1; admin token is for org2
         $org1 = Organization::factory()->create();
         $org2 = Organization::factory()->create();
-        $org2Admin = $this->createApiOrganizationAdmin(['organization_id' => $org2->id]);
+        $org2Admin = $this->createApiOrganizationOwner(['organization_id' => $org2->id]);
         Storage::fake('local');
 
         $job = new GenerateComplianceReportJob($org1, 'gdpr', []);

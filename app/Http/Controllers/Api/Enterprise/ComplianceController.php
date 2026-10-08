@@ -95,6 +95,8 @@ class ComplianceController extends BaseController
 
     public function listSchedules(): JsonResponse
     {
+        $this->authorize('auth_logs.read');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -140,6 +142,8 @@ class ComplianceController extends BaseController
 
     public function cancelSchedule(int $id): JsonResponse
     {
+        $this->authorize('auth_logs.export');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -170,6 +174,8 @@ class ComplianceController extends BaseController
 
     private function generateReport(string $scope, string $label, \Closure $generate): JsonResponse
     {
+        $this->authorize('auth_logs.export');
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -270,6 +276,8 @@ class ComplianceController extends BaseController
 
     public function downloadReport(int $reportId, Request $request): StreamedResponse|JsonResponse
     {
+        $this->authorize('auth_logs.read');
+
         try {
             $user = $this->getAuthenticatedUser();
 

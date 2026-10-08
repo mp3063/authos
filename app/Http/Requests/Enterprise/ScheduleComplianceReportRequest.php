@@ -9,7 +9,8 @@ class ScheduleComplianceReportRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->tokenCan('enterprise.compliance.manage') ?? false;
+        return ($this->user()?->tokenCan('enterprise.compliance.manage') ?? false)
+            && $this->user()->can('auth_logs.export');
     }
 
     public function rules(): array
