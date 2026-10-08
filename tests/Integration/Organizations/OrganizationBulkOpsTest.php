@@ -241,7 +241,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         $userIds = $users->pluck('id')->toArray();
 
         // ACT: Bulk delete users
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api'), 'api')
             ->deleteJson("/api/v1/organizations/{$this->organization->id}/bulk/delete-users", [
                 'user_ids' => $userIds,
                 'reason' => 'Account cleanup',

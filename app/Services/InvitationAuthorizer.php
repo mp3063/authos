@@ -28,10 +28,7 @@ class InvitationAuthorizer
         $isAdmin = $user->hasOrganizationRole('Organization Admin', $user->organization_id) ||
                   $user->hasOrganizationRole('organization admin', $user->organization_id);
 
-        // Also check direct role by name for testing environment
-        $hasAdminRole = app()->environment('testing') && $this->hasAdminRoleByName($user);
-
-        return $isOwner || $isAdmin || $hasAdminRole;
+        return $isOwner || $isAdmin;
     }
 
     public function canManageInvitation(User $user, Invitation $invitation): bool
@@ -75,18 +72,6 @@ class InvitationAuthorizer
         $isOwner = $user->isOrganizationOwner();
         $isAdmin = $user->isOrganizationAdmin();
 
-        // Testing environment fallback
-        if (app()->environment('testing') && ! $isOwner && ! $isAdmin) {
-            $isAdmin = $this->hasAdminRoleByName($user);
-        }
-
         return $isOwner || $isAdmin;
-    }
-
-    private function hasAdminRoleByName(User $user): bool
-    {
-        $userRoles = $user->roles()->get()->pluck('name')->toArray();
-
-        return in_array('Organization Admin', $userRoles) || in_array('organization admin', $userRoles);
     }
 }

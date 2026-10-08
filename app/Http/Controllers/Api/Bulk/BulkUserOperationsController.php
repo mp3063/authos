@@ -240,10 +240,7 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkDeleteUsers(Request $request, string $organizationId): JsonResponse
     {
-        // Authorization check - skip if in testing without proper gates
-        if (! app()->runningUnitTests()) {
-            $this->authorize('users.delete');
-        }
+        $this->authorize('users.delete');
 
         $organization = Organization::findOrFail($organizationId);
 
@@ -256,7 +253,7 @@ class BulkUserOperationsController extends BaseController
         $userIds = $request->input('user_ids');
 
         // Validate that all users belong to the organization
-        $users = User::whereIn('id', $userIds)->get();
+        $users = User::with(['permissions', 'roles.permissions'])->whereIn('id', $userIds)->get();
         $invalidUsers = $users->filter(function ($user) use ($organization) {
             return $user->organization_id !== $organization->id;
         });
@@ -269,8 +266,13 @@ class BulkUserOperationsController extends BaseController
         }
 
         try {
+            $caller = $request->user();
             $deletedCount = 0;
             foreach ($users as $user) {
+                if ($user->id === $caller->id || $this->userRoleService->exceedsPermissionsOf($caller, $this->userRoleService->effectivePermissionNames($user))) {
+                    continue;
+                }
+
                 // Soft delete the user
                 $user->delete();
                 $deletedCount++;
@@ -290,10 +292,7 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkEnableMfa(Request $request, string $organizationId): JsonResponse
     {
-        // Authorization check - skip if in testing without proper gates
-        if (! app()->runningUnitTests()) {
-            $this->authorize('users.update');
-        }
+        $this->authorize('users.update');
 
         $organization = Organization::findOrFail($organizationId);
 

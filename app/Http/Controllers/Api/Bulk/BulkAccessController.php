@@ -28,10 +28,7 @@ class BulkAccessController extends BaseController
      */
     public function bulkRevokeAccess(Request $request, string $organizationId): JsonResponse
     {
-        // Authorization check - skip if in testing without proper gates
-        if (! app()->runningUnitTests()) {
-            $this->authorize('applications.update');
-        }
+        $this->authorize('applications.update');
 
         $organization = Organization::findOrFail($organizationId);
 

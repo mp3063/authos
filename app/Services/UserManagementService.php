@@ -22,7 +22,8 @@ class UserManagementService extends BaseService implements UserManagementService
     public function __construct(
         protected AuthenticationLogService $authLogService,
         protected UserRepositoryInterface $userRepository,
-        protected PermissionRegistrar $permissionRegistrar
+        protected PermissionRegistrar $permissionRegistrar,
+        protected UserRoleService $userRoleService
     ) {}
 
     /**
@@ -204,7 +205,7 @@ class UserManagementService extends BaseService implements UserManagementService
     public function performBulkOperation(array $userIds, string $action, User $currentUser): array
     {
         // Get users from the same organization as the current user
-        $users = $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization);
+        $users = $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization)->load(['permissions', 'roles.permissions']);
 
         if ($users->count() !== count($userIds)) {
             throw new InvalidArgumentException('Some users not found or not accessible.');
@@ -215,6 +216,10 @@ class UserManagementService extends BaseService implements UserManagementService
         foreach ($users as $user) {
             // Don't allow bulk operations on self
             if ($user->id === $currentUser->id) {
+                continue;
+            }
+
+            if ($action !== 'activate' && $this->userRoleService->exceedsPermissionsOf($currentUser, $this->userRoleService->effectivePermissionNames($user))) {
                 continue;
             }
 
