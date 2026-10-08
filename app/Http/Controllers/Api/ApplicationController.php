@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
 
@@ -109,8 +110,13 @@ class ApplicationController extends BaseController
     {
         $this->authorize('applications.create');
 
+        $caller = $request->user();
+        abort_if(! $caller->isSuperAdmin() && $caller->organization_id === null, 403);
+
         $request->validate([
-            'organization_id' => 'required|exists:organizations,id',
+            'organization_id' => $caller->isSuperAdmin()
+                ? 'required|exists:organizations,id'
+                : ['sometimes', Rule::in([$caller->organization_id])],
             'name' => 'required|string|max:255',
             'redirect_uris' => 'required|array|min:1|max:10',
             'redirect_uris.*' => 'required|url|max:2048',
@@ -156,7 +162,7 @@ class ApplicationController extends BaseController
         }
 
         $application = Application::create([
-            'organization_id' => $request->organization_id,
+            'organization_id' => $caller->isSuperAdmin() ? $request->organization_id : $caller->organization_id,
             'name' => $request->name,
             'client_id' => $clientId,
             'client_secret' => $clientSecret,

@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Laravel\Passport\Client;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\Integration\IntegrationTestCase;
 
@@ -45,7 +46,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_creates_oauth_application_with_valid_data(): void
     {
         // ARRANGE: Prepare application data
@@ -138,7 +139,54 @@ class ApplicationCrudTest extends IntegrationTestCase
         $this->assertTrue($application->settings['require_pkce']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
+    public function it_creates_the_application_in_the_callers_organization_whatever_the_body_says(): void
+    {
+        $otherOrg = $this->createOrganization();
+
+        $response = $this->actingAsApiUserWithToken($this->user)
+            ->postJson('/api/v1/applications', $this->applicationPayload(['organization_id' => $otherOrg->id]));
+
+        $response->assertStatus(422)->assertJsonValidationErrors('organization_id');
+        $this->assertDatabaseMissing('applications', ['organization_id' => $otherOrg->id]);
+    }
+
+    #[Test]
+    public function it_creates_the_application_in_the_callers_organization_when_organization_id_is_omitted(): void
+    {
+        $response = $this->actingAsApiUserWithToken($this->user)
+            ->postJson('/api/v1/applications', $this->applicationPayload());
+
+        $response->assertStatus(201)->assertJsonPath('data.organization_id', $this->organization->id);
+        $this->assertDatabaseHas('applications', ['organization_id' => $this->organization->id, 'name' => 'Scoped App']);
+    }
+
+    #[Test]
+    public function it_lets_a_super_admin_create_an_application_in_any_organization(): void
+    {
+        $otherOrg = $this->createOrganization();
+        $superAdmin = $this->createApiSuperAdmin(['organization_id' => $this->organization->id]);
+
+        $response = $this->actingAsApiUserWithToken($superAdmin)
+            ->postJson('/api/v1/applications', $this->applicationPayload(['organization_id' => $otherOrg->id]));
+
+        $response->assertStatus(201)->assertJsonPath('data.organization_id', $otherOrg->id);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function applicationPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Scoped App',
+            'redirect_uris' => ['https://app.example.com/callback'],
+            'allowed_grant_types' => ['authorization_code'],
+        ], $overrides);
+    }
+
+    #[Test]
     public function it_reads_application_details_with_relationships(): void
     {
         // ARRANGE: Create application with users
@@ -198,7 +246,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         $this->assertNotNull($users[0]['granted_at']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_updates_application_settings_and_configuration(): void
     {
         // ARRANGE: Create application
@@ -268,7 +316,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         $this->assertStringContainsString('new.example.com', $passportClient->redirect);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_deletes_application_and_cleans_up_tokens(): void
     {
         // ARRANGE: Create application with active tokens
@@ -309,7 +357,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_lists_applications_with_pagination_and_filtering(): void
     {
         // ARRANGE: Create multiple applications
@@ -396,7 +444,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         $this->assertCount(2, $paginatedResponse->json('data'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_enforces_multi_tenant_organization_boundaries(): void
     {
         // ARRANGE: Create applications in different organizations
@@ -456,7 +504,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         $this->assertEquals('Org 2 Application', $app2->name);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_validates_redirect_uris_and_required_fields(): void
     {
         // ACT: Attempt to create application without required fields
@@ -471,7 +519,6 @@ class ApplicationCrudTest extends IntegrationTestCase
                 'error',
                 'error_description',
                 'errors' => [
-                    'organization_id',
                     'name',
                     'redirect_uris',
                     'allowed_grant_types',
