@@ -73,7 +73,8 @@ class UsersRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->preloadRecordSelect(),
+                    ->preloadRecordSelect()
+                    ->recordSelectOptionsQuery(fn (Builder $query) => static::scopeToOrganization($query)),
             ])
             ->recordActions([
                 DetachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),

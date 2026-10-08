@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Invitations\Schemas;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Models\Organization;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -11,6 +12,8 @@ use Filament\Schemas\Schema;
 
 class InvitationForm
 {
+    use ScopesToOrganization;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -20,7 +23,8 @@ class InvitationForm
                     ->schema([
                         Select::make('organization_id')
                             ->label('Organization')
-                            ->options(Organization::query()->pluck('name', 'id'))
+                            ->options(fn () => static::scopeToOrganization(Organization::query(), 'id')->pluck('name', 'id'))
+                            ->visible(fn () => static::canChooseOrganization())
                             ->required()
                             ->searchable(),
 

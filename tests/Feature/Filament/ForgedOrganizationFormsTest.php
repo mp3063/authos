@@ -5,19 +5,28 @@ namespace Tests\Feature\Filament;
 use App\Filament\Resources\ApplicationGroupResource\Pages\CreateApplicationGroup;
 use App\Filament\Resources\ApplicationResource\Pages\CreateApplication;
 use App\Filament\Resources\CustomDomains\Pages\CreateCustomDomain;
+use App\Filament\Resources\Invitations\Pages\CreateInvitation;
 use App\Filament\Resources\LdapConfigurations\Pages\CreateLdapConfiguration;
+use App\Filament\Resources\MigrationJobResource\Pages\ListMigrationJobs;
 use App\Filament\Resources\OrganizationBrandingResource\Pages\CreateOrganizationBranding;
+use App\Filament\Resources\PermissionResource\Pages\CreatePermission;
+use App\Filament\Resources\SocialAccounts\Pages\CreateSocialAccount;
 use App\Filament\Resources\SSOConfigurationResource\Pages\CreateSSOConfiguration;
+use App\Filament\Resources\UserResource\Pages\EditUser;
+use App\Filament\Resources\UserResource\RelationManagers\ApplicationsRelationManager;
 use App\Filament\Resources\WebhookResource\Pages\CreateWebhook;
+use App\Filament\Widgets\ApplicationAccessMatrix;
 use App\Models\Application;
 use App\Models\ApplicationGroup;
 use App\Models\CustomDomain;
+use App\Models\Invitation;
 use App\Models\LdapConfiguration;
 use App\Models\Organization;
 use App\Models\OrganizationBranding;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookEvent;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
@@ -159,5 +168,81 @@ class ForgedOrganizationFormsTest extends IntegrationTestCase
 
         $this->assertDatabaseMissing('organization_branding', ['organization_id' => $this->otherOrganization->id]);
         $this->assertSame($this->owner->organization_id, OrganizationBranding::where('primary_color', '#112233')->value('organization_id'));
+    }
+
+    #[Test]
+    public function it_rejects_an_invitation_for_another_organization(): void
+    {
+        Livewire::test(CreateInvitation::class)
+            ->assertFormFieldIsHidden('organization_id')
+            ->fillForm([
+                'organization_id' => $this->otherOrganization->id,
+                'email' => 'forged@example.com',
+                'role' => 'user',
+            ])
+            ->call('create');
+
+        $this->assertDatabaseMissing('invitations', ['organization_id' => $this->otherOrganization->id]);
+        $this->assertSame($this->owner->organization_id, Invitation::where('email', 'forged@example.com')->value('organization_id'));
+    }
+
+    #[Test]
+    public function it_forbids_an_organization_owner_from_creating_a_social_account_for_a_foreign_user(): void
+    {
+        Livewire::test(CreateSocialAccount::class)->assertForbidden();
+    }
+
+    #[Test]
+    public function it_rejects_a_migration_for_another_organization(): void
+    {
+        Queue::fake();
+
+        Livewire::test(ListMigrationJobs::class)
+            ->callAction('new_migration', [
+                'source' => 'auth0',
+                'organization_id' => $this->otherOrganization->id,
+                'tenant_domain' => 'tenant.auth0.com',
+                'api_token' => 'token',
+            ]);
+
+        $this->assertDatabaseMissing('migration_jobs', ['organization_id' => $this->otherOrganization->id]);
+        $this->assertDatabaseHas('migration_jobs', ['organization_id' => $this->owner->organization_id]);
+    }
+
+    #[Test]
+    public function it_rejects_attaching_an_application_of_another_organization_to_a_user(): void
+    {
+        $foreignApplication = Application::factory()->create(['organization_id' => $this->otherOrganization->id]);
+        $target = User::factory()->create(['organization_id' => $this->owner->organization_id]);
+
+        Livewire::test(ApplicationsRelationManager::class, ['ownerRecord' => $target, 'pageClass' => EditUser::class])
+            ->callTableAction('attach', data: ['recordId' => $foreignApplication->id])
+            ->assertHasTableActionErrors(['recordId']);
+
+        $this->assertDatabaseMissing('user_applications', ['application_id' => $foreignApplication->id]);
+    }
+
+    #[Test]
+    public function it_ignores_access_matrix_grants_for_a_user_of_another_organization(): void
+    {
+        $application = Application::factory()->create(['organization_id' => $this->owner->organization_id]);
+        $foreignUser = User::factory()->create(['organization_id' => $this->otherOrganization->id]);
+
+        Livewire::test(ApplicationAccessMatrix::class)->call('grantAccess', $foreignUser->id, $application->id);
+
+        $this->assertDatabaseMissing('user_applications', ['user_id' => $foreignUser->id]);
+    }
+
+    #[Test]
+    public function it_rejects_permission_names_equal_to_a_policy_ability(): void
+    {
+        $this->actingAs($this->createSuperAdmin());
+
+        Livewire::test(CreatePermission::class)
+            ->fillForm(['name' => 'update', 'guard_name' => 'web'])
+            ->call('create')
+            ->assertHasFormErrors(['name']);
+
+        $this->assertDatabaseMissing('permissions', ['name' => 'update']);
     }
 }

@@ -2,15 +2,19 @@
 
 namespace App\Filament\Resources\SocialAccounts\Schemas;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class SocialAccountForm
 {
+    use ScopesToOrganization;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -19,7 +23,7 @@ class SocialAccountForm
                     ->schema([
                         Select::make('user_id')
                             ->label('User')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'name', fn (Builder $query) => static::scopeToOrganization($query))
                             ->searchable()
                             ->preload()
                             ->required()

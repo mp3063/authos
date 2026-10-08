@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\MigrationJobResource\Pages;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Filament\Resources\MigrationJobResource;
 use App\Jobs\ProcessAuth0MigrationJob;
 use App\Jobs\ProcessOktaMigrationJob;
 use App\Models\MigrationJob;
 use App\Models\Organization;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -19,6 +21,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListMigrationJobs extends ListRecords
 {
+    use ScopesToOrganization;
+
     protected static string $resource = MigrationJobResource::class;
 
     protected function getHeaderActions(): array
@@ -41,7 +45,8 @@ class ListMigrationJobs extends ListRecords
 
                         Select::make('organization_id')
                             ->label('Target Organization')
-                            ->options(Organization::pluck('name', 'id'))
+                            ->options(fn () => static::scopeToOrganization(Organization::query(), 'id')->pluck('name', 'id'))
+                            ->visible(fn () => static::canChooseOrganization())
                             ->required()
                             ->searchable()
                             ->helperText('Organization to import users into'),
@@ -115,7 +120,7 @@ class ListMigrationJobs extends ListRecords
                     }
 
                     $migrationJob = MigrationJob::create([
-                        'organization_id' => $data['organization_id'],
+                        'organization_id' => static::canChooseOrganization() ? $data['organization_id'] : Filament::auth()->user()->organization_id,
                         'source' => $data['source'],
                         'status' => 'pending',
                         'config' => $config,

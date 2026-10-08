@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\UserResource\RelationManagers;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use Filament\Actions\Action;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
@@ -20,6 +21,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ApplicationsRelationManager extends RelationManager
 {
+    use ScopesToOrganization;
+
     protected static string $relationship = 'applications';
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -114,6 +117,7 @@ class ApplicationsRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
+                    ->recordSelectOptionsQuery(fn (Builder $query) => static::scopeToOrganization($query))
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\KeyValue::make('metadata')
