@@ -219,7 +219,7 @@ class UserManagementService extends BaseService implements UserManagementService
                 continue;
             }
 
-            if ($action !== 'activate' && $this->userRoleService->exceedsPermissionsOf($currentUser, $this->userRoleService->effectivePermissionNames($user))) {
+            if ($action !== 'activate' && $this->userRoleService->exceedsPermissionsOf($currentUser, $user)) {
                 continue;
             }
 

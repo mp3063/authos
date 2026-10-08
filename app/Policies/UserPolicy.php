@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Models\User;
 use App\Policies\Concerns\ChecksOrganizationPermissions;
 use App\Services\UserRoleService;
-use Spatie\Permission\PermissionRegistrar;
 
 class UserPolicy
 {
@@ -83,30 +82,6 @@ class UserPolicy
     private function permitsOnTarget(User $user, string $permission, User $model): bool
     {
         return $this->permits($user, $permission, $model->organization_id)
-            && ! $this->targetExceedsUser($user, $model);
-    }
-
-    private function targetExceedsUser(User $user, User $model): bool
-    {
-        if ($model->isSuperAdmin()) {
-            return ! $user->isSuperAdmin();
-        }
-
-        $registrar = app(PermissionRegistrar::class);
-        $previousTeamId = $registrar->getPermissionsTeamId();
-        $userRelations = $user->getRelations();
-        $modelRelations = $model->getRelations();
-        $registrar->setPermissionsTeamId($model->organization_id);
-
-        try {
-            $user->unsetRelation('roles')->load('permissions');
-            $model->unsetRelation('roles')->load('permissions');
-
-            return $this->userRoleService->exceedsPermissionsOf($user, $this->userRoleService->effectivePermissionNames($model));
-        } finally {
-            $registrar->setPermissionsTeamId($previousTeamId);
-            $user->setRelations($userRelations);
-            $model->setRelations($modelRelations);
-        }
+            && ! $this->userRoleService->exceedsPermissionsOf($user, $model);
     }
 }

@@ -338,9 +338,6 @@ class UsersImport implements ToCollection, WithHeadingRow
 
     protected function exceedsCaller(User $user): bool
     {
-        return $this->userRoleService->exceedsPermissionsOf(
-            $this->currentUser,
-            $this->userRoleService->effectivePermissionNames($user)
-        );
+        return $this->userRoleService->exceedsPermissionsOf($this->currentUser, $user);
     }
 }

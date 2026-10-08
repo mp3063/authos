@@ -272,7 +272,7 @@ class BulkUserOperationsController extends BaseController
             $caller = $request->user();
             $deletedCount = 0;
             foreach ($users as $user) {
-                if ($user->id === $caller->id || $this->userRoleService->exceedsPermissionsOf($caller, $this->userRoleService->effectivePermissionNames($user))) {
+                if ($user->id === $caller->id || $this->userRoleService->exceedsPermissionsOf($caller, $user)) {
                     continue;
                 }
 

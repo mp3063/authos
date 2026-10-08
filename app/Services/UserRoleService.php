@@ -190,31 +190,33 @@ class UserRoleService
     }
 
     /**
-     * @param  Collection<int, string>  $permissionNames
+     * Whether the target user, or the given permission names, carry anything the caller lacks. A super admin target exceeds every other caller.
+     *
+     * @param  User|Collection<int, string>  $target
      */
-    public function exceedsPermissionsOf(User $caller, Collection $permissionNames): bool
+    public function exceedsPermissionsOf(User $caller, User|Collection $target): bool
     {
         if ($caller->isSuperAdmin()) {
             return false;
         }
 
+        if ($target instanceof User && $target->isSuperAdmin()) {
+            return true;
+        }
+
+        $permissionNames = $target instanceof User ? $this->effectivePermissionNames($target) : $target;
+
         return $permissionNames->diff($this->effectivePermissionNames($caller))->isNotEmpty();
     }
 
     /**
-     * Permission names granted through Spatie roles, direct permissions and active custom roles.
+     * Permission names granted through Spatie roles in the user's organization, global grants, direct permissions and active custom roles.
      *
      * @return Collection<int, string>
      */
     public function effectivePermissionNames(User $user): Collection
     {
-        return $user->getAllPermissions()->pluck('name')
-            ->merge($user->customRoles()
-                ->where('is_active', true)
-                ->where('custom_roles.organization_id', $user->organization_id)
-                ->get()->pluck('permissions')->flatten())
-            ->unique()
-            ->values();
+        return $user->organizationPermissionNames();
     }
 
     private function scopeToAssignableRoles(Builder|QueryBuilder $query, User $caller, ?int $organizationId): void

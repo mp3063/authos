@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Services;
 
+use App\Models\CustomRole;
 use App\Models\Role;
 use App\Services\UserRoleService;
 use Illuminate\Database\Eloquent\Collection;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class UserRoleServiceTest extends TestCase
@@ -34,6 +36,40 @@ class UserRoleServiceTest extends TestCase
         $target = $this->createApiUser(['organization_id' => $otherOrganization->id]);
 
         $this->assertNull(app(UserRoleService::class)->roleChangeDenial($caller, $target, new Collection([$this->memberRole($otherOrganization->id)])));
+    }
+
+    #[Test]
+    public function it_resolves_effective_permissions_in_the_users_organization_without_an_ambient_team(): void
+    {
+        $owner = $this->createUser([], 'Organization Owner', 'web');
+        CustomRole::factory()->forOrganization($owner->organization)
+            ->create(['permissions' => ['auth_logs.export']])
+            ->assignToUser($owner);
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->setPermissionsTeamId(null);
+        $owner = $owner->fresh();
+
+        $names = app(UserRoleService::class)->effectivePermissionNames($owner);
+
+        $this->assertContains('organizations.update', $names);
+        $this->assertContains('users.delete', $names);
+        $this->assertContains('auth_logs.export', $names);
+        $this->assertNull($registrar->getPermissionsTeamId());
+        $this->assertFalse($owner->relationLoaded('roles'));
+    }
+
+    #[Test]
+    public function it_treats_a_super_admin_target_as_exceeding_every_other_caller(): void
+    {
+        $owner = $this->createUser([], 'Organization Owner', 'web');
+        $superAdmin = $this->createUser(['organization_id' => $owner->organization_id], 'Super Admin', 'web');
+        $otherSuperAdmin = $this->createSuperAdmin();
+        $member = $this->createUser(['organization_id' => $owner->organization_id], 'User', 'web');
+        $service = app(UserRoleService::class);
+
+        $this->assertTrue($service->exceedsPermissionsOf($owner, $superAdmin));
+        $this->assertFalse($service->exceedsPermissionsOf($otherSuperAdmin, $superAdmin));
+        $this->assertFalse($service->exceedsPermissionsOf($owner, $member));
     }
 
     private function memberRole(int $organizationId): Role

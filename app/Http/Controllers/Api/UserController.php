@@ -189,7 +189,7 @@ class UserController extends BaseController
     {
         $user = User::findOrFail($id);
 
-        if ($this->userRoleService->exceedsPermissionsOf($request->user(), $this->userRoleService->effectivePermissionNames($user))) {
+        if ($this->userRoleService->exceedsPermissionsOf($request->user(), $user)) {
             return $this->forbiddenResponse('You cannot update a user with permissions you do not have.');
         }
 
@@ -224,6 +224,10 @@ class UserController extends BaseController
         // Prevent self-deletion
         if ($user->id === auth()->id()) {
             return $this->errorResponse('Cannot delete your own account.', 403);
+        }
+
+        if ($this->userRoleService->exceedsPermissionsOf(auth()->user(), $user)) {
+            return $this->forbiddenResponse('You cannot delete a user with permissions you do not have.');
         }
 
         $this->userManagementService->deleteUser($user);
