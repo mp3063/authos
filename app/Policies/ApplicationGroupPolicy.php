@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\ApplicationGroup;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class ApplicationGroupPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->permits($user, 'applications.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class ApplicationGroupPolicy
      */
     public function view(User $user, ApplicationGroup $applicationGroup): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $applicationGroup->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->permits($user, 'applications.read', $applicationGroup->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class ApplicationGroupPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->permits($user, 'applications.create', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class ApplicationGroupPolicy
      */
     public function update(User $user, ApplicationGroup $applicationGroup): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $applicationGroup->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'Application Manager']);
+        return $this->permits($user, 'applications.update', $applicationGroup->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class ApplicationGroupPolicy
      */
     public function delete(User $user, ApplicationGroup $applicationGroup): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'applications.delete', $applicationGroup->organization_id);
+    }
 
-        return $user->organization_id === $applicationGroup->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'applications.delete', $user->organization_id);
     }
 
     /**
