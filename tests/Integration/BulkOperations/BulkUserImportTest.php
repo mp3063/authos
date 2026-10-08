@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\Integration\IntegrationTestCase;
 
@@ -48,7 +49,7 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_users_from_csv_successfully(): void
     {
         // ARRANGE: Create CSV file with valid user data
@@ -111,7 +112,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Queue::assertPushed(ProcessBulkImportJob::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_users_from_excel_successfully(): void
     {
         // ARRANGE: Create Excel file (simulated as CSV since UploadedFile::fake() creates text files)
@@ -149,7 +150,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertTrue($job->options['send_invitations']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_users_from_json_successfully(): void
     {
         // ARRANGE: Create JSON file with valid user data
@@ -191,7 +192,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertTrue($job->options['auto_generate_passwords']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_validates_file_format(): void
     {
         // ARRANGE: Create file with invalid format
@@ -215,7 +216,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Queue::assertNotPushed(ProcessBulkImportJob::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_handles_duplicate_emails_with_update_existing(): void
     {
         // ARRANGE: Create existing user
@@ -247,7 +248,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertTrue($job->options['update_existing']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_handles_invalid_data_with_skip_invalid(): void
     {
         // ARRANGE: Create CSV with some invalid data
@@ -274,7 +275,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertTrue($job->options['skip_invalid']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function track_import_job_status_and_progress(): void
     {
         // ARRANGE: Create an import job with progress data
@@ -337,7 +338,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertEquals(45, $response->json('data.progress_percentage'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function retry_failed_import_job(): void
     {
         // ARRANGE: Create a failed import job
@@ -388,7 +389,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Queue::assertPushed(ProcessBulkImportJob::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cancel_running_import_job(): void
     {
         // ARRANGE: Create a processing import job
@@ -421,7 +422,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertNotNull($job->processing_time);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cannot_cancel_completed_import_job(): void
     {
         // ARRANGE: Create a completed import job
@@ -450,7 +451,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertEquals(BulkImportJob::STATUS_COMPLETED, $job->status);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function download_import_error_report(): void
     {
         // ARRANGE: Create a failed job with errors
@@ -490,7 +491,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertStringContainsString('text/csv', $response->headers->get('content-type'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_validates_file_size_limit(): void
     {
         // ARRANGE: Create file exceeding size limit (10MB)
@@ -511,7 +512,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $this->assertDatabaseCount('bulk_import_jobs', 0);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_requires_authentication(): void
     {
         // ARRANGE: Create valid CSV file
@@ -527,7 +528,7 @@ class BulkUserImportTest extends IntegrationTestCase
         $response->assertUnauthorized();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function import_enforces_organization_boundary(): void
     {
         // ARRANGE: Create job for another organization
@@ -554,7 +555,7 @@ class BulkUserImportTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function list_import_jobs_with_filters(): void
     {
         // ARRANGE: Create multiple import jobs
@@ -623,7 +624,7 @@ class BulkUserImportTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function delete_completed_import_job(): void
     {
         // ARRANGE: Create completed job with file
@@ -638,7 +639,8 @@ class BulkUserImportTest extends IntegrationTestCase
         Storage::disk('local')->put($job->file_path, 'test data');
 
         // ACT: Delete the job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
+        $owner = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
+        $response = $this->actingAsApiUserWithToken($owner, ['users.manage'])
             ->deleteJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Job deleted successfully
@@ -657,7 +659,7 @@ class BulkUserImportTest extends IntegrationTestCase
         Storage::disk('local')->assertMissing($job->file_path);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cannot_delete_processing_import_job(): void
     {
         // ARRANGE: Create processing job
@@ -669,7 +671,8 @@ class BulkUserImportTest extends IntegrationTestCase
         ]);
 
         // ACT: Attempt to delete processing job
-        $response = $this->actingAsApiUserWithToken($this->adminUser, ['users.manage'])
+        $owner = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
+        $response = $this->actingAsApiUserWithToken($owner, ['users.manage'])
             ->deleteJson("{$this->apiBase}/imports/{$job->id}");
 
         // ASSERT: Request rejected

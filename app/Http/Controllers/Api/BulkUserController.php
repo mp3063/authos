@@ -8,6 +8,7 @@ use App\Models\BulkImportJob;
 use App\Services\BulkImport\BulkImportService;
 use App\Services\BulkImport\DTOs\ExportOptions;
 use App\Services\BulkImport\DTOs\ImportOptions;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -16,6 +17,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BulkUserController extends BaseController
 {
+    use AuthorizesRequests;
+
     public function __construct(
         private readonly BulkImportService $service
     ) {}
@@ -88,6 +91,8 @@ class BulkUserController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('users.read');
+
         $query = BulkImportJob::query()
             ->with(['organization', 'createdBy'])
             ->where('organization_id', $request->user()->organization_id);
@@ -127,6 +132,8 @@ class BulkUserController extends BaseController
      */
     public function show(Request $request, BulkImportJob $job): JsonResponse
     {
+        $this->authorize('users.read');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -174,6 +181,8 @@ class BulkUserController extends BaseController
      */
     public function downloadErrors(Request $request, BulkImportJob $job): StreamedResponse|JsonResponse
     {
+        $this->authorize('users.read');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -210,6 +219,8 @@ class BulkUserController extends BaseController
      */
     public function download(Request $request, BulkImportJob $job): StreamedResponse|JsonResponse
     {
+        $this->authorize('users.read');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -249,6 +260,8 @@ class BulkUserController extends BaseController
      */
     public function cancel(Request $request, BulkImportJob $job): JsonResponse
     {
+        $this->authorize('users.create');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -275,6 +288,8 @@ class BulkUserController extends BaseController
      */
     public function retry(Request $request, BulkImportJob $job): JsonResponse
     {
+        $this->authorize('users.create');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -307,6 +322,8 @@ class BulkUserController extends BaseController
      */
     public function destroy(Request $request, BulkImportJob $job): JsonResponse
     {
+        $this->authorize('users.delete');
+
         // Ensure user can only access their organization's jobs
         if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
             return response()->json([
@@ -327,27 +344,6 @@ class BulkUserController extends BaseController
         return response()->json([
             'success' => true,
             'message' => 'Job deleted successfully',
-        ]);
-    }
-
-    /**
-     * Get job status by UUID (for bulk operations tracking)
-     */
-    public function getJobStatus(string $jobId): JsonResponse
-    {
-        // For now, return a mock response since we're using UUIDs as job IDs
-        // In production, this would query actual job queue status
-        return response()->json([
-            'data' => [
-                'job_id' => $jobId,
-                'status' => 'completed',
-                'progress' => 100,
-                'total' => 0,
-                'completed' => 0,
-                'message' => 'Job completed successfully',
-                'created_at' => now()->toIso8601String(),
-                'updated_at' => now()->toIso8601String(),
-            ],
         ]);
     }
 }

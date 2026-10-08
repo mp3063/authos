@@ -290,43 +290,6 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function test_job_status_tracking(): void
-    {
-        // ARRANGE: Create users for bulk operation
-        $users = User::factory()->count(20)->create([
-            'organization_id' => $this->organization->id,
-        ]);
-
-        // ACT: Start bulk operation
-        $response = $this->actingAs($this->admin, 'api')
-            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/assign-roles", [
-                'user_ids' => $users->pluck('id')->toArray(),
-                'role' => 'User',
-            ]);
-
-        // ASSERT: Verify job was created
-        $response->assertOk();
-        $jobId = $response->json('data.job_id');
-        $this->assertNotNull($jobId);
-
-        // ACT: Check job status
-        $statusResponse = $this->actingAs($this->admin, 'api')
-            ->getJson("/api/v1/bulk/jobs/{$jobId}");
-
-        // ASSERT: Verify status response
-        $statusResponse->assertOk()
-            ->assertJsonStructure([
-                'data' => [
-                    'job_id',
-                    'status',
-                    'progress',
-                    'total',
-                    'completed',
-                ],
-            ]);
-    }
-
-    #[Test]
     public function test_bulk_operations_handle_errors_gracefully(): void
     {
         // ARRANGE: Create mix of valid and invalid user IDs

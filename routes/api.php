@@ -161,11 +161,6 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::delete('/imports/{job}', [BulkUserController::class, 'destroy']);
     });
 
-    // Job status tracking endpoint (no org.boundary requirement)
-    Route::middleware(['auth:api', 'throttle:api'])->prefix('bulk')->group(function () {
-        Route::get('/jobs/{jobId}', [BulkUserController::class, 'getJobStatus']);
-    });
-
     // Application Management API
     Route::middleware(['auth:api', 'throttle:api', 'org.boundary'])->prefix('applications')->group(function () {
         Route::get('/', [ApplicationController::class, 'index']);
