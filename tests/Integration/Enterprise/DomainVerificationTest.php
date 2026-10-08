@@ -48,7 +48,7 @@ class DomainVerificationTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization and admin user
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         $domain = 'custom.example.com';
 
         // ACT: Add domain via API endpoint
@@ -93,7 +93,7 @@ class DomainVerificationTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with existing domain
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         $domain = CustomDomain::factory()->create([
             'organization_id' => $organization->id,
             'domain' => 'existing.example.com',
@@ -293,7 +293,7 @@ class DomainVerificationTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization and pending domain
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         $domain = CustomDomain::factory()->create([
             'organization_id' => $organization->id,
             'domain' => 'confirm.example.com',
@@ -357,7 +357,7 @@ class DomainVerificationTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization and admin
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // ACT: Add multiple domains
         $domains = ['domain1.example.com', 'domain2.example.com', 'domain3.example.com'];
@@ -388,7 +388,7 @@ class DomainVerificationTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with domain
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
         $domain = CustomDomain::factory()->create([
             'organization_id' => $organization->id,
             'domain' => 'remove.example.com',
@@ -569,7 +569,7 @@ class DomainVerificationTest extends IntegrationTestCase
         $org1 = $this->createOrganization();
         $org2 = $this->createOrganization();
 
-        $admin1 = $this->createApiOrganizationAdmin(['organization_id' => $org1->id]);
+        $admin1 = $this->createApiOrganizationOwner(['organization_id' => $org1->id]);
 
         $domain2 = CustomDomain::factory()->create([
             'organization_id' => $org2->id,

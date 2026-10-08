@@ -86,7 +86,7 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
     public function it_hides_another_organizations_configuration_from_delete_with_404(): void
     {
         $config = $this->createSsoConfiguration($this->createApiOrganizationAdmin());
-        $otherAdmin = $this->createApiOrganizationAdmin();
+        $otherAdmin = $this->createApiOrganizationOwner();
 
         $response = $this->actingAsApiUserWithToken($otherAdmin, ['sso'])
             ->deleteJson("/api/v1/sso/configurations/{$config->id}");

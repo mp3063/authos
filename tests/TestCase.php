@@ -322,98 +322,25 @@ abstract class TestCase extends BaseTestCase
         }
     }
 
-    /**
-     * Setup role with permissions (memory optimized)
-     */
     protected function setupRoleWithPermissions(string $role, string $guard, ?int $organizationId): void
     {
-        $roleModel = Role::firstOrCreate([
-            'name' => $role,
-            'guard_name' => $guard,
-            'organization_id' => $role === 'Super Admin' ? null : $organizationId,
-        ]);
-
-        // Get permissions for role
-        $permissions = $this->getPermissionsForRole($role);
-
-        if (! empty($permissions)) {
-            // Create permissions with organization context (global for Super Admin)
-            foreach ($permissions as $permissionName) {
-                Permission::firstOrCreate([
-                    'name' => $permissionName,
-                    'guard_name' => $guard,
-                    'organization_id' => $role === 'Super Admin' ? null : $organizationId,
-                ]);
+        if ($role === 'Super Admin') {
+            if (! Role::where('name', $role)->where('guard_name', $guard)->whereNull('organization_id')->exists()) {
+                Artisan::call('db:seed', ['--class' => 'RolePermissionSeeder']);
             }
 
-            // Sync permissions to role
-            $query = Permission::whereIn('name', $permissions)
-                ->where('guard_name', $guard);
-
-            if ($role === 'Super Admin') {
-                $query->whereNull('organization_id');
-            } else {
-                $query->where('organization_id', $organizationId);
-            }
-
-            $permissionModels = $query->get();
-
-            // Clear cached permissions before syncing
-            $roleModel->forgetCachedPermissions();
-
-            $roleModel->syncPermissions($permissionModels);
-
-            // Force refresh role permissions
-            $roleModel->unsetRelation('permissions');
-            $roleModel->load('permissions');
+            return;
         }
-    }
 
-    /**
-     * Get permissions for a given role (centralized definition)
-     */
-    protected function getPermissionsForRole(string $role): array
-    {
-        $permissions = [
-            'Super Admin' => [
-                'users.create', 'users.read', 'users.update', 'users.delete',
-                'applications.create', 'applications.read', 'applications.update', 'applications.delete',
-                'applications.regenerate_credentials',
-                'organizations.read', 'organizations.update', 'organizations.create', 'organizations.delete', 'organizations.manage_users',
-                'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
-                'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
-                'auth_logs.read', 'auth_logs.export',
-                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
-                'system.settings.read', 'system.settings.update', 'system.analytics.read',
-                'oauth.manage', 'admin.access',
-            ],
-            'Organization Owner' => [
-                'users.create', 'users.read', 'users.update', 'users.delete',
-                'applications.create', 'applications.read', 'applications.update', 'applications.delete',
-                'applications.regenerate_credentials',
-                'organizations.read', 'organizations.update', 'organizations.manage_users',
-                'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
-                'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
-                'auth_logs.read', 'auth_logs.export',
-                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
-            ],
-            'Organization Admin' => [
-                'users.create', 'users.read', 'users.update',
-                'applications.create', 'applications.read', 'applications.update', 'applications.delete',
-                'organizations.read', 'organizations.update', 'organizations.manage_users',
-                'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
-                'permissions.read',
-                'auth_logs.read',
-                'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
-            ],
-            'User' => [
-                'users.read',
-                'applications.read',
-                'organizations.read',
-            ],
-        ];
+        $organization = Organization::find($organizationId);
 
-        return $permissions[$role] ?? [];
+        if ($organization && array_key_exists($role, $organization->getDefaultRoles())) {
+            $organization->setupDefaultRoles();
+
+            return;
+        }
+
+        Role::firstOrCreate(['name' => $role, 'guard_name' => $guard, 'organization_id' => $organizationId]);
     }
 
     protected function assertJsonStructureExact(array $structure, $json = null): void

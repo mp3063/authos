@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Organization;
 use App\Models\User;
 use App\Providers\AuthorizationServiceProvider;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -169,7 +170,7 @@ class AuthorizationTest extends TestCase
         $this->actingAs($this->organizationAdmin);
 
         // Create non-API request
-        $nonApiRequest = \Illuminate\Http\Request::create('/admin/dashboard', 'GET');
+        $nonApiRequest = Request::create('/admin/dashboard', 'GET');
         $this->app->instance('request', $nonApiRequest);
 
         // For non-API requests, Gate::before should return null to let normal authorization proceed
@@ -240,12 +241,12 @@ class AuthorizationTest extends TestCase
         $this->actingAs($this->organizationAdmin);
 
         // Create a fresh request for API
-        $apiRequest = \Illuminate\Http\Request::create('/api/v1/users', 'GET');
+        $apiRequest = Request::create('/api/v1/users', 'GET');
         $this->app->instance('request', $apiRequest);
         $this->assertTrue($apiRequest->is('api/*'));
 
         // Create a fresh request for non-API
-        $adminRequest = \Illuminate\Http\Request::create('/admin/users', 'GET');
+        $adminRequest = Request::create('/admin/users', 'GET');
         $this->app->instance('request', $adminRequest);
         $this->assertFalse($adminRequest->is('api/*'));
     }
@@ -299,12 +300,12 @@ class AuthorizationTest extends TestCase
         $this->actingAs($user1);
         request()->server->set('REQUEST_URI', '/api/v1/users');
 
-        Gate::allows('users.read'); // This should set the context to org1
+        Gate::allows('context.isolation.probe'); // This should set the context to org1
         $this->assertEquals($org1->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
 
         // Test user2 context
         $this->actingAs($user2);
-        Gate::allows('users.read'); // This should change the context to org2
+        Gate::allows('context.isolation.probe'); // This should change the context to org2
         $this->assertEquals($org2->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
     }
 }

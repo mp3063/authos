@@ -7,6 +7,7 @@ use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\SecurityIncident;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -38,12 +39,12 @@ class OrganizationReportsTest extends IntegrationTestCase
         parent::setUp();
 
         $this->organization = $this->createOrganization();
-        $this->admin = $this->createApiOrganizationAdmin([
+        $this->admin = $this->createApiOrganizationOwner([
             'organization_id' => $this->organization->id,
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_generate_user_activity_report(): void
     {
         // ARRANGE: Create users with activity
@@ -111,7 +112,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertGreaterThan(0, $summary['total_logins']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_generate_app_usage_report(): void
     {
         // ARRANGE: Create applications with usage
@@ -171,7 +172,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertCount(3, $applications);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_generate_security_audit_report(): void
     {
         // ARRANGE: Create security incidents
@@ -233,7 +234,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertEquals(10, $summary['total_incidents']); // 5 + 3 + 2
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_schedule_automated_reports(): void
     {
         // ARRANGE: Prepare schedule configuration
@@ -278,7 +279,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         // ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_download_report_as_csv(): void
     {
         // ARRANGE: Create user activity data
@@ -304,7 +305,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertStringContainsString('email', $content);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_download_report_as_json(): void
     {
         // ARRANGE: Create data
@@ -332,7 +333,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertIsArray($json);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_download_report_as_excel(): void
     {
         // ARRANGE: Create data
@@ -354,7 +355,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_report_filtering_by_date_range(): void
     {
         // ARRANGE: Create activity across different dates
@@ -417,7 +418,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertEquals(15, $allSummary['total_logins']); // All logins
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_reports_respect_organization_boundaries(): void
     {
         // ARRANGE: Create activity in different organizations
@@ -440,7 +441,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertLessThan(20, $summary['total_logins']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_report_generation_performance(): void
     {
         // ARRANGE: Create substantial dataset
@@ -468,7 +469,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertLessThan(5, $duration, 'Report generation took too long');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_list_available_report_types(): void
     {
         // ACT: Get available report types
@@ -498,7 +499,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertContains('security_audit', $reportTypes);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_report_includes_metadata(): void
     {
         // ARRANGE: Create data
@@ -530,7 +531,7 @@ class OrganizationReportsTest extends IntegrationTestCase
         $this->assertNotNull($metadata['generated_at']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_scheduled_reports_can_be_managed(): void
     {
         // ARRANGE: Create scheduled report

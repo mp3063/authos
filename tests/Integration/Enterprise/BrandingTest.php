@@ -47,7 +47,7 @@ class BrandingTest extends IntegrationTestCase
         Storage::fake('public');
 
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create a fake image file (200x200 PNG, 1MB)
         $logoFile = UploadedFile::fake()->image('logo.png', 200, 200)->size(1024);
@@ -88,7 +88,7 @@ class BrandingTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with admin
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create initial branding
         $branding = OrganizationBranding::factory()->create([
@@ -129,7 +129,7 @@ class BrandingTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with admin
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // ACT: Submit custom CSS with dangerous patterns
         $maliciousCSS = '
@@ -236,7 +236,7 @@ class BrandingTest extends IntegrationTestCase
         // ARRANGE: Create organization with custom branding
         Storage::fake('public');
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create custom branding with all fields set
         $branding = OrganizationBranding::factory()->create([
@@ -285,7 +285,7 @@ class BrandingTest extends IntegrationTestCase
         // ARRANGE: Create organization with admin
         Storage::fake('public');
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // TEST 1: Invalid file type (PDF)
         $invalidType = UploadedFile::fake()->create('logo.pdf', 100, 'application/pdf');
@@ -343,7 +343,7 @@ class BrandingTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with admin
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // TEST 1: Invalid format (rgb notation)
         $response = $this->actingAsApiUserWithToken($admin, ['enterprise.branding.manage'])
@@ -405,7 +405,7 @@ class BrandingTest extends IntegrationTestCase
         // ARRANGE: Fake storage and create organization with admin
         Storage::fake('public');
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Create a fake background image (1920x1080 JPG, 2MB)
         $backgroundFile = UploadedFile::fake()->image('background.jpg', 1920, 1080)->size(2048);
@@ -470,7 +470,7 @@ class BrandingTest extends IntegrationTestCase
     {
         // ARRANGE: Create organization with admin
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // ACT: Submit custom HTML with XSS attempts
         $maliciousHTML = '
@@ -516,7 +516,7 @@ class BrandingTest extends IntegrationTestCase
         // ARRANGE: Create organization with existing logo
         Storage::fake('public');
         $organization = $this->createOrganization();
-        $admin = $this->createApiOrganizationAdmin(['organization_id' => $organization->id]);
+        $admin = $this->createApiOrganizationOwner(['organization_id' => $organization->id]);
 
         // Upload first logo
         $firstLogo = UploadedFile::fake()->image('logo1.png', 300, 300);

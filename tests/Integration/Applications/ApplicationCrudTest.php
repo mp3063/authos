@@ -41,7 +41,7 @@ class ApplicationCrudTest extends IntegrationTestCase
         Permission::firstOrCreate(['name' => 'applications.delete', 'guard_name' => 'api']);
 
         $this->organization = $this->createOrganization();
-        $this->user = $this->createApiOrganizationAdmin([
+        $this->user = $this->createApiOrganizationOwner([
             'organization_id' => $this->organization->id,
         ]);
     }

@@ -4,6 +4,7 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\Organization;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -35,10 +36,10 @@ class OrganizationSettingsTest extends IntegrationTestCase
         parent::setUp();
 
         $this->organization = $this->createOrganization();
-        $this->user = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+        $this->user = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_update_security_settings(): void
     {
         // ARRANGE: Prepare security settings
@@ -74,7 +75,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertIsArray($this->organization->settings['allowed_ip_ranges']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_configure_lockout_policy(): void
     {
         // ARRANGE: Prepare lockout policy settings
@@ -109,7 +110,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertTrue($lockoutPolicy['notify_admin']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_set_session_timeout(): void
     {
         // ARRANGE: Prepare session timeout settings
@@ -137,7 +138,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertTrue($this->organization->settings['require_reauth_for_sensitive']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_update_notification_preferences(): void
     {
         // ARRANGE: Prepare notification preferences
@@ -171,7 +172,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertTrue($notifications['webhook_failure_alerts']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_configure_oauth_settings(): void
     {
         // ARRANGE: Prepare OAuth settings
@@ -207,7 +208,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertIsArray($oauth['allowed_scopes']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_mfa_enforcement_setting(): void
     {
         // ARRANGE: Enable MFA requirement
@@ -234,7 +235,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertCount(3, $this->organization->settings['mfa_methods']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_settings_constraints_validation(): void
     {
         // ARRANGE: Prepare invalid settings (constraints violation)
@@ -263,7 +264,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertNotEquals(-10, $this->organization->settings['session_timeout'] ?? null);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_reset_settings_to_defaults(): void
     {
         // ARRANGE: Modify settings away from defaults
@@ -295,7 +296,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertArrayNotHasKey('custom_setting', $settings);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_policy_settings(): void
     {
         // ARRANGE: Prepare comprehensive password policy
@@ -337,7 +338,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertTrue($policy['prevent_common_passwords']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_partial_settings_update(): void
     {
         // ARRANGE: Set initial settings
@@ -371,7 +372,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
         $this->assertEquals(8, $this->organization->settings['password_policy']['min_length']); // Preserved
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_settings_affect_organization_behavior(): void
     {
         // ARRANGE: Enable strict security settings
@@ -407,7 +408,7 @@ class OrganizationSettingsTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_unauthorized_user_cannot_modify_settings(): void
     {
         // ARRANGE: Create a fresh organization with known settings for this test
