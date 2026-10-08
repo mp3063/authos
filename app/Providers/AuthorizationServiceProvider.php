@@ -8,6 +8,7 @@ use App\Models\ApplicationGroup;
 use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\BulkImportJob;
+use App\Models\ComplianceReport;
 use App\Models\CustomDomain;
 use App\Models\CustomRole;
 use App\Models\FailedLoginAttempt;
@@ -19,6 +20,7 @@ use App\Models\Organization;
 use App\Models\OrganizationBranding;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\ScheduledComplianceReport;
 use App\Models\SecurityIncident;
 use App\Models\SocialAccount;
 use App\Models\SSOConfiguration;
@@ -34,6 +36,7 @@ use App\Policies\ApplicationPolicy;
 use App\Policies\AuditExportPolicy;
 use App\Policies\AuthenticationLogPolicy;
 use App\Policies\BulkImportJobPolicy;
+use App\Policies\ComplianceReportPolicy;
 use App\Policies\CustomDomainPolicy;
 use App\Policies\CustomRolePolicy;
 use App\Policies\FailedLoginAttemptPolicy;
@@ -45,6 +48,7 @@ use App\Policies\OrganizationBrandingPolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\PermissionPolicy;
 use App\Policies\RolePolicy;
+use App\Policies\ScheduledComplianceReportPolicy;
 use App\Policies\SecurityIncidentPolicy;
 use App\Policies\SocialAccountPolicy;
 use App\Policies\SSOConfigurationPolicy;
@@ -66,6 +70,7 @@ class AuthorizationServiceProvider extends ServiceProvider
         AuditExport::class => AuditExportPolicy::class,
         AuthenticationLog::class => AuthenticationLogPolicy::class,
         BulkImportJob::class => BulkImportJobPolicy::class,
+        ComplianceReport::class => ComplianceReportPolicy::class,
         CustomDomain::class => CustomDomainPolicy::class,
         CustomRole::class => CustomRolePolicy::class,
         FailedLoginAttempt::class => FailedLoginAttemptPolicy::class,
@@ -77,6 +82,7 @@ class AuthorizationServiceProvider extends ServiceProvider
         OrganizationBranding::class => OrganizationBrandingPolicy::class,
         Permission::class => PermissionPolicy::class,
         Role::class => RolePolicy::class,
+        ScheduledComplianceReport::class => ScheduledComplianceReportPolicy::class,
         SecurityIncident::class => SecurityIncidentPolicy::class,
         SocialAccount::class => SocialAccountPolicy::class,
         SSOConfiguration::class => SSOConfigurationPolicy::class,

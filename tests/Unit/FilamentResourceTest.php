@@ -299,6 +299,8 @@ class FilamentResourceTest extends TestCase
     public function scheduled_compliance_report_resource_allows_create()
     {
         // Schedules are operator-defined, so this resource needs a Create page.
+        $this->actingAs($this->superAdmin);
+
         $this->assertTrue(ScheduledComplianceReportResource::canCreate());
     }
 }
