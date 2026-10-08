@@ -7,16 +7,18 @@ use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
 use App\Models\Application;
 use App\Models\User;
 use App\Services\UserManagementService;
+use App\Services\UserRoleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Validation\ValidationException;
 
 class UserApplicationController extends BaseController
 {
     use ApiControllerHelpers;
     use FindsOrgScopedApplications;
 
-    public function __construct(protected UserManagementService $userManagementService)
+    public function __construct(protected UserManagementService $userManagementService, protected UserRoleService $userRoleService)
     {
         $this->middleware('auth:api');
     }
@@ -123,6 +125,8 @@ class UserApplicationController extends BaseController
             'permissions.*' => 'string',
         ]);
 
+        $this->assertPermissionsWithinCallerGrants($request->permissions);
+
         $user = User::findOrFail($id);
         $currentUser = auth()->user();
 
@@ -158,6 +162,8 @@ class UserApplicationController extends BaseController
             'permissions' => 'required|array',
             'permissions.*' => 'string',
         ]);
+
+        $this->assertPermissionsWithinCallerGrants($request->permissions);
 
         $currentUser = auth()->user();
         $application = $this->findApplicationWithOrgScope((string) $request->application_id);
@@ -218,7 +224,11 @@ class UserApplicationController extends BaseController
 
         $currentUser = auth()->user();
 
-        $users = User::whereIn('id', $request->user_ids)->get();
+        $users = User::whereIn('id', $request->user_ids)
+            ->when(! $currentUser->isSuperAdmin(), fn ($query) => $query
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $currentUser->organization_id))
+            ->get();
 
         foreach ($users as $user) {
             $this->userManagementService->revokeApplicationAccess(
@@ -229,5 +239,23 @@ class UserApplicationController extends BaseController
         }
 
         return $this->successResponse([], 'Application access revoked from users successfully', 200);
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    private function assertPermissionsWithinCallerGrants(array $permissions): void
+    {
+        $caller = auth()->user();
+
+        if ($caller->isSuperAdmin()) {
+            return;
+        }
+
+        if (array_diff($permissions, $this->userRoleService->effectivePermissionNames($caller)->all()) !== []) {
+            throw ValidationException::withMessages([
+                'permissions' => 'You cannot grant permissions you do not hold.',
+            ]);
+        }
     }
 }

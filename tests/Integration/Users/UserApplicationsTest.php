@@ -123,7 +123,7 @@ class UserApplicationsTest extends TestCase
         // ARRANGE
         Passport::actingAs($this->adminUser, ['applications.update']);
 
-        $permissions = ['read', 'write', 'delete'];
+        $permissions = ['users.read', 'applications.read', 'applications.update'];
 
         // ACT
         $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
@@ -246,7 +246,7 @@ class UserApplicationsTest extends TestCase
         ]);
 
         $userIds = $users->pluck('id')->toArray();
-        $permissions = ['read', 'write'];
+        $permissions = ['users.read', 'applications.read'];
 
         // ACT
         $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
@@ -291,7 +291,7 @@ class UserApplicationsTest extends TestCase
         $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
             'application_id' => $foreignApplication->id,
             'user_ids' => [$foreignUser->id],
-            'permissions' => ['read'],
+            'permissions' => ['users.read'],
             'bulk' => true,
         ]);
 
@@ -317,6 +317,48 @@ class UserApplicationsTest extends TestCase
         $this->assertDatabaseHas('user_applications', [
             'user_id' => $foreignUser->id,
             'application_id' => $foreignApplication->id,
+        ]);
+    }
+
+    #[Test]
+    public function it_ignores_user_ids_of_other_organizations_in_bulk_revoke(): void
+    {
+        Passport::actingAs($this->adminUser, ['applications.update']);
+        $foreignUser = User::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+        $foreignUser->applications()->attach($this->application->id, ['granted_at' => now()]);
+        $ownUser = User::factory()->create(['organization_id' => $this->organization->id]);
+        $ownUser->applications()->attach($this->application->id, ['granted_at' => now()]);
+
+        $response = $this->deleteJson("/api/v1/users/{$this->regularUser->id}/applications/{$this->application->id}", [
+            'user_ids' => [$foreignUser->id, $ownUser->id],
+            'bulk' => true,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('user_applications', [
+            'user_id' => $foreignUser->id,
+            'application_id' => $this->application->id,
+        ]);
+        $this->assertDatabaseMissing('user_applications', [
+            'user_id' => $ownUser->id,
+            'application_id' => $this->application->id,
+        ]);
+    }
+
+    #[Test]
+    public function it_rejects_granting_application_permissions_the_caller_does_not_hold_with_422(): void
+    {
+        Passport::actingAs($this->adminUser, ['applications.update']);
+
+        $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
+            'application_id' => $this->application->id,
+            'permissions' => ['users.read', 'organizations.delete'],
+        ]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors(['permissions']);
+        $this->assertDatabaseMissing('user_applications', [
+            'user_id' => $this->regularUser->id,
+            'application_id' => $this->application->id,
         ]);
     }
 
@@ -376,7 +418,7 @@ class UserApplicationsTest extends TestCase
             'granted_by' => $this->adminUser->id,
         ]);
 
-        $newPermissions = ['read', 'write', 'admin'];
+        $newPermissions = ['users.read', 'applications.read', 'applications.update'];
 
         // ACT
         $response = $this->postJson("/api/v1/users/{$this->regularUser->id}/applications", [
