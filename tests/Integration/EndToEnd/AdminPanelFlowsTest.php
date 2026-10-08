@@ -1172,7 +1172,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
 
         // Create another organization
         $otherOrg = Organization::factory()->create(['name' => 'Other Organization']);
-        $otherUser = $this->createUser([
+        $otherUser = User::factory()->create([
             'email' => 'other@otherorg.com',
             'organization_id' => $otherOrg->id,
         ]);

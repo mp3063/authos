@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class OrganizationPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'organizations.read', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class OrganizationPolicy
      */
     public function view(User $user, Organization $organization): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $organization->id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+        return $this->permits($user, 'organizations.read', $organization->id);
     }
 
     /**
@@ -45,33 +39,31 @@ class OrganizationPolicy
      */
     public function update(User $user, Organization $organization): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $organization->id
-            && $user->hasRole('Organization Owner');
+        return $this->permits($user, 'organizations.update', $organization->id);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Organization $organization): bool
+    public function delete(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->isSuperAdmin();
+    }
 
-        return $user->organization_id === $organization->id
-            && $user->hasRole('Organization Owner');
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->delete($user);
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Organization $organization): bool
+    public function restore(User $user): bool
     {
-        return $this->delete($user, $organization);
+        return $this->delete($user);
     }
 
     /**

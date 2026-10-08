@@ -4,19 +4,18 @@ namespace App\Policies;
 
 use App\Models\Invitation;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
 
 class InvitationPolicy
 {
+    use ChecksOrganizationPermissions;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.create', $user->organization_id);
     }
 
     /**
@@ -24,12 +23,7 @@ class InvitationPolicy
      */
     public function view(User $user, Invitation $invitation): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $invitation->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.create', $invitation->organization_id);
     }
 
     /**
@@ -37,11 +31,7 @@ class InvitationPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.create', $user->organization_id);
     }
 
     /**
@@ -49,12 +39,7 @@ class InvitationPolicy
      */
     public function update(User $user, Invitation $invitation): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->organization_id === $invitation->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.create', $invitation->organization_id);
     }
 
     /**
@@ -62,12 +47,15 @@ class InvitationPolicy
      */
     public function delete(User $user, Invitation $invitation): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $this->permits($user, 'users.create', $invitation->organization_id);
+    }
 
-        return $user->organization_id === $invitation->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'users.create', $user->organization_id);
     }
 
     /**

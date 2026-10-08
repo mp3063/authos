@@ -3,19 +3,22 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationPermissions;
+use App\Services\UserRoleService;
+use Spatie\Permission\PermissionRegistrar;
 
 class UserPolicy
 {
+    use ChecksOrganizationPermissions;
+
+    public function __construct(private UserRoleService $userRoleService) {}
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.read', $user->organization_id);
     }
 
     /**
@@ -23,17 +26,8 @@ class UserPolicy
      */
     public function view(User $user, User $model): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can always view their own profile
-        if ($user->id === $model->id) {
-            return true;
-        }
-
-        return $user->organization_id === $model->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $user->id === $model->id
+            || $this->permits($user, 'users.read', $model->organization_id);
     }
 
     /**
@@ -41,11 +35,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $this->permits($user, 'users.create', $user->organization_id);
     }
 
     /**
@@ -53,17 +43,8 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        // Users can update their own profile
-        if ($user->id === $model->id) {
-            return true;
-        }
-
-        return $user->organization_id === $model->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin', 'User Manager']);
+        return $user->id === $model->id
+            || $this->permitsOnTarget($user, 'users.update', $model);
     }
 
     /**
@@ -71,17 +52,16 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
+        return $user->id !== $model->id
+            && $this->permitsOnTarget($user, 'users.delete', $model);
+    }
 
-        // Users cannot delete themselves
-        if ($user->id === $model->id) {
-            return false;
-        }
-
-        return $user->organization_id === $model->organization_id
-            && $user->hasAnyRole(['Organization Owner', 'Organization Admin']);
+    /**
+     * Determine whether the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->permits($user, 'users.delete', $user->organization_id);
     }
 
     /**
@@ -98,5 +78,35 @@ class UserPolicy
     public function forceDelete(User $user): bool
     {
         return $user->isSuperAdmin();
+    }
+
+    private function permitsOnTarget(User $user, string $permission, User $model): bool
+    {
+        return $this->permits($user, $permission, $model->organization_id)
+            && ! $this->targetExceedsUser($user, $model);
+    }
+
+    private function targetExceedsUser(User $user, User $model): bool
+    {
+        if ($model->isSuperAdmin()) {
+            return ! $user->isSuperAdmin();
+        }
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+        $userRelations = $user->getRelations();
+        $modelRelations = $model->getRelations();
+        $registrar->setPermissionsTeamId($model->organization_id);
+
+        try {
+            $user->unsetRelation('roles')->load('permissions');
+            $model->unsetRelation('roles')->load('permissions');
+
+            return $this->userRoleService->exceedsPermissionsOf($user, $this->userRoleService->effectivePermissionNames($model));
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+            $user->setRelations($userRelations);
+            $model->setRelations($modelRelations);
+        }
     }
 }
