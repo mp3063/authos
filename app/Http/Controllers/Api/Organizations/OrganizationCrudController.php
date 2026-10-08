@@ -53,7 +53,8 @@ class OrganizationCrudController extends BaseController
             $request->get('filter', []),
             $request->get('sort', 'created_at'),
             $request->get('order', 'desc'),
-            (int) $request->get('per_page', 15)
+            (int) $request->get('per_page', 15),
+            $request->user()->isSuperAdmin() ? null : array_filter([$request->user()->organization_id])
         );
 
         return $this->paginatedResponse(

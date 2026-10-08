@@ -429,9 +429,9 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
     /**
      * Get filtered organizations with pagination
      */
-    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15)
+    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15, ?array $organizationIds = null)
     {
-        return $this->organizationRepository->getFilteredOrganizations($search, $filters, $sort, $order, $perPage);
+        return $this->organizationRepository->getFilteredOrganizations($search, $filters, $sort, $order, $perPage, $organizationIds);
     }
 
     /**

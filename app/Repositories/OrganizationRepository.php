@@ -204,9 +204,13 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     /**
      * Get filtered organizations with pagination
      */
-    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15): LengthAwarePaginator
+    public function getFilteredOrganizations(?string $search = null, array $filters = [], string $sort = 'created_at', string $order = 'desc', int $perPage = 15, ?array $organizationIds = null): LengthAwarePaginator
     {
         $query = $this->model->newQuery();
+
+        if ($organizationIds !== null) {
+            $query->whereIn('id', $organizationIds);
+        }
 
         // Apply search (using LIKE for SQLite compatibility)
         if ($search) {

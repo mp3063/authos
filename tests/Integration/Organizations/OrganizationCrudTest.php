@@ -4,6 +4,7 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\Organization;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -39,7 +40,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->user = $this->createApiSuperAdmin(['organization_id' => $this->organization->id]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_create_organization(): void
     {
         // ARRANGE: Prepare organization data
@@ -99,7 +100,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->assertEquals(300, $organization->settings['session_timeout']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_read_organization_details(): void
     {
         // ARRANGE: Organization exists from setUp
@@ -129,7 +130,7 @@ class OrganizationCrudTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_update_organization_settings(): void
     {
         // ARRANGE: Prepare updated data
@@ -176,7 +177,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->assertNotNull($this->organization->settings);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_delete_organization(): void
     {
         // ARRANGE: Create a separate organization for deletion
@@ -200,7 +201,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $getResponse->assertNotFound();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_list_organizations_with_pagination(): void
     {
         // ARRANGE: Create multiple organizations
@@ -255,7 +256,24 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->assertCount(10, $page2Data['data']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
+    public function it_lists_only_the_callers_organization_for_non_super_admins(): void
+    {
+        $otherOrg = $this->createOrganization();
+        $user = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $response = $this->actingAs($user, 'api')->getJson('/api/v1/organizations');
+
+        $response->assertOk()->assertJsonPath('meta.total', 1);
+        $this->assertSame([$this->organization->id], collect($response->json('data'))->pluck('id')->all());
+
+        $superAdminResponse = $this->actingAs($this->user, 'api')->getJson('/api/v1/organizations');
+
+        $ids = collect($superAdminResponse->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($this->organization->id) && $ids->contains($otherOrg->id));
+    }
+
+    #[Test]
     public function test_can_filter_organizations(): void
     {
         // ARRANGE: Create organizations with specific attributes
@@ -310,7 +328,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->assertContains('Inactive Corp', $inactiveNames);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_validation_prevents_invalid_organization_creation(): void
     {
         // ARRANGE: Prepare invalid data (missing required fields)
@@ -341,7 +359,7 @@ class OrganizationCrudTest extends IntegrationTestCase
             ->assertJsonValidationErrors(['slug']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_organization_boundary_isolation_enforced(): void
     {
         // ARRANGE: Create organization for different user (use Org Admin for boundary testing)
@@ -369,7 +387,7 @@ class OrganizationCrudTest extends IntegrationTestCase
         $this->assertNotEquals('Hacked Name', $this->organization->name);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_super_admin_can_access_all_organizations(): void
     {
         // ARRANGE: Create super admin user
@@ -388,7 +406,7 @@ class OrganizationCrudTest extends IntegrationTestCase
             ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_organization_settings_validation(): void
     {
         // ARRANGE: Prepare invalid website URL (something actually validated)
