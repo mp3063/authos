@@ -2,6 +2,7 @@
 
 namespace Tests\Integration\Organizations;
 
+use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\Role;
@@ -576,5 +577,42 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept")->assertOk();
 
         $this->assertTrue($member->fresh()->roles()->whereKey($memberRole->id)->exists());
+    }
+
+    #[Test]
+    public function it_rejects_accepting_an_invitation_created_by_an_inviter_of_another_organization(): void
+    {
+        $foreignOwner = $this->createApiOrganizationOwner(['organization_id' => $this->createOrganization()->id]);
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $invitation = Invitation::factory()->create([
+            'organization_id' => $this->organization->id,
+            'inviter_id' => $foreignOwner->id,
+            'email' => $member->email,
+            'role' => 'Organization Admin',
+        ]);
+
+        $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept")->assertStatus(400);
+
+        $this->assertSame('pending', $invitation->fresh()->status);
+        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Admin')->exists());
+    }
+
+    #[Test]
+    public function it_rejects_bulk_invites_with_custom_roles_exceeding_the_inviter_with_422(): void
+    {
+        $customRole = CustomRole::factory()->create([
+            'organization_id' => $this->organization->id,
+            'permissions' => ['organizations.delete', 'roles.manage'],
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/invite-users", [
+                'invitations' => [['email' => 'invitee@example.com', 'role' => 'Organization Member', 'custom_role_id' => $customRole->id]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['invitations.0.custom_role_id']);
+
+        $this->assertDatabaseMissing('invitations', ['email' => 'invitee@example.com']);
     }
 }

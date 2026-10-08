@@ -108,7 +108,7 @@ class InvitationAcceptanceService
             return;
         }
 
-        if ($this->userRoles->roleChangeDenial($inviter, null, new EloquentCollection([$role]))) {
+        if ($this->userRoles->roleChangeDenial($inviter, $user, new EloquentCollection([$role]))) {
             throw new Exception('The invited role grants permissions the inviter cannot grant');
         }
 

@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class BulkUserOperationsController extends BaseController
 {
@@ -47,6 +48,8 @@ class BulkUserOperationsController extends BaseController
             'role' => 'sometimes|string|max:255',
             'message' => 'sometimes|string|max:500',
         ]);
+
+        $this->assertInvitedCustomRolesGrantable($request, $organization);
 
         try {
             // Convert simple emails format to invitations format if needed
@@ -391,6 +394,38 @@ class BulkUserOperationsController extends BaseController
             ], sprintf('Successfully updated settings for %d organizations', $updatedCount));
         } catch (Exception $e) {
             return $this->serverErrorResponse('Failed to update organization settings: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertInvitedCustomRolesGrantable(Request $request, Organization $organization): void
+    {
+        $caller = $request->user();
+
+        if ($caller->isSuperAdmin()) {
+            return;
+        }
+
+        $errors = [];
+
+        foreach ($request->input('invitations', []) as $index => $invitation) {
+            if (! isset($invitation['custom_role_id'])) {
+                continue;
+            }
+
+            $customRole = CustomRole::where('id', $invitation['custom_role_id'])
+                ->where('organization_id', $organization->id)
+                ->first();
+
+            if ($customRole && $this->userRoleService->exceedsPermissionsOf($caller, collect($customRole->permissions ?? []))) {
+                $errors["invitations.{$index}.custom_role_id"] = 'You cannot grant a role with permissions you do not have.';
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
         }
     }
 

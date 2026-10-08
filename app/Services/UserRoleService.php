@@ -162,11 +162,31 @@ class UserRoleService
             return 'You cannot change your own roles.';
         }
 
+        if ($this->crossesOrganization($caller, $target, $roles)) {
+            return 'You cannot grant or revoke roles outside your organization.';
+        }
+
         $rolePermissions = $roles->load('permissions')->flatMap(fn (Role $role) => $role->permissions->pluck('name'));
 
         return $this->exceedsPermissionsOf($caller, $rolePermissions)
             ? 'You cannot grant or revoke a role with permissions you do not have.'
             : null;
+    }
+
+    /**
+     * @param  EloquentCollection<int, Role>  $roles
+     */
+    private function crossesOrganization(User $caller, ?User $target, EloquentCollection $roles): bool
+    {
+        if ($caller->organization_id === null) {
+            return true;
+        }
+
+        if ($target !== null && $target->organization_id !== $caller->organization_id) {
+            return true;
+        }
+
+        return $roles->contains(fn (Role $role) => $role->organization_id !== null && $role->organization_id !== $caller->organization_id);
     }
 
     /**
