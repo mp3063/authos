@@ -79,7 +79,7 @@ class UserRoleController extends BaseController
             return $this->forbiddenResponse($denial);
         }
 
-        $user->syncRoles($roles);
+        $this->userRoleService->syncRolesAs($request->user(), $user, collect($roles->modelKeys()));
 
         return $this->successResponse([], 'User roles updated successfully');
     }

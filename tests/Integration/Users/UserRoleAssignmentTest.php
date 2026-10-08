@@ -250,6 +250,25 @@ class UserRoleAssignmentTest extends IntegrationTestCase
         ], fn ($value) => $value !== null);
     }
 
+    #[Test]
+    public function it_stores_the_organization_on_the_role_pivot_when_syncing_roles(): void
+    {
+        $superAdmin = $this->createApiSuperAdmin();
+        $member = $this->createApiUser();
+        $this->apiRole('Organization Admin', $member->organization_id);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+
+        $this->actingAsApiUserWithToken($superAdmin)
+            ->putJson("/api/v1/users/{$member->id}/roles", ['roles' => ['Organization Admin']])
+            ->assertOk();
+
+        $this->assertDatabaseHas('model_has_roles', [
+            'model_id' => $member->id,
+            'organization_id' => $member->organization_id,
+        ]);
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'organization_id' => null]);
+    }
+
     private function apiRole(string $name, int $organizationId): Role
     {
         $this->setupRoleWithPermissions($name, 'api', $organizationId);
