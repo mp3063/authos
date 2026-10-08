@@ -62,6 +62,7 @@ class PermissionResource extends Resource
                         TextInput::make('name')
                             ->required()
                             ->unique(ignoreRecord: true)
+                            ->notIn(Permission::POLICY_ABILITY_NAMES)
                             ->maxLength(255)
                             ->helperText('Permission identifier (e.g., create-users, manage-applications)'),
 
