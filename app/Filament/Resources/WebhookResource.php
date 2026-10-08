@@ -99,20 +99,12 @@ class WebhookResource extends Resource
                 CheckboxList::make('events')
                     ->label('Subscribe to Events')
                     ->options(function () {
-                        // Cache the grouped events for 1 hour
-                        return Cache::remember('webhook_events_grouped', 3600, function () {
-                            $events = WebhookEvent::active()->orderBy('category')->orderBy('name')->get();
-
-                            $grouped = [];
-                            foreach ($events->groupBy('category') as $category => $categoryEvents) {
-                                $categoryLabel = Str::title(str_replace('_', ' ', $category));
-                                foreach ($categoryEvents as $event) {
-                                    $grouped[$categoryLabel][$event->name] = $event->name.' - '.$event->description;
-                                }
-                            }
-
-                            return $grouped;
-                        });
+                        return Cache::remember('webhook_event_options', 3600, fn () => WebhookEvent::active()
+                            ->orderBy('category')
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(fn (WebhookEvent $event) => [$event->name => $event->name.' - '.$event->description])
+                            ->all());
                     })
                     ->columns(2)
                     ->required()
