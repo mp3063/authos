@@ -34,7 +34,7 @@ class RoleAndPermissionPolicyMatrixTest extends TestCase
         $actor = $this->actor($role);
 
         $this->assertAbility($expected, $actor, $ability, Permission::class,
-            fn (int $organizationId) => Permission::findOrCreate('scoped.'.uniqid(), 'web'), $sameOrg);
+            fn (int $organizationId) => Permission::create(['name' => 'scoped.'.uniqid(), 'guard_name' => 'web', 'organization_id' => $organizationId]), $sameOrg);
     }
 
     #[Test]
@@ -45,6 +45,17 @@ class RoleAndPermissionPolicyMatrixTest extends TestCase
 
         $this->assertAbility($expected, $actor, $ability, CustomRole::class,
             fn (int $organizationId) => CustomRole::factory()->forOrganization(Organization::findOrFail($organizationId))->create(), $sameOrg);
+    }
+
+    #[Test]
+    public function it_lets_anyone_holding_permissions_read_view_a_global_permission(): void
+    {
+        $admin = $this->createUser([], 'Organization Admin', 'web');
+        $member = $this->createUser([], 'User', 'web');
+        $permission = Permission::create(['name' => 'global.'.uniqid(), 'guard_name' => 'web', 'organization_id' => null]);
+
+        $this->assertTrue(Gate::forUser($admin)->allows('view', $permission));
+        $this->assertFalse(Gate::forUser($member)->allows('view', $permission));
     }
 
     #[Test]
@@ -97,6 +108,7 @@ class RoleAndPermissionPolicyMatrixTest extends TestCase
     {
         return [
             ['Organization Owner', 'viewAny', true, true],
+            ['Organization Owner', 'view', false, false],
             ['Organization Owner', 'view', true, true],
             ['Organization Owner', 'create', true, false],
             ['Organization Owner', 'update', true, false],
@@ -105,6 +117,7 @@ class RoleAndPermissionPolicyMatrixTest extends TestCase
             ['Organization Owner', 'restore', true, false],
             ['Organization Owner', 'forceDelete', true, false],
             ['Organization Admin', 'viewAny', true, true],
+            ['Organization Admin', 'view', false, false],
             ['Organization Admin', 'view', true, true],
             ['Organization Admin', 'create', true, false],
             ['Organization Admin', 'update', true, false],
@@ -113,6 +126,7 @@ class RoleAndPermissionPolicyMatrixTest extends TestCase
             ['Organization Admin', 'restore', true, false],
             ['Organization Admin', 'forceDelete', true, false],
             ['User', 'viewAny', true, false],
+            ['User', 'view', false, false],
             ['User', 'view', true, false],
             ['User', 'create', true, false],
             ['User', 'update', true, false],

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Permission;
 use App\Models\User;
 use App\Policies\Concerns\ChecksOrganizationPermissions;
 
@@ -20,9 +21,9 @@ class PermissionPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user): bool
+    public function view(User $user, Permission $permission): bool
     {
-        return $this->permits($user, 'permissions.read', $user->organization_id);
+        return $this->permits($user, 'permissions.read', $permission->organization_id, $permission->organization_id !== null);
     }
 
     /**
