@@ -213,8 +213,6 @@ class HealthCheckTest extends IntegrationTestCase
     public function invalid_component_returns_error(): void
     {
         // ARRANGE: Authenticated user
-        $this->actingAs($this->user);
-
         $this->actingAsApiUserWithToken($this->user);
 
         // ACT: Request health check for invalid component

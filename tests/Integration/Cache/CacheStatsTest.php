@@ -4,6 +4,7 @@ namespace Tests\Integration\Cache;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -43,7 +44,7 @@ class CacheStatsTest extends IntegrationTestCase
         ], 'User', 'api');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_overall_cache_statistics(): void
     {
         // ARRANGE: Set up cache data
@@ -86,7 +87,7 @@ class CacheStatsTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calculates_cache_hit_miss_ratio(): void
     {
         // ARRANGE: Clear cache and set up test scenario
@@ -124,7 +125,7 @@ class CacheStatsTest extends IntegrationTestCase
         $this->assertIsString($data['hit_rate']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_cache_size_metrics(): void
     {
         // ARRANGE: Create cache entries with varying sizes
@@ -152,7 +153,7 @@ class CacheStatsTest extends IntegrationTestCase
         $this->assertIsString($data['memory_usage']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_accurate_cache_key_count(): void
     {
         // ARRANGE: Clear cache and create known number of entries
@@ -179,32 +180,15 @@ class CacheStatsTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(0, $data['total_keys']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function regular_users_can_access_cache_stats(): void
+    #[Test]
+    public function it_forbids_a_regular_member_from_reading_cache_stats_with_403(): void
     {
-        // ARRANGE: Regular user without admin privileges
-        // NOTE: Current implementation does not enforce admin-only access
-        // The route has 'auth:api' but no role-based authorization middleware
-
-        // ACT: Attempt to access cache statistics
-        $response = $this->actingAsApiUserWithToken($this->regularUser)
-            ->getJson('/api/v1/cache/stats');
-
-        // ASSERT: Verify access is allowed in current implementation
-        // TODO: Add role-based authorization middleware to restrict to admins only
-        $response->assertOk();
-        $response->assertJsonStructure([
-            'success',
-            'data' => [
-                'total_keys',
-                'memory_usage',
-                'hit_rate',
-                'timestamp',
-            ],
-        ]);
+        $this->actingAsApiUserWithToken($this->regularUser)
+            ->getJson('/api/v1/cache/stats')
+            ->assertForbidden();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function unauthenticated_users_cannot_access_cache_stats(): void
     {
         // ARRANGE: No authentication
@@ -216,7 +200,7 @@ class CacheStatsTest extends IntegrationTestCase
         $response->assertUnauthorized();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_stats_endpoint_has_proper_rate_limiting(): void
     {
         // ARRANGE: Authenticated admin user
@@ -242,7 +226,7 @@ class CacheStatsTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_stats_returns_consistent_data_structure(): void
     {
         // ARRANGE: Set up cache with various entries

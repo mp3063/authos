@@ -372,8 +372,10 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // Cache Management Endpoints (Admin only)
     Route::middleware(['auth:api', 'throttle:api'])->prefix('cache')->group(function () {
-        Route::get('/stats', [CacheManagementController::class, 'stats']);
-        Route::delete('/clear-all', [CacheManagementController::class, 'clearAll']);
+        Route::middleware('super.admin')->group(function () {
+            Route::get('/stats', [CacheManagementController::class, 'stats']);
+            Route::delete('/clear-all', [CacheManagementController::class, 'clearAll']);
+        });
         Route::delete('/clear-user', [CacheManagementController::class, 'clearUser']);
     });
 

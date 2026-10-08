@@ -5,6 +5,7 @@ namespace Tests\Integration\Cache;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -52,7 +53,7 @@ class CacheClearTest extends IntegrationTestCase
         ], 'User', 'api');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_all_caches_successfully(): void
     {
         // ARRANGE: Set up multiple cache entries
@@ -84,7 +85,7 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertNull(Cache::get('org_cache_key'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_user_specific_cache(): void
     {
         // ARRANGE: Create user-specific cache entries
@@ -117,7 +118,7 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertTrue(true, 'User cache clearing endpoint responded successfully');
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_organization_specific_cache(): void
     {
         // ARRANGE: Create organization-specific cache entries
@@ -149,7 +150,7 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get('global_settings'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_api_endpoint_cache(): void
     {
         // ARRANGE: Set up API endpoint caches using the middleware pattern
@@ -198,28 +199,20 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get($cacheKey2));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function regular_users_can_clear_all_caches(): void
+    #[Test]
+    public function it_forbids_a_regular_member_from_clearing_all_caches_or_reading_stats_with_403(): void
     {
-        // ARRANGE: Set up cache entries
-        // NOTE: Current implementation does not enforce admin-only access
-        // The route has 'auth:api' but no role-based authorization middleware
         Cache::put('protected_key', 'protected_value', 3600);
 
-        // ACT: Attempt to clear cache as regular user
-        $response = $this->actingAsApiUserWithToken($this->regularUser)
-            ->deleteJson('/api/v1/cache/clear-all');
+        $this->actingAsApiUserWithToken($this->regularUser)
+            ->deleteJson('/api/v1/cache/clear-all')
+            ->assertForbidden();
+        $this->getJson('/api/v1/cache/stats')->assertForbidden();
 
-        // ASSERT: Verify access is allowed in current implementation
-        // TODO: Add role-based authorization middleware to restrict to admins only
-        $response->assertOk();
-        $response->assertJson(['message' => 'All caches cleared successfully']);
-
-        // Verify cache entry was cleared
-        $this->assertNull(Cache::get('protected_key'));
+        $this->assertSame('protected_value', Cache::get('protected_key'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function unauthenticated_users_cannot_clear_caches(): void
     {
         // ARRANGE: Set up cache entries
@@ -235,7 +228,7 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get('protected_key'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_clear_operations_are_idempotent(): void
     {
         // ARRANGE: Set up cache entries
@@ -263,7 +256,7 @@ class CacheClearTest extends IntegrationTestCase
         $response3->assertJson(['message' => 'All caches cleared successfully']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function clearing_cache_does_not_affect_permanent_storage(): void
     {
         // ARRANGE: Set up cache and database data
@@ -298,7 +291,7 @@ class CacheClearTest extends IntegrationTestCase
         $this->assertEquals('permanent@test.com', $dbUser->email);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_clear_endpoint_has_proper_rate_limiting(): void
     {
         // ARRANGE: Authenticated admin user
@@ -326,7 +319,7 @@ class CacheClearTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function cache_clear_preserves_session_data(): void
     {
         // ARRANGE: Set up cache data
