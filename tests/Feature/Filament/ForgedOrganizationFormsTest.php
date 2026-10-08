@@ -2,14 +2,19 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Resources\ApplicationGroupResource\Pages\CreateApplicationGroup;
+use App\Filament\Resources\ApplicationResource\Pages\CreateApplication;
 use App\Filament\Resources\CustomDomains\Pages\CreateCustomDomain;
 use App\Filament\Resources\LdapConfigurations\Pages\CreateLdapConfiguration;
+use App\Filament\Resources\OrganizationBrandingResource\Pages\CreateOrganizationBranding;
 use App\Filament\Resources\SSOConfigurationResource\Pages\CreateSSOConfiguration;
 use App\Filament\Resources\WebhookResource\Pages\CreateWebhook;
 use App\Models\Application;
+use App\Models\ApplicationGroup;
 use App\Models\CustomDomain;
 use App\Models\LdapConfiguration;
 use App\Models\Organization;
+use App\Models\OrganizationBranding;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookEvent;
@@ -104,5 +109,55 @@ class ForgedOrganizationFormsTest extends IntegrationTestCase
 
         $this->assertDatabaseMissing('custom_domains', ['organization_id' => $this->otherOrganization->id]);
         $this->assertSame($this->owner->organization_id, CustomDomain::where('domain', 'forged.example.com')->value('organization_id'));
+    }
+
+    #[Test]
+    public function it_rejects_an_application_for_another_organization(): void
+    {
+        Livewire::test(CreateApplication::class)
+            ->assertFormFieldIsHidden('organization_id')
+            ->fillForm(['name' => 'Forged', 'redirect_uris' => ['https://example.com/cb'], 'organization_id' => $this->otherOrganization->id])
+            ->call('create');
+
+        $this->assertDatabaseMissing('applications', ['organization_id' => $this->otherOrganization->id]);
+        $this->assertSame($this->owner->organization_id, Application::where('name', 'Forged')->value('organization_id'));
+    }
+
+    #[Test]
+    public function it_rejects_an_application_group_for_another_organization(): void
+    {
+        $foreignParent = ApplicationGroup::factory()->create(['organization_id' => $this->otherOrganization->id]);
+        $foreignApplication = Application::factory()->create(['organization_id' => $this->otherOrganization->id]);
+
+        Livewire::test(CreateApplicationGroup::class)
+            ->assertFormFieldIsHidden('organization_id')
+            ->fillForm(['name' => 'Forged', 'organization_id' => $this->otherOrganization->id, 'parent_id' => $foreignParent->id])
+            ->call('create')
+            ->assertHasFormErrors(['parent_id']);
+
+        Livewire::test(CreateApplicationGroup::class)
+            ->fillForm(['name' => 'Forged', 'applications' => [$foreignApplication->id]])
+            ->call('create')
+            ->assertHasFormErrors(['applications.0']);
+
+        $this->assertDatabaseMissing('application_groups', ['name' => 'Forged']);
+
+        Livewire::test(CreateApplicationGroup::class)
+            ->fillForm(['name' => 'Own', 'organization_id' => $this->otherOrganization->id])
+            ->call('create');
+
+        $this->assertSame($this->owner->organization_id, ApplicationGroup::where('name', 'Own')->value('organization_id'));
+    }
+
+    #[Test]
+    public function it_rejects_organization_branding_for_another_organization(): void
+    {
+        Livewire::test(CreateOrganizationBranding::class)
+            ->assertFormFieldIsHidden('organization_id')
+            ->fillForm(['organization_id' => $this->otherOrganization->id, 'primary_color' => '#112233', 'secondary_color' => '#445566'])
+            ->call('create');
+
+        $this->assertDatabaseMissing('organization_branding', ['organization_id' => $this->otherOrganization->id]);
+        $this->assertSame($this->owner->organization_id, OrganizationBranding::where('primary_color', '#112233')->value('organization_id'));
     }
 }

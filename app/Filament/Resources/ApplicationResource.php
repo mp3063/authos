@@ -101,14 +101,12 @@ class ApplicationResource extends Resource
             Section::make('Application Details')->schema([
                 Select::make('organization_id')
                     ->label('Organization')
-                    ->relationship('organization', 'name')
+                    ->relationship('organization', 'name', fn (Builder $query) => static::scopeToOrganization($query, 'id'))
+                    ->visible(fn () => static::canChooseOrganization())
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->createOptionForm([
-                        TextInput::make('name')->required(),
-                        TextInput::make('slug')->required(),
-                    ]),
+                    ->disabled(fn ($context) => $context === 'edit'),
 
                 TextInput::make('name')->required()->maxLength(255)->helperText('Display name for this application'),
 
