@@ -31,8 +31,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Permission;
 use UnitEnum;
 
@@ -378,19 +380,12 @@ class RoleResource extends Resource
         });
     }
 
-    public static function canCreate(): bool
+    public static function getDeleteAuthorizationResponse(Model $record): Response
     {
-        return (bool) Filament::auth()->user()?->isSuperAdmin();
-    }
+        if (in_array($record->name, ['Super Admin', 'System Administrator'], true)) {
+            return Response::deny();
+        }
 
-    public static function canEdit($record): bool
-    {
-        return (bool) Filament::auth()->user()?->isSuperAdmin();
-    }
-
-    public static function canDelete($record): bool
-    {
-        return Filament::auth()->user()?->isSuperAdmin()
-            && ! in_array($record->name, ['Super Admin', 'System Administrator']);
+        return parent::getDeleteAuthorizationResponse($record);
     }
 }

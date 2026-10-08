@@ -29,8 +29,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class PermissionResource extends Resource
@@ -482,20 +484,12 @@ class PermissionResource extends Resource
         });
     }
 
-    public static function canCreate(): bool
+    public static function getDeleteAuthorizationResponse(Model $record): Response
     {
-        return (bool) Filament::auth()->user()?->isSuperAdmin();
-    }
+        if (str_starts_with($record->name, 'system.') || in_array($record->name, ['admin.access', 'access admin panel'], true)) {
+            return Response::deny();
+        }
 
-    public static function canEdit($record): bool
-    {
-        return (bool) Filament::auth()->user()?->isSuperAdmin();
-    }
-
-    public static function canDelete($record): bool
-    {
-        return Filament::auth()->user()?->isSuperAdmin()
-            && ! str_starts_with($record->name, 'system.')
-            && ! in_array($record->name, ['admin.access', 'access admin panel']);
+        return parent::getDeleteAuthorizationResponse($record);
     }
 }
