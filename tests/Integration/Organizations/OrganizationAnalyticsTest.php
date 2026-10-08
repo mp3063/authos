@@ -322,8 +322,9 @@ class OrganizationAnalyticsTest extends IntegrationTestCase
     {
         Storage::fake('local');
         Storage::fake('public');
+        $owner = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
 
-        $response = $this->actingAs($this->admin, 'api')
+        $response = $this->actingAs($owner, 'api')
             ->postJson("/api/v1/organizations/{$this->organization->id}/export", [
                 'format' => 'csv',
                 'data_type' => 'users',

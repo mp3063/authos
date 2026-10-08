@@ -75,6 +75,7 @@ class OrganizationAnalyticsController extends BaseController
     public function userMetrics(Request $request, string $id): JsonResponse
     {
         $this->authorize('organizations.read');
+        $this->authorize('users.read');
 
         $organization = Organization::findOrFail($id);
 
@@ -139,6 +140,7 @@ class OrganizationAnalyticsController extends BaseController
     public function securityMetrics(Request $request, string $id): JsonResponse
     {
         $this->authorize('organizations.read');
+        $this->authorize('auth_logs.read');
 
         $organization = Organization::findOrFail($id);
 
@@ -180,6 +182,10 @@ class OrganizationAnalyticsController extends BaseController
             'date_from' => 'sometimes|date|before_or_equal:date_to',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
         ]);
+
+        if (in_array($request->get('data_type'), ['users', 'security_logs'], true)) {
+            $this->authorize('auth_logs.export');
+        }
 
         $format = $request->get('format', 'json');
         $dataType = $request->get('data_type');

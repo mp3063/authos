@@ -39,6 +39,32 @@ class EnterprisePermissionGuardsTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_forbids_a_plain_user_with_a_star_token_from_writing_branding_with_403(): void
+    {
+        $user = $this->createApiUser();
+        $this->actingAsApiUserWithToken($user, ['*']);
+
+        $this->putJson("/api/v1/enterprise/organizations/{$user->organization_id}/branding", [
+            'primary_color' => '#112233',
+        ])->assertForbidden();
+    }
+
+    #[Test]
+    public function it_forbids_a_plain_user_with_a_star_token_from_exporting_security_logs_with_403(): void
+    {
+        $user = $this->createApiUser();
+        $this->actingAsApiUserWithToken($user, ['*']);
+
+        $this->postJson("/api/v1/organizations/{$user->organization_id}/export", [
+            'data_type' => 'security_logs',
+        ])->assertForbidden();
+        $this->postJson("/api/v1/organizations/{$user->organization_id}/export", [
+            'data_type' => 'users',
+        ])->assertForbidden();
+        $this->getJson("/api/v1/organizations/{$user->organization_id}/metrics/security")->assertForbidden();
+    }
+
+    #[Test]
     public function it_allows_an_organization_admin_with_a_star_token_to_export_audit_logs(): void
     {
         $admin = $this->createApiOrganizationAdmin();
