@@ -260,7 +260,7 @@ class SecurityIncidentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('status', 'open')
+        $count = static::getEloquentQuery()->where('status', 'open')
             ->whereDate('detected_at', today())
             ->count();
 
@@ -269,7 +269,7 @@ class SecurityIncidentResource extends Resource
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        $criticalOpen = static::getModel()::where('severity', 'critical')
+        $criticalOpen = static::getEloquentQuery()->where('severity', 'critical')
             ->where('status', 'open')
             ->count();
 
@@ -277,7 +277,7 @@ class SecurityIncidentResource extends Resource
             return 'danger';
         }
 
-        $openCount = static::getModel()::where('status', 'open')->count();
+        $openCount = static::getEloquentQuery()->where('status', 'open')->count();
 
         if ($openCount > 5) {
             return 'warning';

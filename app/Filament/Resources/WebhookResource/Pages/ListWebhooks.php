@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\WebhookResource\Pages;
 
 use App\Filament\Resources\WebhookResource;
-use App\Models\Webhook;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -22,10 +21,10 @@ class ListWebhooks extends ListRecords
 
     public function getTabs(): array
     {
-        $allCount = Webhook::query()->count();
-        $activeCount = Webhook::query()->where('is_active', true)->count();
-        $inactiveCount = Webhook::query()->where('is_active', false)->count();
-        $failingCount = Webhook::query()->where('failure_count', '>', 0)->count();
+        $allCount = WebhookResource::getEloquentQuery()->count();
+        $activeCount = WebhookResource::getEloquentQuery()->where('is_active', true)->count();
+        $inactiveCount = WebhookResource::getEloquentQuery()->where('is_active', false)->count();
+        $failingCount = WebhookResource::getEloquentQuery()->where('failure_count', '>', 0)->count();
 
         return [
             'all' => Tab::make('All Webhooks')

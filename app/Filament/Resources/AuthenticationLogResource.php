@@ -193,16 +193,16 @@ class AuthenticationLogResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('created_at', '>=', today())->count();
+        $count = static::getEloquentQuery()->where('created_at', '>=', today())->count();
 
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        $suspiciousCount = static::getModel()::where('event', 'suspicious_activity')->where('created_at', '>=', today())->count();
+        $suspiciousCount = static::getEloquentQuery()->where('event', 'suspicious_activity')->where('created_at', '>=', today())->count();
 
-        $failedCount = static::getModel()::whereIn('event', ['login_failed', 'failed_mfa'])->where('created_at', '>=', today())->count();
+        $failedCount = static::getEloquentQuery()->whereIn('event', ['login_failed', 'failed_mfa'])->where('created_at', '>=', today())->count();
 
         if ($suspiciousCount > 0) {
             return 'danger';

@@ -253,7 +253,7 @@ class BulkImportJobResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         try {
-            $count = static::getModel()::where('status', BulkImportJob::STATUS_PROCESSING)->count();
+            $count = static::getEloquentQuery()->where('status', BulkImportJob::STATUS_PROCESSING)->count();
 
             return $count > 0 ? (string) $count : null;
         } catch (\Exception) {

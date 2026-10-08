@@ -308,7 +308,7 @@ class AccountLockoutResource extends Resource
     protected static function getActiveLockoutCount(): int
     {
         try {
-            return static::getModel()::whereNull('unlocked_at')
+            return static::getEloquentQuery()->whereNull('unlocked_at')
                 ->where(function (Builder $query) {
                     $query->whereNull('unlock_at')
                         ->orWhere('unlock_at', '>', now());

@@ -206,20 +206,20 @@ class MigrationJobResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('status', 'running')->count();
+        $count = static::getEloquentQuery()->where('status', 'running')->count();
 
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        $failedCount = static::getModel()::where('status', 'failed')->count();
+        $failedCount = static::getEloquentQuery()->where('status', 'failed')->count();
 
         if ($failedCount > 0) {
             return 'danger';
         }
 
-        $runningCount = static::getModel()::where('status', 'running')->count();
+        $runningCount = static::getEloquentQuery()->where('status', 'running')->count();
 
         if ($runningCount > 0) {
             return 'info';

@@ -157,7 +157,7 @@ class AuditExportResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('status', 'completed')
+        $count = static::getEloquentQuery()->where('status', 'completed')
             ->whereDate('created_at', today())
             ->count();
 
