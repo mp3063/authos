@@ -8,7 +8,6 @@ use App\Http\Requests\Enterprise\CustomDomainRequest;
 use App\Models\CustomDomain;
 use App\Services\DomainVerificationService;
 use Exception;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -25,7 +24,7 @@ class DomainController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $this->authorize('viewAny', CustomDomain::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -69,16 +68,13 @@ class DomainController extends BaseController
 
     public function verify(int $domainId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $domain = $this->findAuthorizedDomain($domainId, 'update');
+
+        if (! $domain) {
+            return $this->notFoundResponse('Domain not found');
+        }
 
         try {
-            $user = $this->getAuthenticatedUser();
-
-            // Verify domain belongs to user's organization
-            $domain = CustomDomain::where('id', $domainId)
-                ->where('organization_id', $user->organization_id)
-                ->firstOrFail();
-
             $result = $this->domainService->verifyDomain($domainId);
 
             $domain = $domain->fresh();
@@ -87,8 +83,6 @@ class DomainController extends BaseController
             }
 
             return $this->successResponse($result, $result['message'] ?? 'Domain verification completed');
-        } catch (ModelNotFoundException $e) {
-            return $this->notFoundResponse('Domain not found');
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -96,22 +90,35 @@ class DomainController extends BaseController
 
     public function destroy(int $domainId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $domain = $this->findAuthorizedDomain($domainId, 'delete');
+
+        if (! $domain) {
+            return $this->notFoundResponse('Domain not found');
+        }
 
         try {
-            $user = $this->getAuthenticatedUser();
-
-            $domain = CustomDomain::where('id', $domainId)
-                ->where('organization_id', $user->organization_id)
-                ->firstOrFail();
-
             $this->domainService->removeDomain($domain);
 
             return $this->deletedResponse('Domain deleted successfully');
-        } catch (ModelNotFoundException $e) {
-            return $this->notFoundResponse('Domain not found');
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    private function findAuthorizedDomain(int $domainId, string $ability): ?CustomDomain
+    {
+        $user = $this->getAuthenticatedUser();
+
+        $domain = CustomDomain::query()
+            ->when(! $user->isSuperAdmin(), fn ($query) => $query
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $user->organization_id))
+            ->find($domainId);
+
+        if ($domain) {
+            $this->authorize($ability, $domain);
+        }
+
+        return $domain;
     }
 }

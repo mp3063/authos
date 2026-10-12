@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Enterprise;
 
+use App\Models\CustomDomain;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CustomDomainRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('organizations.update');
+        return $this->user()->can('create', CustomDomain::class);
     }
 
     public function rules(): array

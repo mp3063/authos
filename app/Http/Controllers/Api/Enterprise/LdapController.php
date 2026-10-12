@@ -7,6 +7,7 @@ use App\Http\Requests\Enterprise\LdapConfigurationRequest;
 use App\Models\LdapConfiguration;
 use App\Services\LdapAuthService;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -23,18 +24,10 @@ class LdapController extends BaseController
 
     public function testConnection(LdapConfigurationRequest $request): JsonResponse
     {
+        $this->authorize('create', LdapConfiguration::class);
+
         try {
-            // Get authenticated user (sets team context automatically)
             $user = $this->getAuthenticatedUser();
-
-            if (! $user) {
-                return $this->errorResponse('Unauthorized', 401);
-            }
-
-            // Check if user has permission to manage LDAP
-            if (! $user->can('organizations.update')) {
-                return $this->forbiddenResponse('Insufficient permissions');
-            }
 
             // Check if LDAP is enabled for the organization
             $ldapEnabled = $user->organization->settings['enterprise_features']['ldap_enabled'] ?? false;
@@ -64,19 +57,9 @@ class LdapController extends BaseController
 
     public function syncUsers(): JsonResponse
     {
+        $config = $this->findActiveConfiguration('update');
+
         try {
-            $user = $this->getAuthenticatedUser();
-
-            // Check permission
-            if (! $user || ! $user->can('organizations.update')) {
-                return $this->forbiddenResponse('Insufficient permissions');
-            }
-
-            // Get the organization's LDAP configuration
-            $config = LdapConfiguration::where('organization_id', $user->organization_id)
-                ->where('is_active', true)
-                ->firstOrFail();
-
             $stats = $this->ldapService->syncUsers($config, $config->organization);
 
             return $this->successResponse([
@@ -93,19 +76,9 @@ class LdapController extends BaseController
 
     public function listUsers(Request $request): JsonResponse
     {
+        $config = $this->findActiveConfiguration('update');
+
         try {
-            $user = $this->getAuthenticatedUser();
-
-            // Check permission
-            if (! $user || ! $user->can('organizations.update')) {
-                return $this->forbiddenResponse('Insufficient permissions');
-            }
-
-            // Get the organization's LDAP configuration
-            $config = LdapConfiguration::where('organization_id', $user->organization_id)
-                ->where('is_active', true)
-                ->firstOrFail();
-
             $limit = $request->input('limit', 100);
             $users = $this->ldapService->getUsersFromLdap($config, $limit);
 
@@ -117,14 +90,18 @@ class LdapController extends BaseController
 
     public function configure(LdapConfigurationRequest $request): JsonResponse
     {
+        $user = $this->getAuthenticatedUser();
+        $existing = $user?->organization_id === null
+            ? null
+            : LdapConfiguration::where('organization_id', $user->organization_id)->first();
+
+        if ($existing) {
+            $this->authorize('update', $existing);
+        } else {
+            $this->authorize('create', LdapConfiguration::class);
+        }
+
         try {
-            $user = $this->getAuthenticatedUser();
-
-            // Check permission
-            if (! $user || ! $user->can('organizations.update')) {
-                return $this->forbiddenResponse('Insufficient permissions');
-            }
-
             $config = LdapConfiguration::updateOrCreate(
                 ['organization_id' => $user->organization_id],
                 array_merge($request->validated(), [
@@ -150,5 +127,18 @@ class LdapController extends BaseController
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    private function findActiveConfiguration(string $ability): LdapConfiguration
+    {
+        $organizationId = $this->getAuthenticatedUser()->organization_id;
+
+        $config = $organizationId === null ? null : LdapConfiguration::where('organization_id', $organizationId)
+            ->where('is_active', true)
+            ->first();
+
+        $this->authorize($ability, $config ?? new LdapConfiguration(['organization_id' => $organizationId]));
+
+        return $config ?? throw new ModelNotFoundException;
     }
 }
