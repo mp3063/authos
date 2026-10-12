@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
+use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\UserSessionService;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +14,7 @@ use Illuminate\Routing\Controller as BaseController;
 class UserSessionController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedApplications;
 
     public function __construct(protected UserSessionService $userSessionService)
     {
@@ -23,15 +26,8 @@ class UserSessionController extends BaseController
      */
     public function sessions(Request $request, string $id): JsonResponse
     {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
-
-        // Check authorization - users can view their own sessions, admins can view any
-        $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
-            return $this->errorResponse('Forbidden', 403);
-        }
+        $user = $this->findUserWithOrgScope($id);
+        $this->authorize('view', $this->sessionOf($user));
 
         // Get paginated sessions
         $perPage = $request->input('per_page', 15);
@@ -70,15 +66,8 @@ class UserSessionController extends BaseController
      */
     public function showSession(string $id, string $sessionId): JsonResponse
     {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
-
-        // Check authorization - users can view their own sessions, admins can view any
-        $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
-            return $this->errorResponse('Forbidden', 403);
-        }
+        $user = $this->findUserWithOrgScope($id);
+        $this->authorize('view', $this->sessionOf($user));
 
         // Find the specific token
         $token = $user->tokens()->where('id', $sessionId)->first();
@@ -111,9 +100,8 @@ class UserSessionController extends BaseController
      */
     public function revokeSessions(string $id): JsonResponse
     {
-        $this->authorize('users.update');
-
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
+        $this->authorize('update', $this->sessionOf($user));
         $this->userSessionService->revokeAllUserSessions($user);
 
         return $this->successResponse([], 'All other sessions revoked successfully');
@@ -124,9 +112,8 @@ class UserSessionController extends BaseController
      */
     public function revokeSession(string $id, string $sessionId): JsonResponse
     {
-        $this->authorize('users.update');
-
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
+        $this->authorize('update', $this->sessionOf($user));
         $revoked = $this->userSessionService->revokeUserSession($user, $sessionId);
 
         if (! $revoked) {
@@ -134,5 +121,10 @@ class UserSessionController extends BaseController
         }
 
         return $this->successResponse([], 'Session revoked successfully');
+    }
+
+    private function sessionOf(User $user): SSOSession
+    {
+        return (new SSOSession)->forceFill(['user_id' => $user->id])->setRelation('user', $user);
     }
 }

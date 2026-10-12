@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
@@ -19,6 +20,7 @@ use InvalidArgumentException;
 class UserController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedApplications;
 
     protected UserManagementService $userManagementService;
 
@@ -33,7 +35,7 @@ class UserController extends BaseController
      */
     public function index(ListRequest $request): JsonResponse
     {
-        $this->authorize('users.read');
+        $this->authorize('viewAny', User::class);
 
         // Additional validation for user-specific filters
         $request->validate([
@@ -48,8 +50,8 @@ class UserController extends BaseController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $this->hasSuperAdminRole($currentUser)) {
-            $query->where('organization_id', $currentUser->organization_id);
+        if (! $currentUser->isSuperAdmin()) {
+            $query->whereNotNull('organization_id')->where('organization_id', $currentUser->organization_id);
         }
 
         $this->applySearchFilter($query, $params['search']);
@@ -77,11 +79,6 @@ class UserController extends BaseController
         return $this->paginatedResponse($users);
     }
 
-    private function hasSuperAdminRole(User $user): bool
-    {
-        return $user->isSuperAdmin();
-    }
-
     private function applySearchFilter(Builder $query, mixed $search): void
     {
         if (! $search) {
@@ -98,7 +95,7 @@ class UserController extends BaseController
     {
         // Only allow filtering by organization_id if user is super admin or it's their own organization
         if ($request->has('organization_id') &&
-            ($this->hasSuperAdminRole($currentUser) || $request->organization_id == $currentUser->organization_id)) {
+            ($currentUser->isSuperAdmin() || $request->organization_id == $currentUser->organization_id)) {
             $query->where('organization_id', $request->organization_id);
         }
     }
@@ -166,17 +163,7 @@ class UserController extends BaseController
      */
     public function show(string $id): JsonResponse
     {
-        $this->authorize('users.read');
-
-        $query = User::with(['roles.permissions', 'organization', 'applications', 'ssoSessions']);
-
-        // Enforce organization-based data isolation for non-super-admin users
-        $currentUser = auth()->user();
-        if (! $this->hasSuperAdminRole($currentUser)) {
-            $query->where('organization_id', $currentUser->organization_id);
-        }
-
-        $user = $query->findOrFail($id);
+        $user = $this->findUserWithOrgScope($id, 'view')->load(['roles.permissions', 'organization', 'applications', 'ssoSessions']);
 
         return $this->successResponse($this->userManagementService->formatUserResponse($user, true));
     }
@@ -186,11 +173,7 @@ class UserController extends BaseController
      */
     public function update(UpdateUserRequest $request, string $id): JsonResponse
     {
-        $user = User::findOrFail($id);
-
-        if ($this->userRoleService->exceedsPermissionsOf($request->user(), $user)) {
-            return $this->forbiddenResponse('You cannot update a user with permissions you do not have.');
-        }
+        $user = $this->findUserWithOrgScope($id, 'update');
 
         $updateData = $request->only(['name', 'email', 'organization_id', 'profile', 'is_active']);
 
@@ -210,24 +193,9 @@ class UserController extends BaseController
      */
     public function destroy(string $id): JsonResponse
     {
-        // Find user first (returns 404 if not found)
-        $user = User::find($id);
+        $user = $this->findUserWithOrgScope($id);
 
-        if (! $user) {
-            return $this->notFoundResponse('User not found');
-        }
-
-        // Check authorization after finding user to return 403 instead of 404
-        $this->authorize('users.delete');
-
-        // Prevent self-deletion
-        if ($user->id === auth()->id()) {
-            return $this->errorResponse('Cannot delete your own account.', 403);
-        }
-
-        if ($this->userRoleService->exceedsPermissionsOf(auth()->user(), $user)) {
-            return $this->forbiddenResponse('You cannot delete a user with permissions you do not have.');
-        }
+        $this->authorize('delete', $user);
 
         $this->userManagementService->deleteUser($user);
 
@@ -239,7 +207,7 @@ class UserController extends BaseController
      */
     public function bulk(Request $request): JsonResponse
     {
-        $this->authorize('users.update');
+        $this->authorize('updateAny', User::class);
 
         $request->validate([
             'user_ids' => 'required|array|min:1',
@@ -248,7 +216,7 @@ class UserController extends BaseController
         ]);
 
         if ($request->input('action') === 'delete') {
-            $this->authorize('users.delete');
+            $this->authorize('deleteAny', User::class);
         }
 
         try {

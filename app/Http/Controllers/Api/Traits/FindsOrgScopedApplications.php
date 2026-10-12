@@ -17,9 +17,16 @@ trait FindsOrgScopedApplications
         return $application;
     }
 
-    protected function findUserWithOrgScope(string $id): User
+    protected function findUserWithOrgScope(string $id, ?string $ability = null): User
     {
-        return $this->orgScoped(User::query(), auth()->user())->findOrFail($id);
+        $caller = auth()->user();
+        $user = (string) $caller->id === $id ? $caller : $this->orgScoped(User::query(), $caller)->findOrFail($id);
+
+        if ($ability !== null) {
+            $this->authorize($ability, $user);
+        }
+
+        return $user;
     }
 
     private function orgScoped(Builder $query, User $caller): Builder

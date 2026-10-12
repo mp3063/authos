@@ -34,8 +34,6 @@ class CustomRoleController extends BaseController
      */
     public function index(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('roles.read');
-
         $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
@@ -47,12 +45,7 @@ class CustomRoleController extends BaseController
         ]);
 
         $organization = Organization::findOrFail($organizationId);
-        $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('Access denied to this organization', 403);
-        }
+        $this->authorizeViewIn($organization);
 
         $query = CustomRole::forOrganization($organizationId)
             ->with('creator:id,name,email');
@@ -115,11 +108,7 @@ class CustomRoleController extends BaseController
      */
     public function store(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('roles.create');
-
-        if (! auth()->user()->isSuperAdmin()) {
-            return $this->errorResponse('Only super admins can define custom roles.', 403);
-        }
+        $this->authorize('create', CustomRole::class);
 
         $request->validate([
             'name' => [
@@ -142,11 +131,6 @@ class CustomRoleController extends BaseController
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
-        }
 
         $customRole = CustomRole::create([
             'organization_id' => $organization->id,
@@ -186,15 +170,8 @@ class CustomRoleController extends BaseController
      */
     public function show(string $organizationId, string $id): JsonResponse
     {
-        $this->authorize('roles.read');
-
         $organization = Organization::findOrFail($organizationId);
-        $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('Access denied to this organization', 403);
-        }
+        $this->authorizeViewIn($organization);
 
         /** @var CustomRole $customRole */
         $customRole = CustomRole::where('organization_id', $organizationId)
@@ -212,11 +189,7 @@ class CustomRoleController extends BaseController
      */
     public function update(Request $request, string $organizationId, string $id): JsonResponse
     {
-        $this->authorize('roles.update');
-
-        if (! auth()->user()->isSuperAdmin()) {
-            return $this->errorResponse('Only super admins can define custom roles.', 403);
-        }
+        $this->authorize('update', CustomRole::class);
 
         $request->validate([
             'name' => [
@@ -239,11 +212,6 @@ class CustomRoleController extends BaseController
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('You do not have permission to update roles in this organization.', 403);
-        }
 
         $customRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
 
@@ -284,19 +252,10 @@ class CustomRoleController extends BaseController
      */
     public function destroy(string $organizationId, string $id): JsonResponse
     {
-        $this->authorize('roles.delete');
-
-        if (! auth()->user()->isSuperAdmin()) {
-            return $this->errorResponse('Only super admins can define custom roles.', 403);
-        }
+        $this->authorize('delete', CustomRole::class);
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('You do not have permission to delete roles in this organization.', 403);
-        }
 
         $customRole = CustomRole::where('organization_id', $organizationId)
             ->findOrFail($id);
@@ -334,11 +293,7 @@ class CustomRoleController extends BaseController
      */
     public function clone(Request $request, string $organizationId, string $id): JsonResponse
     {
-        $this->authorize('roles.create');
-
-        if (! auth()->user()->isSuperAdmin()) {
-            return $this->errorResponse('Only super admins can define custom roles.', 403);
-        }
+        $this->authorize('create', CustomRole::class);
 
         $request->validate([
             'name' => [
@@ -353,10 +308,6 @@ class CustomRoleController extends BaseController
 
         $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return $this->errorResponse('You do not have permission to create roles in this organization.', 403);
-        }
 
         $sourceRole = CustomRole::where('organization_id', $organizationId)->findOrFail($id);
         $clonedRole = $sourceRole->cloneRole($request->name, $request->input('display_name'));
@@ -498,6 +449,11 @@ class CustomRoleController extends BaseController
             ['removed_count' => count($userIds)],
             sprintf('Custom role removed from %d users successfully', count($userIds))
         );
+    }
+
+    private function authorizeViewIn(Organization $organization): void
+    {
+        $this->authorize('view', (new CustomRole)->forceFill(['organization_id' => $organization->id]));
     }
 
     /**

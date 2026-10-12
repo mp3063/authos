@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\UserRoleService;
@@ -13,6 +14,7 @@ use Illuminate\Routing\Controller as BaseController;
 class UserRoleController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedApplications;
 
     public function __construct(protected UserRoleService $userRoleService)
     {
@@ -24,9 +26,7 @@ class UserRoleController extends BaseController
      */
     public function roles(string $id): JsonResponse
     {
-        $this->authorize('users.read');
-
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id, 'view');
 
         return $this->successResponse([
             'data' => $this->userRoleService->formatUserRolesResponse($user->roles),
@@ -40,7 +40,7 @@ class UserRoleController extends BaseController
     {
         $this->authorize('roles.assign');
 
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
 
         $request->validate([
             'role_id' => ['required', 'integer', $this->userRoleService->assignableRoleRule($request->user(), $user->organization_id, 'id')],
@@ -66,7 +66,7 @@ class UserRoleController extends BaseController
     {
         $this->authorize('roles.assign');
 
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
 
         $request->validate([
             'roles' => 'required|array',
@@ -91,7 +91,7 @@ class UserRoleController extends BaseController
     {
         $this->authorize('roles.assign');
 
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
 
         if ($denial = $this->userRoleService->roleChangeDenial($request->user(), $user, Role::whereKey($roleId)->get())) {
             return $this->forbiddenResponse($denial);

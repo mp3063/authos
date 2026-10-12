@@ -60,6 +60,11 @@ class UserPolicy
             && $this->permitsOnTarget($user, 'users.delete', $model);
     }
 
+    public function updateAny(User $user): bool
+    {
+        return $this->permits($user, 'users.update', $user->organization_id);
+    }
+
     /**
      * Determine whether the user can bulk delete models.
      */
