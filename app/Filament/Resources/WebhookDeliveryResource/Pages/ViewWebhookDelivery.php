@@ -23,6 +23,7 @@ class ViewWebhookDelivery extends ViewRecord
     {
         return [
             Actions\Action::make('retry')
+                ->authorize('update')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->visible(fn (WebhookDelivery $record) => $record->canRetry())

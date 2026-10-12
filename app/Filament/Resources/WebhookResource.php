@@ -299,6 +299,7 @@ class WebhookResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
                 Action::make('test')
+                    ->authorize('update')
                     ->icon('heroicon-o-beaker')
                     ->color('info')
                     ->requiresConfirmation()
@@ -330,6 +331,7 @@ class WebhookResource extends Resource
                         }
                     }),
                 Action::make('rotate_secret')
+                    ->authorize('update')
                     ->icon('heroicon-o-key')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -347,6 +349,7 @@ class WebhookResource extends Resource
                             ->send();
                     }),
                 Action::make('enable')
+                    ->authorize('update')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn (Webhook $record) => ! $record->is_active)
@@ -359,6 +362,7 @@ class WebhookResource extends Resource
                             ->send();
                     }),
                 Action::make('disable')
+                    ->authorize('update')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->visible(fn (Webhook $record) => $record->is_active)
@@ -372,6 +376,7 @@ class WebhookResource extends Resource
                             ->send();
                     }),
                 Action::make('view_deliveries')
+                    ->authorize('view')
                     ->icon('heroicon-o-queue-list')
                     ->color('info')
                     ->url(fn (Webhook $record): string => route('filament.admin.resources.webhook-deliveries.index', [
@@ -390,6 +395,7 @@ class WebhookResource extends Resource
         return [
             BulkActionGroup::make([
                 BulkAction::make('enable')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->action(function ($records) {
@@ -403,6 +409,7 @@ class WebhookResource extends Resource
                     })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('disable')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -417,6 +424,7 @@ class WebhookResource extends Resource
                     })
                     ->deselectRecordsAfterCompletion(),
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalHeading('Delete Webhooks')
                     ->modalDescription('Are you sure you want to delete these webhooks? This action cannot be undone.'),

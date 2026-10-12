@@ -246,6 +246,7 @@ class WebhookDeliveryResource extends Resource
             ActionGroup::make([
                 ViewAction::make(),
                 Action::make('retry')
+                    ->authorize('update')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->visible(fn (WebhookDelivery $record) => $record->canRetry())
@@ -269,6 +270,7 @@ class WebhookDeliveryResource extends Resource
                         }
                     }),
                 Action::make('view_payload')
+                    ->authorize('view')
                     ->icon('heroicon-o-code-bracket')
                     ->color('info')
                     ->modalContent(fn (WebhookDelivery $record) => view('filament.modals.webhook-payload', [
@@ -285,6 +287,7 @@ class WebhookDeliveryResource extends Resource
         return [
             BulkActionGroup::make([
                 BulkAction::make('retry_failed')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->requiresConfirmation()

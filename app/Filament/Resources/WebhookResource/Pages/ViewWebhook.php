@@ -22,6 +22,7 @@ class ViewWebhook extends ViewRecord
     {
         return [
             Actions\Action::make('test')
+                ->authorize('update')
                 ->icon('heroicon-o-beaker')
                 ->color('info')
                 ->requiresConfirmation()
