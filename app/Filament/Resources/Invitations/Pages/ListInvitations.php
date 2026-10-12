@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Invitations\Pages;
 
+use App\Filament\Concerns\ForcesCallerOrganization;
 use App\Filament\Resources\Invitations\InvitationResource;
 use App\Models\Organization;
 use App\Services\InvitationService;
@@ -12,9 +13,12 @@ use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\File;
+use Throwable;
 
 class ListInvitations extends ListRecords
 {
+    use ForcesCallerOrganization;
+
     protected static string $resource = InvitationResource::class;
 
     protected function getHeaderActions(): array
@@ -28,7 +32,10 @@ class ListInvitations extends ListRecords
                 ->form([
                     Select::make('organization_id')
                         ->label('Organization')
-                        ->options(Organization::pluck('name', 'id'))
+                        ->options(fn (): array => Organization::query()
+                            ->when(! auth()->user()->isSuperAdmin(), fn ($query) => $query->whereKey(auth()->user()->organization_id))
+                            ->pluck('name', 'id')
+                            ->all())
                         ->required()
                         ->searchable(),
                     FileUpload::make('csv_file')
@@ -88,11 +95,21 @@ class ListInvitations extends ListRecords
                         return;
                     }
 
-                    $result = $invitationService->bulkInvite(
-                        $data['organization_id'],
-                        $invitations,
-                        auth()->user()
-                    );
+                    try {
+                        $result = $invitationService->bulkInvite(
+                            $this->forceCallerOrganization($data)['organization_id'],
+                            $invitations,
+                            auth()->user()
+                        );
+                    } catch (Throwable $exception) {
+                        Notification::make()
+                            ->title('Bulk invite failed')
+                            ->body($exception->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
 
                     $successCount = count($result['success'] ?? []);
                     $failCount = count($result['failed'] ?? []);

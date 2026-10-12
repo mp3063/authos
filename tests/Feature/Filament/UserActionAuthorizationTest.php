@@ -113,6 +113,50 @@ class UserActionAuthorizationTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_hides_and_forbids_reset_mfa_on_oneself_for_a_role_without_the_permission(): void
+    {
+        $this->member->forceFill(['mfa_methods' => ['totp']])->save();
+
+        $list = Livewire::test(ListUsers::class)->assertTableActionHidden('reset_mfa', $this->member);
+        $this->forceTableAction($list, 'reset_mfa', $this->member);
+
+        $view = Livewire::test(ViewUser::class, ['record' => $this->member->getRouteKey()])->assertActionHidden('reset_mfa');
+        $this->forcePageAction($view, 'reset_mfa');
+
+        Livewire::test(ListUsers::class)->callTableBulkAction('reset_mfa', [$this->member]);
+
+        $this->assertNotEmpty($this->member->fresh()->mfa_methods);
+    }
+
+    #[Test]
+    public function it_hides_and_forbids_force_verify_email_on_oneself_for_a_role_without_the_permission(): void
+    {
+        $this->member->forceFill(['email_verified_at' => null])->save();
+
+        $list = Livewire::test(ListUsers::class)->assertTableActionHidden('force_verify_email', $this->member);
+        $this->forceTableAction($list, 'force_verify_email', $this->member);
+        Livewire::test(ListUsers::class)->callTableBulkAction('verify_emails', [$this->member]);
+
+        $this->assertNull($this->member->fresh()->email_verified_at);
+    }
+
+    #[Test]
+    public function an_owner_cannot_reset_their_own_credentials_but_can_reset_a_peers(): void
+    {
+        $owner = $this->createUser(['organization_id' => $this->organization->id, 'mfa_methods' => ['totp']], 'Organization Owner');
+        $peer = $this->createUser(['organization_id' => $this->organization->id, 'mfa_methods' => ['totp']], 'Organization Owner');
+        $this->actingAs($owner);
+
+        Livewire::test(ListUsers::class)
+            ->assertTableActionHidden('reset_mfa', $owner)
+            ->assertTableActionVisible('reset_mfa', $peer)
+            ->callTableBulkAction('reset_mfa', [$owner, $peer]);
+
+        $this->assertNotEmpty($owner->fresh()->mfa_methods);
+        $this->assertEmpty($peer->fresh()->mfa_methods);
+    }
+
+    #[Test]
     public function it_hides_and_forbids_attach_and_detach_applications_for_a_role_without_the_permission(): void
     {
         $application = Application::factory()->create(['organization_id' => $this->organization->id]);

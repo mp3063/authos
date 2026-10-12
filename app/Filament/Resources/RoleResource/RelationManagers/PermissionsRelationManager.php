@@ -83,7 +83,9 @@ class PermissionsRelationManager extends RelationManager
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
+                    DetachBulkAction::make()
+                        ->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord()))
+                        ->authorizeIndividualRecords(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
                 ]),
             ])
             ->defaultSort('name');

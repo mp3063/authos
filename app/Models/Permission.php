@@ -11,7 +11,7 @@ class Permission extends SpatiePermission
         'viewAny', 'view', 'create', 'update', 'delete', 'deleteAny',
         'restore', 'restoreAny', 'forceDelete', 'forceDeleteAny',
         'replicate', 'reorder', 'attach', 'attachAny', 'detach', 'detachAny',
-        'associate', 'associateAny', 'dissociate', 'dissociateAny',
+        'associate', 'associateAny', 'dissociate', 'dissociateAny', 'resetCredentials',
     ];
 
     /**

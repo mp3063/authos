@@ -21,6 +21,14 @@ trait CallsHiddenActions
         return $component->call('callMountedTableAction');
     }
 
+    protected function forceTableBulkAction(Testable $component, string $name, array $records): Testable
+    {
+        return $component
+            ->set('selectedTableRecords', array_map(fn (Model $record) => (string) $record->getKey(), $records))
+            ->call('mountAction', $name, [], ['table' => true, 'bulk' => true])
+            ->call('callMountedAction');
+    }
+
     protected function forcePageAction(Testable $component, string $name): Testable
     {
         return $component

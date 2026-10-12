@@ -2,18 +2,21 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Resources\OrganizationResource\Pages\EditOrganization;
 use App\Filament\Resources\OrganizationResource\Pages\ListOrganizations;
-use App\Filament\Resources\OrganizationResource\Pages\ViewOrganization;
 use App\Filament\Resources\OrganizationResource\RelationManagers\ApplicationsRelationManager;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Feature\Filament\Concerns\CallsHiddenActions;
 use Tests\Integration\IntegrationTestCase;
 
 class OrganizationActionAuthorizationTest extends IntegrationTestCase
 {
+    use CallsHiddenActions;
+
     private Organization $organization;
 
     protected function setUp(): void
@@ -81,8 +84,9 @@ class OrganizationActionAuthorizationTest extends IntegrationTestCase
         $this->actingAsRole('Organization Member');
         $application = Application::factory()->create(['organization_id' => $this->organization->id]);
 
-        Livewire::test(ApplicationsRelationManager::class, ['ownerRecord' => $this->organization, 'pageClass' => ViewOrganization::class])
+        $component = Livewire::test(ApplicationsRelationManager::class, ['ownerRecord' => $this->organization, 'pageClass' => EditOrganization::class])
             ->assertTableBulkActionHidden('delete');
+        $this->forceTableBulkAction($component, 'delete', [$application]);
 
         $this->assertNotNull(Application::find($application->id));
     }

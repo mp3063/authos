@@ -9,6 +9,7 @@ use App\Filament\Resources\Invitations\Pages\ListInvitations;
 use App\Filament\Resources\SocialAccounts\Pages\ListSocialAccounts;
 use App\Models\Application;
 use App\Models\ApplicationGroup;
+use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\SocialAccount;
 use Livewire\Livewire;
@@ -117,6 +118,20 @@ class ApplicationActionAuthorizationTest extends IntegrationTestCase
         $this->actingAsRole('Organization Member');
 
         Livewire::test(ListInvitations::class)->assertForbidden();
+    }
+
+    #[Test]
+    public function an_owner_bulk_inviting_cannot_target_another_organization(): void
+    {
+        $this->actingAsRole('Organization Owner');
+        $other = $this->createOrganization();
+        $before = Invitation::count();
+
+        Livewire::test(ListInvitations::class)
+            ->callAction('bulkCsvInvite', ['organization_id' => $other->id, 'csv_file' => null])
+            ->assertHasActionErrors(['organization_id']);
+
+        $this->assertSame($before, Invitation::count());
     }
 
     #[Test]

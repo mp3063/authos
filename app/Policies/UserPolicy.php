@@ -46,6 +46,11 @@ class UserPolicy
             || $this->permitsOnTarget($user, 'users.update', $model);
     }
 
+    public function resetCredentials(User $user, User $model): bool
+    {
+        return $user->id !== $model->id && $this->update($user, $model);
+    }
+
     /**
      * Determine whether the user can delete the model.
      */

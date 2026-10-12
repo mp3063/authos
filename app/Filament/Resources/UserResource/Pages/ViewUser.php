@@ -17,7 +17,7 @@ class ViewUser extends ViewRecord
             Actions\EditAction::make(),
 
             Actions\Action::make('reset_mfa')
-                ->authorize('update')
+                ->authorize('resetCredentials')
                 ->label('Reset MFA')
                 ->icon('heroicon-o-shield-exclamation')
                 ->color('warning')
