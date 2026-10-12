@@ -51,8 +51,9 @@ class ApplicationAccessMatrix extends Widget
                 ->get();
 
             // Get users who have access to any application in this organization
-            $users = User::where('organization_id', $organizationId)->whereHas('applications', function ($query) use ($organizationId) {
-                $query->where('organization_id', $organizationId);
+            $users = User::where(function ($scoped) use ($organizationId) {
+                $scoped->where('organization_id', $organizationId)
+                    ->orWhereHas('applications', fn ($query) => $query->where('organization_id', $organizationId));
             })->with(['applications' => function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId)
                     ->withPivot(['last_login_at', 'login_count', 'created_at']);

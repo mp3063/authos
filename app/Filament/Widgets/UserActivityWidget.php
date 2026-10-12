@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Concerns\ScopesToOrganization;
+use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -92,7 +93,7 @@ class UserActivityWidget extends BaseWidget
                 ->placeholder('System')
                 ->limit(25)
                 ->tooltip(fn ($record) => $record->user?->email)
-                ->url(fn ($record) => $record->user && $user->can('view users') ?
+                ->url(fn ($record) => $record->user && $user->can('viewAny', User::class) ?
                     route('filament.admin.resources.users.view', $record->user->id) : null)
                 ->color('primary')
                 ->weight('medium'),
@@ -103,7 +104,7 @@ class UserActivityWidget extends BaseWidget
                 ->badge()
                 ->color('gray')
                 ->limit(20)
-                ->url(fn ($record) => $record->application && $user->can('view applications') ?
+                ->url(fn ($record) => $record->application && $user->can('viewAny', Application::class) ?
                     route('filament.admin.resources.applications.view', $record->application->id) : null),
 
             TextColumn::make('ip_address')

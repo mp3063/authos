@@ -33,9 +33,9 @@ class OrganizationOverviewWidget extends BaseWidget
         }
 
         $organizationId = $user->organization_id;
-        $cacheKey = "org_overview_stats_{$organizationId}_{$user->id}";
+        $cacheKey = "org_overview_stats_{$organizationId}";
 
-        return Cache::remember($cacheKey, 300, function () use ($organizationId, $user) {
+        $counts = Cache::remember($cacheKey, 300, function () use ($organizationId) {
             // Get organization users (users who have access to any app in this org)
             $totalUsers = User::whereHas('applications', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
@@ -93,55 +93,70 @@ class OrganizationOverviewWidget extends BaseWidget
                 $loginTrend[] = $count;
             }
 
-            return [
-                Stat::make('Total Users', $totalUsers)
-                    ->description($activeUsers.' active in last 30 days')
-                    ->descriptionIcon('heroicon-m-user-group')
-                    ->color('primary')
-                    ->chart($loginTrend),
-
-                Stat::make('Applications', $totalApplications)
-                    ->description($activeApplications.' active')
-                    ->descriptionIcon('heroicon-m-squares-2x2')
-                    ->color('info')
-                    ->url(fn () => $user->can('view applications') ?
-                        route('filament.admin.resources.applications.index', [
-                            'organization' => $user->organization->slug,
-                        ]) : null),
-
-                Stat::make('Pending Invitations', $pendingInvitations)
-                    ->description('Awaiting acceptance')
-                    ->descriptionIcon('heroicon-m-envelope')
-                    ->color($pendingInvitations > 0 ? 'warning' : 'success')
-                    ->url(fn () => $user->can('view invitations') ? '#pending-invitations' : null),
-
-                Stat::make('MFA Adoption', $mfaRate.'%')
-                    ->description($mfaEnabledUsers.' of '.$totalUsers.' users')
-                    ->descriptionIcon('heroicon-m-shield-check')
-                    ->color($mfaRate >= 80 ? 'success' : ($mfaRate >= 50 ? 'warning' : 'danger')),
-
-                Stat::make('Today\'s Logins', $todayLogins)
-                    ->description('Successful authentications')
-                    ->descriptionIcon('heroicon-m-arrow-right-on-rectangle')
-                    ->color('success')
-                    ->chart(array_slice($loginTrend, -3)), // Last 3 days mini chart
-
-                Stat::make('Failed Attempts', $todayFailedLogins)
-                    ->description('Login failures today')
-                    ->descriptionIcon('heroicon-m-x-circle')
-                    ->color($todayFailedLogins > 5 ? 'danger' : 'gray'),
-
-                Stat::make('Security Score', $this->calculateSecurityScore($mfaRate, $todayFailedLogins, $totalUsers))
-                    ->description('Organization security rating')
-                    ->descriptionIcon('heroicon-m-shield-exclamation')
-                    ->color($this->getSecurityScoreColor($this->calculateSecurityScore($mfaRate, $todayFailedLogins, $totalUsers))),
-
-                Stat::make('System Status', 'Operational')
-                    ->description('All services running')
-                    ->descriptionIcon('heroicon-m-check-circle')
-                    ->color('success'),
-            ];
+            return compact(
+                'totalUsers',
+                'activeUsers',
+                'totalApplications',
+                'activeApplications',
+                'pendingInvitations',
+                'todayLogins',
+                'todayFailedLogins',
+                'mfaEnabledUsers',
+                'mfaRate',
+                'loginTrend',
+            );
         });
+
+        ['totalUsers' => $totalUsers, 'activeUsers' => $activeUsers, 'totalApplications' => $totalApplications, 'activeApplications' => $activeApplications, 'pendingInvitations' => $pendingInvitations, 'todayLogins' => $todayLogins, 'todayFailedLogins' => $todayFailedLogins, 'mfaEnabledUsers' => $mfaEnabledUsers, 'mfaRate' => $mfaRate, 'loginTrend' => $loginTrend] = $counts;
+
+        return [
+            Stat::make('Total Users', $totalUsers)
+                ->description($activeUsers.' active in last 30 days')
+                ->descriptionIcon('heroicon-m-user-group')
+                ->color('primary')
+                ->chart($loginTrend),
+
+            Stat::make('Applications', $totalApplications)
+                ->description($activeApplications.' active')
+                ->descriptionIcon('heroicon-m-squares-2x2')
+                ->color('info')
+                ->url(fn () => $user->can('viewAny', Application::class) ?
+                    route('filament.admin.resources.applications.index', [
+                        'organization' => $user->organization->slug,
+                    ]) : null),
+
+            Stat::make('Pending Invitations', $pendingInvitations)
+                ->description('Awaiting acceptance')
+                ->descriptionIcon('heroicon-m-envelope')
+                ->color($pendingInvitations > 0 ? 'warning' : 'success')
+                ->url(fn () => $user->can('viewAny', Invitation::class) ? '#pending-invitations' : null),
+
+            Stat::make('MFA Adoption', $mfaRate.'%')
+                ->description($mfaEnabledUsers.' of '.$totalUsers.' users')
+                ->descriptionIcon('heroicon-m-shield-check')
+                ->color($mfaRate >= 80 ? 'success' : ($mfaRate >= 50 ? 'warning' : 'danger')),
+
+            Stat::make('Today\'s Logins', $todayLogins)
+                ->description('Successful authentications')
+                ->descriptionIcon('heroicon-m-arrow-right-on-rectangle')
+                ->color('success')
+                ->chart(array_slice($loginTrend, -3)), // Last 3 days mini chart
+
+            Stat::make('Failed Attempts', $todayFailedLogins)
+                ->description('Login failures today')
+                ->descriptionIcon('heroicon-m-x-circle')
+                ->color($todayFailedLogins > 5 ? 'danger' : 'gray'),
+
+            Stat::make('Security Score', $this->calculateSecurityScore($mfaRate, $todayFailedLogins, $totalUsers))
+                ->description('Organization security rating')
+                ->descriptionIcon('heroicon-m-shield-exclamation')
+                ->color($this->getSecurityScoreColor($this->calculateSecurityScore($mfaRate, $todayFailedLogins, $totalUsers))),
+
+            Stat::make('System Status', 'Operational')
+                ->description('All services running')
+                ->descriptionIcon('heroicon-m-check-circle')
+                ->color('success'),
+        ];
     }
 
     protected function calculateSecurityScore(float $mfaRate, int $failedLogins, int $totalUsers): string

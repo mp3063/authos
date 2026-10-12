@@ -26,6 +26,7 @@ use App\Models\WebhookDelivery;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
 
 class DashboardWidgetAuthorizationTest extends IntegrationTestCase
@@ -145,7 +146,7 @@ class DashboardWidgetAuthorizationTest extends IntegrationTestCase
         $this->assertFalse(WebhookActivityChart::canView());
 
         $this->actingAs($this->createSuperAdmin());
-        $this->assertSame(3, $this->widgetData(WebhookActivityChart::class)['datasets'][0]['data'][6]);
+        $this->assertSame(WebhookDelivery::whereDate('created_at', today())->where('status', 'success')->count(), $this->widgetData(WebhookActivityChart::class)['datasets'][0]['data'][6]);
     }
 
     #[Test]
@@ -282,5 +283,61 @@ class DashboardWidgetAuthorizationTest extends IntegrationTestCase
         $this->assertTrue(ApplicationAccessMatrix::canView());
         Livewire::test(ApplicationAccessMatrix::class)->call('grantAccess', $target->id, $application->id);
         $this->assertDatabaseHas('user_applications', ['user_id' => $target->id, 'application_id' => $application->id]);
+    }
+
+    #[Test]
+    public function it_renders_the_organization_overview_under_a_serializing_cache_store(): void
+    {
+        config(['cache.stores.array.serialize' => true]);
+        Cache::forgetDriver('array');
+        Application::factory()->create(['organization_id' => $this->organization->id]);
+
+        $this->actingAs($this->member('Organization Admin'));
+
+        $first = $this->widgetData(OrganizationOverviewWidget::class, 'getStats');
+        $second = $this->widgetData(OrganizationOverviewWidget::class, 'getStats');
+
+        $this->assertCount(8, $first);
+        $this->assertCount(8, $second);
+        $this->assertTrue(Cache::has("org_overview_stats_{$this->organization->id}"));
+    }
+
+    #[Test]
+    public function it_shows_no_rows_to_a_user_without_an_organization_holding_global_permissions(): void
+    {
+        $ownLog = AuthenticationLog::factory()->create(['user_id' => $this->member('User')->id, 'event' => 'login_success', 'created_at' => now()]);
+        WebhookDelivery::factory()->create(['webhook_id' => Webhook::factory()->create(['organization_id' => $this->organization->id])->id]);
+
+        $user = $this->createUser(['organization_id' => $this->organization->id], '', 'web');
+        $user->update(['organization_id' => null]);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $user->givePermissionTo(['auth_logs.read', 'webhooks.read', 'users.read']);
+        $user = $user->fresh();
+
+        $this->actingAs($user);
+
+        $this->assertTrue(RecentAuthenticationLogs::canView());
+        Livewire::test(RecentAuthenticationLogs::class)->assertCanNotSeeTableRecords([$ownLog]);
+        Livewire::test(UserActivityWidget::class)->assertCanNotSeeTableRecords([$ownLog]);
+        $this->assertSame(0, array_sum($this->widgetData(LoginActivityChart::class)['datasets'][0]['data']));
+        $this->assertSame(0, array_sum($this->widgetData(WebhookActivityChart::class)['datasets'][0]['data']));
+    }
+
+    #[Test]
+    public function it_lists_organization_users_and_foreign_users_holding_access_in_the_matrix(): void
+    {
+        $application = Application::factory()->create(['organization_id' => $this->organization->id, 'is_active' => true]);
+        $ownUser = $this->member('User');
+        $foreignWithAccess = $this->member('User', $this->otherOrganization);
+        $foreignWithoutAccess = $this->member('User', $this->otherOrganization);
+        $foreignWithAccess->applications()->attach($application->id);
+
+        $this->actingAs($this->member('Organization Admin'));
+
+        $userIds = (new ApplicationAccessMatrix)->getViewData()['users']->pluck('id');
+
+        $this->assertTrue($userIds->contains($ownUser->id));
+        $this->assertTrue($userIds->contains($foreignWithAccess->id));
+        $this->assertFalse($userIds->contains($foreignWithoutAccess->id));
     }
 }

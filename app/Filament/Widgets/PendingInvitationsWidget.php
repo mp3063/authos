@@ -89,7 +89,7 @@ class PendingInvitationsWidget extends BaseWidget
             TextColumn::make('inviter.name')
                 ->label('Invited By')
                 ->placeholder('System')
-                ->url(fn ($record) => $record->inviter && $user->can('view users') ?
+                ->url(fn ($record) => $record->inviter && $user->can('viewAny', User::class) ?
                     route('filament.admin.resources.users.view', $record->inviter->id) : null)
                 ->color('primary'),
 
