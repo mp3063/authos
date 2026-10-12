@@ -4,7 +4,9 @@ namespace Tests\Integration\Organizations;
 
 use App\Models\Application;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -151,7 +153,8 @@ class OrganizationUsersTest extends IntegrationTestCase
 
         // ASSERT: Verify role updated
         $user->refresh();
-        $this->assertTrue($user->hasRole('Organization Admin'));
+        $assignedNames = Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->pluck('name')->all();
+        $this->assertSame(['Organization Admin'], $assignedNames);
     }
 
     #[Test]
@@ -365,7 +368,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         // ASSERT: Verify all users have the role
         foreach ($users as $user) {
             $user->refresh();
-            $this->assertTrue($user->hasRole('Organization Member'));
+            $this->assertTrue(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->where('name', 'Organization Member')->exists());
         }
 
         // ASSERT: Verify audit log entries exist

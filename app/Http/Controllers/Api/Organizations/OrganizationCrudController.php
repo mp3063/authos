@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Api\Organizations;
 use App\Events\OrganizationSettingsChangedEvent;
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Http\Requests\Organization\StoreOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationSettingsRequest;
 use App\Http\Resources\OrganizationResource;
 use App\Models\Organization;
-use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +22,7 @@ class OrganizationCrudController extends BaseController
 {
     use ApiControllerHelpers;
     use CacheableResponse;
+    use FindsOrgScopedOrganizations;
 
     protected OrganizationAnalyticsService $organizationService;
 
@@ -36,7 +37,7 @@ class OrganizationCrudController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $this->authorize('viewAny', Organization::class);
 
         $request->validate([
             'page' => 'sometimes|integer|min:1',
@@ -69,7 +70,7 @@ class OrganizationCrudController extends BaseController
      */
     public function store(StoreOrganizationRequest $request): JsonResponse
     {
-        $this->authorize('organizations.create');
+        $this->authorize('create', Organization::class);
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -142,10 +143,8 @@ class OrganizationCrudController extends BaseController
      */
     public function show(string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        $organization = Organization::withCount(['organizationUsers as users_count', 'applications as applications_count'])
-            ->findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $organization->loadCount(['organizationUsers as users_count', 'applications as applications_count']);
 
         // Return flat response structure for test compatibility
         $resource = new OrganizationResource($organization);
@@ -162,9 +161,7 @@ class OrganizationCrudController extends BaseController
      */
     public function update(UpdateOrganizationRequest $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.update');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id, 'update');
 
         $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -199,9 +196,7 @@ class OrganizationCrudController extends BaseController
      */
     public function destroy(string $id): JsonResponse
     {
-        $this->authorize('organizations.delete');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id, 'delete');
 
         if ($organization->users()->count() > 0) {
             return $this->errorResponse(
@@ -225,17 +220,7 @@ class OrganizationCrudController extends BaseController
      */
     public function settings(string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        // Use organization scope to return 404 for unauthorized access
-        $query = Organization::query();
-
-        // If not super admin, scope to user's organization
-        if (! auth()->user()->isSuperAdmin()) {
-            $query->where('id', auth()->user()->organization_id);
-        }
-
-        $organization = $query->findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
 
         $settings = $organization->settings ?? [];
 
@@ -251,19 +236,7 @@ class OrganizationCrudController extends BaseController
      */
     public function updateSettings(UpdateOrganizationSettingsRequest $request, string $id): JsonResponse
     {
-        // Use organization scope BEFORE authorization to return 404 for unauthorized access
-        $query = Organization::query();
-
-        // If not super admin, scope to user's organization
-        if (! auth()->user()->isSuperAdmin()) {
-            $query->where('id', auth()->user()->organization_id);
-        }
-
-        // This will throw 404 if organization not found or not in user's org
-        $organization = $query->findOrFail($id);
-
-        // Now check authorization
-        $this->authorize('organizations.update');
+        $organization = $this->findOrganizationWithOrgScope($id, 'update');
 
         $currentSettings = $organization->settings ?? [];
 
@@ -319,17 +292,7 @@ class OrganizationCrudController extends BaseController
      */
     public function resetSettings(string $id): JsonResponse
     {
-        $this->authorize('organizations.update');
-
-        // Use organization scope to return 404 for unauthorized access
-        $query = Organization::query();
-
-        // If not super admin, scope to user's organization
-        if (! auth()->user()->isSuperAdmin()) {
-            $query->where('id', auth()->user()->organization_id);
-        }
-
-        $organization = $query->findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id, 'update');
 
         // Default settings
         $defaultSettings = [

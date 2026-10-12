@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Models\Organization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
@@ -12,7 +13,7 @@ class StoreOrganizationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('organizations.create');
+        return $this->user()->can('create', Organization::class);
     }
 
     /**
@@ -80,7 +81,7 @@ class StoreOrganizationRequest extends FormRequest
         $slug = $baseSlug;
         $counter = 1;
 
-        while (\App\Models\Organization::where('slug', $slug)->exists()) {
+        while (Organization::where('slug', $slug)->exists()) {
             $slug = $baseSlug.'-'.$counter;
             $counter++;
         }

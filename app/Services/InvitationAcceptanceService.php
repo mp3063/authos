@@ -39,10 +39,7 @@ class InvitationAcceptanceService
             // Accept the invitation
             $invitation->accept($user);
 
-            // Assign the role to the user
-            if (method_exists($user, 'assignRole')) {
-                $user->assignRole($invitation->role);
-            }
+            $this->assignInvitedRole($user, $invitation);
 
             $this->notifyInviter($invitation, $user);
 
@@ -79,7 +76,7 @@ class InvitationAcceptanceService
             $invitation->accept($user);
 
             // Assign the role to the user if they don't already have it
-            if (method_exists($user, 'assignRole') && $invitation->role) {
+            if ($invitation->role) {
                 $this->assignInvitedRole($user, $invitation);
             }
 
@@ -112,11 +109,7 @@ class InvitationAcceptanceService
             throw new Exception('The invited role grants permissions the inviter cannot grant');
         }
 
-        $user->setPermissionsTeamId($invitation->organization_id);
-
-        if (! $user->hasRole($role)) {
-            $user->assignRole($role);
-        }
+        $this->userRoles->assignRole($user, (string) $role->id);
     }
 
     private function notifyInviter(Invitation $invitation, User $user): void

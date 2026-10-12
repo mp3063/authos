@@ -8,6 +8,7 @@ use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -421,7 +422,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
 
         if ($userRole) {
-            $this->assertTrue($newUser->hasRole($userRole));
+            $this->assertTrue(app(UserRoleService::class)->assignedRoleIds($newUser)->contains($userRole->id));
         }
 
         // Step 8: Verify user can access organization resources

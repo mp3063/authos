@@ -2,6 +2,10 @@
 
 namespace Tests\Integration\Security;
 
+use App\Http\Middleware\SetPermissionContext;
+use Filament\Facades\Filament;
+use Filament\Http\Middleware\Authenticate;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
@@ -9,26 +13,28 @@ use Tests\Integration\IntegrationTestCase;
 class PermissionContextTest extends IntegrationTestCase
 {
     #[Test]
-    public function it_sets_the_permission_team_after_bearer_authentication(): void
+    public function it_sets_the_permission_team_after_bearer_authentication_and_clears_it_afterwards(): void
     {
+        Route::middleware(['api', 'auth:api'])->get('/api/v1/__permission-team', fn () => ['team' => app(PermissionRegistrar::class)->getPermissionsTeamId()]);
         $owner = $this->createApiOrganizationOwner();
         $token = $this->createAccessToken($owner, ['*']);
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
-        $this->withToken($token)->getJson('/api/v1/auth/user')->assertOk();
+        $this->withToken($token)->getJson('/api/v1/__permission-team')->assertOk()->assertJsonPath('team', $owner->organization_id);
 
-        $this->assertSame($owner->organization_id, app(PermissionRegistrar::class)->getPermissionsTeamId());
+        $this->assertNull(app(PermissionRegistrar::class)->getPermissionsTeamId());
     }
 
     #[Test]
-    public function it_sets_the_permission_team_after_panel_authentication(): void
+    public function the_panel_authenticates_before_it_sets_the_permission_team(): void
     {
-        $owner = $this->createUser([], 'Organization Owner', 'web');
-        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $middleware = Filament::getPanel('admin')->getAuthMiddleware();
 
-        $this->actingAs($owner)->get('/admin')->assertOk();
-
-        $this->assertSame($owner->organization_id, app(PermissionRegistrar::class)->getPermissionsTeamId());
+        $this->assertContains(SetPermissionContext::class, $middleware);
+        $this->assertLessThan(
+            array_search(SetPermissionContext::class, $middleware, true),
+            array_search(Authenticate::class, $middleware, true)
+        );
     }
 
     #[Test]

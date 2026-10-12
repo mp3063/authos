@@ -233,7 +233,7 @@ class UserRoleAssignmentTest extends IntegrationTestCase
 
         $response->assertCreated();
         $created = User::where('email', 'new.user@example.com')->firstOrFail();
-        $this->assertSame([$userRole->id], $created->roles()->pluck('roles.id')->all());
+        $this->assertSame([$userRole->id], app(UserRoleService::class)->assignedRoleIds($created)->all());
     }
 
     /**

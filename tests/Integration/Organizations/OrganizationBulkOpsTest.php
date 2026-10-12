@@ -6,6 +6,7 @@ use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
@@ -83,7 +84,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         // ASSERT: Verify all users have the role
         foreach ($users as $user) {
             $user->refresh();
-            $this->assertTrue($user->hasRole('Organization Member'));
+            $this->assertTrue(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->where('name', 'Organization Member')->exists());
         }
     }
 

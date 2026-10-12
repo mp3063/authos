@@ -38,9 +38,6 @@ class InvitationService
             $inviterUser = User::with('roles')->findOrFail($inviterId);
         }
 
-        // Ensure permissions team context is set for the inviter
-        $inviterUser->setPermissionsTeamId($inviterUser->organization_id);
-
         // Validate that the inviter has permission to invite to this organization
         if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
@@ -118,9 +115,6 @@ class InvitationService
 
     public function cancelInvitation(int $invitationId, User $canceller): bool
     {
-        // Ensure permissions context is set
-        $canceller->setPermissionsTeamId($canceller->organization_id);
-
         // Find invitation that belongs to the user's organization
         $invitation = Invitation::where('id', $invitationId)
             ->where('organization_id', $canceller->organization_id)
@@ -141,9 +135,6 @@ class InvitationService
     public function resendInvitation(int $invitationId, User $sender): Invitation
     {
         $invitation = Invitation::findOrFail($invitationId);
-
-        // Ensure permissions context is set
-        $sender->setPermissionsTeamId($sender->organization_id);
 
         // Check if user has permission to resend this invitation
         if (! $this->authorizer->canManageInvitation($sender, $invitation)) {
@@ -195,9 +186,6 @@ class InvitationService
             $inviterUser = User::with('roles')->findOrFail($inviter);
         }
 
-        // Set permissions team context
-        $inviterUser->setPermissionsTeamId($inviterUser->organization_id);
-
         if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
             throw new Exception('User does not have permission to invite users to this organization');
         }
@@ -239,9 +227,6 @@ class InvitationService
         string $status = 'all'
     ): mixed {
         $organization = Organization::findOrFail($organizationId);
-
-        // Ensure permissions context is set
-        $user->setPermissionsTeamId($user->organization_id);
 
         if (! $this->authorizer->canViewInvitations($user, $organization)) {
             throw new Exception('User does not have permission to view invitations for this organization');

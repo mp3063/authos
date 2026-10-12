@@ -22,14 +22,9 @@ class BrandingController extends BaseController
 
     public function show(int $organizationId): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $organization = $this->findOrganizationForBranding($organizationId, 'view');
 
         try {
-            if (! $this->validateOrganizationAccess($organizationId)) {
-                return $this->forbiddenResponse();
-            }
-
-            $organization = Organization::findOrFail($organizationId);
             $branding = $this->brandingService->getBranding($organization);
 
             // If no branding exists, return default structure
@@ -58,7 +53,7 @@ class BrandingController extends BaseController
 
     public function update(Request $request, int $organizationId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $organization = $this->findOrganizationForBranding($organizationId, 'update');
 
         $validated = $request->validate([
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -70,16 +65,10 @@ class BrandingController extends BaseController
         ]);
 
         try {
-            if (! $this->validateOrganizationAccess($organizationId)) {
-                return $this->forbiddenResponse();
-            }
-
             // Check if user has permission to manage branding
             if (! auth()->user()->tokenCan('enterprise.branding.manage')) {
                 return $this->forbiddenResponse('You do not have permission to manage branding');
             }
-
-            $organization = Organization::findOrFail($organizationId);
 
             // Check if branding feature is enabled
             if (! ($organization->settings['enterprise_features']['custom_branding_enabled'] ?? true)) {
@@ -105,23 +94,18 @@ class BrandingController extends BaseController
 
     public function uploadLogo(Request $request, int $organizationId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $organization = $this->findOrganizationForBranding($organizationId, 'update');
 
         $request->validate([
             'logo' => ['required', 'image', 'max:2048', 'mimes:png,jpg,jpeg,svg', 'dimensions:min_width=200,min_height=200'],
         ]);
 
         try {
-            if (! $this->validateOrganizationAccess($organizationId)) {
-                return $this->forbiddenResponse();
-            }
-
             // Check if user has permission to manage branding
             if (! auth()->user()->tokenCan('enterprise.branding.manage')) {
                 return $this->forbiddenResponse('You do not have permission to manage branding');
             }
 
-            $organization = Organization::findOrFail($organizationId);
             $logoUrl = $this->brandingService->uploadLogo($organization, $request->file('logo'));
 
             return $this->successResponse(['logo_url' => $logoUrl], 'Logo uploaded successfully');
@@ -132,28 +116,32 @@ class BrandingController extends BaseController
 
     public function uploadBackground(Request $request, int $organizationId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $organization = $this->findOrganizationForBranding($organizationId, 'update');
 
         $request->validate([
             'background' => ['required', 'image', 'max:5120', 'mimes:png,jpg,jpeg'],
         ]);
 
         try {
-            if (! $this->validateOrganizationAccess($organizationId)) {
-                return $this->forbiddenResponse();
-            }
-
             // Check if user has permission to manage branding
             if (! auth()->user()->tokenCan('enterprise.branding.manage')) {
                 return $this->forbiddenResponse('You do not have permission to manage branding');
             }
 
-            $organization = Organization::findOrFail($organizationId);
             $backgroundUrl = $this->brandingService->uploadBackground($organization, $request->file('background'));
 
             return $this->successResponse(['background_url' => $backgroundUrl], 'Background uploaded successfully');
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    private function findOrganizationForBranding(int $organizationId, string $ability): Organization
+    {
+        $organization = Organization::findOrFail($organizationId);
+
+        $this->authorize($ability, $organization->branding()->firstOrNew());
+
+        return $organization;
     }
 }

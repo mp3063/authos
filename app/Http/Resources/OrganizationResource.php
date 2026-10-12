@@ -39,7 +39,7 @@ class OrganizationResource extends JsonResource
 
             // Security settings (only for admin)
             'security_settings' => $this->when(
-                $request->user()?->hasRole('super-admin') ||
+                $request->user()?->isSuperAdmin() ||
                 $request->user()?->organization_id === $this->id,
                 $this->settings['security'] ?? []
             ),

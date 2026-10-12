@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\Organizations;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Http\Requests\Organization\GrantUserAccessRequest;
 use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\UserResource;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\UserApplication;
 use App\Services\UserManagementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ use Illuminate\Routing\Controller as BaseController;
 class OrganizationUsersController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedOrganizations;
 
     protected UserManagementService $userService;
 
@@ -31,22 +34,8 @@ class OrganizationUsersController extends BaseController
      */
     public function users(Request $request, string $id): JsonResponse
     {
-        $this->authorize('users.read');
-
-        $organization = Organization::findOrFail($id);
-
-        // Check organization boundaries
-        $currentUser = auth()->user();
-        $isSuperAdmin = $currentUser->isSuperAdmin();
-
-        // Organization admins and users with appropriate permissions can view other orgs
-        // Super admins always have access
-        if (! $isSuperAdmin && $currentUser->organization_id !== $organization->id) {
-            if (! $currentUser->can('users.update')) {
-                return $this->notFoundResponse('Organization not found');
-            }
-            // Org admins/managers can view other orgs (e.g., to verify user transfers)
-        }
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('viewAny', User::class);
 
         $request->validate([
             'page' => 'sometimes|integer|min:1',
@@ -112,9 +101,8 @@ class OrganizationUsersController extends BaseController
      */
     public function applications(Request $request, string $id): JsonResponse
     {
-        $this->authorize('applications.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('viewAny', Application::class);
 
         $request->validate([
             'page' => 'sometimes|integer|min:1',
@@ -160,9 +148,8 @@ class OrganizationUsersController extends BaseController
      */
     public function grantUserAccess(GrantUserAccessRequest $request, string $id): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('create', UserApplication::class);
 
         $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -203,9 +190,8 @@ class OrganizationUsersController extends BaseController
      */
     public function revokeUserAccess(string $id, string $userId, string $applicationId): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('deleteAny', UserApplication::class);
 
         /** @var User $user */
         $user = User::findOrFail($userId);

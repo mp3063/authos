@@ -30,25 +30,10 @@ class EnforceOrganizationBoundary
 
         $user = Auth::user();
 
-        // Debug user roles
-        \Log::info('Organization boundary middleware debug', [
-            'user_id' => $user->id,
-            'user_organization' => $user->organization_id,
-            'path' => $request->path(),
-            'roles_web' => $user->getRoleNames('web')->toArray(),
-            'roles_api' => $user->getRoleNames('api')->toArray(),
-            'has_super_admin_web' => $user->hasRole('Super Admin', 'web'),
-            'has_super_admin_api' => $user->hasRole('Super Admin', 'api'),
-        ]);
-
         // Skip for super admins (they can access all organizations)
         if ($this->isSuperAdmin($user)) {
-            \Log::info('Super admin detected, allowing access');
-
             return $next($request);
         }
-
-        \Log::info('Not a super admin, checking organization boundaries');
 
         [$organizationId, $applicationId, $userId] = $this->resolveRouteResourceIds($request);
 

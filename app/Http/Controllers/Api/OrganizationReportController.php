@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\Organization;
 use App\Services\AuthenticationLogService;
 use App\Services\OrganizationReportingService;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Storage;
 class OrganizationReportController extends BaseController
 {
     use AuthorizesRequests;
+    use FindsOrgScopedOrganizations;
 
     protected OrganizationReportingService $reportingService;
 
@@ -32,7 +34,7 @@ class OrganizationReportController extends BaseController
      */
     public function userActivity(Request $request, string $organizationId): Response|JsonResponse
     {
-        $this->authorize('organizations.read');
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
 
         $request->validate([
             'start_date' => 'sometimes|date|before_or_equal:end_date',
@@ -41,16 +43,7 @@ class OrganizationReportController extends BaseController
             'period' => 'sometimes|string',
         ]);
 
-        $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
-            ], 403);
-        }
 
         $dateRange = null;
         if ($request->has('start_date') && $request->has('end_date')) {
@@ -182,23 +175,14 @@ class OrganizationReportController extends BaseController
      */
     public function applicationUsage(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
 
         $request->validate([
             'format' => 'sometimes|string|in:json,pdf',
             'period' => 'sometimes|string',
         ]);
 
-        $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
-            ], 403);
-        }
 
         try {
             $report = $this->reportingService->generateApplicationUsageReport($organizationId);
@@ -269,23 +253,14 @@ class OrganizationReportController extends BaseController
      */
     public function securityAudit(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
 
         $request->validate([
             'format' => 'sometimes|string|in:json,pdf',
             'period' => 'sometimes|string',
         ]);
 
-        $organization = Organization::findOrFail($organizationId);
         $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to access this organization.',
-            ], 403);
-        }
 
         try {
             $report = $this->reportingService->generateSecurityAuditReport($organizationId);
@@ -359,7 +334,7 @@ class OrganizationReportController extends BaseController
      */
     public function index(): JsonResponse
     {
-        $this->authorize('organizations.read');
+        $this->authorize('viewAny', Organization::class);
 
         return response()->json([
             'data' => [
@@ -392,7 +367,7 @@ class OrganizationReportController extends BaseController
      */
     public function scheduleReport(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $this->findOrganizationWithOrgScope($organizationId, 'update');
 
         $request->validate([
             'report_type' => 'required|string|in:user_activity,application_usage,security_audit',
@@ -403,17 +378,6 @@ class OrganizationReportController extends BaseController
             'format' => 'sometimes|string|in:pdf,csv,xlsx',
             'include_attachments' => 'sometimes|boolean',
         ]);
-
-        $organization = Organization::findOrFail($organizationId);
-        $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to manage this organization.',
-            ], 403);
-        }
 
         try {
             $scheduleId = 'schedule_'.uniqid();
@@ -453,7 +417,7 @@ class OrganizationReportController extends BaseController
      */
     public function updateSchedule(Request $request, string $organizationId, string $scheduleId): JsonResponse
     {
-        $this->authorize('organizations.update');
+        $this->findOrganizationWithOrgScope($organizationId, 'update');
 
         $request->validate([
             'frequency' => 'sometimes|string|in:daily,weekly,monthly',
@@ -461,17 +425,6 @@ class OrganizationReportController extends BaseController
             'recipients' => 'sometimes|array',
             'recipients.*' => 'email',
         ]);
-
-        $organization = Organization::findOrFail($organizationId);
-        $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to manage this organization.',
-            ], 403);
-        }
 
         try {
             // Update schedule (simplified for now)
@@ -498,18 +451,7 @@ class OrganizationReportController extends BaseController
      */
     public function deleteSchedule(string $organizationId): JsonResponse
     {
-        $this->authorize('organizations.update');
-
-        $organization = Organization::findOrFail($organizationId);
-        $currentUser = auth()->user();
-
-        // Check organization access
-        if (! $currentUser->isSuperAdmin() && $currentUser->organization_id !== $organization->id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'error_description' => 'You do not have permission to manage this organization.',
-            ], 403);
-        }
+        $this->findOrganizationWithOrgScope($organizationId, 'update');
 
         try {
             // Delete schedule (simplified for now)

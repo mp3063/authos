@@ -7,6 +7,7 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -556,7 +557,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $response = $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept");
 
         $response->assertStatus(400);
-        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Owner')->exists());
+        $this->assertFalse(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($member))->where('name', 'Organization Owner')->exists());
     }
 
     #[Test]
@@ -576,7 +577,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
 
         $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept")->assertOk();
 
-        $this->assertTrue($member->fresh()->roles()->whereKey($memberRole->id)->exists());
+        $this->assertTrue(app(UserRoleService::class)->assignedRoleIds($member)->contains($memberRole->id));
     }
 
     #[Test]

@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Organizations;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\AuditExport;
+use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
 use Carbon\Carbon;
 use Exception;
@@ -20,6 +23,7 @@ class OrganizationAnalyticsController extends BaseController
 {
     use ApiControllerHelpers;
     use CacheableResponse;
+    use FindsOrgScopedOrganizations;
 
     protected OrganizationAnalyticsService $analyticsService;
 
@@ -34,9 +38,7 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function analytics(Request $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
 
         $request->validate([
             'period' => 'sometimes|string|in:24h,7d,7days,30d,30days,90d,1y',
@@ -74,10 +76,8 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function userMetrics(Request $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-        $this->authorize('users.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('viewAny', User::class);
 
         $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
@@ -107,9 +107,7 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function applicationMetrics(Request $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
 
         $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
@@ -139,10 +137,8 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function securityMetrics(Request $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-        $this->authorize('auth_logs.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
+        $this->authorize('viewAny', AuthenticationLog::class);
 
         $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
@@ -172,9 +168,7 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function export(Request $request, string $id): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
 
         $request->validate([
             'format' => 'sometimes|string|in:json,csv,xlsx',
@@ -183,9 +177,7 @@ class OrganizationAnalyticsController extends BaseController
             'date_to' => 'sometimes|date|after_or_equal:date_from',
         ]);
 
-        if (in_array($request->get('data_type'), ['users', 'security_logs'], true)) {
-            $this->authorize('auth_logs.export');
-        }
+        $this->authorizeExportAccess($request->get('data_type'));
 
         $format = $request->get('format', 'json');
         $dataType = $request->get('data_type');
@@ -289,27 +281,15 @@ class OrganizationAnalyticsController extends BaseController
             return $this->errorResponse('Invalid or expired download link', 403);
         }
 
-        $export = AuditExport::find($exportId);
+        $organization = $this->findOrganizationWithOrgScope($id);
+
+        $export = AuditExport::where('organization_id', $organization->id)->find($exportId);
 
         if (! $export || ! $export->isCompleted()) {
             return $this->notFoundResponse('Export not found or not yet completed');
         }
 
-        // Check organization access
-        $user = $this->getAuthenticatedUser();
-        if (! $user) {
-            return $this->unauthorizedResponse();
-        }
-
-        $isSuperAdmin = $this->isSuperAdmin();
-        if (! $isSuperAdmin && $user->organization_id != $export->organization_id) {
-            return $this->forbiddenResponse('You do not have access to this export');
-        }
-
-        // Verify the export belongs to the requested organization
-        if ($export->organization_id != $id) {
-            return $this->notFoundResponse('Export not found');
-        }
+        $this->authorizeExportAccess($export->filters['data_type'] ?? null);
 
         if (! Storage::disk('local')->exists($export->file_path)) {
             return $this->notFoundResponse('Export file not found');
@@ -325,9 +305,7 @@ class OrganizationAnalyticsController extends BaseController
      */
     public function exportStatus(string $id, string $exportId): JsonResponse
     {
-        $this->authorize('organizations.read');
-
-        $organization = Organization::findOrFail($id);
+        $organization = $this->findOrganizationWithOrgScope($id);
 
         $export = AuditExport::where('id', $exportId)
             ->where('organization_id', $organization->id)
@@ -336,6 +314,8 @@ class OrganizationAnalyticsController extends BaseController
         if (! $export) {
             return $this->notFoundResponse('Export not found');
         }
+
+        $this->authorizeExportAccess($export->filters['data_type'] ?? null);
 
         $data = [
             'export_id' => $export->id,
@@ -361,6 +341,13 @@ class OrganizationAnalyticsController extends BaseController
         }
 
         return $this->successResponse($data, 'Export status retrieved successfully');
+    }
+
+    private function authorizeExportAccess(?string $dataType): void
+    {
+        if (! in_array($dataType, ['applications', 'analytics'], true)) {
+            $this->authorize('create', AuditExport::class);
+        }
     }
 
     /**

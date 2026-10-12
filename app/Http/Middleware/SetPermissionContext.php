@@ -16,19 +16,18 @@ class SetPermissionContext
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user()) {
-            $user = $request->user();
+        $user = $request->user();
 
-            // Set team context for organization-scoped permissions
-            if ($user->organization_id) {
-                // Set on user instance
-                $user->setPermissionsTeamId($user->organization_id);
-
-                // Set globally on PermissionRegistrar
-                app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
-            }
+        if ($user) {
+            $user->setPermissionsTeamId($user->organization_id);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($user->organization_id);
         }
 
         return $next($request);
+    }
+
+    public function terminate(Request $request, Response $response): void
+    {
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 }
