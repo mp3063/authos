@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Webhook;
 
+use App\Models\Webhook;
 use App\Rules\MaxWebhooksPerOrganization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,7 +15,7 @@ class StoreWebhookRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('webhooks.create');
+        return $this->user()->can('create', Webhook::class);
     }
 
     /**

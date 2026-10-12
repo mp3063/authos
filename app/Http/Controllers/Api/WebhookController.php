@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedWebhooks;
 use App\Http\Requests\Webhook\StoreWebhookRequest;
 use App\Http\Requests\Webhook\UpdateWebhookRequest;
 use App\Http\Resources\WebhookResource;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 class WebhookController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedWebhooks;
 
     public function __construct(
         protected WebhookService $webhookService
@@ -31,7 +33,7 @@ class WebhookController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('webhooks.read');
+        $this->authorize('viewAny', Webhook::class);
 
         $request->validate([
             'page' => 'sometimes|integer|min:1',
@@ -96,7 +98,7 @@ class WebhookController extends BaseController
      */
     public function store(StoreWebhookRequest $request): JsonResponse
     {
-        $this->authorize('webhooks.create');
+        $this->authorize('create', Webhook::class);
 
         try {
             $organization = $this->getCurrentOrganization();
@@ -135,18 +137,10 @@ class WebhookController extends BaseController
      */
     public function show(string $id): JsonResponse
     {
-        $this->authorize('webhooks.read');
-
-        $query = Webhook::with(['organization', 'deliveries' => function ($query) {
-            $query->latest()->limit(10);
-        }]);
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'view', [
+            'organization',
+            'deliveries' => fn ($query) => $query->latest()->limit(10),
+        ]);
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -165,16 +159,7 @@ class WebhookController extends BaseController
      */
     public function update(UpdateWebhookRequest $request, string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'update');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -208,16 +193,7 @@ class WebhookController extends BaseController
      */
     public function destroy(string $id): JsonResponse
     {
-        $this->authorize('webhooks.delete');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'delete');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -242,16 +218,7 @@ class WebhookController extends BaseController
      */
     public function test(string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'update');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -286,16 +253,7 @@ class WebhookController extends BaseController
      */
     public function rotateSecret(string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'update');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -326,16 +284,7 @@ class WebhookController extends BaseController
      */
     public function enable(string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'update');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -370,16 +319,7 @@ class WebhookController extends BaseController
      */
     public function disable(string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'update');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');

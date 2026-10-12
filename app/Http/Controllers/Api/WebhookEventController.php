@@ -26,6 +26,8 @@ class WebhookEventController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', WebhookEvent::class);
+
         $request->validate([
             'category' => 'sometimes|string|in:user,organization,application,auth,sso,system',
             'is_active' => 'sometimes|boolean',
@@ -82,6 +84,8 @@ class WebhookEventController extends BaseController
             return $this->notFoundResponse('Webhook event not found');
         }
 
+        $this->authorize('view', $event);
+
         return $this->resourceResponse(
             $event,
             WebhookEventResource::class
@@ -95,6 +99,8 @@ class WebhookEventController extends BaseController
      */
     public function groupedByCategory(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', WebhookEvent::class);
+
         $request->validate([
             'is_active' => 'sometimes|boolean',
         ]);

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedWebhooks;
 use App\Http\Resources\WebhookDeliveryResource;
-use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookDeliveryService;
 use App\Services\WebhookService;
@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 class WebhookDeliveryController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedWebhooks;
 
     public function __construct(
         protected WebhookDeliveryService $deliveryService,
@@ -31,22 +32,13 @@ class WebhookDeliveryController extends BaseController
      */
     public function retry(string $id): JsonResponse
     {
-        $this->authorize('webhooks.update');
-
-        // Find the delivery with its webhook
         $delivery = WebhookDelivery::with('webhook')->find($id);
 
         if (! $delivery) {
             return $this->notFoundResponse('Webhook delivery not found');
         }
 
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $webhook = $delivery->webhook;
-            if (! $webhook || $webhook->organization_id !== $this->getAuthenticatedUser()->organization_id) {
-                return $this->forbiddenResponse('You do not have permission to retry this delivery');
-            }
-        }
+        $this->authorize('update', $delivery);
 
         // Check if the delivery can be retried
         if (! $delivery->canRetry()) {
@@ -89,17 +81,7 @@ class WebhookDeliveryController extends BaseController
      */
     public function show(string $webhookId, string $deliveryId): JsonResponse
     {
-        $this->authorize('webhooks.read');
-
-        // Find the webhook first
-        $webhookQuery = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $webhookQuery->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $webhookQuery->find($webhookId);
+        $webhook = $this->findWebhookWithOrgScope($webhookId, 'view');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -125,8 +107,6 @@ class WebhookDeliveryController extends BaseController
      */
     public function deliveries(Request $request, string $id): JsonResponse
     {
-        $this->authorize('webhooks.read');
-
         $request->validate([
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
@@ -134,14 +114,7 @@ class WebhookDeliveryController extends BaseController
             'event_type' => 'sometimes|string',
         ]);
 
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'view');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');
@@ -179,20 +152,11 @@ class WebhookDeliveryController extends BaseController
      */
     public function stats(Request $request, string $id): JsonResponse
     {
-        $this->authorize('webhooks.read');
-
         $request->validate([
             'days' => 'sometimes|integer|min:1|max:90',
         ]);
 
-        $query = Webhook::query();
-
-        // Enforce organization-based data isolation
-        if (! $this->isSuperAdmin()) {
-            $query->where('organization_id', $this->getAuthenticatedUser()->organization_id);
-        }
-
-        $webhook = $query->find($id);
+        $webhook = $this->findWebhookWithOrgScope($id, 'view');
 
         if (! $webhook) {
             return $this->notFoundResponse('Webhook not found');

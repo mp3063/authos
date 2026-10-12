@@ -13,7 +13,7 @@ class UpdateWebhookRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('webhooks.update');
+        return true;
     }
 
     /**
