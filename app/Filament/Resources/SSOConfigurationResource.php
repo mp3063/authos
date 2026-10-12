@@ -332,6 +332,7 @@ class SSOConfigurationResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
                 Action::make('enable')
+                    ->authorize('update')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn (SSOConfiguration $record) => ! $record->is_active)
@@ -344,6 +345,7 @@ class SSOConfigurationResource extends Resource
                             ->send();
                     }),
                 Action::make('disable')
+                    ->authorize('update')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->visible(fn (SSOConfiguration $record) => $record->is_active)

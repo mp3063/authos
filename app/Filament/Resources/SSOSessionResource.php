@@ -139,6 +139,7 @@ class SSOSessionResource extends Resource
             ViewAction::make(),
 
             Action::make('terminate')
+                ->authorize('delete')
                 ->label('Terminate')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
@@ -161,6 +162,7 @@ class SSOSessionResource extends Resource
         ])->toolbarActions([
             BulkActionGroup::make([
                 BulkAction::make('terminate')
+                    ->authorizeIndividualRecords('delete')
                     ->label('Terminate Selected')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')

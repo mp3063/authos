@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Filament\Concerns;
 
+use App\Models\CustomRole;
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Features\SupportTesting\Testable;
 
@@ -34,5 +37,16 @@ trait CallsHiddenActions
         return $component
             ->call('mountAction', $name)
             ->call('callMountedAction');
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     */
+    protected function createUserWithCustomPermissions(Organization $organization, array $permissions): User
+    {
+        $user = $this->createUser(['organization_id' => $organization->id], 'User', 'web');
+        CustomRole::factory()->forOrganization($organization)->create(['permissions' => $permissions])->assignToUser($user);
+
+        return $user;
     }
 }

@@ -6,6 +6,7 @@ use App\Filament\Resources\SSOConfigurationResource;
 use App\Models\SSOConfiguration;
 use Filament\Actions;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -20,13 +21,14 @@ class ViewSSOConfiguration extends ViewRecord
     {
         return [
             Actions\Action::make('enable')
+                ->authorize('update')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->visible(fn (SSOConfiguration $record) => ! $record->is_active)
                 ->action(function (SSOConfiguration $record) {
                     $record->update(['is_active' => true]);
 
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('SSO configuration enabled')
                         ->success()
                         ->send();
@@ -34,6 +36,7 @@ class ViewSSOConfiguration extends ViewRecord
                     $this->refreshFormData(['is_active']);
                 }),
             Actions\Action::make('disable')
+                ->authorize('update')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->visible(fn (SSOConfiguration $record) => $record->is_active)
@@ -43,7 +46,7 @@ class ViewSSOConfiguration extends ViewRecord
                 ->action(function (SSOConfiguration $record) {
                     $record->update(['is_active' => false]);
 
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('SSO configuration disabled')
                         ->success()
                         ->send();
@@ -53,6 +56,23 @@ class ViewSSOConfiguration extends ViewRecord
             Actions\EditAction::make(),
             Actions\DeleteAction::make(),
         ];
+    }
+
+    private static function redactSecrets(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $redacted = [];
+
+        foreach ($value as $key => $item) {
+            $redacted[$key] = is_string($key) && preg_match('/(password|secret|private_key|api_key)$/i', $key)
+                ? '********'
+                : self::redactSecrets($item);
+        }
+
+        return $redacted;
     }
 
     public function infolist(Schema $schema): Schema
@@ -104,13 +124,7 @@ class ViewSSOConfiguration extends ViewRecord
                     ->schema([
                         TextEntry::make('configuration')
                             ->label(fn (SSOConfiguration $record): string => strtoupper($record->provider).' Settings')
-                            ->formatStateUsing(function ($state): string {
-                                if (empty($state)) {
-                                    return 'No configuration set';
-                                }
-
-                                return json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-                            })
+                            ->state(fn (SSOConfiguration $record): string => empty($record->configuration) ? 'No configuration set' : json_encode(self::redactSecrets($record->configuration), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
                             ->markdown()
                             ->columnSpanFull(),
                     ])

@@ -22,6 +22,7 @@ class ViewSSOSession extends ViewRecord
     {
         return [
             Action::make('terminate')
+                ->authorize('delete')
                 ->label('Terminate Session')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
