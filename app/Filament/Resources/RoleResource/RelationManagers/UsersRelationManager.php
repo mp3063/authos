@@ -13,6 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 
 class UsersRelationManager extends RelationManager
 {
@@ -72,16 +73,16 @@ class UsersRelationManager extends RelationManager
 
             ])
             ->headerActions([
-                AttachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                AttachAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord()))
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(fn (Builder $query) => static::scopeToOrganization($query)),
             ])
             ->recordActions([
-                DetachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
+                DetachAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
+                    DetachBulkAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
                 ]),
             ]);
     }

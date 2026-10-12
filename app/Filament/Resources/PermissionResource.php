@@ -319,7 +319,8 @@ class PermissionResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
 
-                Action::make('assign_to_role')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
+                Action::make('assign_to_role')
+                    ->authorize('update')
                     ->label('Assign to Role')
                     ->icon('heroicon-o-plus')
                     ->color('success')
@@ -380,10 +381,13 @@ class PermissionResource extends Resource
         return [
             BulkActionGroup::make([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords()
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these permissions?'),
 
-                BulkAction::make('assign_to_role')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
+                BulkAction::make('assign_to_role')
+                    ->authorize('update')
+                    ->authorizeIndividualRecords('update')
                     ->label('Assign to Role')
                     ->icon('heroicon-o-user-group')
                     ->color('success')

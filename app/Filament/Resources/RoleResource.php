@@ -270,10 +270,10 @@ class RoleResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
 
-                Action::make('duplicate')->label('Duplicate Role')->icon('heroicon-o-squares-plus')->color('gray')->schema([
+                Action::make('duplicate')->authorize('create')->label('Duplicate Role')->icon('heroicon-o-squares-plus')->color('gray')->schema([
                     TextInput::make('name')->required()->placeholder('New role name')->helperText('Enter name for the duplicated role'),
                 ])->action(function ($record, $data) {
-                    $newRole = $record->replicate();
+                    $newRole = $record->replicate(['users_count', 'permissions_count']);
                     $newRole->name = $data['name'];
                     $newRole->save();
                     $newRole->permissions()->sync($record->permissions);
@@ -309,10 +309,11 @@ class RoleResource extends Resource
     {
         return [
             BulkActionGroup::make([
-                DeleteBulkAction::make()->requiresConfirmation()->modalDescription('Are you sure you want to delete these roles?'),
+                DeleteBulkAction::make()->authorizeIndividualRecords()->requiresConfirmation()->modalDescription('Are you sure you want to delete these roles?'),
 
                 BulkAction::make('assign_permission')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                    ->authorize('update')
+                    ->authorizeIndividualRecords('update')
                     ->label('Assign Permission')
                     ->icon('heroicon-o-plus')
                     ->color('success')

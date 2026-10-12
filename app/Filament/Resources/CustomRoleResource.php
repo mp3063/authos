@@ -241,7 +241,8 @@ class CustomRoleResource extends Resource
             ActionGroup::make([
                 ViewAction::make(),
                 EditAction::make(),
-                Action::make('clone')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
+                Action::make('clone')
+                    ->authorize('create')
                     ->icon('heroicon-o-document-duplicate')
                     ->color('info')
                     ->form([
@@ -283,7 +284,9 @@ class CustomRoleResource extends Resource
     {
         return [
             BulkActionGroup::make([
-                BulkAction::make('activate')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
+                BulkAction::make('activate')
+                    ->authorize('update')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -296,7 +299,9 @@ class CustomRoleResource extends Resource
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
-                BulkAction::make('deactivate')->visible(fn () => Filament::auth()->user()->isSuperAdmin())
+                BulkAction::make('deactivate')
+                    ->authorize('update')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-x-circle')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -310,6 +315,7 @@ class CustomRoleResource extends Resource
                     })
                     ->deselectRecordsAfterCompletion(),
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalHeading('Delete Roles')
                     ->modalDescription('Are you sure you want to delete these roles? This action cannot be undone.'),

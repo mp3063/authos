@@ -7,11 +7,18 @@ use Livewire\Features\SupportTesting\Testable;
 
 trait CallsHiddenActions
 {
-    protected function forceTableAction(Testable $component, string $name, Model $record): Testable
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function forceTableAction(Testable $component, string $name, Model $record, array $data = []): Testable
     {
-        return $component
-            ->call('mountTableAction', $name, $record->getKey())
-            ->call('callMountedTableAction');
+        $component->call('mountTableAction', $name, $record->getKey());
+
+        foreach ($data as $key => $value) {
+            $component->set("mountedActions.0.data.{$key}", $value);
+        }
+
+        return $component->call('callMountedTableAction');
     }
 
     protected function forcePageAction(Testable $component, string $name): Testable

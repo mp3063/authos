@@ -12,6 +12,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class PermissionsRelationManager extends RelationManager
 {
@@ -73,16 +74,16 @@ class PermissionsRelationManager extends RelationManager
                     ]),
             ])
             ->headerActions([
-                AttachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                AttachAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord()))
                     ->preloadRecordSelect()
                     ->multiple(),
             ])
             ->recordActions([
-                DetachAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
+                DetachAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DetachBulkAction::make()->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin()),
+                    DetachBulkAction::make()->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord())),
                 ]),
             ])
             ->defaultSort('name');
