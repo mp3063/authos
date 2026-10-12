@@ -96,6 +96,9 @@ herd php artisan monitor:health            # Health check
 - Super Admin has cross-organization access
 - All Filament resources properly scoped
 
+### Authorization
+Authorization has one source of truth: the role-to-permission matrix in `ManagesOrganizationRoles::getDefaultRoles()` (seeded per organization, extended by custom roles). Policies are the single authority for both the Filament panel and the API controllers, and no code checks a role name except `isSuperAdmin()`. `User::hasOrganizationPermission()` is the only resolver; Spatie's own gate hook is off and super admins pass through `Gate::before`. Scoping fails closed: a non-super-admin without an organization is denied every organization-scoped ability and sees no organization-scoped rows.
+
 ### OAuth 2.0 Compliance
 - Authorization code flow (RFC 6749)
 - PKCE support (S256 + plain)
