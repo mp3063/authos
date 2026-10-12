@@ -3,8 +3,10 @@
 namespace App\Services\BulkImport;
 
 use App\Models\Invitation;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkImport\DTOs\ImportOptions;
+use App\Services\UserRoleService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -107,14 +109,18 @@ class UserProcessor
     private function assignRole(User $user, string $roleName): void
     {
         try {
-            // Set organization context
-            $user->setPermissionsTeamId($user->organization_id);
+            $role = Role::query()
+                ->where('guard_name', 'api')
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $user->organization_id)
+                ->whereRaw('LOWER(name) = LOWER(?)', [$roleName])
+                ->first();
 
-            // Check if user already has the role
-            if (! $user->hasRole($roleName)) {
-                // Use the organization-aware role assignment
-                $user->assignOrganizationRole($roleName, $user->organization_id);
+            if (! $role) {
+                throw new RuntimeException("Role '{$roleName}' does not exist for organization {$user->organization_id}");
             }
+
+            app(UserRoleService::class)->assignRole($user, (string) $role->id);
         } catch (Exception $e) {
             throw new RuntimeException('Failed to assign role: '.$e->getMessage());
         }

@@ -3,14 +3,17 @@
 namespace App\Jobs;
 
 use App\Models\BulkImportJob;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
 use App\Services\BulkImport\DTOs\ExportOptions;
+use App\Services\UserRoleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -116,7 +119,7 @@ class ExportUsersJob implements ShouldQueue
      */
     private function buildQuery(ExportOptions $options)
     {
-        $query = User::query()->with(['organization', 'roles']);
+        $query = User::query()->with('organization');
 
         // Filter by organization
         if ($options->organizationId) {
@@ -144,9 +147,14 @@ class ExportUsersJob implements ShouldQueue
 
         // Filter by roles
         if ($options->roles && ! empty($options->roles)) {
-            $query->whereHas('roles', function ($roleQuery) use ($options) {
-                $roleQuery->whereIn('name', $options->roles);
-            });
+            $query->whereIn('id', DB::table('model_has_roles')
+                ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('model_has_roles.model_type', (new User)->getMorphClass())
+                ->whereIn('roles.name', $options->roles)
+                ->when($options->organizationId, fn ($roles) => $roles->where(fn ($scoped) => $scoped
+                    ->whereNull('roles.organization_id')
+                    ->orWhere('roles.organization_id', $options->organizationId)))
+                ->select('model_has_roles.model_id'));
         }
 
         // Limit results
@@ -175,7 +183,7 @@ class ExportUsersJob implements ShouldQueue
                 'updated_at' => $user->updated_at->toDateTimeString(),
                 'organization_name' => $user->organization?->name ?? 'N/A',
                 'organization_id' => $user->organization_id,
-                'roles' => $user->roles->pluck('name')->implode(', '),
+                'roles' => $this->roleNames($user),
                 'is_active' => $user->is_active ? 'Yes' : 'No',
                 'mfa_enabled' => $user->hasMfaEnabled() ? 'Yes' : 'No',
                 'provider' => $user->getProviderDisplayName(),
@@ -184,6 +192,14 @@ class ExportUsersJob implements ShouldQueue
         }
 
         return $record;
+    }
+
+    private function roleNames(User $user): string
+    {
+        return Role::query()
+            ->whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))
+            ->pluck('name')
+            ->implode(', ');
     }
 
     /**

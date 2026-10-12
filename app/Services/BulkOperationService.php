@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CustomRole;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Contracts\BulkOperationServiceInterface;
 use Exception;
@@ -13,7 +14,10 @@ use Spatie\Activitylog\Models\Activity;
 
 class BulkOperationService extends BaseService implements BulkOperationServiceInterface
 {
-    public function __construct(protected BulkInvitationService $bulkInvitationService) {}
+    public function __construct(
+        protected BulkInvitationService $bulkInvitationService,
+        protected UserRoleService $userRoleService
+    ) {}
 
     /**
      * Bulk invite multiple users to an organization
@@ -73,7 +77,7 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
                     if ($action === 'assign') {
                         $this->assignRolesToUser($user, $roles, $customRoleIds, $organization, $currentUser);
                     } else {
-                        $this->revokeRolesFromUser($user, $roles, $customRoleIds, $organization);
+                        $this->revokeRolesFromUser($user, $roles, $customRoleIds, $organization, $currentUser);
                     }
 
                     $results['successful'][] = $this->formatUserResult($user);
@@ -180,9 +184,7 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
     {
         // Assign standard roles
         foreach ($roles as $role) {
-            if (! $user->hasOrganizationRole($role, $organization->id)) {
-                $user->assignOrganizationRole($role, $organization->id);
-            }
+            $this->userRoleService->assignRole($user, (string) $this->organizationRole($currentUser, $organization, $role)->id);
         }
 
         // Assign custom roles
@@ -196,16 +198,19 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
         }
     }
 
+    private function organizationRole(User $caller, Organization $organization, string $name): Role
+    {
+        return $this->userRoleService->findAssignableRole($caller, $organization->id, $name, 'api')
+            ?? throw new InvalidArgumentException("Role '{$name}' does not exist for organization {$organization->id}");
+    }
+
     /**
      * Revoke roles from a user
      */
-    private function revokeRolesFromUser(User $user, array $roles, array $customRoleIds, Organization $organization): void
+    private function revokeRolesFromUser(User $user, array $roles, array $customRoleIds, Organization $organization, User $currentUser): void
     {
-        // Revoke standard roles
         foreach ($roles as $role) {
-            if ($user->hasOrganizationRole($role, $organization->id)) {
-                $user->removeOrganizationRole($role, $organization->id);
-            }
+            $this->userRoleService->removeRole($user, (string) $this->organizationRole($currentUser, $organization, $role)->id);
         }
 
         // Revoke custom roles
@@ -226,7 +231,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
         $user->customRoles()->detach($customRoles);
 
         // Remove standard roles for this organization
-        $user->roles()->wherePivot('organization_id', $organization->id)->detach();
+        $organizationRoleIds = Role::query()->where('organization_id', $organization->id)->pluck('id');
+        $this->userRoleService->assignedRoleIds($user)->intersect($organizationRoleIds)
+            ->each(fn (int $roleId) => $this->userRoleService->removeRole($user, (string) $roleId));
 
         if ($revokeTokens) {
             // Revoke all tokens for organization applications

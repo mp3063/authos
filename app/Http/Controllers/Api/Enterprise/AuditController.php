@@ -25,7 +25,7 @@ class AuditController extends BaseController
 
     public function export(Request $request): JsonResponse
     {
-        $this->authorize('auth_logs.export');
+        $this->authorize('create', AuditExport::class);
 
         $request->validate([
             'format' => ['required', 'string', 'in:csv,json,xlsx'],
@@ -87,7 +87,7 @@ class AuditController extends BaseController
 
     public function listExports(Request $request): JsonResponse
     {
-        $this->authorize('auth_logs.read');
+        $this->authorize('viewAny', AuditExport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -127,7 +127,7 @@ class AuditController extends BaseController
 
     public function download(int $exportId): StreamedResponse|JsonResponse
     {
-        $this->authorize('auth_logs.read');
+        $this->authorize('viewAny', AuditExport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -137,9 +137,15 @@ class AuditController extends BaseController
                 return $this->forbiddenResponse('You do not have permission to download audit exports');
             }
 
-            $export = AuditExport::where('id', $exportId)
-                ->where('organization_id', $user->organization_id)
-                ->firstOrFail();
+            $export = AuditExport::query()
+                ->when(! $user->isSuperAdmin(), fn ($query) => $query
+                    ->whereNotNull('organization_id')
+                    ->where('organization_id', $user->organization_id))
+                ->findOrFail($exportId);
+
+            if (! $user->can('view', $export)) {
+                return $this->forbiddenResponse('You do not have permission to download audit exports');
+            }
 
             if ($export->status !== 'completed' || ! $export->file_path) {
                 return response()->json([

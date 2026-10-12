@@ -1,0 +1,57 @@
+<?php
+
+namespace Tests\Integration\BulkOperations;
+
+use App\Http\Middleware\EnforceOrganizationBoundary;
+use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\Integration\IntegrationTestCase;
+
+class BulkEndpointsAuthorizationTest extends IntegrationTestCase
+{
+    #[Test]
+    public function it_hides_another_organizations_bulk_endpoints_from_an_owner_without_the_boundary_middleware(): void
+    {
+        $this->withoutMiddleware(EnforceOrganizationBoundary::class);
+        $owner = $this->createApiOrganizationOwner();
+        $foreign = $this->createApiUser();
+        $this->actingAsApiUserWithToken($owner);
+        $base = "/api/v1/organizations/{$foreign->organization_id}/bulk";
+        $payload = ['user_ids' => [$foreign->id]];
+
+        $this->postJson("{$base}/invite-users", ['emails' => ['x@example.com']])->assertNotFound();
+        $this->postJson("{$base}/assign-roles", $payload + ['role' => 'User'])->assertNotFound();
+        $this->postJson("{$base}/export-users", [])->assertNotFound();
+        $this->postJson("{$base}/import-users", [])->assertNotFound();
+        $this->postJson("{$base}/enable-mfa", $payload)->assertNotFound();
+        $this->deleteJson("{$base}/delete-users", $payload)->assertNotFound();
+
+        $this->assertNull($foreign->fresh()->mfa_required_at);
+        $this->assertModelExists($foreign);
+    }
+
+    #[Test]
+    public function it_assigns_and_revokes_a_bulk_role_in_the_target_organization_without_an_ambient_team(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $organizationId = $owner->organization_id;
+        $this->setupRoleWithPermissions('Organization Member', 'web', $organizationId);
+        $this->setupRoleWithPermissions('Organization Member', 'api', $organizationId);
+        $target = User::factory()->create(['organization_id' => $organizationId]);
+        $this->actingAsApiUserWithToken($owner);
+        $url = "/api/v1/organizations/{$organizationId}/bulk/assign-roles";
+
+        $this->postJson($url, ['user_ids' => [$target->id], 'role' => 'Organization Member'])->assertOk();
+
+        $this->assertNull(app(PermissionRegistrar::class)->getPermissionsTeamId());
+        $assigned = $this->assignedRolesNamed($target, 'Organization Member');
+        $this->assertCount(1, $assigned);
+        $this->assertSame($organizationId, $assigned->first()->organization_id);
+        $this->assertSame('api', $assigned->first()->guard_name);
+
+        $this->postJson($url, ['user_ids' => [$target->id], 'role' => 'Organization Member', 'action' => 'revoke'])->assertOk();
+
+        $this->assertCount(0, $this->assignedRolesNamed($target, 'Organization Member'));
+    }
+}

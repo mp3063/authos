@@ -11,6 +11,7 @@ use App\Models\ComplianceReport;
 use App\Models\ScheduledComplianceReport;
 use App\Services\ComplianceReportService;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -95,7 +96,7 @@ class ComplianceController extends BaseController
 
     public function listSchedules(): JsonResponse
     {
-        $this->authorize('auth_logs.read');
+        $this->authorize('viewAny', ScheduledComplianceReport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -125,6 +126,7 @@ class ComplianceController extends BaseController
         try {
             $user = $this->getAuthenticatedUser();
             $schedule = $this->findOrgScopedSchedule($user->organization_id, $id);
+            $this->authorize('update', $schedule);
 
             $updated = $this->complianceService->updateSchedule($schedule, $request->validated());
 
@@ -135,6 +137,8 @@ class ComplianceController extends BaseController
             ]);
         } catch (ModelNotFoundException) {
             return response()->json(['success' => false, 'message' => 'Schedule not found'], 404);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -142,7 +146,7 @@ class ComplianceController extends BaseController
 
     public function cancelSchedule(int $id): JsonResponse
     {
-        $this->authorize('auth_logs.export');
+        $this->authorize('deleteAny', ScheduledComplianceReport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -152,6 +156,7 @@ class ComplianceController extends BaseController
             }
 
             $schedule = $this->findOrgScopedSchedule($user->organization_id, $id);
+            $this->authorize('delete', $schedule);
             $this->complianceService->cancelSchedule($schedule);
 
             return response()->json([
@@ -160,6 +165,8 @@ class ComplianceController extends BaseController
             ]);
         } catch (ModelNotFoundException) {
             return response()->json(['success' => false, 'message' => 'Schedule not found'], 404);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -174,7 +181,7 @@ class ComplianceController extends BaseController
 
     private function generateReport(string $scope, string $label, \Closure $generate): JsonResponse
     {
-        $this->authorize('auth_logs.export');
+        $this->authorize('create', ComplianceReport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -276,7 +283,7 @@ class ComplianceController extends BaseController
 
     public function downloadReport(int $reportId, Request $request): StreamedResponse|JsonResponse
     {
-        $this->authorize('auth_logs.read');
+        $this->authorize('viewAny', ComplianceReport::class);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -288,6 +295,7 @@ class ComplianceController extends BaseController
             $report = ComplianceReport::query()
                 ->forOrganization($user->organization_id)
                 ->findOrFail($reportId);
+            $this->authorize('view', $report);
 
             if (! $report->isCompleted()) {
                 return response()->json([
@@ -351,6 +359,8 @@ class ComplianceController extends BaseController
             );
         } catch (ModelNotFoundException) {
             return response()->json(['success' => false, 'message' => 'Report not found'], 404);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }

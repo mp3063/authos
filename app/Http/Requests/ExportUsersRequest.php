@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\BulkImportJob;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ExportUsersRequest extends FormRequest
@@ -11,7 +12,7 @@ class ExportUsersRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('users.read') || $this->user()->isSuperAdmin();
+        return $this->user()->can('viewAny', BulkImportJob::class);
     }
 
     /**

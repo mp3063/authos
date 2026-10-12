@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Api\Bulk;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
-use App\Models\Organization;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
+use App\Models\User;
 use App\Services\BulkUserDataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class BulkDataController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedOrganizations;
 
     protected BulkUserDataService $bulkUserDataService;
 
@@ -28,9 +30,8 @@ class BulkDataController extends BaseController
      */
     public function exportUsers(Request $request, string $organizationId): JsonResponse|BinaryFileResponse
     {
-        $this->authorize('users.read');
-
-        $organization = Organization::findOrFail($organizationId);
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('viewAny', User::class);
 
         $request->validate([
             'format' => 'sometimes|string|in:csv,xlsx,json',
@@ -88,9 +89,8 @@ class BulkDataController extends BaseController
      */
     public function importUsers(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('users.create');
-
-        $organization = Organization::findOrFail($organizationId);
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('create', User::class);
 
         $request->validate([
             'file' => 'required|file|mimes:csv,xlsx,json|max:10240',

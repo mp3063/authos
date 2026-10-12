@@ -91,10 +91,11 @@ class BulkUserController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('users.read');
+        $this->authorize('viewAny', BulkImportJob::class);
 
         $query = BulkImportJob::query()
             ->with(['organization', 'createdBy'])
+            ->whereNotNull('organization_id')
             ->where('organization_id', $request->user()->organization_id);
 
         // Filter by type
@@ -132,14 +133,8 @@ class BulkUserController extends BaseController
      */
     public function show(Request $request, BulkImportJob $job): JsonResponse
     {
-        $this->authorize('users.read');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'view')) {
+            return $denied;
         }
 
         return response()->json([
@@ -181,14 +176,8 @@ class BulkUserController extends BaseController
      */
     public function downloadErrors(Request $request, BulkImportJob $job): StreamedResponse|JsonResponse
     {
-        $this->authorize('users.read');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'view')) {
+            return $denied;
         }
 
         if (! $job->error_file_path) {
@@ -219,14 +208,8 @@ class BulkUserController extends BaseController
      */
     public function download(Request $request, BulkImportJob $job): StreamedResponse|JsonResponse
     {
-        $this->authorize('users.read');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'view')) {
+            return $denied;
         }
 
         if ($job->type !== BulkImportJob::TYPE_EXPORT) {
@@ -260,14 +243,8 @@ class BulkUserController extends BaseController
      */
     public function cancel(Request $request, BulkImportJob $job): JsonResponse
     {
-        $this->authorize('users.create');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'update')) {
+            return $denied;
         }
 
         if (! $this->service->cancel($job)) {
@@ -288,14 +265,8 @@ class BulkUserController extends BaseController
      */
     public function retry(Request $request, BulkImportJob $job): JsonResponse
     {
-        $this->authorize('users.create');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'update')) {
+            return $denied;
         }
 
         try {
@@ -322,14 +293,8 @@ class BulkUserController extends BaseController
      */
     public function destroy(Request $request, BulkImportJob $job): JsonResponse
     {
-        $this->authorize('users.delete');
-
-        // Ensure user can only access their organization's jobs
-        if ($job->organization_id !== $request->user()->organization_id && ! $request->user()->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access to this job',
-            ], 403);
+        if ($denied = $this->denyJob($request, $job, 'delete')) {
+            return $denied;
         }
 
         if ($job->isInProgress()) {
@@ -345,5 +310,17 @@ class BulkUserController extends BaseController
             'success' => true,
             'message' => 'Job deleted successfully',
         ]);
+    }
+
+    private function denyJob(Request $request, BulkImportJob $job, string $ability): ?JsonResponse
+    {
+        if ($request->user()->can($ability, $job)) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized access to this job',
+        ], 403);
     }
 }

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\Bulk;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
+use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\AuthenticationLog;
 use App\Models\CustomRole;
+use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
@@ -21,6 +23,7 @@ use Illuminate\Validation\ValidationException;
 class BulkUserOperationsController extends BaseController
 {
     use ApiControllerHelpers;
+    use FindsOrgScopedOrganizations;
 
     public function __construct(
         protected BulkOperationService $bulkOperationService,
@@ -34,9 +37,8 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkInviteUsers(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('users.create');
-
-        $organization = Organization::findOrFail($organizationId);
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('create', Invitation::class);
 
         // Support both 'invitations' format and simple 'emails' format
         $request->validate([
@@ -117,9 +119,8 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkAssignRoles(Request $request, string $organizationId): JsonResponse
     {
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
         $this->authorize('roles.assign');
-
-        $organization = Organization::findOrFail($organizationId);
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
@@ -243,9 +244,8 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkDeleteUsers(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('users.delete');
-
-        $organization = Organization::findOrFail($organizationId);
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('deleteAny', User::class);
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
@@ -272,7 +272,7 @@ class BulkUserOperationsController extends BaseController
             $caller = $request->user();
             $deletedCount = 0;
             foreach ($users as $user) {
-                if ($user->id === $caller->id || $this->userRoleService->exceedsPermissionsOf($caller, $user)) {
+                if (! $caller->can('delete', $user)) {
                     continue;
                 }
 
@@ -295,9 +295,8 @@ class BulkUserOperationsController extends BaseController
      */
     public function bulkEnableMfa(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('users.update');
-
-        $organization = Organization::findOrFail($organizationId);
+        $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('updateAny', User::class);
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:100',

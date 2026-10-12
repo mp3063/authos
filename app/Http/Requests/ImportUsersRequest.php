@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\BulkImportJob;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ImportUsersRequest extends FormRequest
@@ -11,7 +12,7 @@ class ImportUsersRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('users.create') || $this->user()->isSuperAdmin();
+        return $this->user()->can('create', BulkImportJob::class);
     }
 
     /**

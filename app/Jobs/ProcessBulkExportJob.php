@@ -100,6 +100,8 @@ class ProcessBulkExportJob implements ShouldQueue
                 ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
                 ->where('model_has_roles.model_type', (new User)->getMorphClass())
                 ->whereIn('roles.name', (array) $filters['roles'])
+                ->where(fn ($roles) => $roles->whereNull('roles.organization_id')
+                    ->orWhere('roles.organization_id', $this->exportJob->organization_id))
                 ->select('model_has_roles.model_id'));
         }
 

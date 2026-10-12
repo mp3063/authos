@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Enterprise;
 
+use App\Models\ComplianceReport;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ListComplianceReportsRequest extends FormRequest
@@ -9,7 +10,7 @@ class ListComplianceReportsRequest extends FormRequest
     public function authorize(): bool
     {
         return ($this->user()?->tokenCan('enterprise.compliance.read') ?? false)
-            && $this->user()->can('auth_logs.read');
+            && $this->user()->can('viewAny', ComplianceReport::class);
     }
 
     public function rules(): array
