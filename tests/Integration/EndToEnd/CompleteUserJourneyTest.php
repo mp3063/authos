@@ -4,7 +4,9 @@ namespace Tests\Integration\EndToEnd;
 
 use App\Models\AuthenticationLog;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Laravel\Passport\Token;
+use Spatie\Permission\Models\Role;
 
 /**
  * End-to-End test demonstrating complete user journey scenarios.
@@ -61,6 +63,11 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $this->assertNotNull($user);
         $this->assertEquals($this->defaultOrganization->id, $user->organization_id);
 
+        $this->assertSame(
+            [['User', 'api', $this->defaultOrganization->id]],
+            Role::whereKey(app(UserRoleService::class)->assignedRoleIds($user))
+                ->get()->map(fn ($role) => [$role->name, $role->guard_name, $role->organization_id])->all()
+        );
         $this->assertTrue($user->hasOrganizationPermission('users.read'));
 
         // Verify authentication log was created

@@ -6,10 +6,13 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\AuthenticationLogService;
 use App\Services\SocialAuthService;
+use App\Services\UserRoleService;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Mockery;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -162,6 +165,33 @@ class SocialAuthServiceTest extends TestCase
 
         $user = $result['user'];
         $this->assertEquals($organization->id, $user->organization_id);
+    }
+
+    public function test_default_role_for_new_social_user_is_tied_to_the_users_organization()
+    {
+        $organization = Organization::factory()->create([
+            'slug' => 'role-org',
+            'settings' => ['allow_registration' => true],
+        ]);
+
+        $role = Role::firstOrCreate(['name' => 'User', 'guard_name' => 'api', 'organization_id' => $organization->id]);
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']));
+
+        $this->setupMockSocialiteUser();
+        $this->setupMockSocialite();
+        $this->setupMockOAuthService();
+
+        $user = $this->socialAuthService->handleCallback('google', 'role-org')['user'];
+
+        $this->assertSame(
+            [$role->id],
+            app(UserRoleService::class)->assignedRoleIds($user)->all()
+        );
+        $this->assertSame(
+            $organization->id,
+            (int) DB::table('model_has_roles')->where('model_id', $user->id)->value('organization_id')
+        );
+        $this->assertTrue($user->fresh()->hasOrganizationPermission('users.read'));
     }
 
     public function test_handle_callback_fails_with_organization_that_disallows_registration()

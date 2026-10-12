@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Exception;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
-use Spatie\Permission\Models\Role;
 
 class SocialAuthService
 {
@@ -367,36 +367,15 @@ class SocialAuthService
     private function assignDefaultRole(User $user, ?Organization $organization): void
     {
         try {
-            if ($organization) {
-                // Set organization context for permission assignment
-                $user->setPermissionsTeamId($organization->id);
+            $defaultRoles = Role::query()
+                ->where('guard_name', 'api')
+                ->whereRaw('LOWER(name) = ?', ['user']);
 
-                // Try to assign organization-specific 'user' role
-                $orgRole = Role::where('name', 'user')
-                    ->where('organization_id', $organization->id)
-                    ->first();
+            $role = (clone $defaultRoles)->where('organization_id', $organization?->id)->first()
+                ?? (clone $defaultRoles)->whereNull('organization_id')->first();
 
-                if ($orgRole) {
-                    $user->assignRole($orgRole);
-                } else {
-                    // Fallback to global 'user' role
-                    $globalRole = Role::where('name', 'user')
-                        ->whereNull('organization_id')
-                        ->first();
-
-                    if ($globalRole) {
-                        $user->assignRole($globalRole);
-                    }
-                }
-            } else {
-                // Assign global 'user' role
-                $globalRole = Role::where('name', 'user')
-                    ->whereNull('organization_id')
-                    ->first();
-
-                if ($globalRole) {
-                    $user->assignRole($globalRole);
-                }
+            if ($role) {
+                app(UserRoleService::class)->assignRole($user, (string) $role->id);
             }
         } catch (Exception $e) {
             Log::warning('Failed to assign default role to social user', [

@@ -146,7 +146,9 @@ class SocialAuthController extends BaseController
                         'name' => $result['user']->organization->name,
                         'slug' => $result['user']->organization->slug,
                     ] : null,
-                    'roles' => Role::whereKey(app(UserRoleService::class)->assignedRoleIds($result['user']))->pluck('name')->unique()->values(),
+                    'roles' => Role::whereKey(app(UserRoleService::class)->assignedRoleIds($result['user']))
+                        ->where(fn ($query) => $query->whereNull('organization_id')->orWhere('organization_id', $result['user']->organization_id))
+                        ->pluck('name')->unique()->values(),
                     'permissions' => $result['user']->organizationPermissionNames(),
                     'is_social_user' => $result['user']->isSocialUser(),
                     'has_password' => $result['user']->hasPassword(),

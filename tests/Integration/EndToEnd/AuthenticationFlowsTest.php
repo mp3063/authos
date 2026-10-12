@@ -4,6 +4,7 @@ namespace Tests\Integration\EndToEnd;
 
 use App\Models\AuthenticationLog;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Laravel\Passport\Token;
+use Spatie\Permission\Models\Role;
 
 /**
  * Comprehensive Authentication Flows Test Suite
@@ -79,6 +81,11 @@ class AuthenticationFlowsTest extends EndToEndTestCase
         $this->assertEquals('Alice Johnson', $user->name);
         $this->assertEquals($this->defaultOrganization->id, $user->organization_id);
 
+        $this->assertSame(
+            [['User', 'api', $this->defaultOrganization->id]],
+            Role::whereKey(app(UserRoleService::class)->assignedRoleIds($user))
+                ->get()->map(fn ($role) => [$role->name, $role->guard_name, $role->organization_id])->all()
+        );
         $this->assertTrue($user->hasOrganizationPermission('users.read'));
         $this->assertEquals('Full-stack developer with a passion for authentication systems', $user->profile['bio']);
         $this->assertNull($user->email_verified_at); // Not verified yet
