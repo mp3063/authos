@@ -80,7 +80,7 @@ class SsoActionAuthorizationTest extends IntegrationTestCase
     {
         $this->actingAsRole('Auditor');
         $configuration = $this->configuration(true);
-        $configuration->update(['configuration' => $configuration->configuration + ['nested' => ['bind_password' => 'nested-leak-1'], 'privateKey' => 'camel-leak-2', 'apiKey' => 'camel-leak-3']]);
+        $configuration->update(['configuration' => $configuration->configuration + ['nested' => ['bind_password' => 'nested-leak-1'], 'privateKey' => 'camel-leak-2', 'apiKey' => 'camel-leak-3', 'clientsecret' => 'lower-leak-4', 'CLIENTSECRET' => 'upper-leak-5', 'bindPassword' => 'bind-leak-6', 'deep' => ['encryption_key' => 'deep-leak-7'], 'access_token' => 'token-leak-8']]);
         $secret = $configuration->configuration['client_secret'];
         $clientId = $configuration->configuration['client_id'];
 
@@ -90,7 +90,13 @@ class SsoActionAuthorizationTest extends IntegrationTestCase
             ->assertDontSee($secret)
             ->assertDontSee('nested-leak-1')
             ->assertDontSee('camel-leak-2')
-            ->assertDontSee('camel-leak-3');
+            ->assertDontSee('camel-leak-3')
+            ->assertDontSee('lower-leak-4')
+            ->assertDontSee('upper-leak-5')
+            ->assertDontSee('bind-leak-6')
+            ->assertDontSee('deep-leak-7')
+            ->assertDontSee('token-leak-8')
+            ->assertSee($configuration->configuration['token_endpoint'], false);
     }
 
     #[Test]

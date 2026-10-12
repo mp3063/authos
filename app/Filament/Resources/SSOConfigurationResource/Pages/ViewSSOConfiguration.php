@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\SSOConfigurationResource\Pages;
 
 use App\Filament\Resources\SSOConfigurationResource;
-use App\Http\Middleware\SanitizeApiResponse;
 use App\Models\SSOConfiguration;
 use Filament\Actions;
 use Filament\Infolists\Components\TextEntry;
@@ -13,6 +12,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
+use Illuminate\Support\Str;
 
 class ViewSSOConfiguration extends ViewRecord
 {
@@ -59,6 +59,14 @@ class ViewSSOConfiguration extends ViewRecord
         ];
     }
 
+    private static function isSensitiveKey(int|string $key): bool
+    {
+        $normalized = strtolower((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $key));
+
+        return str_ends_with($normalized, 'token')
+            || Str::contains($normalized, ['password', 'secret', 'privatekey', 'apikey', 'encryptionkey']);
+    }
+
     private static function redactSecrets(mixed $value): mixed
     {
         if (! is_array($value)) {
@@ -68,7 +76,7 @@ class ViewSSOConfiguration extends ViewRecord
         $redacted = [];
 
         foreach ($value as $key => $item) {
-            $redacted[$key] = SanitizeApiResponse::hasSensitiveSuffix($key, $item)
+            $redacted[$key] = self::isSensitiveKey($key)
                 ? '********'
                 : self::redactSecrets($item);
         }

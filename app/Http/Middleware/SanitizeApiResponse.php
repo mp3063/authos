@@ -129,7 +129,7 @@ class SanitizeApiResponse
         return $data;
     }
 
-    public static function hasSensitiveSuffix(int|string $key, mixed $value): bool
+    protected function hasSensitiveSuffix(int|string $key, mixed $value): bool
     {
         if (! is_string($key) || is_bool($value)) {
             return false;
