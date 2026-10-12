@@ -29,11 +29,9 @@ class UserApplicationController extends BaseController
     public function applications(Request $request, string $id): JsonResponse
     {
         $currentUser = auth()->user();
-        $user = $this->findUserWithOrgScope($id);
+        $user = (string) $currentUser->id === $id ? $currentUser : $this->findUserWithOrgScope($id);
 
-        if ($user->id !== $currentUser->id) {
-            $this->authorize('create', UserApplication::class);
-        }
+        $this->authorize('viewForUser', [UserApplication::class, $user]);
 
         // Build query with pivot data
         $query = $user->applications()

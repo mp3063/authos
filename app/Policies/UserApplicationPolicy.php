@@ -28,6 +28,11 @@ class UserApplicationPolicy
             || $this->permits($user, 'applications.read', $this->applicationOrganizationId($userApplication));
     }
 
+    public function viewForUser(User $user, User $target): bool
+    {
+        return $user->is($target) || $this->permits($user, 'applications.update', $target->organization_id);
+    }
+
     /**
      * Determine whether the user can create models.
      */
