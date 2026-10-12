@@ -62,4 +62,20 @@ class AuditComplianceAuthorizationTest extends IntegrationTestCase
         $this->getJson('/api/v1/enterprise/compliance/schedules')->assertForbidden();
         $this->getJson('/api/v1/enterprise/compliance/reports')->assertForbidden();
     }
+
+    #[Test]
+    public function it_lets_a_super_admin_without_an_organization_reach_any_organizations_compliance_records(): void
+    {
+        $super = $this->createApiSuperAdmin();
+        $super->forceFill(['organization_id' => null])->save();
+        $schedule = ScheduledComplianceReport::factory()->create();
+        $report = ComplianceReport::factory()->create();
+        $this->actingAsApiUserWithToken($super);
+
+        $this->getJson('/api/v1/enterprise/compliance/schedules')->assertOk()->assertJsonCount(1, 'data.schedules');
+        $this->getJson('/api/v1/enterprise/compliance/reports')->assertOk()->assertJsonCount(1, 'data.reports');
+        $this->patchJson("/api/v1/enterprise/compliance/schedules/{$schedule->id}", ['is_active' => false])->assertOk();
+        $this->getJson("/api/v1/enterprise/compliance/reports/{$report->id}/download")->assertStatus(400);
+        $this->deleteJson("/api/v1/enterprise/compliance/schedules/{$schedule->id}")->assertOk();
+    }
 }

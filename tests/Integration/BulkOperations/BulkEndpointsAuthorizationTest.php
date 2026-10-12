@@ -3,7 +3,9 @@
 namespace Tests\Integration\BulkOperations;
 
 use App\Http\Middleware\EnforceOrganizationBoundary;
+use App\Models\BulkImportJob;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
@@ -53,5 +55,46 @@ class BulkEndpointsAuthorizationTest extends IntegrationTestCase
         $this->postJson($url, ['user_ids' => [$target->id], 'role' => 'Organization Member', 'action' => 'revoke'])->assertOk();
 
         $this->assertCount(0, $this->assignedRolesNamed($target, 'Organization Member'));
+    }
+
+    #[Test]
+    public function it_lists_every_organizations_jobs_for_a_super_admin_with_or_without_an_organization(): void
+    {
+        $own = $this->createApiOrganizationOwner();
+        $otherJob = BulkImportJob::factory()->create();
+        $ownJob = BulkImportJob::factory()->create(['organization_id' => $own->organization_id]);
+        $superWithOrg = $this->createApiSuperAdmin();
+        $superWithoutOrg = $this->createApiSuperAdmin();
+        $superWithoutOrg->forceFill(['organization_id' => null])->save();
+
+        foreach ([$superWithOrg, $superWithoutOrg] as $super) {
+            $this->actingAsApiUserWithToken($super);
+            $ids = collect($this->getJson('/api/v1/bulk/imports?all=1')->assertOk()->json('data'))->pluck('id');
+            $this->assertEqualsCanonicalizing([$otherJob->id, $ownJob->id], $ids->all());
+        }
+
+        $this->actingAsApiUserWithToken($own);
+        $ids = collect($this->getJson('/api/v1/bulk/imports?all=1')->assertOk()->json('data'))->pluck('id');
+        $this->assertSame([$ownJob->id], $ids->all());
+    }
+
+    #[Test]
+    public function it_exports_the_roles_of_another_organizations_users_for_a_super_admin(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        $super = $this->createApiSuperAdmin();
+        $member = $this->createApiUser();
+        $this->actingAsApiUserWithToken($super);
+
+        $response = $this->postJson("/api/v1/organizations/{$member->organization_id}/bulk/export-users", [
+            'format' => 'csv',
+            'include_roles' => true,
+        ])->assertOk();
+
+        $path = 'exports/'.$response->json('data.filename');
+        $csv = Storage::disk(config('filesystems.default'))->get($path);
+        $this->assertStringContainsString($member->email, $csv);
+        $this->assertMatchesRegularExpression('/Active,User,/', $csv);
     }
 }

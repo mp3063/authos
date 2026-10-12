@@ -95,8 +95,9 @@ class BulkUserController extends BaseController
 
         $query = BulkImportJob::query()
             ->with(['organization', 'createdBy'])
-            ->whereNotNull('organization_id')
-            ->where('organization_id', $request->user()->organization_id);
+            ->when(! $request->user()->isSuperAdmin(), fn ($jobs) => $jobs
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $request->user()->organization_id));
 
         // Filter by type
         if ($request->has('type')) {

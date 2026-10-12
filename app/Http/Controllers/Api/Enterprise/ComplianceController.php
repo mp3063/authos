@@ -9,6 +9,7 @@ use App\Http\Requests\Enterprise\UpdateScheduledComplianceReportRequest;
 use App\Jobs\GenerateComplianceReportJob;
 use App\Models\ComplianceReport;
 use App\Models\ScheduledComplianceReport;
+use App\Models\User;
 use App\Services\ComplianceReportService;
 use Exception;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -106,7 +107,7 @@ class ComplianceController extends BaseController
             }
 
             $schedules = ScheduledComplianceReport::query()
-                ->forOrganization($user->organization_id)
+                ->when(! $user->isSuperAdmin(), fn ($query) => $query->forOrganization((int) $user->organization_id))
                 ->orderByDesc('created_at')
                 ->get()
                 ->map(fn ($schedule) => $this->formatSchedule($schedule))
@@ -125,7 +126,7 @@ class ComplianceController extends BaseController
     {
         try {
             $user = $this->getAuthenticatedUser();
-            $schedule = $this->findOrgScopedSchedule($user->organization_id, $id);
+            $schedule = $this->findOrgScopedSchedule($user, $id);
             $this->authorize('update', $schedule);
 
             $updated = $this->complianceService->updateSchedule($schedule, $request->validated());
@@ -155,7 +156,7 @@ class ComplianceController extends BaseController
                 return $this->forbiddenResponse('You do not have permission to cancel compliance schedules');
             }
 
-            $schedule = $this->findOrgScopedSchedule($user->organization_id, $id);
+            $schedule = $this->findOrgScopedSchedule($user, $id);
             $this->authorize('delete', $schedule);
             $this->complianceService->cancelSchedule($schedule);
 
@@ -172,10 +173,10 @@ class ComplianceController extends BaseController
         }
     }
 
-    private function findOrgScopedSchedule(int $organizationId, int $id): ScheduledComplianceReport
+    private function findOrgScopedSchedule(User $user, int $id): ScheduledComplianceReport
     {
         return ScheduledComplianceReport::query()
-            ->forOrganization($organizationId)
+            ->when(! $user->isSuperAdmin(), fn ($query) => $query->forOrganization((int) $user->organization_id))
             ->findOrFail($id);
     }
 
@@ -238,7 +239,7 @@ class ComplianceController extends BaseController
             $user = $this->getAuthenticatedUser();
 
             $query = ComplianceReport::query()
-                ->forOrganization($user->organization_id)
+                ->when(! $user->isSuperAdmin(), fn ($reports) => $reports->forOrganization((int) $user->organization_id))
                 ->latest('generated_at')
                 ->latest('id');
 
@@ -293,7 +294,7 @@ class ComplianceController extends BaseController
             }
 
             $report = ComplianceReport::query()
-                ->forOrganization($user->organization_id)
+                ->when(! $user->isSuperAdmin(), fn ($reports) => $reports->forOrganization((int) $user->organization_id))
                 ->findOrFail($reportId);
             $this->authorize('view', $report);
 

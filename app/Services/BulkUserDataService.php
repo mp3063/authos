@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exports\UsersExport;
 use App\Imports\UsersImport;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -61,7 +62,6 @@ class BulkUserDataService
         // Load relationships
         $with = [];
         if ($includeRoles) {
-            $with[] = 'roles';
             $with[] = 'customRoles';
         }
         if ($includeApplications) {
@@ -69,6 +69,14 @@ class BulkUserDataService
         }
 
         $users = $query->with($with)->get();
+
+        if ($includeRoles) {
+            $users->each(fn (User $user) => $user->setRelation('roles', Role::query()
+                ->whereIn('id', $this->userRoleService->assignedRoleIds($user))
+                ->get()
+                ->unique('name')
+                ->values()));
+        }
 
         // Generate filename
         $filename = sprintf(
