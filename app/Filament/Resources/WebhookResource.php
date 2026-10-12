@@ -339,11 +339,11 @@ class WebhookResource extends Resource
                     ->modalDescription('Are you sure you want to rotate the webhook secret? You must update your endpoint with the new secret.')
                     ->action(function (Webhook $record) {
                         $webhookService = app(WebhookService::class);
-                        $newSecret = $webhookService->rotateSecret($record);
+                        $rotated = $webhookService->rotateSecret($record);
 
                         Notification::make()
                             ->title('Secret rotated successfully!')
-                            ->body('New secret: '.$newSecret)
+                            ->body('New secret: '.$rotated->secret)
                             ->success()
                             ->persistent()
                             ->send();

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SSOConfigurationResource\Pages;
 
 use App\Filament\Resources\SSOConfigurationResource;
+use App\Http\Middleware\SanitizeApiResponse;
 use App\Models\SSOConfiguration;
 use Filament\Actions;
 use Filament\Infolists\Components\TextEntry;
@@ -67,7 +68,7 @@ class ViewSSOConfiguration extends ViewRecord
         $redacted = [];
 
         foreach ($value as $key => $item) {
-            $redacted[$key] = is_string($key) && preg_match('/(password|secret|private_key|api_key)$/i', $key)
+            $redacted[$key] = SanitizeApiResponse::hasSensitiveSuffix($key, $item)
                 ? '********'
                 : self::redactSecrets($item);
         }

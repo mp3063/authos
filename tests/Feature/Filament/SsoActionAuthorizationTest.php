@@ -80,13 +80,17 @@ class SsoActionAuthorizationTest extends IntegrationTestCase
     {
         $this->actingAsRole('Auditor');
         $configuration = $this->configuration(true);
+        $configuration->update(['configuration' => $configuration->configuration + ['nested' => ['bind_password' => 'nested-leak-1'], 'privateKey' => 'camel-leak-2', 'apiKey' => 'camel-leak-3']]);
         $secret = $configuration->configuration['client_secret'];
         $clientId = $configuration->configuration['client_id'];
 
         Livewire::test(ViewSSOConfiguration::class, ['record' => $configuration->getRouteKey()])
             ->assertSuccessful()
             ->assertSee($clientId)
-            ->assertDontSee($secret);
+            ->assertDontSee($secret)
+            ->assertDontSee('nested-leak-1')
+            ->assertDontSee('camel-leak-2')
+            ->assertDontSee('camel-leak-3');
     }
 
     #[Test]

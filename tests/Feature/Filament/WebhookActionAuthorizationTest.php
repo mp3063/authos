@@ -10,6 +10,8 @@ use App\Jobs\DeliverWebhookJob;
 use App\Models\Organization;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use Filament\Notifications\Livewire\Notifications;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -90,6 +92,21 @@ class WebhookActionAuthorizationTest extends IntegrationTestCase
         $this->assertNotSame($secret, $active->fresh()->secret);
         $this->assertFalse($active->fresh()->is_active);
         $this->assertTrue($inactive->fresh()->is_active);
+    }
+
+    #[Test]
+    public function the_rotate_secret_notification_shows_only_the_new_secret(): void
+    {
+        $this->actingAs($this->createUser(['organization_id' => $this->organization->id], 'Organization Admin'));
+        $webhook = $this->webhook(['headers' => ['X-Internal-Token' => 'header-leak-1']]);
+
+        Livewire::test(ListWebhooks::class)->callTableAction('rotate_secret', $webhook);
+
+        $notifications = new Notifications;
+        $notifications->mount();
+        $body = $notifications->notifications->map(fn (Notification $notification) => $notification->getBody())->implode(' ');
+        $this->assertSame('New secret: '.$webhook->fresh()->secret, $body);
+        $this->assertStringNotContainsString('header-leak-1', $body);
     }
 
     #[Test]
