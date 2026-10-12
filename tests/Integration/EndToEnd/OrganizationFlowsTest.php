@@ -762,8 +762,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
 
         if ($orgAUserRole) {
-            $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-            $orgAUser->assignRole($orgAUserRole);
+            $orgAUser->roles()->attach($orgAUserRole->id, ['organization_id' => $orgAUserRole->organization_id]);
         }
 
         $orgBUser = User::factory()->create([
@@ -779,8 +778,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
 
         if ($orgBUserRole) {
-            $orgBUser->setPermissionsTeamId($this->isolatedOrganization->id);
-            $orgBUser->assignRole($orgBUserRole);
+            $orgBUser->roles()->attach($orgBUserRole->id, ['organization_id' => $orgBUserRole->organization_id]);
         }
 
         // Create applications in each organization
@@ -853,8 +851,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
 
         if ($adminRole) {
-            $orgAAdmin->setPermissionsTeamId($this->defaultOrganization->id);
-            $orgAAdmin->assignRole($adminRole);
+            $orgAAdmin->roles()->attach($adminRole->id, ['organization_id' => $adminRole->organization_id]);
         }
 
         $this->actingAs($orgAAdmin, 'api');
@@ -940,8 +937,7 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->first();
 
         if ($orgAUserRole) {
-            $orgAUser->setPermissionsTeamId($this->defaultOrganization->id);
-            $orgAUser->assignRole($orgAUserRole);
+            $orgAUser->roles()->attach($orgAUserRole->id, ['organization_id' => $orgAUserRole->organization_id]);
         }
 
         $this->actingAs($orgAUser, 'api');
@@ -1096,14 +1092,12 @@ class OrganizationFlowsTest extends EndToEndTestCase
         $seniorDev = User::factory()->create([
             'organization_id' => $this->defaultOrganization->id,
         ]);
-        $seniorDev->setPermissionsTeamId($this->defaultOrganization->id);
-        $seniorDev->assignRole($seniorRole);
+        $seniorDev->roles()->attach($seniorRole->id, ['organization_id' => $seniorRole->organization_id]);
 
         $juniorDev = User::factory()->create([
             'organization_id' => $this->defaultOrganization->id,
         ]);
-        $juniorDev->setPermissionsTeamId($this->defaultOrganization->id);
-        $juniorDev->assignRole($juniorRole);
+        $juniorDev->roles()->attach($juniorRole->id, ['organization_id' => $juniorRole->organization_id]);
 
         // Test senior permissions
         $this->actingAs($seniorDev, 'api');

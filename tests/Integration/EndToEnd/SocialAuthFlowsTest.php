@@ -209,8 +209,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         ]);
 
         // Assign default role to the user
-        $createdUser->setPermissionsTeamId($this->defaultOrganization->id);
-        $createdUser->assignRole('User');
+        $createdUser->assignOrganizationRole('User');
 
         $this->mockSocialAuthService
             ->shouldReceive('handleCallback')
@@ -910,8 +909,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         ]);
 
         // Assign default role
-        $newUser->setPermissionsTeamId($this->defaultOrganization->id);
-        $newUser->assignRole('User');
+        $newUser->assignOrganizationRole('User');
 
         $this->mockSocialAuthService
             ->shouldReceive('isProviderSupported')

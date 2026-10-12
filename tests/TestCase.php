@@ -214,10 +214,10 @@ abstract class TestCase extends BaseTestCase
                 // Assign role with proper team context
                 $user->assignRole($roleModel);
 
-                // Refresh the user model to ensure the role is properly loaded
-                $user->refresh();
-                $user->load('roles', 'permissions');
+                $user->refresh()->unsetRelation('roles')->unsetRelation('permissions');
             }
+
+            app(PermissionRegistrar::class)->setPermissionsTeamId(null);
         }
 
         return $user;

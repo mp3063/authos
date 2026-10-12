@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -95,9 +96,11 @@ class ProcessBulkExportJob implements ShouldQueue
         }
 
         if (! empty($filters['roles'])) {
-            $query->whereHas('roles', function ($roleQuery) use ($filters) {
-                $roleQuery->whereIn('name', (array) $filters['roles']);
-            });
+            $query->whereIn('id', DB::table('model_has_roles')
+                ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('model_has_roles.model_type', (new User)->getMorphClass())
+                ->whereIn('roles.name', (array) $filters['roles'])
+                ->select('model_has_roles.model_id'));
         }
 
         $users = $query->get();

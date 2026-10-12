@@ -61,9 +61,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $this->assertNotNull($user);
         $this->assertEquals($this->defaultOrganization->id, $user->organization_id);
 
-        // Set team context to check organization-scoped role
-        $user->setPermissionsTeamId($user->organization_id);
-        $this->assertTrue($user->hasRole('User', 'api')); // Check for 'api' guard role
+        $this->assertTrue($user->hasOrganizationPermission('users.read'));
 
         // Verify authentication log was created
         $this->assertAuditLogExists($user, 'user_registered');
@@ -351,7 +349,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         $this->travelToFuture(10); // 10 minutes in future
 
         // Debug: Check token expiration details
-        $tokenRecord = \Laravel\Passport\Token::where('id', $token->token->id)->first();
+        $tokenRecord = Token::where('id', $token->token->id)->first();
         dump('Token expires at:', $tokenRecord?->expires_at?->toDateTimeString());
         dump('Current time:', now()->toDateTimeString());
         dump('Token expired:', $tokenRecord?->expires_at?->isPast());

@@ -4,6 +4,7 @@ namespace Tests\Integration\Users;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -168,7 +169,7 @@ class UserRoleAssignmentTest extends IntegrationTestCase
     {
         $admin = $this->createApiOrganizationAdmin();
         $member = $this->createUser(['organization_id' => $admin->organization_id], 'User', 'api');
-        $userRole = $member->roles()->firstOrFail();
+        $userRoleId = app(UserRoleService::class)->assignedRoleIds($member)->sole();
         $adminRole = Role::where('name', 'Organization Admin')
             ->where('organization_id', $admin->organization_id)
             ->where('guard_name', 'api')
@@ -178,8 +179,8 @@ class UserRoleAssignmentTest extends IntegrationTestCase
             ->putJson("/api/v1/users/{$member->id}/roles", ['roles' => ['Organization Admin']]);
 
         $response->assertOk();
-        $this->assertSame([$adminRole->id], $member->fresh()->roles()->pluck('roles.id')->all());
-        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $userRole->id]);
+        $this->assertSame([$adminRole->id], app(UserRoleService::class)->assignedRoleIds($member)->all());
+        $this->assertDatabaseMissing('model_has_roles', ['model_id' => $member->id, 'role_id' => $userRoleId]);
     }
 
     #[Test]

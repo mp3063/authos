@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Role;
 use App\Services\SocialAuthService;
+use App\Services\UserRoleService;
 use Filament\Facades\Filament;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -144,8 +146,8 @@ class SocialAuthController extends BaseController
                         'name' => $result['user']->organization->name,
                         'slug' => $result['user']->organization->slug,
                     ] : null,
-                    'roles' => $result['user']->getRoleNames(),
-                    'permissions' => $result['user']->getAllPermissions()->pluck('name'),
+                    'roles' => Role::whereKey(app(UserRoleService::class)->assignedRoleIds($result['user']))->pluck('name')->unique()->values(),
+                    'permissions' => $result['user']->organizationPermissionNames(),
                     'is_social_user' => $result['user']->isSocialUser(),
                     'has_password' => $result['user']->hasPassword(),
                     'mfa_enabled' => $result['user']->hasMfaEnabled(),

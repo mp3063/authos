@@ -96,7 +96,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         ]);
 
         foreach ($users as $user) {
-            $user->assignRole('Organization Member');
+            $user->assignOrganizationRole('Organization Member');
         }
 
         // ACT: Bulk revoke access

@@ -104,19 +104,14 @@ class AuthorizationTest extends TestCase
         $this->assertFalse(Gate::allows('applications.read'));
     }
 
-    public function test_gate_before_sets_permissions_team_id_correctly(): void
+    public function test_gate_before_answers_without_an_ambient_team(): void
     {
         $this->actingAs($this->organizationAdmin);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
-        // Mock API request
-        request()->server->set('REQUEST_URI', '/api/v1/users');
-
-        // Check a permission (this should trigger Gate::before)
-        Gate::allows('users.read');
-
-        // After the gate check, the permissions team ID should be set
-        $this->assertEquals($this->organization->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
-        $this->assertEquals($this->organization->id, $this->organizationAdmin->permissionsTeamId);
+        $this->assertTrue(Gate::allows('users.read'));
+        $this->assertFalse(Gate::allows('users.delete'));
+        $this->assertNull(app(PermissionRegistrar::class)->getPermissionsTeamId());
     }
 
     public function test_super_admin_bypasses_organization_context(): void
@@ -206,20 +201,13 @@ class AuthorizationTest extends TestCase
         $this->assertFalse(Gate::allows('invalid_ability_name'));
     }
 
-    public function test_authorization_system_handles_team_context_correctly(): void
+    public function test_gate_before_resolves_in_the_users_organization_whatever_the_ambient_team(): void
     {
-        // Test that the authorization system properly handles team context
         $this->actingAs($this->organizationAdmin);
+        app(PermissionRegistrar::class)->setPermissionsTeamId(Organization::factory()->create()->id);
 
-        // Mock API request
-        request()->server->set('REQUEST_URI', '/api/v1/users');
-
-        // Initial check should set up the permission context
         $this->assertTrue(Gate::allows('users.read'));
-
-        // Verify the context is properly set
-        $this->assertEquals($this->organization->id, app(PermissionRegistrar::class)->getPermissionsTeamId());
-        $this->assertEquals($this->organization->id, $this->organizationAdmin->permissionsTeamId);
+        $this->assertFalse(Gate::allows('users.delete'));
     }
 
     public function test_authorization_with_missing_permissions(): void
@@ -276,16 +264,7 @@ class AuthorizationTest extends TestCase
         // Mock API request
         request()->server->set('REQUEST_URI', '/api/v1/users');
 
-        // The user should have organization-specific permissions
-        $orgRoles = $this->organizationAdmin->roles()->where('roles.organization_id', $this->organization->id)->get();
-        $this->assertGreaterThan(0, $orgRoles->count());
-
-        // And those roles should have permissions
-        foreach ($orgRoles as $role) {
-            if ($role->permissions->count() > 0) {
-                $this->assertGreaterThan(0, $role->permissions->count());
-            }
-        }
+        $this->assertContains('users.read', $this->organizationAdmin->organizationPermissionNames());
     }
 
     public function test_authorization_context_isolation(): void

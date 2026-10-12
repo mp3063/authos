@@ -5,6 +5,7 @@ namespace Tests\Integration\Organizations;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -42,7 +43,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_list_organization_users(): void
     {
         // ARRANGE: Create multiple users in the organization
@@ -74,7 +75,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(6, count($responseData)); // 5 + admin
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_add_user_to_organization(): void
     {
         // ARRANGE: Create application in organization
@@ -105,7 +106,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_remove_user_from_organization(): void
     {
         // ARRANGE: Create application and grant user access
@@ -132,12 +133,12 @@ class OrganizationUsersTest extends IntegrationTestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_update_user_role_in_organization(): void
     {
         // ARRANGE: Create user with initial role
         $user = $this->createUser(['organization_id' => $this->organization->id]);
-        $user->assignRole('User');
+        $user->assignOrganizationRole('User');
 
         // ACT: Update user role
         $response = $this->actingAs($this->admin, 'api')
@@ -153,7 +154,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertTrue($user->hasRole('Organization Admin'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_can_transfer_user_between_organizations(): void
     {
         // ARRANGE: Create a Super Admin for cross-organization operations
@@ -189,7 +190,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertContains($user->id, $userIds);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_user_search_and_filtering(): void
     {
         // ARRANGE: Create users with different attributes
@@ -232,7 +233,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertContains('john@example.com', $emails);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_organization_users_pagination(): void
     {
         // ARRANGE: Create many users
@@ -265,14 +266,14 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(25, $responseData['meta']['total']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_permission_validation_for_user_management(): void
     {
         // ARRANGE: Create regular user without admin permissions
         $regularUser = $this->createUser([
             'organization_id' => $this->organization->id,
         ]);
-        $regularUser->assignRole('User');
+        $regularUser->assignOrganizationRole('User');
 
         $targetUser = $this->createUser([
             'organization_id' => $this->organization->id,
@@ -291,7 +292,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_cannot_access_users_from_other_organization(): void
     {
         // ARRANGE: Create another organization with users
@@ -310,7 +311,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $response->assertNotFound();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_user_listing_includes_role_information(): void
     {
         // ARRANGE: Create users with different roles
@@ -318,13 +319,13 @@ class OrganizationUsersTest extends IntegrationTestCase
             'organization_id' => $this->organization->id,
             'name' => 'Admin User',
         ]);
-        $adminUser->assignRole('Organization Admin');
+        $adminUser->assignOrganizationRole('Organization Admin');
 
         $regularUser = $this->createUser([
             'organization_id' => $this->organization->id,
             'name' => 'Regular User',
         ]);
-        $regularUser->assignRole('User');
+        $regularUser->assignOrganizationRole('User');
 
         // ACT: List users
         $response = $this->actingAs($this->admin, 'api')
@@ -343,7 +344,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertNotNull($userInResponse);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_bulk_user_operations_are_logged(): void
     {
         // ARRANGE: Create multiple users
@@ -375,18 +376,18 @@ class OrganizationUsersTest extends IntegrationTestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_filtering_users_by_role(): void
     {
         // ARRANGE: Create users with different roles
         $admin1 = $this->createUser(['organization_id' => $this->organization->id]);
-        $admin1->assignRole('Organization Admin');
+        $admin1->assignOrganizationRole('Organization Admin');
 
         $admin2 = $this->createUser(['organization_id' => $this->organization->id]);
-        $admin2->assignRole('Organization Admin');
+        $admin2->assignOrganizationRole('Organization Admin');
 
         $user1 = $this->createUser(['organization_id' => $this->organization->id]);
-        $user1->assignRole('User');
+        $user1->assignOrganizationRole('User');
 
         // ACT: Filter by admin role
         $response = $this->actingAs($this->admin, 'api')
@@ -402,7 +403,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         $this->assertNotContains($user1->id, $userIds);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_super_admin_can_manage_all_organization_users(): void
     {
         // ARRANGE: Create super admin and other organization

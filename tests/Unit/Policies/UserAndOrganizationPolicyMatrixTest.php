@@ -6,7 +6,9 @@ use App\Models\CustomRole;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\OrganizationBranding;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -103,6 +105,7 @@ class UserAndOrganizationPolicyMatrixTest extends TestCase
     {
         $admin = $this->createUser([], 'Organization Admin', 'web');
         $member = $this->createUser(['organization_id' => $admin->organization_id], 'User', 'web');
+        $member->setRelation('roles', Role::whereKey(app(UserRoleService::class)->assignedRoleIds($member))->get());
         $otherOrganization = Organization::factory()->create();
         app(PermissionRegistrar::class)->setPermissionsTeamId($otherOrganization->id);
 
