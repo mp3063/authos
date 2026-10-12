@@ -105,6 +105,27 @@ class UserEndpointsAuthorizationTest extends TestCase
     }
 
     #[Test]
+    public function a_regular_user_can_terminate_their_own_session(): void
+    {
+        $token = $this->member->createToken('Laptop', ['*']);
+        Passport::actingAs($this->member);
+
+        $this->deleteJson("/api/v1/users/{$this->member->id}/sessions/{$token->token->id}")->assertOk();
+    }
+
+    #[Test]
+    public function a_super_admin_without_an_organization_can_bulk_activate_users(): void
+    {
+        $superAdmin = $this->createApiSuperAdmin();
+        $superAdmin->forceFill(['organization_id' => null])->save();
+        $this->member->update(['is_active' => false]);
+        Passport::actingAs($superAdmin);
+
+        $this->patchJson('/api/v1/users/bulk', ['user_ids' => [$this->member->id], 'action' => 'activate'])->assertOk();
+        $this->assertEquals(1, $this->member->fresh()->is_active);
+    }
+
+    #[Test]
     public function the_social_callback_lists_only_organization_and_global_roles(): void
     {
         $otherOrganization = Organization::factory()->create();

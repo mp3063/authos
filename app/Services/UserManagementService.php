@@ -204,8 +204,10 @@ class UserManagementService extends BaseService implements UserManagementService
      */
     public function performBulkOperation(array $userIds, string $action, User $currentUser): array
     {
-        // Get users from the same organization as the current user
-        $users = $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization)->load(['permissions', 'roles.permissions']);
+        $users = ($currentUser->isSuperAdmin()
+            ? User::whereIn('id', $userIds)->get()
+            : $this->userRepository->findByIdsInOrganization($userIds, $currentUser->organization)
+        )->load(['permissions', 'roles.permissions']);
 
         if ($users->count() !== count($userIds)) {
             throw new InvalidArgumentException('Some users not found or not accessible.');
