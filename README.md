@@ -299,7 +299,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 
 If you discover a security vulnerability, please report it privately to the maintainers rather than opening a public issue.
 
-Authorization has one source of truth: the role-to-permission matrix in `ManagesOrganizationRoles::getDefaultRoles()` (seeded per organization, extended by custom roles). Policies are the single authority for both the Filament panel and the API controllers, and no code checks a role name except `isSuperAdmin()`. `User::hasOrganizationPermission()` is the only resolver; Spatie's own gate hook is off and super admins pass through `Gate::before`. Scoping fails closed: a non-super-admin without an organization is denied every organization-scoped ability and sees no organization-scoped rows.
+Authorization follows one permission matrix, `ManagesOrganizationRoles::getDefaultRoles()` (seeded per organization and extended by custom roles). In the panel and the API, authorization goes through the policies; `roles.assign` is the one ability still checked as a permission. `User::hasOrganizationPermission()` is the only permission resolver: Spatie's gate hook is off and super admins pass through `Gate::before` / `isSuperAdmin()`. No policy, Filament resource or API controller authorizes by role name. Scoping fails closed: a non-super-admin without an organization is denied every organization-scoped ability and sees no organization-scoped rows.
 
 Security-relevant behavior worth knowing:
 
