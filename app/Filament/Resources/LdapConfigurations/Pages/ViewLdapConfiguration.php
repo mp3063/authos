@@ -23,6 +23,7 @@ class ViewLdapConfiguration extends ViewRecord
     {
         return [
             Action::make('test_connection')
+                ->authorize('update')
                 ->label('Test Connection')
                 ->icon('heroicon-o-signal')
                 ->color('info')
@@ -49,6 +50,7 @@ class ViewLdapConfiguration extends ViewRecord
                 ->modalSubmitActionLabel('Test Now'),
 
             Action::make('sync_now')
+                ->authorize('update')
                 ->label('Sync Now')
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')

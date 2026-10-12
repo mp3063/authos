@@ -145,6 +145,7 @@ class LdapConfigurationsTable
                 EditAction::make(),
 
                 Action::make('test_connection')
+                    ->authorize('update')
                     ->label('Test Connection')
                     ->icon('heroicon-o-signal')
                     ->color('info')
@@ -171,6 +172,7 @@ class LdapConfigurationsTable
                     ->modalSubmitActionLabel('Test Now'),
 
                 Action::make('sync_users')
+                    ->authorize('update')
                     ->label('Sync Users')
                     ->icon('heroicon-o-arrow-path')
                     ->color('success')
@@ -202,6 +204,7 @@ class LdapConfigurationsTable
         return [
             BulkActionGroup::make([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation(),
             ]),
         ];

@@ -92,6 +92,7 @@ class CustomDomainsTable
                     EditAction::make(),
 
                     Action::make('verify_domain')
+                        ->authorize('update')
                         ->label('Verify Domain')
                         ->icon('heroicon-o-check-badge')
                         ->color('success')
@@ -112,6 +113,7 @@ class CustomDomainsTable
                         ->visible(fn ($record) => ! $record->isVerified()),
 
                     Action::make('copy_verification_code')
+                        ->authorize('view')
                         ->label('Copy Verification Code')
                         ->icon('heroicon-o-clipboard')
                         ->color('info')
@@ -125,6 +127,7 @@ class CustomDomainsTable
                         ->visible(fn ($record) => ! $record->isVerified()),
 
                     Action::make('view_dns_instructions')
+                        ->authorize('view')
                         ->label('DNS Instructions')
                         ->icon('heroicon-o-information-circle')
                         ->color('info')
@@ -158,6 +161,7 @@ class CustomDomainsTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        ->authorizeIndividualRecords('delete')
                         ->requiresConfirmation(),
                 ]),
             ])
