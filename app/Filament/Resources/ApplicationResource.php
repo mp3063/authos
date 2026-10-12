@@ -174,6 +174,7 @@ class ApplicationResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
                 Action::make('regenerate_secret')
+                    ->authorize('update')
                     ->icon('heroicon-o-key')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -192,13 +193,14 @@ class ApplicationResource extends Resource
         ])->toolbarActions([
             BulkActionGroup::make([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalHeading('Delete Applications')
                     ->modalDescription('Are you sure you want to delete these applications? All associated tokens will be revoked.'),
-                BulkAction::make('activate')->icon('heroicon-o-check-circle')->color('success')->action(function ($records) {
+                BulkAction::make('activate')->authorizeIndividualRecords('update')->icon('heroicon-o-check-circle')->color('success')->action(function ($records) {
                     $records->each(fn ($record) => $record->update(['is_active' => true]));
                 })->deselectRecordsAfterCompletion()->successNotificationTitle('Applications activated successfully'),
-                BulkAction::make('deactivate')->icon('heroicon-o-x-circle')->color('danger')->requiresConfirmation()->action(function ($records) {
+                BulkAction::make('deactivate')->authorizeIndividualRecords('update')->icon('heroicon-o-x-circle')->color('danger')->requiresConfirmation()->action(function ($records) {
                     $records->each(fn ($record) => $record->update(['is_active' => false]));
                 })->deselectRecordsAfterCompletion()->successNotificationTitle('Applications deactivated successfully'),
             ]),

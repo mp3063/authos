@@ -18,6 +18,7 @@ class ViewApplication extends ViewRecord
             Actions\EditAction::make(),
 
             Action::make('regenerate_secret')
+                ->authorize('update')
                 ->label('Regenerate Secret')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')

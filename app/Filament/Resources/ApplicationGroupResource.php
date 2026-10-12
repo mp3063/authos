@@ -170,6 +170,7 @@ class ApplicationGroupResource extends Resource
         ])->toolbarActions([
             BulkActionGroup::make([
                 BulkAction::make('activate')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -184,6 +185,7 @@ class ApplicationGroupResource extends Resource
                     ->deselectRecordsAfterCompletion(),
 
                 BulkAction::make('deactivate')
+                    ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -198,6 +200,7 @@ class ApplicationGroupResource extends Resource
                     ->deselectRecordsAfterCompletion(),
 
                 BulkAction::make('delete')
+                    ->authorizeIndividualRecords('delete')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
                     ->requiresConfirmation()

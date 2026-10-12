@@ -22,6 +22,7 @@ class ListInvitations extends ListRecords
         return [
             CreateAction::make(),
             Action::make('bulkCsvInvite')
+                ->authorize('create')
                 ->label('Bulk Invite (CSV)')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->form([

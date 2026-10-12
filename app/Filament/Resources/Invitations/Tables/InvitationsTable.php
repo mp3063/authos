@@ -7,6 +7,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -96,6 +97,7 @@ class InvitationsTable
             ])
             ->recordActions([
                 Action::make('resend')
+                    ->authorize('update')
                     ->label('Resend')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
@@ -104,7 +106,7 @@ class InvitationsTable
                         $invitationService = app(InvitationService::class);
                         $invitationService->resendInvitation($record->id, auth()->user());
 
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title('Invitation Resent')
                             ->success()
                             ->send();
@@ -114,7 +116,7 @@ class InvitationsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->authorizeIndividualRecords('delete'),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
