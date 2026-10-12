@@ -38,9 +38,53 @@ class OrganizationDefaultRolesTest extends IntegrationTestCase
         }
     }
 
+    #[Test]
+    public function a_new_organizations_owner_and_admin_roles_grant_admin_access(): void
+    {
+        $organization = $this->createOrganization();
+
+        foreach (['Organization Owner', 'Organization Admin'] as $roleName) {
+            foreach (['web', 'api'] as $guard) {
+                $this->assertTrue($this->organizationRole($organization->id, $guard, $roleName)->permissions()->where('name', 'admin.access')->exists());
+            }
+        }
+    }
+
+    #[Test]
+    public function the_backfill_grants_admin_access_to_existing_owner_and_admin_roles(): void
+    {
+        $organization = $this->createOrganization();
+        foreach (['Organization Owner', 'Organization Admin'] as $roleName) {
+            foreach (['web', 'api'] as $guard) {
+                $role = $this->organizationRole($organization->id, $guard, $roleName);
+                $role->permissions()->detach(
+                    Permission::where('name', 'admin.access')->where('guard_name', $guard)->where('organization_id', $organization->id)->pluck('id')
+                );
+                $role->forgetCachedPermissions();
+            }
+        }
+
+        $backfill = require database_path('migrations/2026_10_12_213618_grant_admin_access_to_organization_owners_and_admins.php');
+        $backfill->up();
+        $backfill->up();
+
+        foreach (['Organization Owner', 'Organization Admin'] as $roleName) {
+            foreach (['web', 'api'] as $guard) {
+                $role = $this->organizationRole($organization->id, $guard, $roleName)->fresh();
+                $this->assertSame(1, $role->permissions()->where('name', 'admin.access')->count());
+            }
+        }
+        $this->assertFalse($this->organizationRole($organization->id, 'web', 'Organization Member')->permissions()->where('name', 'admin.access')->exists());
+    }
+
     private function ownerRole(int $organizationId, string $guard): Role
     {
-        return Role::where('name', 'Organization Owner')
+        return $this->organizationRole($organizationId, $guard, 'Organization Owner');
+    }
+
+    private function organizationRole(int $organizationId, string $guard, string $name): Role
+    {
+        return Role::where('name', $name)
             ->where('organization_id', $organizationId)
             ->where('guard_name', $guard)
             ->firstOrFail();

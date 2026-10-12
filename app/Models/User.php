@@ -216,10 +216,6 @@ class User extends Authenticatable implements FilamentUser
     #[Override]
     public function canAccessPanel(Panel $panel): bool
     {
-        // Allow access if user has admin permissions or is super admin
-        return $this->isSuperAdmin() ||
-               $this->isOrganizationAdmin() ||
-               $this->isOrganizationOwner() ||
-               $this->hasOrganizationPermission('admin.access');
+        return $this->isSuperAdmin() || $this->hasOrganizationPermission('admin.access');
     }
 }

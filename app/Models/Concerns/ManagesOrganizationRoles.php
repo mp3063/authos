@@ -70,6 +70,7 @@ trait ManagesOrganizationRoles
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
                 'auth_logs.read', 'auth_logs.export',
                 'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
+                'admin.access',
             ],
             'Organization Admin' => [
                 'users.create', 'users.read', 'users.update',
@@ -79,6 +80,7 @@ trait ManagesOrganizationRoles
                 'permissions.read',
                 'auth_logs.read',
                 'webhooks.create', 'webhooks.read', 'webhooks.update', 'webhooks.delete',
+                'admin.access',
             ],
             'Organization Member' => [
                 'users.read',
