@@ -197,6 +197,7 @@ class UserResource extends Resource
                 EditAction::make(),
 
                 Action::make('reset_mfa')
+                    ->authorize('update')
                     ->label('Reset MFA')
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('warning')
@@ -214,6 +215,7 @@ class UserResource extends Resource
                     ->visible(fn ($record) => $record->hasMfaEnabled()),
 
                 Action::make('force_verify_email')
+                    ->authorize('update')
                     ->label('Verify Email')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
@@ -225,9 +227,10 @@ class UserResource extends Resource
             ]),
         ])->toolbarActions([
             BulkActionGroup::make([
-                DeleteBulkAction::make()->requiresConfirmation(),
+                DeleteBulkAction::make()->authorizeIndividualRecords('delete')->requiresConfirmation(),
 
                 BulkAction::make('verify_emails')
+                    ->authorizeIndividualRecords('update')
                     ->label('Verify Emails')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
@@ -236,6 +239,7 @@ class UserResource extends Resource
                     ->modalDescription('This will mark all selected users as email verified.'),
 
                 BulkAction::make('reset_mfa')
+                    ->authorizeIndividualRecords('update')
                     ->label('Reset MFA')
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('warning')

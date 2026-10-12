@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\UserResource\RelationManagers;
 
 use App\Filament\Concerns\ScopesToOrganization;
+use App\Models\Application;
+use App\Models\UserApplication;
 use Filament\Actions\Action;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
@@ -18,6 +20,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 
 class ApplicationsRelationManager extends RelationManager
 {
@@ -116,6 +119,7 @@ class ApplicationsRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
+                    ->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord()) && Gate::allows('create', UserApplication::class))
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(fn (Builder $query) => static::scopeToOrganization($query))
                     ->schema(fn (AttachAction $action): array => [
@@ -129,6 +133,7 @@ class ApplicationsRelationManager extends RelationManager
             ])
             ->recordActions([
                 DetachAction::make()
+                    ->authorize(fn (Application $record): bool => Gate::allows('update', $this->getOwnerRecord()) && Gate::allows('delete', $this->userApplicationFor($record)))
                     ->requiresConfirmation()
                     ->modalDescription('This will remove access to this application for the user.'),
 
@@ -144,9 +149,16 @@ class ApplicationsRelationManager extends RelationManager
             ->toolbarActions([
                 BulkActionGroup::make([
                     DetachBulkAction::make()
+                        ->authorize(fn (): bool => Gate::allows('update', $this->getOwnerRecord()) && Gate::allows('deleteAny', UserApplication::class))
+                        ->authorizeIndividualRecords(fn (Application $record) => Gate::inspect('delete', $this->userApplicationFor($record)))
                         ->requiresConfirmation(),
                 ]),
             ])
-            ->defaultSort('pivot.last_login_at', 'desc');
+            ->defaultSort('user_applications.last_login_at', 'desc');
+    }
+
+    private function userApplicationFor(Application $application): UserApplication
+    {
+        return (new UserApplication)->forceFill(['user_id' => $this->getOwnerRecord()->getKey(), 'application_id' => $application->getKey()]);
     }
 }

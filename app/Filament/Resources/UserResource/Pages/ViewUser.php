@@ -4,6 +4,7 @@ namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewUser extends ViewRecord
@@ -16,6 +17,7 @@ class ViewUser extends ViewRecord
             Actions\EditAction::make(),
 
             Actions\Action::make('reset_mfa')
+                ->authorize('update')
                 ->label('Reset MFA')
                 ->icon('heroicon-o-shield-exclamation')
                 ->color('warning')
@@ -30,7 +32,7 @@ class ViewUser extends ViewRecord
                     ]);
                 })
                 ->after(
-                    fn () => \Filament\Notifications\Notification::make()
+                    fn () => Notification::make()
                         ->title('MFA has been reset successfully')
                         ->warning()
                         ->send()
