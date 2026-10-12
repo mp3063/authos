@@ -184,12 +184,14 @@ class OrganizationResource extends Resource
         ])->toolbarActions([
             BulkActionGroup::make([
                 BulkAction::make('delete')
+                    ->authorizeIndividualRecords('delete')
                     ->label('Delete Selected')
                     ->requiresConfirmation()
                     ->action(fn ($records) => $records->each->delete())
                     ->successNotificationTitle('Organizations deleted'),
 
                 BulkAction::make('toggle_status')
+                    ->authorizeIndividualRecords('update')
                     ->label('Toggle Status')
                     ->icon('heroicon-o-arrow-path')
                     ->action(fn ($records) => $records->each(fn ($record) => $record->update(['is_active' => ! $record->is_active])))
