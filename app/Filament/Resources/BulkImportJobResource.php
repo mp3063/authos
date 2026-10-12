@@ -196,6 +196,7 @@ class BulkImportJobResource extends Resource
             ViewAction::make(),
 
             Action::make('retry')
+                ->authorize('update')
                 ->label('Retry')
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
@@ -223,6 +224,7 @@ class BulkImportJobResource extends Resource
                 }),
 
             Action::make('cancel')
+                ->authorize('update')
                 ->label('Cancel')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')

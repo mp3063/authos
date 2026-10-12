@@ -154,6 +154,7 @@ class MigrationJobResource extends Resource
             ViewAction::make(),
 
             Action::make('retry')
+                ->authorize('update')
                 ->label('Retry')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
@@ -175,6 +176,7 @@ class MigrationJobResource extends Resource
                 }),
 
             Action::make('rollback')
+                ->authorize('delete')
                 ->label('Rollback')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('danger')

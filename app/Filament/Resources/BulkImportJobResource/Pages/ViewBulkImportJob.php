@@ -21,6 +21,7 @@ class ViewBulkImportJob extends ViewRecord
     {
         return [
             Actions\Action::make('retry')
+                ->authorize('update')
                 ->label('Retry')
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
@@ -57,6 +58,7 @@ class ViewBulkImportJob extends ViewRecord
                 }),
 
             Actions\Action::make('cancel')
+                ->authorize('update')
                 ->label('Cancel')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')

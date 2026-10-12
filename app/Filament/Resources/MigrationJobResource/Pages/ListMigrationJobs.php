@@ -29,6 +29,7 @@ class ListMigrationJobs extends ListRecords
     {
         return [
             Action::make('new_migration')
+                ->authorize('create')
                 ->label('New Migration')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
