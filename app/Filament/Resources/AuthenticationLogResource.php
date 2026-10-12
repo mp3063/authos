@@ -167,11 +167,11 @@ class AuthenticationLogResource extends Resource
             BulkActionGroup::make([
                 DeleteBulkAction::make()
                     ->label('Delete Selected')
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
-                    ->modalDescription('Are you sure you want to delete these log entries? This action cannot be undone.')
-                    ->visible(fn () => auth()->user()->can('delete authentication logs')),
+                    ->modalDescription('Are you sure you want to delete these log entries? This action cannot be undone.'),
 
-                BulkAction::make('export')->label('Export Selected')->icon('heroicon-o-arrow-down-tray')->color('gray')->action(function () {
+                BulkAction::make('export')->authorizeIndividualRecords('view')->label('Export Selected')->icon('heroicon-o-arrow-down-tray')->color('gray')->action(function () {
                     // Export functionality would be implemented here
                     Notification::make()
                         ->title('Export started')

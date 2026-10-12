@@ -210,6 +210,7 @@ class AccountLockoutResource extends Resource
             ActionGroup::make([
                 ViewAction::make(),
                 Action::make('unlock')
+                    ->authorize('update')
                     ->icon('heroicon-o-lock-open')
                     ->color('success')
                     ->visible(fn (AccountLockout $record) => $record->isActive())
@@ -236,6 +237,7 @@ class AccountLockoutResource extends Resource
         return [
             BulkActionGroup::make([
                 BulkAction::make('bulk_unlock')
+                    ->authorizeIndividualRecords('update')
                     ->label('Unlock Selected')
                     ->icon('heroicon-o-lock-open')
                     ->color('success')
@@ -263,6 +265,7 @@ class AccountLockoutResource extends Resource
                     }),
 
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->label('Delete Selected')
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these lockout records? This action cannot be undone.'),

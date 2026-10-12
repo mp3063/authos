@@ -165,11 +165,12 @@ class FailedLoginAttemptResource extends Resource
             BulkActionGroup::make([
                 DeleteBulkAction::make()
                     ->label('Delete Selected')
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
-                    ->modalDescription('Are you sure you want to delete these failed login attempts? This action cannot be undone.')
-                    ->visible(fn () => auth()->user()?->isSuperAdmin()),
+                    ->modalDescription('Are you sure you want to delete these failed login attempts? This action cannot be undone.'),
 
                 BulkAction::make('export')
+                    ->authorizeIndividualRecords('view')
                     ->label('Export Selected')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')

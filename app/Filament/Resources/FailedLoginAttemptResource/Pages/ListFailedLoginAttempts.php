@@ -18,6 +18,7 @@ class ListFailedLoginAttempts extends ListRecords
     {
         return [
             Actions\Action::make('export')
+                ->authorize('viewAny')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
@@ -43,7 +44,7 @@ class ListFailedLoginAttempts extends ListRecords
                         ->success()
                         ->send();
                 })
-                ->visible(fn () => auth()->user()?->isSuperAdmin()),
+                ->authorize('deleteAny'),
         ];
     }
 

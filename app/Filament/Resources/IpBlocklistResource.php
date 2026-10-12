@@ -184,6 +184,7 @@ class IpBlocklistResource extends Resource
         return [
             ActionGroup::make([
                 Action::make('unblock')
+                    ->authorize('update')
                     ->icon('heroicon-o-shield-check')
                     ->color('success')
                     ->requiresConfirmation()
@@ -200,6 +201,7 @@ class IpBlocklistResource extends Resource
                     }),
 
                 Action::make('reblock')
+                    ->authorize('update')
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -228,6 +230,7 @@ class IpBlocklistResource extends Resource
         return [
             BulkActionGroup::make([
                 BulkAction::make('bulk_unblock')
+                    ->authorizeIndividualRecords('update')
                     ->label('Unblock Selected')
                     ->icon('heroicon-o-shield-check')
                     ->color('success')
@@ -243,6 +246,7 @@ class IpBlocklistResource extends Resource
                     ->deselectRecordsAfterCompletion(),
 
                 BulkAction::make('bulk_block')
+                    ->authorizeIndividualRecords('update')
                     ->label('Block Selected')
                     ->icon('heroicon-o-shield-exclamation')
                     ->color('danger')
@@ -258,6 +262,7 @@ class IpBlocklistResource extends Resource
                     ->deselectRecordsAfterCompletion(),
 
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalHeading('Delete Blocked IPs')
                     ->modalDescription('Are you sure you want to delete these blocked IP entries? This action cannot be undone.'),

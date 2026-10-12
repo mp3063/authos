@@ -206,6 +206,7 @@ class SecurityIncidentResource extends Resource
         return [
             BulkActionGroup::make([
                 BulkAction::make('resolve')
+                    ->authorizeIndividualRecords('update')
                     ->label('Resolve Selected')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
@@ -227,6 +228,7 @@ class SecurityIncidentResource extends Resource
                     }),
 
                 BulkAction::make('dismiss')
+                    ->authorizeIndividualRecords('update')
                     ->label('Dismiss Selected')
                     ->icon('heroicon-o-x-circle')
                     ->color('gray')

@@ -20,6 +20,7 @@ class ViewAccountLockout extends ViewRecord
     {
         return [
             Actions\Action::make('unlock')
+                ->authorize('update')
                 ->icon('heroicon-o-lock-open')
                 ->color('success')
                 ->visible(fn (AccountLockout $record) => $record->isActive())

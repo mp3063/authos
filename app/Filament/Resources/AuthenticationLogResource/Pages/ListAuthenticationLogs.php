@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\AuthenticationLogResource\Pages;
 
 use App\Filament\Resources\AuthenticationLogResource;
+use App\Models\AuthenticationLog;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,11 +18,12 @@ class ListAuthenticationLogs extends ListRecords
     {
         return [
             Actions\Action::make('export_logs')
+                ->authorize('viewAny')
                 ->label('Export Logs')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
                 ->action(function () {
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Export started')
                         ->body('Authentication logs are being exported.')
                         ->info()
@@ -34,14 +37,14 @@ class ListAuthenticationLogs extends ListRecords
                 ->requiresConfirmation()
                 ->modalDescription('This will delete logs older than 90 days.')
                 ->action(function () {
-                    $count = \App\Models\AuthenticationLog::where('created_at', '<', now()->subDays(90))->delete();
-                    \Filament\Notifications\Notification::make()
+                    $count = AuthenticationLog::where('created_at', '<', now()->subDays(90))->delete();
+                    Notification::make()
                         ->title('Old logs cleared')
                         ->body("Deleted {$count} log entries older than 90 days.")
                         ->success()
                         ->send();
                 })
-                ->visible(fn () => auth()->user()->can('delete authentication logs')),
+                ->authorize('deleteAny'),
         ];
     }
 
