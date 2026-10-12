@@ -25,7 +25,7 @@ class SsoConfigurationController extends Controller
         try {
             // Check if user belongs to the organization or is super admin
             $user = $request->user();
-            if ($user->organization_id !== $organizationId && ! $user->hasRole('Super Admin')) {
+            if ($user->organization_id !== $organizationId && ! $user->isSuperAdmin()) {
                 return response()->json([
                     'message' => 'Insufficient permissions',
                 ], 403);

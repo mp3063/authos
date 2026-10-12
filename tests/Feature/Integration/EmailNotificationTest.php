@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
 use Illuminate\Support\Facades\Mail;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -31,9 +32,10 @@ class EmailNotificationTest extends TestCase
         Role::create(['name' => 'user', 'guard_name' => 'web']);
         Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
         Role::query()->create(['name' => 'user', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
-        Role::query()->create(['name' => 'organization admin', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
+        Role::query()->create(['name' => 'organization admin', 'guard_name' => 'web', 'organization_id' => $this->organization->id])
+            ->givePermissionTo(Permission::query()->create(['name' => 'users.create', 'guard_name' => 'web', 'organization_id' => $this->organization->id]));
 
-        $this->inviter->assignRole('organization admin');
+        $this->inviter->assignOrganizationRole('organization admin');
 
         Mail::fake();
     }

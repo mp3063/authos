@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\UserRole;
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Requests\ListRequest;
 use App\Http\Requests\User\StoreUserRequest;
@@ -80,7 +79,7 @@ class UserController extends BaseController
 
     private function hasSuperAdminRole(User $user): bool
     {
-        return $user->hasRole(UserRole::SuperAdmin->label()) || $user->hasRole(UserRole::SuperAdmin->value);
+        return $user->isSuperAdmin();
     }
 
     private function applySearchFilter(Builder $query, mixed $search): void

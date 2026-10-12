@@ -130,24 +130,6 @@ trait InteractsWithOrganizationRoles
     }
 
     /**
-     * Check if user is owner of their organization
-     */
-    public function isOrganizationOwner(): bool
-    {
-        return $this->hasOrganizationRole('Organization Owner');
-    }
-
-    /**
-     * Check if user is admin of their organization
-     */
-    public function isOrganizationAdmin(): bool
-    {
-        return $this->hasOrganizationRole('Organization Admin') ||
-               $this->hasOrganizationRole('organization admin') ||
-               $this->isOrganizationOwner();
-    }
-
-    /**
      * Check if user has global system roles
      */
     public function hasGlobalRole($role): bool

@@ -353,7 +353,7 @@ class BulkUserOperationsController extends BaseController
     {
         // Only super admins can update multiple organizations
         $user = auth()->user();
-        if (! $user || ! $user->hasRole('Super Admin')) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response()->json([
                 'message' => 'Unauthorized. Super Admin access required.',
             ], 403);

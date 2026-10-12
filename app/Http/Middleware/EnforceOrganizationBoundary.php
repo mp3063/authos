@@ -114,8 +114,7 @@ class EnforceOrganizationBoundary
 
     private function isSuperAdmin(User $user): bool
     {
-        return $user->hasRole('super-admin') || $user->hasRole('Super Admin') ||
-            $user->hasRole('super-admin', 'api') || $user->hasRole('Super Admin', 'api');
+        return $user->isSuperAdmin();
     }
 
     /**

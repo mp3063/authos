@@ -231,7 +231,7 @@ class OrganizationCrudController extends BaseController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (! auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->isSuperAdmin()) {
             $query->where('id', auth()->user()->organization_id);
         }
 
@@ -255,7 +255,7 @@ class OrganizationCrudController extends BaseController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (! auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->isSuperAdmin()) {
             $query->where('id', auth()->user()->organization_id);
         }
 
@@ -325,7 +325,7 @@ class OrganizationCrudController extends BaseController
         $query = Organization::query();
 
         // If not super admin, scope to user's organization
-        if (! auth()->user()->hasRole('Super Admin')) {
+        if (! auth()->user()->isSuperAdmin()) {
             $query->where('id', auth()->user()->organization_id);
         }
 

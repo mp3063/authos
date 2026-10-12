@@ -19,7 +19,7 @@ trait FindsOrgScopedApplications
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+        if (! $currentUser->isSuperAdmin()) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 

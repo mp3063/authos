@@ -29,7 +29,7 @@ class UserSessionController extends BaseController
 
         // Check authorization - users can view their own sessions, admins can view any
         $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
             return $this->errorResponse('Forbidden', 403);
         }
 
@@ -76,7 +76,7 @@ class UserSessionController extends BaseController
 
         // Check authorization - users can view their own sessions, admins can view any
         $currentUser = auth()->user();
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
             return $this->errorResponse('Forbidden', 403);
         }
 

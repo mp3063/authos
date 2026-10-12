@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\SetPermissionContext;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -102,7 +103,8 @@ class AdminPanelProvider extends PanelProvider
                 ])
                 ->authMiddleware([
                     Authenticate::class,
-                ])
+                    SetPermissionContext::class,
+                ], isPersistent: true)
                 ->plugins([
                     // MFA and security plugins will be added here
                 ])

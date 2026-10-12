@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Services\SocialAuthService;
+use Filament\Facades\Filament;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -228,7 +229,7 @@ class SocialAuthController extends BaseController
             $result = $this->socialAuthService->handleCallback($provider);
 
             // Check if user has admin access
-            if (! $result['user']->hasAnyRole(['Super Admin', 'Organization Admin', 'Application Admin'])) {
+            if (! $result['user']->canAccessPanel(Filament::getPanel('admin'))) {
                 return redirect('/admin/login?error=insufficient_privileges');
             }
 

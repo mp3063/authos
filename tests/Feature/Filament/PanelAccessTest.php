@@ -3,6 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Models\CustomRole;
+use App\Services\SocialAuthService;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
@@ -40,5 +42,25 @@ class PanelAccessTest extends IntegrationTestCase
         $user->unsetRelation('roles')->unsetRelation('permissions');
 
         $this->actingAs($user)->get('/admin')->assertOk();
+    }
+
+    #[Test]
+    public function it_admits_panel_users_through_social_login_by_permission(): void
+    {
+        $owner = $this->createUser([], 'Organization Owner', 'web');
+        $member = $this->createUser([], 'User', 'web');
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $socialAuth = Mockery::mock(SocialAuthService::class);
+        $socialAuth->shouldReceive('isProviderSupported')->andReturnTrue();
+        $socialAuth->shouldReceive('isProviderEnabled')->andReturnTrue();
+        $socialAuth->shouldReceive('handleCallback')->andReturn(['user' => $owner->fresh()], ['user' => $member->fresh()]);
+        $this->app->instance(SocialAuthService::class, $socialAuth);
+
+        $this->get('/auth/social/google/callback')->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($owner);
+
+        auth()->logout();
+        $this->get('/auth/social/google/callback')->assertRedirect('/admin/login?error=insufficient_privileges');
+        $this->assertGuest();
     }
 }

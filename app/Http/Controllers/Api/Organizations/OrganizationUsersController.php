@@ -37,18 +37,12 @@ class OrganizationUsersController extends BaseController
 
         // Check organization boundaries
         $currentUser = auth()->user();
-        $isSuperAdmin = $currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin');
+        $isSuperAdmin = $currentUser->isSuperAdmin();
 
         // Organization admins and users with appropriate permissions can view other orgs
         // Super admins always have access
         if (! $isSuperAdmin && $currentUser->organization_id !== $organization->id) {
-            // Check if user has admin/management permissions
-            $hasAdminRole = $currentUser->hasRole('Organization Admin') ||
-                           $currentUser->hasRole('Organization Owner');
-            $hasManagePermission = $currentUser->can('users.update');
-
-            // Deny access only if user is neither admin nor has manage permission
-            if (! $hasAdminRole && ! $hasManagePermission) {
+            if (! $currentUser->can('users.update')) {
                 return $this->notFoundResponse('Organization not found');
             }
             // Org admins/managers can view other orgs (e.g., to verify user transfers)

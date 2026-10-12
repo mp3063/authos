@@ -49,7 +49,7 @@ class ApplicationController extends BaseController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+        if (! $currentUser->isSuperAdmin()) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 
@@ -64,7 +64,7 @@ class ApplicationController extends BaseController
 
         if ($request->has('organization_id')) {
             // Only allow filtering by organization_id if user is super admin or it's their own organization
-            if ($currentUser->hasRole('Super Admin') || $currentUser->hasRole('super-admin') ||
+            if ($currentUser->isSuperAdmin() ||
                 $request->organization_id == $currentUser->organization_id) {
                 $query->where('organization_id', $request->organization_id);
             }
@@ -192,7 +192,7 @@ class ApplicationController extends BaseController
 
         // Enforce organization-based data isolation for non-super-admin users
         $currentUser = auth()->user();
-        if (! $currentUser->hasRole('Super Admin') && ! $currentUser->hasRole('super-admin')) {
+        if (! $currentUser->isSuperAdmin()) {
             $query->where('organization_id', $currentUser->organization_id);
         }
 

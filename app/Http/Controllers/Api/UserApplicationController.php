@@ -39,7 +39,7 @@ class UserApplicationController extends BaseController
         }
 
         // Users can only view their own applications unless they're admins
-        if ($user->id !== $currentUser->id && ! $currentUser->hasRole(['Super Admin', 'Organization Admin'])) {
+        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
             return $this->errorResponse('Unauthorized to view other users\' applications', 403);
         }
 

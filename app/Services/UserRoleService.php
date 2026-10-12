@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\Models\Role as SpatieRole;
 use Spatie\Permission\PermissionRegistrar;
 
 class UserRoleService
@@ -102,8 +101,7 @@ class UserRoleService
             ])->all());
         });
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-        $target->unsetRelation('roles');
+        $this->forgetRoles($target);
     }
 
     /**
@@ -219,6 +217,12 @@ class UserRoleService
         return $user->organizationPermissionNames();
     }
 
+    private function forgetRoles(User $user): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $user->unsetRelation('roles');
+    }
+
     private function scopeToAssignableRoles(Builder|QueryBuilder $query, User $caller, ?int $organizationId): void
     {
         $query->where(fn ($organizationRoles) => $organizationRoles
@@ -235,14 +239,20 @@ class UserRoleService
      */
     public function assignRole(User $user, string $roleId): bool
     {
-        $role = SpatieRole::findOrFail($roleId);
+        $role = Role::findOrFail($roleId);
 
-        if ($user->hasRole($role)) {
+        if ($this->assignedRoleIds($user)->contains($role->id)) {
             return false;
         }
 
-        // Guard is handled by User model's getDefaultGuardName() method
-        $user->assignRole($role);
+        DB::table('model_has_roles')->insert([
+            'role_id' => $role->id,
+            'model_type' => $user->getMorphClass(),
+            'model_id' => $user->id,
+            'organization_id' => $role->organization_id,
+        ]);
+
+        $this->forgetRoles($user);
 
         return true;
     }
@@ -252,15 +262,15 @@ class UserRoleService
      */
     public function removeRole(User $user, string $roleId): bool
     {
-        $role = SpatieRole::findOrFail($roleId);
+        $removed = DB::table('model_has_roles')
+            ->where('model_type', $user->getMorphClass())
+            ->where('model_id', $user->id)
+            ->where('role_id', Role::findOrFail($roleId)->id)
+            ->delete();
 
-        if (! $user->hasRole($role)) {
-            return false;
-        }
+        $this->forgetRoles($user);
 
-        $user->removeRole($role);
-
-        return true;
+        return $removed > 0;
     }
 
     /**

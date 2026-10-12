@@ -459,7 +459,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         $response->assertSee('Roles');
 
         // Test creating new role
-        $newRole = Role::create(['name' => 'Custom Admin Role']);
+        $newRole = Role::create(['name' => 'Custom Admin Role', 'organization_id' => null]);
         $this->assertDatabaseHas('roles', [
             'name' => 'Custom Admin Role',
         ]);
