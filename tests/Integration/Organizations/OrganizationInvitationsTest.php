@@ -540,7 +540,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
 
         $response->assertStatus(400);
         $this->assertSame('pending', $invitation->fresh()->status);
-        $this->assertFalse($outsider->fresh()->roles()->where('name', 'Organization Admin')->exists());
+        $this->assertTrue($this->assignedRolesNamed($outsider, 'Organization Admin')->isEmpty());
     }
 
     #[Test]
@@ -557,7 +557,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $response = $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept");
 
         $response->assertStatus(400);
-        $this->assertFalse(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($member))->where('name', 'Organization Owner')->exists());
+        $this->assertTrue($this->assignedRolesNamed($member, 'Organization Owner')->isEmpty());
     }
 
     #[Test]
@@ -595,7 +595,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->actingAs($member, 'api')->postJson("/api/v1/invitations/{$invitation->token}/accept")->assertStatus(400);
 
         $this->assertSame('pending', $invitation->fresh()->status);
-        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Admin')->exists());
+        $this->assertTrue($this->assignedRolesNamed($member, 'Organization Admin')->isEmpty());
     }
 
     #[Test]

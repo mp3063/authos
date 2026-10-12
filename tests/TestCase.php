@@ -4,8 +4,10 @@ namespace Tests;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -256,6 +258,11 @@ abstract class TestCase extends BaseTestCase
     protected function createApiOrganizationOwner(array $attributes = []): User
     {
         return $this->createUser($attributes, 'Organization Owner', 'api');
+    }
+
+    protected function assignedRolesNamed(User $user, string $name): Collection
+    {
+        return Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->where('name', $name)->get();
     }
 
     protected function createApiUser(array $attributes = []): User

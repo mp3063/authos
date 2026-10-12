@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
+use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\AuthenticationLogService;
 use App\Services\OrganizationReportingService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -35,6 +37,7 @@ class OrganizationReportController extends BaseController
     public function userActivity(Request $request, string $organizationId): Response|JsonResponse
     {
         $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('viewAny', User::class);
 
         $request->validate([
             'start_date' => 'sometimes|date|before_or_equal:end_date',
@@ -254,6 +257,7 @@ class OrganizationReportController extends BaseController
     public function securityAudit(Request $request, string $organizationId): JsonResponse
     {
         $organization = $this->findOrganizationWithOrgScope($organizationId);
+        $this->authorize('viewAny', AuthenticationLog::class);
 
         $request->validate([
             'format' => 'sometimes|string|in:json,pdf',

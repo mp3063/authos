@@ -153,8 +153,10 @@ class OrganizationUsersTest extends IntegrationTestCase
 
         // ASSERT: Verify role updated
         $user->refresh();
-        $assignedNames = Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->pluck('name')->all();
-        $this->assertSame(['Organization Admin'], $assignedNames);
+        $this->assertSame(
+            [Role::where('name', 'Organization Admin')->where('organization_id', $this->organization->id)->where('guard_name', 'api')->firstOrFail()->id],
+            app(UserRoleService::class)->assignedRoleIds($user)->all()
+        );
     }
 
     #[Test]
@@ -368,7 +370,7 @@ class OrganizationUsersTest extends IntegrationTestCase
         // ASSERT: Verify all users have the role
         foreach ($users as $user) {
             $user->refresh();
-            $this->assertTrue(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->where('name', 'Organization Member')->exists());
+            $this->assertSame([Role::where('name', 'Organization Member')->where('organization_id', $this->organization->id)->where('guard_name', 'api')->firstOrFail()->id], $this->assignedRolesNamed($user, 'Organization Member')->pluck('id')->all());
         }
 
         // ASSERT: Verify audit log entries exist

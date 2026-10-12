@@ -34,7 +34,7 @@ class InvitationAuthorizer
             return false;
         }
 
-        return $this->canManageInvitations($user) || $user->id === $invitation->inviter_id;
+        return $this->canManageInvitations($user);
     }
 
     public function canViewInvitations(User $user, Organization $organization): bool

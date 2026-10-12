@@ -6,7 +6,6 @@ use App\Models\CustomRole;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
-use App\Services\UserRoleService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
@@ -84,7 +83,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         // ASSERT: Verify all users have the role
         foreach ($users as $user) {
             $user->refresh();
-            $this->assertTrue(Role::whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))->where('name', 'Organization Member')->exists());
+            $this->assertSame([Role::where('name', 'Organization Member')->where('organization_id', $this->organization->id)->where('guard_name', 'api')->firstOrFail()->id], $this->assignedRolesNamed($user, 'Organization Member')->pluck('id')->all());
         }
     }
 
@@ -118,7 +117,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
         // ASSERT: Verify roles were revoked
         foreach ($users as $user) {
             $user->refresh();
-            $this->assertFalse($user->hasRole('Organization Member'));
+            $this->assertTrue($this->assignedRolesNamed($user, 'Organization Member')->isEmpty());
         }
     }
 
@@ -547,7 +546,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
             ]);
 
         $response->assertForbidden();
-        $this->assertFalse($member->fresh()->roles()->where('name', 'Organization Owner')->exists());
+        $this->assertTrue($this->assignedRolesNamed($member, 'Organization Owner')->isEmpty());
     }
 
     #[Test]
@@ -598,7 +597,7 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
             ]);
 
         $response->assertForbidden();
-        $this->assertFalse($this->admin->fresh()->roles()->where('name', 'Organization Member')->exists());
+        $this->assertTrue($this->assignedRolesNamed($this->admin, 'Organization Member')->isEmpty());
     }
 
     #[Test]

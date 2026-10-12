@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\CacheableResponse;
 use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Http\Requests\Organization\StoreOrganizationRequest;
-use App\Http\Requests\Organization\UpdateOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationSettingsRequest;
 use App\Http\Resources\OrganizationResource;
 use App\Models\Organization;
@@ -159,7 +158,7 @@ class OrganizationCrudController extends BaseController
     /**
      * Update the specified organization
      */
-    public function update(UpdateOrganizationRequest $request, string $id): JsonResponse
+    public function update(Request $request, string $id): JsonResponse
     {
         $organization = $this->findOrganizationWithOrgScope($id, 'update');
 

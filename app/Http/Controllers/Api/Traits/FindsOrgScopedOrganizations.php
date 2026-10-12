@@ -12,7 +12,7 @@ trait FindsOrgScopedOrganizations
         $query = Organization::query();
 
         if (! $caller->isSuperAdmin()) {
-            $query->whereNotNull('id')->where('id', $caller->organization_id);
+            $query->where('id', $caller->organization_id);
         }
 
         $organization = $query->findOrFail($id);

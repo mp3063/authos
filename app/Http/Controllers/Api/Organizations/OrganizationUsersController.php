@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Organizations;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
-use App\Http\Requests\Organization\GrantUserAccessRequest;
 use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\UserResource;
 use App\Models\Application;
@@ -146,28 +145,20 @@ class OrganizationUsersController extends BaseController
     /**
      * Grant user access to an application
      */
-    public function grantUserAccess(GrantUserAccessRequest $request, string $id): JsonResponse
+    public function grantUserAccess(Request $request, string $id): JsonResponse
     {
         $organization = $this->findOrganizationWithOrgScope($id);
         $this->authorize('create', UserApplication::class);
 
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'application_id' => 'required|exists:applications,id',
+            'user_id' => 'required|integer',
+            'application_id' => 'required|integer',
         ]);
 
         /** @var User $user */
-        $user = User::findOrFail($request->input('user_id'));
+        $user = User::where('organization_id', $organization->id)->findOrFail($request->input('user_id'));
         /** @var Application $application */
-        $application = Application::findOrFail($request->input('application_id'));
-
-        if ($user->organization_id !== $organization->id) {
-            return $this->errorResponse('User does not belong to this organization');
-        }
-
-        if ($application->organization_id !== $organization->id) {
-            return $this->errorResponse('Application does not belong to this organization');
-        }
+        $application = Application::where('organization_id', $organization->id)->findOrFail($request->input('application_id'));
 
         if ($user->applications()->where('application_id', $application->id)->exists()) {
             return $this->errorResponse('User already has access to this application');
@@ -194,17 +185,9 @@ class OrganizationUsersController extends BaseController
         $this->authorize('deleteAny', UserApplication::class);
 
         /** @var User $user */
-        $user = User::findOrFail($userId);
+        $user = User::where('organization_id', $organization->id)->findOrFail($userId);
         /** @var Application $application */
-        $application = Application::findOrFail($applicationId);
-
-        if ($user->organization_id !== $organization->id) {
-            return $this->errorResponse('User does not belong to this organization');
-        }
-
-        if ($application->organization_id !== $organization->id) {
-            return $this->errorResponse('Application does not belong to this organization');
-        }
+        $application = Application::where('organization_id', $organization->id)->findOrFail($applicationId);
 
         if (! $user->applications()->where('application_id', $application->id)->exists()) {
             return $this->errorResponse('User does not have access to this application');

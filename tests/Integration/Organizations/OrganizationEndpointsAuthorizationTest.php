@@ -4,6 +4,7 @@ namespace Tests\Integration\Organizations;
 
 use App\Http\Middleware\EnforceOrganizationBoundary;
 use App\Http\Middleware\SetPermissionContext;
+use App\Models\Application;
 use App\Models\AuditExport;
 use App\Models\Invitation;
 use App\Models\Organization;
@@ -148,6 +149,65 @@ class OrganizationEndpointsAuthorizationTest extends TestCase
 
         $this->putJson("/api/v1/enterprise/organizations/{$this->organization->id}/branding", ['primary_color' => '#112233'])->assertForbidden();
         $this->getJson("/api/v1/enterprise/organizations/{$this->organization->id}/branding")->assertOk();
+    }
+
+    #[Test]
+    public function a_member_without_update_gets_forbidden_before_validation_can_reveal_other_organizations_data(): void
+    {
+        $member = $this->createUser(['organization_id' => $this->organization->id], 'User', 'api');
+        $this->foreign->update(['slug' => 'taken-slug']);
+        $foreignUser = User::factory()->create(['organization_id' => $this->foreign->id]);
+        Passport::actingAs($member);
+
+        $this->putJson("/api/v1/organizations/{$this->organization->id}", ['slug' => 'taken-slug'])->assertForbidden();
+        $this->postJson("/api/v1/organizations/{$this->organization->id}/users", ['user_id' => $foreignUser->id, 'application_id' => 999999])->assertForbidden();
+    }
+
+    #[Test]
+    public function granting_and_revoking_access_treats_another_organizations_user_or_application_as_not_found(): void
+    {
+        $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api');
+        $foreignUser = User::factory()->create(['organization_id' => $this->foreign->id]);
+        $foreignApp = Application::factory()->create(['organization_id' => $this->foreign->id]);
+        $ownApp = Application::factory()->create(['organization_id' => $this->organization->id]);
+        Passport::actingAs($owner);
+
+        $this->postJson("/api/v1/organizations/{$this->organization->id}/users", ['user_id' => $foreignUser->id, 'application_id' => $ownApp->id])->assertNotFound();
+        $this->postJson("/api/v1/organizations/{$this->organization->id}/users", ['user_id' => $owner->id, 'application_id' => $foreignApp->id])->assertNotFound();
+        $this->deleteJson("/api/v1/organizations/{$this->organization->id}/users/{$foreignUser->id}/applications/{$ownApp->id}")->assertNotFound();
+    }
+
+    #[Test]
+    public function a_member_cannot_read_the_security_audit_or_user_activity_reports_but_an_owner_can(): void
+    {
+        $member = $this->createUser(['organization_id' => $this->organization->id], 'User', 'api');
+        $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api');
+
+        Passport::actingAs($member);
+        $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/security-audit")->assertForbidden();
+
+        Passport::actingAs($owner);
+        $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/security-audit")->assertOk();
+        $this->getJson("/api/v1/organizations/{$this->organization->id}/reports/user-activity")->assertOk();
+    }
+
+    #[Test]
+    public function an_inviter_who_no_longer_holds_users_create_cannot_resend_or_cancel_their_invitation(): void
+    {
+        $exAdmin = $this->createUser(['organization_id' => $this->organization->id], 'User', 'api');
+        $invitation = Invitation::factory()->create([
+            'organization_id' => $this->organization->id,
+            'inviter_id' => $exAdmin->id,
+            'role' => 'User',
+        ]);
+        $token = $invitation->token;
+        Passport::actingAs($exAdmin);
+
+        $this->postJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}/resend")->assertStatus(400);
+        $this->deleteJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}")->assertStatus(400);
+
+        $this->assertSame($token, $invitation->fresh()->token);
+        $this->assertSame('pending', $invitation->fresh()->status);
     }
 
     #[Test]

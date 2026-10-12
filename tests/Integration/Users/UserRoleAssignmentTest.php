@@ -143,7 +143,7 @@ class UserRoleAssignmentTest extends IntegrationTestCase
             ->putJson("/api/v1/users/{$admin->id}/roles", ['roles' => ['Organization Admin', 'Organization Owner']]);
 
         $response->assertForbidden();
-        $this->assertFalse($admin->fresh()->roles()->where('name', 'Organization Owner')->exists());
+        $this->assertTrue($this->assignedRolesNamed($admin, 'Organization Owner')->isEmpty());
     }
 
     #[Test]
