@@ -234,6 +234,43 @@ class ForgedOrganizationFormsTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_revokes_a_foreign_users_access_to_an_application_of_the_callers_organization(): void
+    {
+        $application = Application::factory()->create(['organization_id' => $this->owner->organization_id]);
+        $foreignUser = User::factory()->create(['organization_id' => $this->otherOrganization->id]);
+        $foreignUser->applications()->attach($application->id);
+
+        Livewire::test(ApplicationAccessMatrix::class)->call('revokeAccess', $foreignUser->id, $application->id);
+
+        $this->assertDatabaseMissing('user_applications', ['user_id' => $foreignUser->id, 'application_id' => $application->id]);
+    }
+
+    #[Test]
+    public function it_grants_and_revokes_access_for_a_user_of_the_callers_organization(): void
+    {
+        $application = Application::factory()->create(['organization_id' => $this->owner->organization_id]);
+        $member = User::factory()->create(['organization_id' => $this->owner->organization_id]);
+
+        $matrix = Livewire::test(ApplicationAccessMatrix::class)->call('grantAccess', $member->id, $application->id);
+        $this->assertDatabaseHas('user_applications', ['user_id' => $member->id, 'application_id' => $application->id]);
+
+        $matrix->call('revokeAccess', $member->id, $application->id);
+        $this->assertDatabaseMissing('user_applications', ['user_id' => $member->id, 'application_id' => $application->id]);
+    }
+
+    #[Test]
+    public function it_ignores_access_matrix_revokes_for_an_application_of_another_organization(): void
+    {
+        $foreignApplication = Application::factory()->create(['organization_id' => $this->otherOrganization->id]);
+        $foreignUser = User::factory()->create(['organization_id' => $this->otherOrganization->id]);
+        $foreignUser->applications()->attach($foreignApplication->id);
+
+        Livewire::test(ApplicationAccessMatrix::class)->call('revokeAccess', $foreignUser->id, $foreignApplication->id);
+
+        $this->assertDatabaseHas('user_applications', ['user_id' => $foreignUser->id, 'application_id' => $foreignApplication->id]);
+    }
+
+    #[Test]
     public function it_rejects_permission_names_equal_to_a_policy_ability(): void
     {
         $this->actingAs($this->createSuperAdmin());

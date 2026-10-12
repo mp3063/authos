@@ -117,7 +117,7 @@ class ApplicationAccessMatrix extends Widget
         $targetUser = User::find($userId);
         $application = Application::find($applicationId);
 
-        if ($targetUser && $application && $application->organization_id === $user->organization_id && $targetUser->organization_id === $user->organization_id) {
+        if ($targetUser && $application && $application->organization_id === $user->organization_id) {
             $targetUser->applications()->detach($applicationId);
 
             // Clear cache
