@@ -19,6 +19,7 @@ class ViewAuditExport extends ViewRecord
     {
         return [
             Action::make('download')
+                ->authorize('view')
                 ->label('Download Export')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')

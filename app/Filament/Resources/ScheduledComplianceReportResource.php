@@ -200,6 +200,7 @@ class ScheduledComplianceReportResource extends Resource
             EditAction::make(),
 
             Action::make('runNow')
+                ->authorize('update')
                 ->label('Run Now')
                 ->icon('heroicon-o-play')
                 ->color('info')

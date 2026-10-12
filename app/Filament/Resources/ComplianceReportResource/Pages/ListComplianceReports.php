@@ -28,6 +28,7 @@ class ListComplianceReports extends ListRecords
 
         return [
             Action::make('generate')
+                ->authorize('create')
                 ->label('Generate Report')
                 ->icon('heroicon-o-document-plus')
                 ->color('primary')

@@ -136,6 +136,7 @@ class AuditExportResource extends Resource
             ViewAction::make(),
 
             Action::make('download')
+                ->authorize('view')
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')

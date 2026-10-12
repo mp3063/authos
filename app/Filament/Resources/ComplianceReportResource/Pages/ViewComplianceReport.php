@@ -19,6 +19,7 @@ class ViewComplianceReport extends ViewRecord
     {
         return [
             Action::make('download_pdf')
+                ->authorize('view')
                 ->label('Download PDF')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
@@ -28,6 +29,7 @@ class ViewComplianceReport extends ViewRecord
                 ->action(fn (ComplianceReport $record) => ComplianceReportResource::streamReportFile($record, 'pdf')),
 
             Action::make('download_json')
+                ->authorize('view')
                 ->label('Download JSON')
                 ->icon('heroicon-o-code-bracket')
                 ->color('gray')

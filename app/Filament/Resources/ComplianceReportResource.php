@@ -158,6 +158,7 @@ class ComplianceReportResource extends Resource
             ViewAction::make(),
 
             Action::make('download_pdf')
+                ->authorize('view')
                 ->label('PDF')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
@@ -167,6 +168,7 @@ class ComplianceReportResource extends Resource
                 ->action(fn (ComplianceReport $record) => static::streamReportFile($record, 'pdf')),
 
             Action::make('download_json')
+                ->authorize('view')
                 ->label('JSON')
                 ->icon('heroicon-o-code-bracket')
                 ->color('gray')
