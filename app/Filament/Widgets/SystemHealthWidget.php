@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Services\Monitoring\HealthCheckService;
+use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 
 class SystemHealthWidget extends Widget
@@ -22,5 +23,10 @@ class SystemHealthWidget extends Widget
             'checks' => $health['checks'],
             'timestamp' => $health['timestamp'],
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }

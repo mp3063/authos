@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -11,9 +12,12 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserActivityWidget extends BaseWidget
 {
+    use ScopesToOrganization;
+
     protected static ?string $heading = 'Recent User Activity';
 
     protected static ?int $sort = 2;
@@ -26,23 +30,10 @@ class UserActivityWidget extends BaseWidget
     {
         $user = Filament::auth()->user();
 
-        // Only show for organization owners/admins
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
-            return $table->query(AuthenticationLog::whereRaw('1 = 0')); // Empty query
-        }
-
-        $organizationId = $user->organization_id;
-
         return $table
             ->query(
-                AuthenticationLog::query()
+                $this->scopedLogs()
                     ->with(['user', 'application'])
-                    ->whereHas('application', function ($query) use ($organizationId) {
-                        $query->where('organization_id', $organizationId);
-                    })
-                    ->orWhereHas('user', function ($query) use ($organizationId) {
-                        $query->where('organization_id', $organizationId);
-                    })
                     ->latest()
                     ->limit(50)
             )
@@ -54,6 +45,31 @@ class UserActivityWidget extends BaseWidget
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(25)
             ->poll('30s');
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->hasOrganizationPermission('users.read') === true;
+    }
+
+    private function scopedLogs(): Builder
+    {
+        $query = AuthenticationLog::query();
+
+        if (static::canChooseOrganization()) {
+            return $query;
+        }
+
+        $organizationId = Filament::auth()->user()?->organization_id;
+
+        if ($organizationId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $scoped) use ($organizationId) {
+            $scoped->whereHas('application', fn (Builder $related) => $related->where('organization_id', $organizationId))
+                ->orWhereHas('user', fn (Builder $related) => $related->where('organization_id', $organizationId));
+        });
     }
 
     private function tableColumns(User $user): array
@@ -175,13 +191,13 @@ class UserActivityWidget extends BaseWidget
 
             SelectFilter::make('application_id')
                 ->label('Application')
-                ->relationship('application', 'name')
+                ->relationship('application', 'name', fn (Builder $query) => static::scopeToOrganization($query))
                 ->searchable()
                 ->preload(),
 
             SelectFilter::make('user_id')
                 ->label('User')
-                ->relationship('user', 'name')
+                ->relationship('user', 'name', fn (Builder $query) => static::scopeToOrganization($query))
                 ->searchable()
                 ->preload(),
         ];

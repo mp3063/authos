@@ -2,12 +2,17 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Models\AuthenticationLog;
+use Filament\Facades\Filament;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class LoginActivityChart extends ChartWidget
 {
+    use ScopesToOrganization;
+
     // protected ?string $heading = 'Login Activity (Last 7 Days)';
 
     protected static ?int $sort = 2;
@@ -24,11 +29,11 @@ class LoginActivityChart extends ChartWidget
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('M j');
 
-            $logins = AuthenticationLog::where('event', 'login_success')
+            $logins = $this->logs()->where('event', 'login_success')
                 ->whereDate('created_at', $date)
                 ->count();
 
-            $failures = AuthenticationLog::whereIn('event', ['login_failed', 'failed_mfa'])
+            $failures = $this->logs()->whereIn('event', ['login_failed', 'failed_mfa'])
                 ->whereDate('created_at', $date)
                 ->count();
 
@@ -57,6 +62,16 @@ class LoginActivityChart extends ChartWidget
             ],
             'labels' => $labels,
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->hasOrganizationPermission('auth_logs.read') === true;
+    }
+
+    private function logs(): Builder
+    {
+        return static::scopeToOrganizationThrough(AuthenticationLog::query(), 'user');
     }
 
     protected function getType(): string

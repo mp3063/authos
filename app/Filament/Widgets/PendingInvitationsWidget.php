@@ -25,13 +25,19 @@ class PendingInvitationsWidget extends BaseWidget
 
     protected static bool $isLazy = false;
 
+    public static function canView(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return $user?->organization_id !== null && $user->hasOrganizationPermission('users.create');
+    }
+
     public function table(Table $table): Table
     {
         $user = Filament::auth()->user();
 
-        // Only show for organization owners/admins
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
-            return $table->query(Invitation::whereRaw('1 = 0')); // Empty query
+        if (! static::canView()) {
+            return $table->query(Invitation::whereRaw('1 = 0'));
         }
 
         $organizationId = $user->organization_id;
@@ -340,7 +346,7 @@ class PendingInvitationsWidget extends BaseWidget
     {
         $user = Filament::auth()->user();
 
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
+        if (! static::canView()) {
             return 'Access Restricted';
         }
 
@@ -355,8 +361,8 @@ class PendingInvitationsWidget extends BaseWidget
     {
         $user = Filament::auth()->user();
 
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
-            return 'You need organization admin permissions to manage invitations.';
+        if (! static::canView()) {
+            return 'You need permission to manage invitations.';
         }
 
         $orgName = $user->organization?->name;

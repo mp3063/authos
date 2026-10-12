@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Services\Monitoring\ErrorTrackingService;
+use Filament\Facades\Filament;
 use Filament\Widgets\ChartWidget;
 
 class ErrorTrendsWidget extends ChartWidget
@@ -76,5 +77,10 @@ class ErrorTrendsWidget extends ChartWidget
                 ],
             ],
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }

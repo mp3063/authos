@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Services\Monitoring\MetricsCollectionService;
+use Filament\Facades\Filament;
 use Filament\Widgets\ChartWidget;
 
 class OAuthFlowMonitorWidget extends ChartWidget
@@ -60,5 +61,10 @@ class OAuthFlowMonitorWidget extends ChartWidget
                 ],
             ],
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }

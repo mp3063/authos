@@ -20,12 +20,18 @@ class ApplicationAccessMatrix extends Widget
 
     protected static bool $isLazy = true;
 
+    public static function canView(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return $user?->organization_id !== null && $user->hasOrganizationPermission('applications.update');
+    }
+
     public function getViewData(): array
     {
         $user = Filament::auth()->user();
 
-        // Only show for organization owners/admins
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
+        if (! static::canView()) {
             return [
                 'users' => collect(),
                 'applications' => collect(),
@@ -45,7 +51,7 @@ class ApplicationAccessMatrix extends Widget
                 ->get();
 
             // Get users who have access to any application in this organization
-            $users = User::whereHas('applications', function ($query) use ($organizationId) {
+            $users = User::where('organization_id', $organizationId)->whereHas('applications', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
             })->with(['applications' => function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId)
@@ -83,7 +89,7 @@ class ApplicationAccessMatrix extends Widget
     {
         $user = Filament::auth()->user();
 
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
+        if (! static::canView()) {
             return;
         }
 
@@ -110,7 +116,7 @@ class ApplicationAccessMatrix extends Widget
     {
         $user = Filament::auth()->user();
 
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
+        if (! static::canView()) {
             return;
         }
 

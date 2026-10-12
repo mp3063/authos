@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Services\Monitoring\MetricsCollectionService;
+use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -55,5 +56,10 @@ class RealTimeMetricsWidget extends BaseWidget
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($performanceMetrics['slow_queries_count'] > 10 ? 'danger' : 'success'),
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }

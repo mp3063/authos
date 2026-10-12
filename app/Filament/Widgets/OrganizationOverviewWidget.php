@@ -17,17 +17,23 @@ class OrganizationOverviewWidget extends BaseWidget
 
     protected static bool $isLazy = false;
 
+    public static function canView(): bool
+    {
+        $user = Filament::auth()->user();
+
+        return $user?->organization_id !== null && $user->hasOrganizationPermission('organizations.read');
+    }
+
     protected function getStats(): array
     {
         $user = Filament::auth()->user();
 
-        // Only show for organization owners/admins
-        if (! $user->isOrganizationOwner() && ! $user->isOrganizationAdmin()) {
+        if (! static::canView()) {
             return [];
         }
 
         $organizationId = $user->organization_id;
-        $cacheKey = "org_overview_stats_{$organizationId}";
+        $cacheKey = "org_overview_stats_{$organizationId}_{$user->id}";
 
         return Cache::remember($cacheKey, 300, function () use ($organizationId, $user) {
             // Get organization users (users who have access to any app in this org)

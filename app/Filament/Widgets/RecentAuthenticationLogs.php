@@ -2,13 +2,17 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Models\AuthenticationLog;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 
 class RecentAuthenticationLogs extends BaseWidget
 {
+    use ScopesToOrganization;
+
     // protected static ?string $heading = 'Recent Authentication Events';
 
     protected static ?int $sort = 3;
@@ -19,7 +23,7 @@ class RecentAuthenticationLogs extends BaseWidget
     {
         return $table
             ->query(
-                AuthenticationLog::query()
+                static::scopeToOrganizationThrough(AuthenticationLog::query(), 'user')
                     ->with(['user', 'application'])
                     ->latest()
                     ->limit(10)
@@ -76,5 +80,10 @@ class RecentAuthenticationLogs extends BaseWidget
             ])
             ->paginated(false)
             ->poll('30s');
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->hasOrganizationPermission('auth_logs.read') === true;
     }
 }

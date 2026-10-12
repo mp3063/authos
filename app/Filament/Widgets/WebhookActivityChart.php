@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\WebhookDeliveryStatus;
+use App\Filament\Concerns\ScopesToOrganization;
 use App\Models\WebhookDelivery;
 use Filament\Facades\Filament;
 use Filament\Widgets\ChartWidget;
@@ -10,6 +11,8 @@ use Illuminate\Support\Carbon;
 
 class WebhookActivityChart extends ChartWidget
 {
+    use ScopesToOrganization;
+
     protected ?string $heading = 'Webhook Deliveries (Last 7 Days)';
 
     protected static ?int $sort = 3;
@@ -18,7 +21,6 @@ class WebhookActivityChart extends ChartWidget
 
     protected function getData(): array
     {
-        $user = Filament::auth()->user();
         $data = [];
         $labels = [];
 
@@ -27,14 +29,8 @@ class WebhookActivityChart extends ChartWidget
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('M j');
 
-            $query = WebhookDelivery::whereDate('created_at', $date);
-
-            // Apply organization scoping
-            if (! $user->isSuperAdmin() && $user->organization_id) {
-                $query->whereHas('webhook', function ($subQuery) use ($user) {
-                    $subQuery->where('organization_id', $user->organization_id);
-                });
-            }
+            $query = static::scopeToOrganizationThrough(WebhookDelivery::query(), 'webhook')
+                ->whereDate('created_at', $date);
 
             $successful = (clone $query)->where('status', WebhookDeliveryStatus::SUCCESS)->count();
             $failed = (clone $query)->where('status', WebhookDeliveryStatus::FAILED)->count();
@@ -74,6 +70,11 @@ class WebhookActivityChart extends ChartWidget
             ],
             'labels' => $labels,
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->hasOrganizationPermission('webhooks.read') === true;
     }
 
     protected function getType(): string

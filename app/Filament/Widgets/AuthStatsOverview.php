@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -87,5 +88,10 @@ class AuthStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-heart')
                 ->color('success'),
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }

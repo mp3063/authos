@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Services\Monitoring\ErrorTrackingService;
 use App\Services\Monitoring\MetricsCollectionService;
+use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 
 class SecurityMonitoringWidget extends Widget
@@ -30,5 +31,10 @@ class SecurityMonitoringWidget extends Widget
             'critical_errors' => $errorStats['critical'] ?? 0,
             'error_rate' => $errorTrackingService->getErrorRate(),
         ];
+    }
+
+    public static function canView(): bool
+    {
+        return Filament::auth()->user()?->isSuperAdmin() === true;
     }
 }
