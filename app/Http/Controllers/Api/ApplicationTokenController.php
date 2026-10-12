@@ -25,8 +25,6 @@ class ApplicationTokenController extends BaseController
      */
     public function tokens(string $id): JsonResponse
     {
-        $this->authorize('applications.read');
-
         $application = $this->findApplicationWithOrgScope($id);
         $tokens = Token::where('client_id', $application->passport_client_id)
             ->where('revoked', false)
@@ -61,9 +59,7 @@ class ApplicationTokenController extends BaseController
      */
     public function revokeAllTokens(string $id): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
         $revokedCount = Token::where('client_id', $application->passport_client_id)->count();
 
         Token::where('client_id', $application->passport_client_id)->delete();
@@ -78,9 +74,7 @@ class ApplicationTokenController extends BaseController
      */
     public function revokeToken(string $id, string $tokenId): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
         $token = Token::where('client_id', $application->passport_client_id)
             ->where('id', $tokenId)
             ->first();

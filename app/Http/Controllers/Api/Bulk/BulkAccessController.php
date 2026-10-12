@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Bulk;
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\UserApplication;
 use App\Services\BulkOperationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,9 +29,10 @@ class BulkAccessController extends BaseController
      */
     public function bulkRevokeAccess(Request $request, string $organizationId): JsonResponse
     {
-        $this->authorize('applications.update');
-
         $organization = Organization::findOrFail($organizationId);
+
+        abort_unless($request->user()->can('view', $organization), 404);
+        $this->authorize('create', UserApplication::class);
 
         $request->validate([
             'user_ids' => 'required|array|min:1|max:100',

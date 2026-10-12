@@ -3,26 +3,30 @@
 namespace App\Http\Controllers\Api\Traits;
 
 use App\Models\Application;
+use App\Models\User;
 
 trait FindsOrgScopedApplications
 {
-    /**
-     * Find application with organization scope enforcement
-     *
-     * This method ensures that non-super-admin users can only access
-     * applications within their own organization. This is critical for
-     * multi-tenant security and prevents OWASP A01:2021 - Broken Access Control.
-     */
-    protected function findApplicationWithOrgScope(string $id): Application
+    protected function findApplicationWithOrgScope(string $id, string $ability = 'view'): Application
     {
-        $query = Application::query();
+        $application = $this->orgScoped(Application::query(), auth()->user())->findOrFail($id);
 
-        // Enforce organization-based data isolation for non-super-admin users
-        $currentUser = auth()->user();
-        if (! $currentUser->isSuperAdmin()) {
-            $query->where('organization_id', $currentUser->organization_id);
+        $this->authorize($ability, $application);
+
+        return $application;
+    }
+
+    protected function findUserWithOrgScope(string $id): User
+    {
+        return $this->orgScoped(User::query(), auth()->user())->findOrFail($id);
+    }
+
+    private function orgScoped($query, User $caller)
+    {
+        if (! $caller->isSuperAdmin()) {
+            $query->whereNotNull('organization_id')->where('organization_id', $caller->organization_id);
         }
 
-        return $query->findOrFail($id);
+        return $query;
     }
 }

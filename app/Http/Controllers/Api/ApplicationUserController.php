@@ -26,8 +26,6 @@ class ApplicationUserController extends BaseController
      */
     public function users(string $id): JsonResponse
     {
-        $this->authorize('applications.read');
-
         $application = $this->findApplicationWithOrgScope($id);
         $users = $application->users()->withPivot(['granted_at', 'last_login_at', 'login_count'])->get();
 
@@ -50,9 +48,7 @@ class ApplicationUserController extends BaseController
      */
     public function grantUserAccess(Request $request, string $id): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
 
         $request->validate([
             'user_id' => [
@@ -87,9 +83,7 @@ class ApplicationUserController extends BaseController
      */
     public function revokeUserAccess(string $id, string $userId): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
         $user = User::where('organization_id', $application->organization_id)->findOrFail($userId);
 
         if (! $application->users()->where('user_id', $user->id)->exists()) {

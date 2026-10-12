@@ -33,7 +33,7 @@ class ApplicationController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('applications.read');
+        $this->authorize('viewAny', Application::class);
 
         $request->validate([
             'page' => 'sometimes|integer|min:1',
@@ -108,7 +108,7 @@ class ApplicationController extends BaseController
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('applications.create');
+        $this->authorize('create', Application::class);
 
         $caller = $request->user();
         abort_if(! $caller->isSuperAdmin() && $caller->organization_id === null, 403);
@@ -186,18 +186,7 @@ class ApplicationController extends BaseController
      */
     public function show(string $id): JsonResponse
     {
-        $this->authorize('applications.read');
-
-        $query = Application::with(['organization', 'users']);
-
-        // Enforce organization-based data isolation for non-super-admin users
-        $currentUser = auth()->user();
-        if (! $currentUser->isSuperAdmin()) {
-            $query->where('organization_id', $currentUser->organization_id);
-        }
-
-        /** @var Application $application */
-        $application = $query->findOrFail($id);
+        $application = $this->findApplicationWithOrgScope($id)->load(['organization', 'users']);
 
         return $this->successResponse($this->formatApplicationResponse($application, true));
     }
@@ -207,9 +196,7 @@ class ApplicationController extends BaseController
      */
     public function update(Request $request, string $id): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
 
         $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -267,9 +254,7 @@ class ApplicationController extends BaseController
      */
     public function destroy(string $id): JsonResponse
     {
-        $this->authorize('applications.delete');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'delete');
 
         // Revoke all tokens for this application
         Token::where('client_id', $application->passport_client_id)->delete();
@@ -288,9 +273,7 @@ class ApplicationController extends BaseController
      */
     public function regenerateCredentials(string $id): JsonResponse
     {
-        $this->authorize('applications.update');
-
-        $application = $this->findApplicationWithOrgScope($id);
+        $application = $this->findApplicationWithOrgScope($id, 'update');
 
         // Generate new credentials
         $newClientId = Str::uuid()->toString();
@@ -324,13 +307,12 @@ class ApplicationController extends BaseController
      */
     public function analytics(Request $request, string $id): JsonResponse
     {
-        $this->authorize('applications.read');
+        $application = $this->findApplicationWithOrgScope($id);
 
         $request->validate([
             'period' => 'sometimes|string|in:24h,7d,30d,90d',
         ]);
 
-        $application = $this->findApplicationWithOrgScope($id);
         $period = $request->input('period', '7d');
 
         // Calculate period start date

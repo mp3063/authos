@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\FindsOrgScopedApplications;
-use App\Models\Application;
 use App\Models\User;
+use App\Models\UserApplication;
 use App\Services\UserManagementService;
 use App\Services\UserRoleService;
 use Illuminate\Http\JsonResponse;
@@ -28,19 +28,11 @@ class UserApplicationController extends BaseController
      */
     public function applications(Request $request, string $id): JsonResponse
     {
-        $this->authorize('users.read');
-
-        // Enforce authorization BEFORE findOrFail to return 403 instead of 404
         $currentUser = auth()->user();
-        $user = User::find($id);
+        $user = $this->findUserWithOrgScope($id);
 
-        if (! $user) {
-            return $this->notFoundResponse('User not found');
-        }
-
-        // Users can only view their own applications unless they're admins
-        if ($user->id !== $currentUser->id && ! $currentUser->isSuperAdmin() && ! $currentUser->hasRole('Organization Admin')) {
-            return $this->errorResponse('Unauthorized to view other users\' applications', 403);
+        if ($user->id !== $currentUser->id) {
+            $this->authorize('create', UserApplication::class);
         }
 
         // Build query with pivot data
@@ -112,7 +104,7 @@ class UserApplicationController extends BaseController
      */
     public function grantApplicationAccess(Request $request, string $id): JsonResponse
     {
-        $this->authorize('users.update');
+        $this->authorize('create', UserApplication::class);
 
         // Handle bulk operations
         if ($request->boolean('bulk') && $request->has('user_ids')) {
@@ -127,11 +119,10 @@ class UserApplicationController extends BaseController
 
         $this->assertPermissionsWithinCallerGrants($request->permissions);
 
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
         $currentUser = auth()->user();
 
-        // Verify application belongs to same organization
-        $application = Application::findOrFail($request->application_id);
+        $application = $this->findApplicationWithOrgScope((string) $request->application_id, 'update');
         if ($application->organization_id !== $user->organization_id) {
             return $this->errorResponse('Application does not belong to user\'s organization', 403);
         }
@@ -166,7 +157,7 @@ class UserApplicationController extends BaseController
         $this->assertPermissionsWithinCallerGrants($request->permissions);
 
         $currentUser = auth()->user();
-        $application = $this->findApplicationWithOrgScope((string) $request->application_id);
+        $application = $this->findApplicationWithOrgScope((string) $request->application_id, 'update');
 
         $users = User::whereIn('id', $request->user_ids)
             ->where('organization_id', $application->organization_id)
@@ -189,15 +180,17 @@ class UserApplicationController extends BaseController
      */
     public function revokeApplicationAccess(Request $request, string $id, string $applicationId): JsonResponse
     {
-        $this->authorize('users.update');
+        $this->authorize('create', UserApplication::class);
 
         // Handle bulk operations
         if ($request->boolean('bulk') && $request->has('user_ids')) {
             return $this->bulkRevokeApplicationAccess($request, $applicationId);
         }
 
-        $user = User::findOrFail($id);
+        $user = $this->findUserWithOrgScope($id);
         $currentUser = auth()->user();
+
+        $this->findApplicationWithOrgScope($applicationId, 'update');
 
         $revoked = $this->userManagementService->revokeApplicationAccess(
             $user,
@@ -223,6 +216,7 @@ class UserApplicationController extends BaseController
         ]);
 
         $currentUser = auth()->user();
+        $this->findApplicationWithOrgScope($applicationId, 'update');
 
         $users = User::whereIn('id', $request->user_ids)
             ->when(! $currentUser->isSuperAdmin(), fn ($query) => $query

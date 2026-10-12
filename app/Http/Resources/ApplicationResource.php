@@ -33,9 +33,7 @@ class ApplicationResource extends JsonResource
 
             // Sensitive data only for authorized users
             'client_secret' => $this->when(
-                $request->user()?->hasRole('super-admin') ||
-                ($request->user()?->organization_id === $this->organization_id &&
-                 $request->user()?->can('applications.update')),
+                $request->user()?->can('update', $this->resource),
                 $this->client_secret
             ),
 
