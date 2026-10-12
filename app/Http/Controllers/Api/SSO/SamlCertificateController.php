@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\SSO;
 
 use App\Http\Controllers\Api\Traits\FindsOrgScopedSsoConfigurations;
 use App\Http\Controllers\Controller;
-use App\Models\SSOConfiguration;
 use App\Services\Saml\SamlCertificate;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +18,7 @@ class SamlCertificateController extends Controller
      */
     public function updateSamlCertificate(Request $request, int $configId): JsonResponse
     {
-        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.update');
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $configId, 'update');
 
         $request->validate([
             'x509_cert' => 'required|string',
@@ -55,7 +54,7 @@ class SamlCertificateController extends Controller
      */
     public function viewSamlCertificate(Request $request, int $configId): JsonResponse
     {
-        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.read');
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $configId, 'view');
 
         try {
             $configuration = $ssoConfig->configuration ?? [];
@@ -97,7 +96,7 @@ class SamlCertificateController extends Controller
      */
     public function rotateSamlCertificate(Request $request, int $configId): JsonResponse
     {
-        $ssoConfig = $this->findAuthorizedConfiguration($request, $configId, 'applications.update');
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $configId, 'update');
 
         $request->validate([
             'new_x509_cert' => 'required|string',
@@ -131,14 +130,5 @@ class SamlCertificateController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
-    }
-
-    private function findAuthorizedConfiguration(Request $request, int $configId, string $permission): SSOConfiguration
-    {
-        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $configId);
-
-        $this->authorize($permission);
-
-        return $ssoConfig;
     }
 }

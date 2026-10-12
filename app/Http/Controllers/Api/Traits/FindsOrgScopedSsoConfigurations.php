@@ -7,13 +7,19 @@ use App\Models\User;
 
 trait FindsOrgScopedSsoConfigurations
 {
-    protected function findOrgScopedSsoConfiguration(User $user, int $configId): SSOConfiguration
+    protected function findOrgScopedSsoConfiguration(User $user, int $configId, string $ability): SSOConfiguration
     {
-        return SSOConfiguration::query()
+        $ssoConfig = SSOConfiguration::query()
             ->when(! $user->isSuperAdmin(), fn ($query) => $query->whereHas(
                 'application',
-                fn ($applicationQuery) => $applicationQuery->where('organization_id', $user->organization_id)
+                fn ($applicationQuery) => $applicationQuery
+                    ->whereNotNull('organization_id')
+                    ->where('organization_id', $user->organization_id)
             ))
             ->findOrFail($configId);
+
+        $this->authorize($ability, $ssoConfig);
+
+        return $ssoConfig;
     }
 }

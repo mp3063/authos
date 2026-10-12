@@ -55,7 +55,7 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
     #[Test]
     public function it_rejects_creating_a_configuration_for_another_organizations_application_with_422(): void
     {
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $foreignApplication = $this->createOAuthApplication();
 
         $response = $this->actingAsApiUserWithToken($admin, ['sso'])
@@ -109,9 +109,9 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function it_lets_an_organization_admin_update_their_configuration(): void
+    public function it_lets_an_organization_owner_update_their_configuration(): void
     {
-        $admin = $this->createApiOrganizationAdmin();
+        $admin = $this->createApiOrganizationOwner();
         $config = $this->createSsoConfiguration($admin);
 
         $response = $this->actingAsApiUserWithToken($admin, ['sso'])

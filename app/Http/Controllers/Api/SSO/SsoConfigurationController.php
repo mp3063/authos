@@ -20,18 +20,10 @@ class SsoConfigurationController extends Controller
      */
     public function getSSOConfiguration(Request $request, int $organizationId): JsonResponse
     {
-        $this->authorize('applications.read');
+        $this->authorize('viewAny', SSOConfiguration::class);
+        $this->authorize('view', Organization::findOrFail($organizationId));
 
         try {
-            // Check if user belongs to the organization or is super admin
-            $user = $request->user();
-            if ($user->organization_id !== $organizationId && ! $user->isSuperAdmin()) {
-                return response()->json([
-                    'message' => 'Insufficient permissions',
-                ], 403);
-            }
-
-            Organization::findOrFail($organizationId);
 
             // Get active SSO configuration for the organization
             $ssoConfig = SSOConfiguration::whereHas('application', function ($query) use ($organizationId) {
@@ -74,7 +66,7 @@ class SsoConfigurationController extends Controller
      */
     public function createSSOConfiguration(Request $request): JsonResponse
     {
-        $this->authorize('applications.update');
+        $this->authorize('create', SSOConfiguration::class);
 
         $user = $request->user();
 
@@ -122,7 +114,7 @@ class SsoConfigurationController extends Controller
      */
     public function updateSSOConfiguration(Request $request, int $id): JsonResponse
     {
-        $this->authorize('applications.update');
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id, 'update');
 
         $validated = $request->validate([
             'logout_url' => 'sometimes|url',
@@ -134,7 +126,6 @@ class SsoConfigurationController extends Controller
         ]);
 
         try {
-            $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id);
             $ssoConfig->update($validated);
 
             return response()->json([
@@ -162,10 +153,9 @@ class SsoConfigurationController extends Controller
      */
     public function deleteSSOConfiguration(Request $request, int $id): JsonResponse
     {
-        $this->authorize('applications.delete');
+        $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id, 'delete');
 
         try {
-            $ssoConfig = $this->findOrgScopedSsoConfiguration($request->user(), $id);
             $ssoConfig->delete();
 
             return response()->json([
