@@ -68,16 +68,6 @@ class AuditExport extends Model
     }
 
     /**
-     * Get download URL
-     */
-    public function getDownloadUrlAttribute(): ?string
-    {
-        return $this->file_path && $this->isCompleted()
-            ? asset('storage/'.$this->file_path)
-            : null;
-    }
-
-    /**
      * Scope: Completed exports
      */
     public function scopeCompleted($query)

@@ -19,6 +19,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
 class AuditExportResource extends Resource
@@ -140,9 +142,8 @@ class AuditExportResource extends Resource
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
-                ->url(fn (AuditExport $record): ?string => $record->download_url)
-                ->openUrlInNewTab()
-                ->visible(fn (AuditExport $record): bool => $record->isCompleted() && ! empty($record->file_path)),
+                ->visible(fn (AuditExport $record): bool => $record->isCompleted() && ! empty($record->file_path))
+                ->action(fn (AuditExport $record): StreamedResponse => Storage::disk('local')->download($record->file_path)),
 
             DeleteAction::make(),
         ])->defaultSort('created_at', 'desc')->striped();

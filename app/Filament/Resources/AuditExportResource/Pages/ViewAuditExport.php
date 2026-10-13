@@ -10,6 +10,8 @@ use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ViewAuditExport extends ViewRecord
 {
@@ -23,9 +25,8 @@ class ViewAuditExport extends ViewRecord
                 ->label('Download Export')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
-                ->url(fn (AuditExport $record): ?string => $record->download_url)
-                ->openUrlInNewTab()
-                ->visible(fn (AuditExport $record): bool => $record->isCompleted() && ! empty($record->file_path)),
+                ->visible(fn (AuditExport $record): bool => $record->isCompleted() && ! empty($record->file_path))
+                ->action(fn (AuditExport $record): StreamedResponse => Storage::disk('local')->download($record->file_path)),
         ];
     }
 
@@ -135,13 +136,6 @@ class ViewAuditExport extends ViewRecord
                     TextEntry::make('file_path')
                         ->label('File Path')
                         ->placeholder('No file available'),
-
-                    TextEntry::make('download_url')
-                        ->label('Download Link')
-                        ->url(fn ($record) => $record->download_url)
-                        ->openUrlInNewTab()
-                        ->placeholder('Not available')
-                        ->visible(fn ($record) => $record->isCompleted() && ! empty($record->file_path)),
                 ])
                 ->collapsible()
                 ->visible(fn ($record) => $record->isCompleted() && ! empty($record->file_path))
