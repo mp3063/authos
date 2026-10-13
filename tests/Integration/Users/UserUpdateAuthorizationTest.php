@@ -2,6 +2,7 @@
 
 namespace Tests\Integration\Users;
 
+use App\Http\Middleware\EnforceOrganizationBoundary;
 use App\Models\CustomRole;
 use Illuminate\Support\Facades\Hash;
 use PHPUnit\Framework\Attributes\Test;
@@ -110,5 +111,41 @@ class UserUpdateAuthorizationTest extends IntegrationTestCase
 
         $response->assertForbidden();
         $this->assertSame($originalEmail, $superAdmin->fresh()->email);
+    }
+
+    #[Test]
+    public function a_user_without_users_update_can_update_their_own_profile_as_the_policy_allows(): void
+    {
+        $member = $this->createApiUser();
+
+        $response = $this->actingAsApiUserWithToken($member)
+            ->putJson("/api/v1/users/{$member->id}", ['name' => 'Renamed Self']);
+
+        $response->assertOk();
+        $this->assertSame('Renamed Self', $member->fresh()->name);
+    }
+
+    #[Test]
+    public function an_organization_admin_gets_403_before_422_for_a_target_they_may_not_update(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $owner = $this->createUser(['organization_id' => $admin->organization_id], 'Organization Owner', 'api');
+
+        $this->actingAsApiUserWithToken($admin)
+            ->putJson("/api/v1/users/{$owner->id}", ['email' => 'not-an-email'])
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function an_organization_admin_gets_404_before_422_for_another_organizations_user(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $foreign = $this->createApiUser();
+        $this->actingAsApiUserWithToken($admin);
+
+        $this->putJson("/api/v1/users/{$foreign->id}", ['email' => 'not-an-email'])->assertNotFound();
+        $this->withoutMiddleware(EnforceOrganizationBoundary::class)
+            ->putJson("/api/v1/users/{$foreign->id}", ['email' => 'not-an-email'])
+            ->assertNotFound();
     }
 }

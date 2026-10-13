@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -15,7 +16,17 @@ class UpdateUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('users.update');
+        $caller = $this->user();
+        $targetId = (string) $this->route('id');
+        $target = (string) $caller->id === $targetId
+            ? $caller
+            : User::query()
+                ->when(! $caller->isSuperAdmin(), fn ($query) => $query
+                    ->whereNotNull('organization_id')
+                    ->where('organization_id', $caller->organization_id))
+                ->findOrFail($targetId);
+
+        return $caller->can('update', $target);
     }
 
     /**
