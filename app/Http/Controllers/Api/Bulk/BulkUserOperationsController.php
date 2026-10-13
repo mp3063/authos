@@ -45,6 +45,8 @@ class BulkUserOperationsController extends BaseController
             'invitations' => 'required_without:emails|array|min:1|max:100',
             'invitations.*.email' => 'required_with:invitations|email|max:255',
             'invitations.*.role' => 'sometimes|string|max:255',
+            'invitations.*.custom_role_id' => 'nullable|integer',
+            'invitations.*.expires_in_days' => 'sometimes|integer|min:1|max:30',
             'emails' => 'required_without:invitations|array|min:1|max:100',
             'emails.*' => 'required_with:emails|email|max:255',
             'role' => 'sometimes|string|max:255',
@@ -354,6 +356,7 @@ class BulkUserOperationsController extends BaseController
 
             $customRole = CustomRole::where('id', $invitation['custom_role_id'])
                 ->where('organization_id', $organization->id)
+                ->active()
                 ->first();
 
             if ($customRole && $this->userRoleService->exceedsPermissionsOf($caller, collect($customRole->permissions ?? []))) {
