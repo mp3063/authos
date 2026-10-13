@@ -185,6 +185,49 @@ class UserRoleAssignmentTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function an_organization_admin_cannot_bulk_assign_a_role_to_an_owner(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $owner = $this->createUser(['organization_id' => $admin->organization_id], 'Organization Owner', 'api');
+        $member = $this->createApiUser(['organization_id' => $admin->organization_id]);
+        $this->setupRoleWithPermissions('Organization Member', 'api', $admin->organization_id);
+        $this->actingAsApiUserWithToken($admin);
+
+        $response = $this->postJson("/api/v1/organizations/{$admin->organization_id}/bulk/assign-roles", [
+            'user_ids' => [$owner->id, $member->id],
+            'role' => 'Organization Member',
+            'action' => 'assign',
+        ]);
+
+        $response->assertOk();
+        $this->assertSame([$owner->id], array_column($response->json('data.failed'), 'user_id'));
+        $this->assertTrue($this->assignedRolesNamed($owner, 'Organization Member')->isEmpty());
+        $this->assertCount(1, $this->assignedRolesNamed($member, 'Organization Member'));
+    }
+
+    #[Test]
+    public function an_organization_admin_cannot_bulk_revoke_a_role_from_an_owner(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $owner = $this->createUser(['organization_id' => $admin->organization_id], 'Organization Owner', 'api');
+        $userRole = $this->apiRole('User', $admin->organization_id);
+        app(UserRoleService::class)->assignRole($owner, (string) $userRole->id);
+        $before = app(UserRoleService::class)->assignedRoleIds($owner)->sort()->values()->all();
+        $this->actingAsApiUserWithToken($admin);
+
+        $response = $this->postJson("/api/v1/organizations/{$admin->organization_id}/bulk/assign-roles", [
+            'user_ids' => [$owner->id],
+            'role' => 'User',
+            'action' => 'revoke',
+        ]);
+
+        $response->assertOk();
+        $this->assertSame([$owner->id], array_column($response->json('data.failed'), 'user_id'));
+        $this->assertSame($before, app(UserRoleService::class)->assignedRoleIds($owner)->sort()->values()->all());
+        $this->assertCount(1, $this->assignedRolesNamed($owner, 'User'));
+    }
+
+    #[Test]
     public function an_organization_admin_can_replace_a_members_roles_with_api_roles_of_their_organization(): void
     {
         $admin = $this->createApiOrganizationAdmin();

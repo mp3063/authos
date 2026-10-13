@@ -150,6 +150,8 @@ class BulkUserOperationsController extends BaseController
             return $this->forbiddenResponse($denial);
         }
 
+        [$users, $protectedUsers] = $users->partition(fn (User $user) => $request->user()->can('update', $user));
+
         try {
             if (empty($validUserIds)) {
                 // All users are invalid
@@ -173,7 +175,7 @@ class BulkUserOperationsController extends BaseController
             $standardRoles = $request->has('role') ? [$request->input('role')] : [];
 
             $result = $this->bulkOperationService->bulkAssignOrRevokeRoles(
-                $validUserIds,
+                $users->modelKeys(),
                 $standardRoles, // standard roles from 'role' input
                 $customRoleIds, // custom role IDs
                 $action,
@@ -184,6 +186,10 @@ class BulkUserOperationsController extends BaseController
             // The service returns the result directly, not wrapped in success/data structure
             $successful = $result['successful'] ?? [];
             $failed = $result['failed'] ?? [];
+
+            foreach ($protectedUsers as $protectedUser) {
+                $failed[] = ['user_id' => $protectedUser->id, 'reason' => 'You are not allowed to change this user\'s roles.'];
+            }
 
             // Add invalid users to failed list
             foreach ($invalidUserIds as $invalidId) {
