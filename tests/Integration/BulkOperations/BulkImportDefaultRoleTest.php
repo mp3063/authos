@@ -59,6 +59,21 @@ class BulkImportDefaultRoleTest extends IntegrationTestCase
 
         Queue::assertNothingPushed();
         $this->assertSame(0, BulkImportJob::count());
+
+        $syncPayloads = [
+            'default_role' => ['default_role' => 'Organization Owner'],
+            'options.default_role' => ['options' => ['default_role' => 'Organization Owner']],
+        ];
+        foreach ($syncPayloads as $field => $payload) {
+            $this->actingAs($admin, 'api')
+                ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", $payload + [
+                    'file' => $this->csv(['first@example.com'], 'Password123!'),
+                ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
+
+        $this->assertDatabaseMissing('users', ['email' => 'first@example.com']);
     }
 
     #[Test]
@@ -72,7 +87,7 @@ class BulkImportDefaultRoleTest extends IntegrationTestCase
         $importJob->refresh();
         $this->assertSame(1, $importJob->failed_records);
         $this->assertSame(0, $importJob->successful_records);
-        $this->assertNotEmpty($importJob->errors);
+        $this->assertSame(["You cannot grant the role 'Organization Owner'"], $importJob->errors[0]['errors']);
         $this->assertDatabaseMissing('users', ['email' => 'imported@example.com']);
     }
 

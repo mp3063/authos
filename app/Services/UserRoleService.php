@@ -172,9 +172,19 @@ class UserRoleService
 
     public function canGrantRoleNamed(User $caller, ?int $organizationId, string $name): bool
     {
-        $role = $this->findAssignableRole($caller, $organizationId, $name);
+        return $this->grantableRole($caller, $organizationId, $name) !== null;
+    }
 
-        return $role !== null && $this->roleChangeDenial($caller, null, new EloquentCollection([$role])) === null;
+    /**
+     * The role with this name that the caller may grant to a new member of the organization, if any.
+     */
+    public function grantableRole(User $caller, ?int $organizationId, string $name, ?string $guard = null): ?Role
+    {
+        $role = $this->findAssignableRole($caller, $organizationId, $name, $guard);
+
+        return $role !== null && $this->roleChangeDenial($caller, null, new EloquentCollection([$role])) === null
+            ? $role
+            : null;
     }
 
     /**

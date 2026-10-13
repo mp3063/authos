@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\User;
 use App\Services\BulkUserDataService;
 use App\Services\UserRoleService;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -98,19 +99,29 @@ class BulkDataController extends BaseController
             $this->authorize('updateAny', User::class);
         }
 
-        $assignableRole = $this->userRoleService->assignableRoleRule($request->user(), $organization->id, 'name');
+        $defaultRoleRules = [
+            'bail',
+            'sometimes',
+            'string',
+            $this->userRoleService->assignableRoleRule($request->user(), $organization->id, 'name'),
+            function (string $attribute, mixed $value, Closure $fail) use ($request, $organization): void {
+                if (! $this->userRoleService->canGrantRoleNamed($request->user(), $organization->id, $value)) {
+                    $fail('You cannot grant the specified default role');
+                }
+            },
+        ];
 
         $request->validate([
             'file' => 'required|file|mimes:csv,xlsx,json|max:10240',
             'format' => 'sometimes|string|in:csv,xlsx,json',
             'send_invitations' => 'sometimes|boolean',
-            'default_role' => ['sometimes', 'string', $assignableRole],
+            'default_role' => $defaultRoleRules,
             'skip_duplicates' => 'sometimes|boolean',
             'update_existing' => 'sometimes|boolean',
             'invite_expires_in_days' => 'sometimes|integer|min:1|max:30',
             'options' => 'sometimes|array',
             'options.send_invitations' => 'sometimes|boolean',
-            'options.default_role' => ['sometimes', 'string', $assignableRole],
+            'options.default_role' => $defaultRoleRules,
             'options.skip_duplicates' => 'sometimes|boolean',
             'options.update_existing' => 'sometimes|boolean',
             'mapping' => 'sometimes|array',

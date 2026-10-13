@@ -11,7 +11,6 @@ use App\Services\BulkImport\ImportValidator;
 use App\Services\UserRoleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -305,12 +304,8 @@ class ProcessBulkImportJob implements ShouldQueue
             return null;
         }
 
-        $userRoles = app(UserRoleService::class);
-        $role = $userRoles->findAssignableRole($creator, $this->importJob->organization_id, $name);
-
-        return $role !== null && $userRoles->roleChangeDenial($creator, null, new EloquentCollection([$role])) === null
-            ? $role
-            : null;
+        return app(UserRoleService::class)
+            ->grantableRole($creator, $this->importJob->organization_id, $name, (new User)->getDefaultGuardName());
     }
 
     /**
