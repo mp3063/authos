@@ -95,11 +95,6 @@ class InvitationService
         return $invitation;
     }
 
-    public function acceptInvitation(string $token, array $userData): User
-    {
-        return $this->acceptance->acceptAsNewUser($token, $userData);
-    }
-
     /**
      * Accept an invitation for an existing authenticated user
      */

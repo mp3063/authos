@@ -9,10 +9,7 @@ use App\Models\AuditExport;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\OrganizationBranding;
-use App\Models\Role;
 use App\Models\User;
-use App\Services\InvitationService;
-use App\Services\UserRoleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -274,29 +271,6 @@ class OrganizationEndpointsAuthorizationTest extends TestCase
 
         $this->getJson("/api/v1/organizations/{$this->organization->id}/exports/{$export->id}")->assertOk();
         $this->get($this->downloadUrl($export))->assertOk();
-    }
-
-    #[Test]
-    public function a_new_user_accepting_an_invitation_gets_the_invited_role_without_an_ambient_team(): void
-    {
-        $inviter = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'web');
-        $role = Role::where('name', 'Organization Admin')
-            ->where('guard_name', 'web')
-            ->where('organization_id', $this->organization->id)
-            ->firstOrFail();
-        $invitation = Invitation::factory()->create([
-            'organization_id' => $this->organization->id,
-            'inviter_id' => $inviter->id,
-            'role' => 'Organization Admin',
-        ]);
-        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
-
-        $user = app(InvitationService::class)->acceptInvitation($invitation->token, [
-            'name' => 'Invited',
-            'password' => 'password123',
-        ]);
-
-        $this->assertSame([$role->id], app(UserRoleService::class)->assignedRoleIds($user)->all());
     }
 
     private function completedExport(array $filters): AuditExport

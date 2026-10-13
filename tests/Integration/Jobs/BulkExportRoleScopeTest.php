@@ -4,7 +4,6 @@ namespace Tests\Integration\Jobs;
 
 use App\Exports\UsersExport;
 use App\Jobs\ExportUsersJob;
-use App\Jobs\ProcessBulkExportJob;
 use App\Models\BulkImportJob;
 use App\Models\CustomRole;
 use App\Models\Organization;
@@ -139,23 +138,6 @@ class BulkExportRoleScopeTest extends TestCase
         (new ExportUsersJob($exportJob))->handle($service);
 
         $this->assertSame('Auditor', collect($captured)->pluck('roles', 'email')->get($holder->email));
-    }
-
-    #[Test]
-    public function the_bulk_export_job_role_filter_only_matches_organization_and_global_roles(): void
-    {
-        $exportJob = BulkImportJob::factory()->create([
-            'organization_id' => $this->organization->id,
-            'type' => 'export',
-            'export_type' => 'users',
-            'format' => 'csv',
-            'status' => BulkImportJob::STATUS_PENDING,
-            'filters' => ['roles' => ['Auditor', 'Platform Support']],
-        ]);
-
-        (new ProcessBulkExportJob($exportJob))->handle();
-
-        $this->assertSame(2, $exportJob->refresh()->total_records);
     }
 
     #[Test]

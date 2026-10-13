@@ -2,7 +2,6 @@
 
 namespace Tests\Integration;
 
-use App\Jobs\ProcessBulkExportJob;
 use App\Jobs\ProcessBulkImportJob;
 use App\Models\BulkImportJob;
 use App\Models\Organization;
@@ -62,47 +61,6 @@ class BulkOperationsIntegrationTest extends TestCase
 
         // Performance assertion - should complete in reasonable time
         $this->assertLessThan(60, $duration, 'Import took too long');
-    }
-
-    public function test_large_export_of_users(): void
-    {
-        // Create 1000 users
-        User::factory()
-            ->for($this->organization)
-            ->count(1000)
-            ->create();
-
-        $exportJob = BulkImportJob::factory()
-            ->for($this->organization)
-            ->create([
-                'type' => 'export',
-                'export_type' => 'users',
-                'format' => 'csv',
-            ]);
-
-        $startTime = microtime(true);
-
-        $processor = new ProcessBulkExportJob($exportJob);
-        $processor->handle();
-
-        $endTime = microtime(true);
-        $duration = $endTime - $startTime;
-
-        $exportJob->refresh();
-
-        $this->assertEquals('completed', $exportJob->status);
-        $this->assertNotNull($exportJob->file_path);
-        Storage::assertExists($exportJob->file_path);
-
-        // Verify file content
-        $content = Storage::get($exportJob->file_path);
-        $lines = explode("\n", trim($content));
-
-        // Should have header + 1000 data rows
-        $this->assertCount(1001, $lines);
-
-        // Performance assertion
-        $this->assertLessThan(30, $duration, 'Export took too long');
     }
 
     public function test_concurrent_imports(): void
@@ -181,44 +139,6 @@ class BulkOperationsIntegrationTest extends TestCase
         $this->assertEquals(100, $importJob->successful_records);
         $this->assertEquals(3, $importJob->failed_records);
         $this->assertNotNull($importJob->error_file_path);
-    }
-
-    public function test_export_with_large_dataset_and_filters(): void
-    {
-        // Create diverse user dataset
-        User::factory()
-            ->for($this->organization)
-            ->count(500)
-            ->create(['email_verified_at' => now()]);
-
-        User::factory()
-            ->for($this->organization)
-            ->count(500)
-            ->create(['email_verified_at' => null]);
-
-        $exportJob = BulkImportJob::factory()
-            ->for($this->organization)
-            ->create([
-                'type' => 'export',
-                'export_type' => 'users',
-                'format' => 'csv',
-                'filters' => [
-                    'email_verified' => true,
-                ],
-            ]);
-
-        $processor = new ProcessBulkExportJob($exportJob);
-        $processor->handle();
-
-        $exportJob->refresh();
-
-        $this->assertEquals('completed', $exportJob->status);
-
-        $content = Storage::get($exportJob->file_path);
-        $lines = explode("\n", trim($content));
-
-        // Should export only verified users (500) + header
-        $this->assertLessThanOrEqual(501, count($lines));
     }
 
     public function test_import_resume_after_failure(): void

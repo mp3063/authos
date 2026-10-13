@@ -14,39 +14,6 @@ class InvitationAcceptanceService
 {
     public function __construct(protected UserRoleService $userRoles) {}
 
-    public function acceptAsNewUser(string $token, array $userData): User
-    {
-        $invitation = Invitation::where('token', $token)->first();
-
-        if (! $invitation) {
-            throw new Exception('Invalid or expired invitation');
-        }
-
-        if (! $invitation->isPending()) {
-            throw new Exception($invitation->isExpired() ? 'Invalid or expired invitation' : 'Invitation has already been accepted');
-        }
-
-        return DB::transaction(function () use ($invitation, $userData) {
-            // Create new user with invitation email and provided data
-            $user = User::create([
-                'name' => $userData['name'],
-                'email' => $invitation->email,
-                'password' => bcrypt($userData['password']),
-                'organization_id' => $invitation->organization_id,
-                'email_verified_at' => now(),
-            ]);
-
-            // Accept the invitation
-            $invitation->accept($user);
-
-            $this->assignInvitedRole($user, $invitation);
-
-            $this->notifyInviter($invitation, $user);
-
-            return $user;
-        });
-    }
-
     /**
      * Accept an invitation for an existing authenticated user
      */

@@ -84,13 +84,9 @@ class EmailNotificationTest extends TestCase
             ->withRole('user')
             ->create();
 
-        $acceptedBy = User::factory()->create();
+        $acceptedBy = User::factory()->forOrganization($this->organization)->create(['email' => $invitation->email]);
 
-        $this->invitationService->acceptInvitation($invitation->token, [
-            'name' => 'New User',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ]);
+        $this->invitationService->acceptInvitationAsExistingUser($invitation->token, $acceptedBy);
 
         Mail::assertQueued(InvitationAccepted::class, function ($mail) {
             return $mail->hasTo($this->inviter->email) &&
