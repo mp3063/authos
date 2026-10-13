@@ -765,4 +765,38 @@ admin,admin@test.com,login');
         // ASSERT: No export created
         $this->assertDatabaseCount('audit_exports', 0);
     }
+
+    #[Test]
+    public function a_super_admin_without_an_organization_must_name_the_organization_to_export_and_list(): void
+    {
+        $organization = $this->createOrganization();
+        $superAdmin = $this->createApiSuperAdmin();
+        $superAdmin->update(['organization_id' => null]);
+        $this->actingAsApiUserWithToken($superAdmin, ['enterprise.audit.manage', 'enterprise.audit.read']);
+        $payload = [
+            'format' => 'csv',
+            'start_date' => now()->subDays(7)->toDateString(),
+            'end_date' => now()->toDateString(),
+        ];
+
+        $this->postJson('/api/v1/enterprise/audit/export', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('organization_id');
+        $this->postJson('/api/v1/enterprise/audit/export', $payload + ['organization_id' => $organization->id + 1000])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('organization_id');
+        $this->getJson('/api/v1/enterprise/audit/exports')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('organization_id');
+        $this->assertDatabaseCount('audit_exports', 0);
+
+        $exportId = $this->postJson('/api/v1/enterprise/audit/export', $payload + ['organization_id' => $organization->id])
+            ->assertCreated()
+            ->json('data.export.id');
+
+        $this->assertSame($organization->id, AuditExport::findOrFail($exportId)->organization_id);
+        $this->getJson("/api/v1/enterprise/audit/exports?organization_id={$organization->id}")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $exportId);
+    }
 }

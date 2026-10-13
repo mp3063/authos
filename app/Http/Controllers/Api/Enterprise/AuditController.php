@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Enterprise;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\AuditExport;
+use App\Models\Organization;
 use App\Services\AuditExportService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditController extends BaseController
@@ -34,6 +36,7 @@ class AuditController extends BaseController
             'event_types' => ['nullable', 'array'],
             'event_types.*' => ['string'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'organization_id' => $this->organizationInputRules($request),
         ]);
 
         try {
@@ -44,8 +47,10 @@ class AuditController extends BaseController
                 return $this->forbiddenResponse('You do not have permission to create audit exports');
             }
 
+            $organizationId = $user->organization_id ?? $request->integer('organization_id');
+
             // Check if feature is enabled
-            $organization = $user->organization;
+            $organization = Organization::find($organizationId);
             if (! ($organization->settings['enterprise_features']['audit_exports_enabled'] ?? true)) {
                 return response()->json([
                     'success' => false,
@@ -62,7 +67,7 @@ class AuditController extends BaseController
             ];
 
             $export = $this->auditService->createExportAsync(
-                $user->organization_id,
+                $organizationId,
                 $user->id,
                 $filters,
                 $request->input('format')
@@ -89,6 +94,8 @@ class AuditController extends BaseController
     {
         $this->authorize('viewAny', AuditExport::class);
 
+        $request->validate(['organization_id' => $this->organizationInputRules($request)]);
+
         try {
             $user = $this->getAuthenticatedUser();
 
@@ -98,7 +105,7 @@ class AuditController extends BaseController
             }
 
             $exports = $this->auditService->getExports(
-                $user->organization_id,
+                $user->organization_id ?? $request->integer('organization_id'),
                 $request->input('per_page', 15)
             );
 
@@ -123,6 +130,11 @@ class AuditController extends BaseController
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    private function organizationInputRules(Request $request): array
+    {
+        return [Rule::excludeIf($request->user()->organization_id !== null), 'required', 'integer', 'exists:organizations,id'];
     }
 
     public function download(int $exportId): StreamedResponse|JsonResponse
