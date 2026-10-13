@@ -114,15 +114,16 @@ class UserUpdateAuthorizationTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function a_user_without_users_update_can_update_their_own_profile_as_the_policy_allows(): void
+    public function a_user_without_users_update_cannot_change_their_own_email_through_the_admin_endpoint_with_403(): void
     {
         $member = $this->createApiUser();
+        $originalEmail = $member->email;
 
         $response = $this->actingAsApiUserWithToken($member)
-            ->putJson("/api/v1/users/{$member->id}", ['name' => 'Renamed Self']);
+            ->putJson("/api/v1/users/{$member->id}", ['email' => 'unverified@example.com']);
 
-        $response->assertOk();
-        $this->assertSame('Renamed Self', $member->fresh()->name);
+        $response->assertForbidden();
+        $this->assertSame($originalEmail, $member->fresh()->email);
     }
 
     #[Test]

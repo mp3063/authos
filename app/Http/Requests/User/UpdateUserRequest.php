@@ -18,13 +18,15 @@ class UpdateUserRequest extends FormRequest
     {
         $caller = $this->user();
         $targetId = (string) $this->route('id');
-        $target = (string) $caller->id === $targetId
-            ? $caller
-            : User::query()
-                ->when(! $caller->isSuperAdmin(), fn ($query) => $query
-                    ->whereNotNull('organization_id')
-                    ->where('organization_id', $caller->organization_id))
-                ->findOrFail($targetId);
+        if ((string) $caller->id === $targetId) {
+            return $caller->hasOrganizationPermission('users.update');
+        }
+
+        $target = User::query()
+            ->when(! $caller->isSuperAdmin(), fn ($query) => $query
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $caller->organization_id))
+            ->findOrFail($targetId);
 
         return $caller->can('update', $target);
     }
