@@ -7,6 +7,7 @@ use App\Filament\Resources\BulkImportJobResource\Pages\ViewBulkImportJob;
 use App\Filament\Resources\MigrationJobResource\Pages\ListMigrationJobs;
 use App\Filament\Resources\MigrationJobResource\Pages\ViewMigrationJob;
 use App\Jobs\ProcessAuth0MigrationJob;
+use App\Models\AuthenticationLog;
 use App\Models\BulkImportJob;
 use App\Models\MigrationJob;
 use App\Models\Organization;
@@ -188,5 +189,28 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
         $this->assertNull(User::withTrashed()->find($imported->id));
         $this->assertSame(2, MigrationJob::where('organization_id', $this->organization->id)->count());
         Queue::assertPushed(ProcessAuth0MigrationJob::class);
+    }
+
+    #[Test]
+    public function it_reports_a_failed_rollback_and_deletes_nothing(): void
+    {
+        $this->actingAs($this->createSuperAdmin());
+        $imported = User::factory()->create(['organization_id' => $this->organization->id]);
+        AuthenticationLog::factory()->create(['user_id' => $imported->id]);
+        $completed = MigrationJob::factory()->completed()->create([
+            'organization_id' => $this->organization->id,
+            'migrated_data' => ['created_ids' => ['organizations' => [], 'roles' => [], 'applications' => [], 'users' => [$imported->id]]],
+        ]);
+
+        Livewire::test(ListMigrationJobs::class)
+            ->callTableAction('rollback', $completed)
+            ->assertNotified('Rollback failed');
+
+        Livewire::test(ViewMigrationJob::class, ['record' => $completed->getRouteKey()])
+            ->callAction('rollback')
+            ->assertNotified('Rollback failed');
+
+        $this->assertSame('completed', $completed->fresh()->status);
+        $this->assertNotNull(User::find($imported->id));
     }
 }

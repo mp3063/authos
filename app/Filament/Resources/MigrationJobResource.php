@@ -20,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use UnitEnum;
 
 class MigrationJobResource extends Resource
@@ -185,7 +186,17 @@ class MigrationJobResource extends Resource
                 ->modalHeading('Rollback Migration')
                 ->modalDescription('Are you sure you want to rollback this migration? This will permanently delete the users, applications and roles this migration created and cannot be undone.')
                 ->action(function (MigrationJob $record) {
-                    $record->rollback();
+                    try {
+                        $record->rollback();
+                    } catch (QueryException) {
+                        Notification::make()
+                            ->title('Rollback failed')
+                            ->body("Migration #{$record->id} could not be rolled back because other records still reference what it created. Nothing was deleted.")
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
 
                     Notification::make()
                         ->title('Migration rolled back')

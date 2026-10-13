@@ -71,6 +71,18 @@ class MigrationRollbackTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_never_deletes_an_organization_on_rollback(): void
+    {
+        $recordedOrganization = Organization::factory()->create();
+        $job = $this->completedJobWithCreatedIds(['organizations' => [$recordedOrganization->id]]);
+
+        $job->rollback();
+
+        $this->assertNotNull(Organization::withTrashed()->find($recordedOrganization->id));
+        $this->assertSame('rolled_back', $job->fresh()->status);
+    }
+
+    #[Test]
     public function it_refuses_to_roll_back_a_job_without_recorded_ids(): void
     {
         User::factory()->count(2)->create(['organization_id' => $this->organization->id]);

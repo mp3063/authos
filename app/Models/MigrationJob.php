@@ -109,11 +109,6 @@ class MigrationJob extends Model
                 ->get()
                 ->each(fn (CustomRole $role) => $role->forceDelete());
 
-            Organization::withTrashed()
-                ->whereIn('id', $createdIds['organizations'] ?? [])
-                ->get()
-                ->each(fn (Organization $organization) => $organization->forceDelete());
-
             $this->update(['status' => 'rolled_back']);
         });
     }

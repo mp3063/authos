@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\QueryException;
 
 class ViewMigrationJob extends ViewRecord
 {
@@ -59,7 +60,17 @@ class ViewMigrationJob extends ViewRecord
                 ->modalHeading('Rollback Migration')
                 ->modalDescription('Are you sure you want to rollback this migration? This will permanently delete the users, applications and roles this migration created and cannot be undone.')
                 ->action(function () {
-                    $this->record->rollback();
+                    try {
+                        $this->record->rollback();
+                    } catch (QueryException) {
+                        Notification::make()
+                            ->title('Rollback failed')
+                            ->body("Migration #{$this->record->id} could not be rolled back because other records still reference what it created. Nothing was deleted.")
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
 
                     Notification::make()
                         ->title('Migration rolled back')
