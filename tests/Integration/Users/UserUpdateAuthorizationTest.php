@@ -149,4 +149,30 @@ class UserUpdateAuthorizationTest extends IntegrationTestCase
             ->putJson("/api/v1/users/{$foreign->id}", ['email' => 'not-an-email'])
             ->assertNotFound();
     }
+
+    #[Test]
+    public function a_user_without_users_update_cannot_change_their_own_email_through_a_zero_padded_id_with_403(): void
+    {
+        $member = $this->createApiUser();
+        $originalEmail = $member->email;
+
+        $response = $this->actingAsApiUserWithToken($member)
+            ->putJson("/api/v1/users/0{$member->id}", ['email' => 'unverified@example.com']);
+
+        $response->assertForbidden();
+        $this->assertSame($originalEmail, $member->fresh()->email);
+    }
+
+    #[Test]
+    public function an_organization_admin_can_resubmit_a_members_unchanged_email(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $member = $this->createApiUser(['organization_id' => $admin->organization_id]);
+        $this->actingAsApiUserWithToken($admin);
+
+        $this->putJson("/api/v1/users/{$member->id}", ['name' => 'Renamed', 'email' => $member->email])->assertOk();
+        $this->putJson("/api/v1/users/0{$member->id}", ['name' => 'Renamed Again', 'email' => $member->email])->assertOk();
+
+        $this->assertSame('Renamed Again', $member->fresh()->name);
+    }
 }

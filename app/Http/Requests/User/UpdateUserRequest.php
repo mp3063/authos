@@ -11,24 +11,32 @@ use Illuminate\Validation\Rules\Password;
 
 class UpdateUserRequest extends FormRequest
 {
+    private ?User $target = null;
+
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
         $caller = $this->user();
-        $targetId = (string) $this->route('id');
-        if ((string) $caller->id === $targetId) {
+        $target = $this->target();
+
+        if ($target->is($caller)) {
             return $caller->hasOrganizationPermission('users.update');
         }
 
-        $target = User::query()
+        return $caller->can('update', $target);
+    }
+
+    private function target(): User
+    {
+        $caller = $this->user();
+
+        return $this->target ??= User::query()
             ->when(! $caller->isSuperAdmin(), fn ($query) => $query
                 ->whereNotNull('organization_id')
                 ->where('organization_id', $caller->organization_id))
-            ->findOrFail($targetId);
-
-        return $caller->can('update', $target);
+            ->findOrFail($this->route('id'));
     }
 
     /**
@@ -36,7 +44,7 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->route('user');
+        $userId = $this->target()->id;
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
