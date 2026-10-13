@@ -31,7 +31,7 @@ class MigrationJobPolicy
      */
     public function create(User $user): bool
     {
-        return $this->permits($user, 'organizations.update', $user->organization_id);
+        return $user->isSuperAdmin();
     }
 
     /**
@@ -47,7 +47,7 @@ class MigrationJobPolicy
      */
     public function delete(User $user, MigrationJob $migrationJob): bool
     {
-        return $this->permits($user, 'organizations.update', $migrationJob->organization_id);
+        return $user->isSuperAdmin();
     }
 
     /**
@@ -55,7 +55,7 @@ class MigrationJobPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $this->permits($user, 'organizations.update', $user->organization_id);
+        return $user->isSuperAdmin();
     }
 
     /**

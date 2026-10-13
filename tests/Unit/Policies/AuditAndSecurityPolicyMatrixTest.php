@@ -155,10 +155,11 @@ class AuditAndSecurityPolicyMatrixTest extends TestCase
     public static function migrationJobMatrix(): array
     {
         return self::matrix([
-            'Organization Owner' => 'TTTTTTTF',
+            'Super Admin' => 'TTTTTTTT',
+            'Organization Owner' => 'TTFTFFFF',
             'Organization Admin' => 'TTFFFFFF',
             'User' => 'TTFFFFFF',
-        ], ['custom:organizations.update' => ['delete', true]]);
+        ], ['custom:organizations.update' => ['update', true]]);
     }
 
     public static function securityIncidentMatrix(): array

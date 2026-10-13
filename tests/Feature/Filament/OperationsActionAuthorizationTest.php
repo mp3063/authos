@@ -130,19 +130,52 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function an_owner_can_retry_and_start_migrations(): void
+    public function an_owner_can_retry_but_not_start_or_roll_back_migrations(): void
     {
         $this->actingAsRole('Organization Owner');
         Queue::fake();
+        $member = User::factory()->create(['organization_id' => $this->organization->id]);
         $failed = MigrationJob::factory()->failed()->create(['organization_id' => $this->organization->id]);
+        $completed = MigrationJob::factory()->completed()->create(['organization_id' => $this->organization->id]);
+
+        $list = Livewire::test(ListMigrationJobs::class)
+            ->assertActionHidden('new_migration')
+            ->assertTableActionHidden('rollback', $completed)
+            ->callTableAction('retry', $failed);
+        $this->forcePageAction($list, 'new_migration');
+        $this->forceTableAction($list, 'rollback', $completed);
+
+        $viewCompleted = Livewire::test(ViewMigrationJob::class, ['record' => $completed->getRouteKey()])->assertActionHidden('rollback');
+        $this->forcePageAction($viewCompleted, 'rollback');
+
+        $this->assertSame('pending', $failed->fresh()->status);
+        $this->assertSame('completed', $completed->fresh()->status);
+        $this->assertNotNull(User::find($member->id));
+        $this->assertSame(2, MigrationJob::count());
+        Queue::assertNothingPushed();
+    }
+
+    #[Test]
+    public function a_super_admin_can_start_and_roll_back_migrations(): void
+    {
+        $this->actingAs($this->createSuperAdmin());
+        Queue::fake();
+        $member = User::factory()->create(['organization_id' => $this->organization->id]);
+        $completed = MigrationJob::factory()->completed()->create(['organization_id' => $this->organization->id]);
 
         Livewire::test(ListMigrationJobs::class)
             ->assertActionVisible('new_migration')
-            ->callTableAction('retry', $failed)
-            ->callAction('new_migration', ['source' => 'auth0', 'tenant_domain' => 'tenant.auth0.com', 'api_token' => 'token']);
+            ->callAction('new_migration', [
+                'source' => 'auth0',
+                'organization_id' => $this->organization->id,
+                'tenant_domain' => 'tenant.auth0.com',
+                'api_token' => 'token',
+            ])
+            ->callTableAction('rollback', $completed);
 
-        $this->assertSame('pending', $failed->fresh()->status);
-        $this->assertSame(2, MigrationJob::count());
+        $this->assertSame('rolled_back', $completed->fresh()->status);
+        $this->assertNull(User::find($member->id));
+        $this->assertSame(2, MigrationJob::where('organization_id', $this->organization->id)->count());
         Queue::assertPushed(ProcessAuth0MigrationJob::class);
     }
 }

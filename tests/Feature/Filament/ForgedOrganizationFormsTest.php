@@ -198,15 +198,17 @@ class ForgedOrganizationFormsTest extends IntegrationTestCase
         Queue::fake();
 
         Livewire::test(ListMigrationJobs::class)
-            ->callAction('new_migration', [
+            ->call('mountAction', 'new_migration')
+            ->set('mountedActions.0.data', [
                 'source' => 'auth0',
                 'organization_id' => $this->otherOrganization->id,
                 'tenant_domain' => 'tenant.auth0.com',
                 'api_token' => 'token',
-            ]);
+            ])
+            ->call('callMountedAction');
 
-        $this->assertDatabaseMissing('migration_jobs', ['organization_id' => $this->otherOrganization->id]);
-        $this->assertDatabaseHas('migration_jobs', ['organization_id' => $this->owner->organization_id]);
+        $this->assertDatabaseCount('migration_jobs', 0);
+        Queue::assertNothingPushed();
     }
 
     #[Test]
