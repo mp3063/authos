@@ -5,8 +5,10 @@ namespace Tests\Security;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\Webhook;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -39,9 +41,9 @@ class OwaspA01BrokenAccessControlTest extends TestCase
         parent::setUp();
 
         // Create roles if they don't exist
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'User', 'guard_name' => 'web']);
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Organization Admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'User', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
 
         // Create two separate organizations
         $this->org1 = Organization::factory()->create(['name' => 'Organization 1']);
@@ -131,8 +133,7 @@ class OwaspA01BrokenAccessControlTest extends TestCase
         ]);
 
         $response->assertStatus(403);
-        $this->user1->refresh();
-        $this->assertFalse($this->user1->hasRole('Organization Admin'));
+        $this->assertEmpty($this->assignedRolesNamed($this->user1, 'Organization Admin'));
     }
 
     #[Test]
@@ -368,7 +369,7 @@ class OwaspA01BrokenAccessControlTest extends TestCase
     #[Test]
     public function it_validates_authorization_for_webhook_endpoints(): void
     {
-        $webhook = \App\Models\Webhook::factory()->create(['organization_id' => $this->org2->id]);
+        $webhook = Webhook::factory()->create(['organization_id' => $this->org2->id]);
 
         Passport::actingAs($this->admin1);
 

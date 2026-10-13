@@ -6,10 +6,13 @@ use App\Models\Application;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Passport\Passport;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class SecurityTest extends TestCase
@@ -47,16 +50,16 @@ class SecurityTest extends TestCase
     public function test_organization_boundary_enforcement_in_user_access(): void
     {
         // Give user1 the necessary permission to read users (API guard)
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
+        $permission = Permission::firstOrCreate(['name' => 'users.read', 'guard_name' => 'api']);
 
         // Set team context before giving permission (important for organization-scoped permissions)
         $this->user1->setPermissionsTeamId($this->user1->organization_id);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
+        app()[PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
 
         $this->user1->givePermissionTo($permission);
 
         // Clear permission cache and refresh
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
         $this->user1 = $this->user1->fresh();
 
         Passport::actingAs($this->user1, ['read']);
@@ -73,16 +76,16 @@ class SecurityTest extends TestCase
         $app2 = Application::factory()->forOrganization($this->organization2)->create();
 
         // Give user1 the necessary permission to read applications (API guard)
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'applications.read', 'guard_name' => 'api']);
+        $permission = Permission::firstOrCreate(['name' => 'applications.read', 'guard_name' => 'api']);
 
         // Set team context before giving permission (important for organization-scoped permissions)
         $this->user1->setPermissionsTeamId($this->user1->organization_id);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
+        app()[PermissionRegistrar::class]->setPermissionsTeamId($this->user1->organization_id);
 
         $this->user1->givePermissionTo($permission);
 
         // Clear permission cache and refresh
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
         $this->user1 = $this->user1->fresh();
 
         Passport::actingAs($this->user1, ['read']);
@@ -376,9 +379,9 @@ class SecurityTest extends TestCase
         $orgAdmin->assignRole($orgAdminRoleWeb);
 
         // Give basic role assignment permission but not super admin privileges
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'users.assign_roles', 'guard_name' => 'api']);
+        $permission = Permission::firstOrCreate(['name' => 'users.assign_roles', 'guard_name' => 'api']);
         $orgAdmin->givePermissionTo($permission);
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
         $orgAdmin = $orgAdmin->fresh();
 
         Passport::actingAs($orgAdmin, ['write']);
@@ -394,8 +397,7 @@ class SecurityTest extends TestCase
         $response->assertStatus(403);
 
         // Verify user did not get super admin role
-        $this->user1->refresh();
-        $this->assertFalse($this->user1->hasRole('super admin'));
+        $this->assertEmpty($this->assignedRolesNamed($this->user1, 'Super Admin'));
     }
 
     public function test_session_fixation_protection(): void
@@ -527,7 +529,7 @@ class SecurityTest extends TestCase
         Passport::actingAs($apiAdmin, ['write']);
 
         // Try to upload a potentially malicious file
-        $maliciousFile = \Illuminate\Http\UploadedFile::fake()
+        $maliciousFile = UploadedFile::fake()
             ->createWithContent('malicious.php', '<?php echo "hack"; ?>');
 
         $response = $this->postJson("/api/v1/organizations/{$this->organization1->id}/bulk/import-users", [
