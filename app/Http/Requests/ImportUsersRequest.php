@@ -59,7 +59,7 @@ class ImportUsersRequest extends FormRequest
                 'string',
                 app(UserRoleService::class)->assignableRoleRule($this->user(), $this->user()->organization_id, 'name'),
                 function (string $attribute, mixed $value, Closure $fail): void {
-                    if (! app(UserRoleService::class)->canGrantRoleNamed($this->user(), $this->user()->organization_id, $value)) {
+                    if (app(UserRoleService::class)->grantableRole($this->user(), $this->user()->organization_id, $value, (new User)->getDefaultGuardName()) === null) {
                         $fail('You cannot grant the specified default role');
                     }
                 },

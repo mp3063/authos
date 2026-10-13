@@ -105,7 +105,7 @@ class BulkDataController extends BaseController
             'string',
             $this->userRoleService->assignableRoleRule($request->user(), $organization->id, 'name'),
             function (string $attribute, mixed $value, Closure $fail) use ($request, $organization): void {
-                if (! $this->userRoleService->canGrantRoleNamed($request->user(), $organization->id, $value)) {
+                if ($this->userRoleService->grantableRole($request->user(), $organization->id, $value, (new User)->getDefaultGuardName()) === null) {
                     $fail('You cannot grant the specified default role');
                 }
             },

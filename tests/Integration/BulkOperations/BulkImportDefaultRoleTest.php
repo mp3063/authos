@@ -153,6 +153,38 @@ class BulkImportDefaultRoleTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_rejects_a_default_role_that_exists_only_on_the_api_guard_with_422(): void
+    {
+        $owner = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
+        Role::create([
+            'name' => 'Api Only Role',
+            'guard_name' => 'api',
+            'organization_id' => $this->organization->id,
+        ]);
+
+        $this->actingAsApiUserWithToken($owner, ['users.manage'])
+            ->postJson('/api/v1/bulk/users/import', [
+                'file' => $this->csv(['first@example.com']),
+                'format' => 'csv',
+                'default_role' => 'Api Only Role',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('default_role');
+
+        $this->actingAs($owner, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/import-users", [
+                'file' => $this->csv(['first@example.com'], 'Password123!'),
+                'default_role' => 'Api Only Role',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('default_role');
+
+        Queue::assertNothingPushed();
+        $this->assertSame(0, BulkImportJob::count());
+        $this->assertDatabaseMissing('users', ['email' => 'first@example.com']);
+    }
+
+    #[Test]
     public function it_requires_users_update_to_update_existing_users_on_import(): void
     {
         $caller = $this->createApiUser(['organization_id' => $this->organization->id]);
