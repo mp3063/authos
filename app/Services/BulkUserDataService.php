@@ -62,7 +62,7 @@ class BulkUserDataService
         // Load relationships
         $with = [];
         if ($includeRoles) {
-            $with[] = 'customRoles';
+            $with['customRoles'] = fn ($customRoles) => $customRoles->where('custom_roles.organization_id', $organization->id);
         }
         if ($includeApplications) {
             $with[] = 'applications';
@@ -73,6 +73,7 @@ class BulkUserDataService
         if ($includeRoles) {
             $users->each(fn (User $user) => $user->setRelation('roles', Role::query()
                 ->whereIn('id', $this->userRoleService->assignedRoleIds($user))
+                ->where(fn ($scoped) => $scoped->whereNull('organization_id')->orWhere('organization_id', $organization->id))
                 ->get()
                 ->unique('name')
                 ->values()));

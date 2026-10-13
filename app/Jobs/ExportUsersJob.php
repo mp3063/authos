@@ -198,6 +198,7 @@ class ExportUsersJob implements ShouldQueue
     {
         return Role::query()
             ->whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))
+            ->where(fn ($scoped) => $scoped->whereNull('organization_id')->orWhere('organization_id', $user->organization_id))
             ->pluck('name')
             ->implode(', ');
     }
