@@ -141,4 +141,47 @@ class LdapDomainAuthorizationTest extends IntegrationTestCase
 
         $this->assertDatabaseMissing('ldap_configurations', ['host' => 'ldap.example.com']);
     }
+
+    #[Test]
+    public function it_creates_the_first_ldap_configuration_with_a_default_name(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $this->actingAsApiUserWithToken($owner);
+
+        $this->postJson('/api/v1/enterprise/ldap/configure', $this->ldapPayload())->assertSuccessful();
+
+        $this->assertDatabaseHas('ldap_configurations', [
+            'organization_id' => $owner->organization_id,
+            'name' => 'Default LDAP',
+        ]);
+    }
+
+    #[Test]
+    public function it_stores_a_given_ldap_configuration_name(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $this->actingAsApiUserWithToken($owner);
+
+        $this->postJson('/api/v1/enterprise/ldap/configure', $this->ldapPayload() + ['name' => 'Corporate AD'])->assertSuccessful();
+
+        $this->assertDatabaseHas('ldap_configurations', [
+            'organization_id' => $owner->organization_id,
+            'name' => 'Corporate AD',
+        ]);
+    }
+
+    #[Test]
+    public function it_keeps_the_existing_ldap_configuration_name_on_update(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $existing = LdapConfiguration::factory()->create([
+            'organization_id' => $owner->organization_id,
+            'name' => 'Corporate AD',
+        ]);
+        $this->actingAsApiUserWithToken($owner);
+
+        $this->postJson('/api/v1/enterprise/ldap/configure', $this->ldapPayload())->assertOk();
+
+        $this->assertSame('Corporate AD', $existing->fresh()->name);
+    }
 }

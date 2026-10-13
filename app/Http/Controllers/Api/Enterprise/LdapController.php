@@ -105,6 +105,7 @@ class LdapController extends BaseController
             $config = LdapConfiguration::updateOrCreate(
                 ['organization_id' => $user->organization_id],
                 array_merge($request->validated(), [
+                    'name' => $request->validated('name') ?? $existing?->name ?? 'Default LDAP',
                     'organization_id' => $user->organization_id,
                     'is_active' => true,
                 ])

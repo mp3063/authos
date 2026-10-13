@@ -16,6 +16,7 @@ class LdapConfigurationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'name' => ['sometimes', 'string', 'max:255'],
             'host' => ['required', 'string', 'max:255'],
             'port' => ['required', 'integer', 'min:1', 'max:65535'],
             'base_dn' => ['required', 'string', 'max:500'],
