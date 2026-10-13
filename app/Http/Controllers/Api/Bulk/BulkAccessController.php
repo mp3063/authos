@@ -37,6 +37,11 @@ class BulkAccessController extends BaseController
         abort_unless($request->user()->can('view', $organization), 404);
         $this->authorize('create', UserApplication::class);
 
+        // If 'reason' is provided but no application specified, revoke all roles instead of app access
+        $revokeAllRoles = ! $request->has('application_id') && ! $request->has('application_ids') && $request->has('reason');
+
+        abort_if($revokeAllRoles && ! $request->user()->hasOrganizationPermission('roles.assign'), 403);
+
         $request->validate([
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer',
@@ -51,9 +56,6 @@ class BulkAccessController extends BaseController
             ->pluck('id')
             ->all();
         $applicationId = $request->input('application_id') ?: ($request->input('application_ids')[0] ?? null);
-
-        // If 'reason' is provided but no application specified, revoke all roles instead of app access
-        $revokeAllRoles = ! $request->has('application_id') && ! $request->has('application_ids') && $request->has('reason');
 
         try {
             if ($revokeAllRoles) {

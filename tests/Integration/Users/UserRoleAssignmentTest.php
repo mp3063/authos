@@ -165,6 +165,26 @@ class UserRoleAssignmentTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function an_organization_admin_cannot_change_an_owners_roles_through_the_api_with_403(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $owner = $this->createUser(['organization_id' => $admin->organization_id], 'Organization Owner', 'api');
+        $userRole = $this->apiRole('User', $admin->organization_id);
+        $before = $this->assignedRolesNamed($owner, 'Organization Owner')->modelKeys();
+        $this->actingAsApiUserWithToken($admin);
+
+        $assign = $this->postJson("/api/v1/users/{$owner->id}/roles", ['role_id' => $userRole->id]);
+        $sync = $this->putJson("/api/v1/users/{$owner->id}/roles", ['roles' => ['Organization Owner', 'User']]);
+        $remove = $this->deleteJson("/api/v1/users/{$owner->id}/roles/{$userRole->id}");
+
+        $assign->assertForbidden();
+        $sync->assertForbidden();
+        $remove->assertForbidden();
+        $this->assertSame($before, $this->assignedRolesNamed($owner, 'Organization Owner')->modelKeys());
+        $this->assertTrue($this->assignedRolesNamed($owner, 'User')->isEmpty());
+    }
+
+    #[Test]
     public function an_organization_admin_can_replace_a_members_roles_with_api_roles_of_their_organization(): void
     {
         $admin = $this->createApiOrganizationAdmin();

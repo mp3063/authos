@@ -41,6 +41,8 @@ class UserRoleController extends BaseController
 
         $user = $this->findUserWithOrgScope($id);
 
+        $this->authorize('update', $user);
+
         $request->validate([
             'role_id' => ['required', 'integer', $this->userRoleService->assignableRoleRule($request->user(), $user->organization_id, 'id')],
         ]);
@@ -67,6 +69,8 @@ class UserRoleController extends BaseController
 
         $user = $this->findUserWithOrgScope($id);
 
+        $this->authorize('update', $user);
+
         $request->validate([
             'roles' => 'required|array',
             'roles.*' => ['required', 'string', $this->userRoleService->assignableRoleRule($request->user(), $user->organization_id, 'name')->where('guard_name', 'api')],
@@ -91,6 +95,8 @@ class UserRoleController extends BaseController
         $this->authorize('roles.assign');
 
         $user = $this->findUserWithOrgScope($id);
+
+        $this->authorize('update', $user);
 
         if ($denial = $this->userRoleService->roleChangeDenial($request->user(), $user, Role::whereKey($roleId)->get())) {
             return $this->forbiddenResponse($denial);

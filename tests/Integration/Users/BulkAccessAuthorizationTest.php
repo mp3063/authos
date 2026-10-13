@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -52,6 +53,25 @@ class BulkAccessAuthorizationTest extends TestCase
 
         $response->assertOk();
         $this->assertSame($before, $this->roleIds($owner));
+        $this->assertNotEmpty($before);
+    }
+
+    #[Test]
+    public function a_caller_without_roles_assign_cannot_revoke_all_roles_with_403(): void
+    {
+        $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
+        $caller = $this->createUser(['organization_id' => $this->organization->id], 'Updater', 'api');
+        Role::where('name', 'Updater')->firstOrFail()->givePermissionTo(
+            collect(['users.update', 'organizations.read', 'applications.update'])
+                ->map(fn (string $name) => Permission::firstOrCreate(['name' => $name, 'guard_name' => 'api']))
+                ->all()
+        );
+        $target = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $before = $this->roleIds($target);
+
+        $this->revokeAllRoles($caller, [$target->id])->assertForbidden();
+
+        $this->assertSame($before, $this->roleIds($target));
         $this->assertNotEmpty($before);
     }
 
