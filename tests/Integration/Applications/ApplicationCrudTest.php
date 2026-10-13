@@ -187,6 +187,25 @@ class ApplicationCrudTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_shows_the_client_secret_only_to_users_who_may_update_the_application(): void
+    {
+        $application = $this->createOAuthApplication(['organization_id' => $this->organization->id]);
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $admin = $this->createApiOrganizationAdmin(['organization_id' => $this->organization->id]);
+
+        $this->actingAsApiUserWithToken($member)
+            ->getJson("/api/v1/applications/{$application->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $application->id)
+            ->assertJsonMissingPath('data.client_secret');
+
+        $this->actingAsApiUserWithToken($admin)
+            ->getJson("/api/v1/applications/{$application->id}")
+            ->assertOk()
+            ->assertJsonPath('data.client_secret', $application->client_secret);
+    }
+
+    #[Test]
     public function it_reads_application_details_with_relationships(): void
     {
         // ARRANGE: Create application with users

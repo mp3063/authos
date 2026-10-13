@@ -184,11 +184,16 @@ class ApplicationController extends BaseController
     /**
      * Display the specified application
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
         $application = $this->findApplicationWithOrgScope($id)->load(['organization', 'users']);
+        $data = $this->formatApplicationResponse($application, true);
 
-        return $this->successResponse($this->formatApplicationResponse($application, true));
+        if (! $request->user()->can('update', $application)) {
+            unset($data['client_secret']);
+        }
+
+        return $this->successResponse($data);
     }
 
     /**
