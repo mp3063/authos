@@ -83,7 +83,9 @@ class Auth0MigrationService
 
         try {
             // Phase 1: Import organizations
-            $result->organizations = $this->migrateOrganizations($plan, $dryRun);
+            if ($this->targetOrganization === null) {
+                $result->organizations = $this->migrateOrganizations($plan, $dryRun);
+            }
 
             // Phase 2: Import roles
             $result->roles = $this->migrateRoles($plan, $dryRun);

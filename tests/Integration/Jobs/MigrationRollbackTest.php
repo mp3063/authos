@@ -12,6 +12,7 @@ use App\Models\MigrationJob;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Auth0\Auth0Client;
+use App\Services\Auth0\DTOs\Auth0OrganizationDTO;
 use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\ImportResult;
 use App\Services\Auth0\Migration\MigrationPlan;
@@ -158,6 +159,23 @@ class MigrationRollbackTest extends IntegrationTestCase
             User::whereIn('email', ['first@okta.test', 'second@okta.test'])->orderBy('id')->pluck('id')->all(),
             $job->fresh()->migrated_data['created_ids']['users'],
         );
+    }
+
+    #[Test]
+    public function it_does_not_import_organizations_when_migrating_into_a_target_organization(): void
+    {
+        $plan = new MigrationPlan(organizations: [
+            new Auth0OrganizationDTO('org_1', 'remote-one', 'Remote One', [], []),
+            new Auth0OrganizationDTO('org_2', 'remote-two', 'Remote Two', [], []),
+        ]);
+        $service = new Auth0MigrationService(Mockery::mock(Auth0Client::class), $this->organization);
+        $organizationCount = Organization::count();
+
+        $result = $service->migrate($plan);
+
+        $this->assertSame($organizationCount, Organization::count());
+        $this->assertSame([], $result->organizations->getSuccessfulIds());
+        $this->assertSame(0, $result->organizations->getTotalCount());
     }
 
     #[Test]
