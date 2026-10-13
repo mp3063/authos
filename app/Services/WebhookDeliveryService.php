@@ -287,9 +287,7 @@ class WebhookDeliveryService extends BaseService
         // Notify organization admins about dead letter delivery
         $webhook = $delivery->webhook;
         if ($webhook && $webhook->organization) {
-            $admins = $webhook->organization->users()
-                ->role(['Organization Owner', 'Organization Admin'])
-                ->get();
+            $admins = app(UserRoleService::class)->organizationMembersWithPermission($webhook->organization_id, 'webhooks.update');
             foreach ($admins as $admin) {
                 $admin->notify(new WebhookAutoDisabledNotification($webhook, 'dead_letter'));
             }

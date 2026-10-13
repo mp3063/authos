@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\WebhookDeliveryStatus;
 use App\Models\WebhookDelivery;
 use App\Notifications\WebhookAutoDisabledNotification;
+use App\Services\UserRoleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -86,9 +87,7 @@ class ProcessDeadLetterWebhookJob implements ShouldQueue
 
                 // Notify organization admins about webhook auto-disable
                 if ($webhook->organization) {
-                    $admins = $webhook->organization->users()
-                        ->role(['Organization Owner', 'Organization Admin'])
-                        ->get();
+                    $admins = app(UserRoleService::class)->organizationMembersWithPermission($webhook->organization_id, 'webhooks.update');
                     foreach ($admins as $admin) {
                         $admin->notify(new WebhookAutoDisabledNotification($webhook, 'excessive_failures'));
                     }

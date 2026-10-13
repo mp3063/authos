@@ -88,6 +88,20 @@ class UserRoleService
     }
 
     /**
+     * Members of the organization who hold the permission, resolved independently of the ambient team.
+     *
+     * @return Collection<int, User>
+     */
+    public function organizationMembersWithPermission(int $organizationId, string $permission): Collection
+    {
+        return User::query()
+            ->where('organization_id', $organizationId)
+            ->get()
+            ->filter(fn (User $user) => $user->hasOrganizationPermission($permission))
+            ->values();
+    }
+
+    /**
      * Replace the target's roles, tying each organization role to its organization.
      *
      * @param  Collection<int, int>  $roleIds
