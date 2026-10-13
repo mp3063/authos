@@ -41,6 +41,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Hash;
 use UnitEnum;
 
@@ -114,7 +115,7 @@ class UserResource extends Resource
                     ->searchable()
                     ->options(fn (?User $record): array => static::roleOptions($record))
                     ->afterStateHydrated(fn (Select $component, ?User $record) => $component->state(
-                        $record ? app(UserRoleService::class)->assignedRoleIds($record)->all() : []
+                        $record ? app(UserRoleService::class)->assignedRoleIdsInOrganization($record, $record->organization_id)->all() : []
                     ))
                     ->disabled(fn (?User $record): bool => $record !== null && ! auth()->user()->isSuperAdmin() && auth()->user()->is($record))
                     ->rule(fn (?User $record) => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
@@ -122,7 +123,7 @@ class UserResource extends Resource
                             auth()->user(),
                             $record,
                             $record?->organization_id ?? auth()->user()->organization_id,
-                            collect($value)->map(fn ($id) => (int) $id)
+                            static::withRolesFromOtherOrganizations($record, $value)
                         );
 
                         if ($denial) {
@@ -132,7 +133,7 @@ class UserResource extends Resource
                     ->saveRelationshipsUsing(fn (User $record, ?array $state) => app(UserRoleService::class)->syncRolesAs(
                         auth()->user(),
                         $record,
-                        collect($state)->map(fn ($id) => (int) $id)
+                        static::withRolesFromOtherOrganizations($record, $state)
                     ))
                     ->dehydrated(false)
                     ->helperText('Assign roles to this user'),
@@ -283,9 +284,27 @@ class UserResource extends Resource
         $grantable = $editor->isSuperAdmin()
             ? Role::query()->get()
             : $roleService->manageableRoles($editor, $record?->organization_id ?? $editor->organization_id);
-        $assigned = $record ? Role::whereKey($roleService->assignedRoleIds($record))->get() : new Collection;
+        $assigned = $record ? Role::whereKey($roleService->assignedRoleIdsInOrganization($record, $record->organization_id))->get() : new Collection;
 
         return $grantable->merge($assigned)->pluck('name', 'id')->all();
+    }
+
+    /**
+     * @return SupportCollection<int, int>
+     */
+    private static function withRolesFromOtherOrganizations(?User $record, mixed $state): SupportCollection
+    {
+        $roleIds = collect($state)->map(fn ($id) => (int) $id);
+
+        if ($record === null) {
+            return $roleIds;
+        }
+
+        $roleService = app(UserRoleService::class);
+        $otherOrganizationRoleIds = $roleService->assignedRoleIds($record)
+            ->diff($roleService->assignedRoleIdsInOrganization($record, $record->organization_id));
+
+        return $roleIds->merge($otherOrganizationRoleIds)->unique()->values();
     }
 
     public static function getEloquentQuery(): Builder

@@ -43,6 +43,24 @@ class UserRoleService
     }
 
     /**
+     * The user's assigned roles that are global or belong to the organization.
+     *
+     * @return Collection<int, int>
+     */
+    public function assignedRoleIdsInOrganization(User $user, ?int $organizationId): Collection
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_type', $user->getMorphClass())
+            ->where('model_has_roles.model_id', $user->id)
+            ->where(fn (QueryBuilder $query) => $query
+                ->whereNull('roles.organization_id')
+                ->orWhere('roles.organization_id', $organizationId))
+            ->pluck('model_has_roles.role_id')
+            ->map(fn ($id) => (int) $id);
+    }
+
+    /**
      * Why the editor may not replace the target's roles with these (target null for a user being created), if not allowed.
      *
      * @param  Collection<int, int>  $roleIds
