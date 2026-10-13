@@ -7,10 +7,12 @@ use App\Models\BulkImportJob;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\BulkImport\BulkImportService;
 use App\Services\BulkUserDataService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -39,6 +41,34 @@ class BulkImportDefaultRoleTest extends IntegrationTestCase
         $this->assertSame(2, $importJob->refresh()->successful_records);
         foreach (['first@example.com', 'second@example.com'] as $email) {
             $imported = User::where('email', $email)->firstOrFail();
+            $this->assertCount(1, $this->assignedRolesNamed($imported, 'User Manager'));
+        }
+    }
+
+    #[Test]
+    public function it_creates_users_with_the_default_role_from_an_uploaded_csv_file(): void
+    {
+        Validator::fakeDnsLookups();
+        $owner = $this->createApiOrganizationOwner(['organization_id' => $this->organization->id]);
+        $this->actingAsApiUserWithToken($owner, ['users.manage'])
+            ->postJson('/api/v1/bulk/users/import', [
+                'file' => $this->csv(['first@example.com', 'second@example.com']),
+                'format' => 'csv',
+                'default_role' => 'User Manager',
+            ])
+            ->assertCreated();
+        $importJob = BulkImportJob::sole();
+
+        (new ProcessBulkImportJob($importJob))->handle(app(BulkImportService::class));
+
+        $importJob->refresh();
+        $this->assertSame(2, $importJob->valid_records);
+        $this->assertSame(2, $importJob->successful_records);
+        $this->assertSame(0, $importJob->failed_records);
+        $this->assertSame(BulkImportJob::STATUS_COMPLETED, $importJob->status);
+        foreach (['first@example.com', 'second@example.com'] as $email) {
+            $imported = User::where('email', $email)->where('organization_id', $this->organization->id)->firstOrFail();
+            $this->assertSame('Imported User', $imported->name);
             $this->assertCount(1, $this->assignedRolesNamed($imported, 'User Manager'));
         }
     }

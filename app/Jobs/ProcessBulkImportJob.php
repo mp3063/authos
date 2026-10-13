@@ -237,8 +237,10 @@ class ProcessBulkImportJob implements ShouldQueue
             try {
                 // Create users directly for test compatibility
                 foreach ($batch as $record) {
+                    $data = $record['data'] ?? $record;
+
                     if ($options->defaultRole !== null && $defaultRole === null) {
-                        $this->importJob->addValidationError($record['row'] ?? 0, $record, ["You cannot grant the role '{$options->defaultRole}'"]);
+                        $this->importJob->addValidationError($record['row'] ?? 0, $data, ["You cannot grant the role '{$options->defaultRole}'"]);
                         $failedCount++;
 
                         continue;
@@ -246,8 +248,8 @@ class ProcessBulkImportJob implements ShouldQueue
 
                     try {
                         $userData = [
-                            'name' => $record['name'] ?? 'Unknown',
-                            'email' => $record['email'],
+                            'name' => $data['name'] ?? 'Unknown',
+                            'email' => $data['email'],
                             'password' => Hash::make(Str::random(64)),
                             'organization_id' => $this->importJob->organization_id,
                             'email_verified_at' => now(),
@@ -263,7 +265,7 @@ class ProcessBulkImportJob implements ShouldQueue
                         $successfulCount++;
                     } catch (\Exception $e) {
                         $failedCount++;
-                        Log::warning("Failed to create user {$record['email']}: ".$e->getMessage());
+                        Log::warning("Failed to create user {$data['email']}: ".$e->getMessage());
                     }
                 }
 
