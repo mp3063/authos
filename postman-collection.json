@@ -4139,37 +4139,6 @@
 					"response": []
 				},
 				{
-					"name": "Bulk Enable MFA",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"user_ids\": [\n        1,\n        2,\n        3\n    ]\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/v1/organizations/{{organizationId}}/bulk/enable-mfa",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"v1",
-								"organizations",
-								"{{organizationId}}",
-								"bulk",
-								"enable-mfa"
-							]
-						},
-						"description": "Enable MFA for multiple users"
-					},
-					"response": []
-				},
-				{
 					"name": "Bulk Update Settings (Super Admin)",
 					"request": {
 						"method": "POST",
