@@ -166,6 +166,7 @@ class PendingInvitationsWidget extends BaseWidget
     {
         return [
             Action::make('resend')
+                ->authorize('update')
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
                 ->tooltip('Resend Invitation')
@@ -178,6 +179,7 @@ class PendingInvitationsWidget extends BaseWidget
                 ->modalSubmitActionLabel('Resend'),
 
             Action::make('extend')
+                ->authorize('update')
                 ->icon('heroicon-o-clock')
                 ->color('warning')
                 ->tooltip('Extend Expiry')
@@ -214,6 +216,7 @@ class PendingInvitationsWidget extends BaseWidget
                 }),
 
             Action::make('cancel')
+                ->authorize('delete')
                 ->icon('heroicon-o-x-mark')
                 ->color('danger')
                 ->tooltip('Cancel Invitation')
@@ -237,6 +240,7 @@ class PendingInvitationsWidget extends BaseWidget
     {
         return [
             BulkAction::make('resend_selected')
+                ->authorizeIndividualRecords('update')
                 ->label('Resend Selected')
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
@@ -260,6 +264,7 @@ class PendingInvitationsWidget extends BaseWidget
                 ->modalDescription('Resend all selected pending invitations?'),
 
             BulkAction::make('extend_selected')
+                ->authorizeIndividualRecords('update')
                 ->label('Extend Selected')
                 ->icon('heroicon-o-clock')
                 ->color('warning')
@@ -283,6 +288,7 @@ class PendingInvitationsWidget extends BaseWidget
                 ->modalDescription('Extend all selected invitations by 7 days?'),
 
             BulkAction::make('cancel_selected')
+                ->authorizeIndividualRecords('delete')
                 ->label('Cancel Selected')
                 ->icon('heroicon-o-x-mark')
                 ->color('danger')
