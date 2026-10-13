@@ -8,8 +8,10 @@ use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
+use App\Services\UserRoleService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +29,7 @@ class OrganizationAnalyticsController extends BaseController
 
     protected OrganizationAnalyticsService $analyticsService;
 
-    public function __construct(OrganizationAnalyticsService $analyticsService)
+    public function __construct(OrganizationAnalyticsService $analyticsService, protected UserRoleService $userRoleService)
     {
         $this->analyticsService = $analyticsService;
         $this->middleware('auth:api');
@@ -363,7 +365,30 @@ class OrganizationAnalyticsController extends BaseController
             ])
         );
 
-        return $users->toArray();
+        $roleNames = Role::query()
+            ->where(fn ($scoped) => $scoped->whereNull('organization_id')->orWhere('organization_id', $organization->id))
+            ->pluck('name', 'id');
+
+        return $users->map(function (User $user) use ($roleNames): array {
+            $lastLogin = $user->applications->max(fn ($application) => $application->pivot->last_login_at);
+
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'is_active' => (bool) $user->is_active,
+                'mfa_enabled' => (bool) $user->mfa_enabled,
+                'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                'created_at' => $user->created_at->toIso8601String(),
+                'last_login_at' => $lastLogin ? Carbon::parse($lastLogin)->toIso8601String() : null,
+                'roles' => $this->userRoleService->assignedRoleIds($user)
+                    ->map(fn (int $roleId) => $roleNames->get($roleId))
+                    ->filter()
+                    ->unique()
+                    ->implode(', '),
+                'applications' => $user->applications->pluck('name')->implode(', '),
+            ];
+        })->all();
     }
 
     /**

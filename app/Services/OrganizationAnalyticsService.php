@@ -285,10 +285,7 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
      */
     public function getOrganizationUsers(Organization $organization, array $filters = []): Collection
     {
-        $query = User::whereHas('applications', function ($query) use ($organization) {
-            $query->where('organization_id', $organization->id);
-        })->with([
-            'roles',
+        $query = User::where('users.organization_id', $organization->id)->with([
             'applications' => function ($query) use ($organization) {
                 $query->where('organization_id', $organization->id)
                     ->withPivot(['last_login_at', 'login_count', 'granted_at']);
