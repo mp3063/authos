@@ -282,7 +282,11 @@ class UserResource extends Resource
         $roleService = app(UserRoleService::class);
 
         $grantable = $editor->isSuperAdmin()
-            ? Role::query()->get()
+            ? Role::query()
+                ->when($record !== null, fn (Builder $query) => $query->where(fn (Builder $scoped) => $scoped
+                    ->whereNull('organization_id')
+                    ->orWhere('organization_id', $record->organization_id)))
+                ->get()
             : $roleService->manageableRoles($editor, $record?->organization_id ?? $editor->organization_id);
         $assigned = $record ? Role::whereKey($roleService->assignedRoleIdsInOrganization($record, $record->organization_id))->get() : new Collection;
 

@@ -61,6 +61,22 @@ class UserRolePickerScopeTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_offers_a_super_admin_only_the_records_organization_and_global_roles(): void
+    {
+        $superAdmin = $this->createSuperAdmin();
+        $superAdmin->update(['organization_id' => null]);
+        $this->actingAs($superAdmin);
+        $foreignOwnerRole = $this->webRole($this->organizationB, 'Organization Owner');
+        $organizationRole = $this->webRole($this->organizationA, 'Organization Member');
+        $globalRole = Role::where('name', 'Super Admin')->whereNull('organization_id')->firstOrFail();
+
+        Livewire::test(EditUser::class, ['record' => $this->member->getRouteKey()])
+            ->assertFormFieldExists('roles', fn (Select $field): bool => ! array_key_exists($foreignOwnerRole->id, $field->getOptions())
+                && array_key_exists($organizationRole->id, $field->getOptions())
+                && array_key_exists($globalRole->id, $field->getOptions()));
+    }
+
+    #[Test]
     public function it_keeps_other_organizations_roles_when_a_super_admin_saves(): void
     {
         $superAdmin = $this->createSuperAdmin();
