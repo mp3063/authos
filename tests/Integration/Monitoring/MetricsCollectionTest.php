@@ -337,12 +337,17 @@ class MetricsCollectionTest extends IntegrationTestCase
         $this->organization->update(['settings' => ['require_mfa' => false]]);
         $this->createOrganization(['settings' => ['require_mfa' => true]]);
         $this->createOrganization(['settings' => ['require_mfa' => false]]);
+        $this->createOrganization(['settings' => ['require_mfa' => '1']]);
+        $this->createOrganization(['settings' => ['require_mfa' => 1]]);
+        $this->createOrganization(['settings' => ['require_mfa' => 'true']]);
+        $this->createOrganization(['settings' => ['require_mfa' => '0']]);
+        $this->createOrganization(['settings' => ['require_mfa' => 'false']]);
 
         $response = $this->actingAsApiUserWithToken($this->user)
             ->getJson('/api/v1/monitoring/metrics/organizations');
 
         $response->assertOk();
-        $this->assertSame(1, $response->json('mfa_required_count'));
+        $this->assertSame(4, $response->json('mfa_required_count'));
     }
 
     #[Test]

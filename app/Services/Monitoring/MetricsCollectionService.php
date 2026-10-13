@@ -426,7 +426,7 @@ class MetricsCollectionService
             $mfaRequiredOrgs = DB::table('organizations')
                 ->whereNotNull('settings')
                 ->pluck('settings')
-                ->filter(fn ($settings) => (json_decode($settings, true)['require_mfa'] ?? false) === true)
+                ->filter(fn ($settings) => filter_var(json_decode($settings, true)['require_mfa'] ?? false, FILTER_VALIDATE_BOOLEAN))
                 ->count();
 
             // Average users per organization
