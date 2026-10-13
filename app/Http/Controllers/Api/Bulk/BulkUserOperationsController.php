@@ -71,7 +71,8 @@ class BulkUserOperationsController extends BaseController
             $result = $this->bulkOperationService->bulkInviteUsers(
                 $invitations,
                 $organization,
-                $request->input('role', 'user')
+                $request->input('role', 'user'),
+                $request->user()
             );
 
             // The service returns the result directly, not wrapped in success/data structure
@@ -175,7 +176,7 @@ class BulkUserOperationsController extends BaseController
                 $customRoleIds, // custom role IDs
                 $action,
                 $organization,
-                auth()->user() ?? User::first()
+                $request->user()
             );
 
             // The service returns the result directly, not wrapped in success/data structure

@@ -19,7 +19,7 @@ class BulkInvitationService
     /**
      * Bulk invite multiple users to an organization
      */
-    public function inviteUsers(array $invitations, Organization $organization, string $roleId): array
+    public function inviteUsers(array $invitations, Organization $organization, string $roleId, User $caller): array
     {
         $results = [
             'successful' => [],
@@ -27,10 +27,7 @@ class BulkInvitationService
             'already_exists' => [],
         ];
 
-        // Create a mock inviter for interface compatibility
-        $inviter = auth()->user() ?? User::first();
-
-        return DB::transaction(function () use ($organization, $invitations, $inviter, $roleId, &$results) {
+        return DB::transaction(function () use ($organization, $invitations, $roleId, &$results) {
             foreach ($invitations as $invitationData) {
                 try {
                     // Ensure invitationData is properly formatted

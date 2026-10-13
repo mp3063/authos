@@ -22,17 +22,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
     /**
      * Bulk invite multiple users to an organization
      */
-    public function bulkInviteUsers(array $invitations, Organization $organization, string $roleId): array
+    public function bulkInviteUsers(array $invitations, Organization $organization, string $roleId, User $caller): array
     {
-        return $this->bulkInvitationService->inviteUsers($invitations, $organization, $roleId);
-    }
-
-    /**
-     * Bulk assign roles to multiple users
-     */
-    public function bulkAssignRoles(array $userIds, string $roleId, Organization $organization): array
-    {
-        return $this->bulkAssignOrRevokeRoles($userIds, [$roleId], [], 'assign', $organization, auth()->user() ?? User::first());
+        return $this->bulkInvitationService->inviteUsers($invitations, $organization, $roleId, $caller);
     }
 
     /**
@@ -93,9 +85,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
     /**
      * Bulk revoke access for multiple users
      */
-    public function bulkRevokeAccess(array $userIds, int $applicationId, Organization $organization): array
+    public function bulkRevokeAccess(array $userIds, int $applicationId, Organization $organization, User $caller): array
     {
-        return $this->bulkRevokeAccessExtended($userIds, ['application_ids' => [$applicationId]], $organization, auth()->user() ?? User::first());
+        return $this->bulkRevokeAccessExtended($userIds, ['application_ids' => [$applicationId]], $organization, $caller);
     }
 
     /**
@@ -288,11 +280,6 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
                 'reason' => $reason,
             ],
         ]);
-    }
-
-    public function bulkRevokeRoles(array $userIds, string $roleId, Organization $organization): array
-    {
-        return $this->bulkAssignOrRevokeRoles($userIds, [$roleId], [], 'revoke', $organization, auth()->user() ?? User::first());
     }
 
     public function bulkUserOperations(array $userIds, string $operation, Organization $organization): array

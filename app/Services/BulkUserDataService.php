@@ -108,14 +108,6 @@ class BulkUserDataService
     }
 
     /**
-     * Import users from CSV or Excel file
-     */
-    public function importUsers(UploadedFile $file, Organization $organization, string $defaultRole): array
-    {
-        return $this->importUsersExtended($file, $organization, ['default_role' => $defaultRole], auth()->user() ?? User::first());
-    }
-
-    /**
      * Import users from CSV or Excel file (extended method)
      */
     public function importUsersExtended(

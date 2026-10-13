@@ -91,7 +91,8 @@ class BulkAccessController extends BaseController
             $result = $this->bulkOperationService->bulkRevokeAccess(
                 $userIds,
                 $applicationId,
-                $organization
+                $organization,
+                $request->user()
             );
 
             // The service returns the result directly, not wrapped in success/data structure
