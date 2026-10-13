@@ -255,18 +255,10 @@ class BulkUserOperationsController extends BaseController
 
         $userIds = $request->input('user_ids');
 
-        // Validate that all users belong to the organization
-        $users = User::with(['permissions', 'roles.permissions'])->whereIn('id', $userIds)->get();
-        $invalidUsers = $users->filter(function ($user) use ($organization) {
-            return $user->organization_id !== $organization->id;
-        });
-
-        if ($invalidUsers->isNotEmpty()) {
-            return response()->json([
-                'message' => 'Some users do not belong to this organization.',
-                'invalid_users' => $invalidUsers->pluck('id')->toArray(),
-            ], 422);
-        }
+        $users = User::with(['permissions', 'roles.permissions'])
+            ->whereIn('id', $userIds)
+            ->where('organization_id', $organization->id)
+            ->get();
 
         try {
             $caller = $request->user();
@@ -307,24 +299,21 @@ class BulkUserOperationsController extends BaseController
         $userIds = $request->input('user_ids');
         $gracePeriodDays = $request->input('grace_period_days', 7);
 
-        // Validate that all users belong to the organization
-        $users = User::whereIn('id', $userIds)->get();
-        $invalidUsers = $users->filter(function ($user) use ($organization) {
-            return $user->organization_id !== $organization->id;
-        });
-
-        if ($invalidUsers->isNotEmpty()) {
-            return response()->json([
-                'message' => 'Some users do not belong to this organization.',
-                'invalid_users' => $invalidUsers->pluck('id')->toArray(),
-            ], 422);
-        }
+        $users = User::with(['permissions', 'roles.permissions'])
+            ->whereIn('id', $userIds)
+            ->where('organization_id', $organization->id)
+            ->get();
 
         try {
+            $caller = $request->user();
             $enabledCount = 0;
             $notificationSentCount = 0;
 
             foreach ($users as $user) {
+                if (! $caller->can('update', $user)) {
+                    continue;
+                }
+
                 // Mark MFA as required
                 $user->update([
                     'mfa_required_at' => now()->addDays($gracePeriodDays),
