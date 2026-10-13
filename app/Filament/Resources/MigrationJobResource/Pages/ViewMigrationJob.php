@@ -54,10 +54,10 @@ class ViewMigrationJob extends ViewRecord
                 ->label('Rollback')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('danger')
-                ->visible(fn (): bool => $this->record->status === 'completed')
+                ->visible(fn (): bool => $this->record->canRollback())
                 ->requiresConfirmation()
                 ->modalHeading('Rollback Migration')
-                ->modalDescription('Are you sure you want to rollback this migration? This will delete all migrated data and cannot be undone.')
+                ->modalDescription('Are you sure you want to rollback this migration? This will permanently delete the users, applications and roles this migration created and cannot be undone.')
                 ->action(function () {
                     $this->record->rollback();
 

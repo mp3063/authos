@@ -196,6 +196,9 @@ class MigrationIntegrationTest extends TestCase
 
     public function test_migration_rollback(): void
     {
+        $existingUser = User::factory()->create(['organization_id' => $this->organization->id]);
+        $existingApplication = Application::factory()->create(['organization_id' => $this->organization->id]);
+
         // First, complete a migration
         Http::fake([
             '*.auth0.com/api/v2/organizations*' => Http::response([], 200),
@@ -224,16 +227,15 @@ class MigrationIntegrationTest extends TestCase
         $processor->handle();
 
         // Verify data was migrated
-        $this->assertEquals(2, User::where('organization_id', $this->organization->id)->count());
-        $this->assertEquals(1, Application::where('organization_id', $this->organization->id)->count());
+        $this->assertEquals(3, User::where('organization_id', $this->organization->id)->count());
+        $this->assertEquals(2, Application::where('organization_id', $this->organization->id)->count());
 
         // Now rollback the migration
         $migrationJob->refresh();
         $migrationJob->rollback();
 
-        // Verify all migrated data was removed
-        $this->assertEquals(0, User::where('organization_id', $this->organization->id)->count());
-        $this->assertEquals(0, Application::where('organization_id', $this->organization->id)->count());
+        $this->assertSame([$existingUser->id], User::withTrashed()->where('organization_id', $this->organization->id)->pluck('id')->all());
+        $this->assertSame([$existingApplication->id], Application::where('organization_id', $this->organization->id)->pluck('id')->all());
 
         $migrationJob->refresh();
         $this->assertEquals('rolled_back', $migrationJob->status);

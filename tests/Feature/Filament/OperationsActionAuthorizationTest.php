@@ -107,7 +107,10 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
         Queue::fake();
         $member = User::factory()->create(['organization_id' => $this->organization->id]);
         $failed = MigrationJob::factory()->failed()->create(['organization_id' => $this->organization->id]);
-        $completed = MigrationJob::factory()->completed()->create(['organization_id' => $this->organization->id]);
+        $completed = MigrationJob::factory()->completed()->create([
+            'organization_id' => $this->organization->id,
+            'migrated_data' => ['created_ids' => ['organizations' => [], 'roles' => [], 'applications' => [], 'users' => [$member->id]]],
+        ]);
 
         $list = Livewire::test(ListMigrationJobs::class)
             ->assertActionHidden('new_migration')
@@ -136,7 +139,10 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
         Queue::fake();
         $member = User::factory()->create(['organization_id' => $this->organization->id]);
         $failed = MigrationJob::factory()->failed()->create(['organization_id' => $this->organization->id]);
-        $completed = MigrationJob::factory()->completed()->create(['organization_id' => $this->organization->id]);
+        $completed = MigrationJob::factory()->completed()->create([
+            'organization_id' => $this->organization->id,
+            'migrated_data' => ['created_ids' => ['organizations' => [], 'roles' => [], 'applications' => [], 'users' => [$member->id]]],
+        ]);
 
         $list = Livewire::test(ListMigrationJobs::class)
             ->assertActionHidden('new_migration')
@@ -161,7 +167,11 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
         $this->actingAs($this->createSuperAdmin());
         Queue::fake();
         $member = User::factory()->create(['organization_id' => $this->organization->id]);
-        $completed = MigrationJob::factory()->completed()->create(['organization_id' => $this->organization->id]);
+        $imported = User::factory()->create(['organization_id' => $this->organization->id]);
+        $completed = MigrationJob::factory()->completed()->create([
+            'organization_id' => $this->organization->id,
+            'migrated_data' => ['created_ids' => ['organizations' => [], 'roles' => [], 'applications' => [], 'users' => [$imported->id]]],
+        ]);
 
         Livewire::test(ListMigrationJobs::class)
             ->assertActionVisible('new_migration')
@@ -174,7 +184,8 @@ class OperationsActionAuthorizationTest extends IntegrationTestCase
             ->callTableAction('rollback', $completed);
 
         $this->assertSame('rolled_back', $completed->fresh()->status);
-        $this->assertNull(User::find($member->id));
+        $this->assertNotNull(User::find($member->id));
+        $this->assertNull(User::withTrashed()->find($imported->id));
         $this->assertSame(2, MigrationJob::where('organization_id', $this->organization->id)->count());
         Queue::assertPushed(ProcessAuth0MigrationJob::class);
     }

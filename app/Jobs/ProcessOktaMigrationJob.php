@@ -60,6 +60,10 @@ class ProcessOktaMigrationJob implements ShouldQueue
                 'roles' => ['total' => 0, 'successful' => 0, 'failed' => 0, 'skipped' => 0],
             ];
 
+            $createdIds = $this->migrationJob->migrated_data['created_ids']
+                ?? ['organizations' => [], 'roles' => [], 'applications' => [], 'users' => []];
+            $this->recordCreatedIds($createdIds);
+
             // Migrate users
             if ($config['migrate_users'] ?? false) {
                 $oktaUsers = $client->getUsers();
@@ -86,7 +90,7 @@ class ProcessOktaMigrationJob implements ShouldQueue
                             $name = explode('@', $email)[0];
                         }
 
-                        User::create([
+                        $user = User::create([
                             'name' => $name,
                             'email' => $email,
                             'password' => Hash::make(Str::random(32)),
@@ -104,6 +108,9 @@ class ProcessOktaMigrationJob implements ShouldQueue
                                 'okta_last_login' => $oktaUser['lastLogin'] ?? null,
                             ],
                         ]);
+
+                        $createdIds['users'][] = $user->id;
+                        $this->recordCreatedIds($createdIds);
 
                         $stats['users']['successful']++;
                     } catch (Throwable $e) {
@@ -159,6 +166,16 @@ class ProcessOktaMigrationJob implements ShouldQueue
         $this->migrationJob->update([
             'status' => 'failed',
             'completed_at' => now(),
+        ]);
+    }
+
+    /**
+     * @param  array{organizations: int[], roles: int[], applications: int[], users: int[]}  $createdIds
+     */
+    private function recordCreatedIds(array $createdIds): void
+    {
+        $this->migrationJob->update([
+            'migrated_data' => array_merge($this->migrationJob->migrated_data ?? [], ['created_ids' => $createdIds]),
         ]);
     }
 

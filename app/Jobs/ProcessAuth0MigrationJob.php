@@ -11,6 +11,7 @@ use App\Services\Auth0\DTOs\Auth0RoleDTO;
 use App\Services\Auth0\DTOs\Auth0UserDTO;
 use App\Services\Auth0\Migration\Auth0MigrationService;
 use App\Services\Auth0\Migration\Importers\UserImporter;
+use App\Services\Auth0\Migration\ImportResult;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -126,6 +127,12 @@ class ProcessAuth0MigrationJob implements ShouldQueue
                     'id' => $role->id,
                     'name' => $role->name,
                 ], $plan->roles),
+                'created_ids' => [
+                    'organizations' => $this->createdIds($result->organizations),
+                    'roles' => $this->createdIds($result->roles),
+                    'applications' => $this->createdIds($result->applications),
+                    'users' => $this->createdIds($result->users),
+                ],
             ];
 
             // Update job with success
@@ -191,6 +198,14 @@ class ProcessAuth0MigrationJob implements ShouldQueue
             'status' => 'failed',
             'completed_at' => now(),
         ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function createdIds(ImportResult $result): array
+    {
+        return array_values(array_filter($result->getSuccessfulIds(), fn (mixed $id): bool => $id !== null));
     }
 
     /**

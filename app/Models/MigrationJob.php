@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class MigrationJob extends Model
 {
@@ -75,19 +77,45 @@ class MigrationJob extends Model
         return $query->where('status', 'failed');
     }
 
-    /**
-     * Rollback the migration by deleting migrated data
-     */
+    public function canRollback(): bool
+    {
+        return in_array($this->status, ['completed', 'failed'], true)
+            && isset($this->migrated_data['created_ids']);
+    }
+
     public function rollback(): void
     {
-        // Delete all users and applications that were created during this migration
-        if ($this->organization_id) {
-            User::where('organization_id', $this->organization_id)->delete();
-            Application::where('organization_id', $this->organization_id)->delete();
+        if (! $this->canRollback()) {
+            throw new RuntimeException('Only a finished migration that recorded the IDs it created can be rolled back.');
         }
 
-        // Update status
-        $this->update(['status' => 'rolled_back']);
+        $createdIds = $this->migrated_data['created_ids'];
+
+        DB::transaction(function () use ($createdIds): void {
+            User::withTrashed()
+                ->where('organization_id', $this->organization_id)
+                ->whereIn('id', $createdIds['users'] ?? [])
+                ->get()
+                ->each(fn (User $user) => $user->forceDelete());
+
+            Application::where('organization_id', $this->organization_id)
+                ->whereIn('id', $createdIds['applications'] ?? [])
+                ->get()
+                ->each(fn (Application $application) => $application->delete());
+
+            CustomRole::withTrashed()
+                ->where('organization_id', $this->organization_id)
+                ->whereIn('id', $createdIds['roles'] ?? [])
+                ->get()
+                ->each(fn (CustomRole $role) => $role->forceDelete());
+
+            Organization::withTrashed()
+                ->whereIn('id', $createdIds['organizations'] ?? [])
+                ->get()
+                ->each(fn (Organization $organization) => $organization->forceDelete());
+
+            $this->update(['status' => 'rolled_back']);
+        });
     }
 
     /**
