@@ -152,9 +152,9 @@ class BulkUserGuardsTest extends IntegrationTestCase
 
         $this->actingAs($caller, 'api');
         $foreignDelete = $this->deleteJson($deleteUrl, ['user_ids' => [$foreign->id]]);
-        $missingDelete = $this->deleteJson($deleteUrl, ['user_ids' => [$missingId]]);
+        $missingDelete = $this->deleteJson($deleteUrl, ['user_ids' => [$missingId]])->assertOk();
         $foreignMfa = $this->postJson($mfaUrl, ['user_ids' => [$foreign->id]]);
-        $missingMfa = $this->postJson($mfaUrl, ['user_ids' => [$missingId]]);
+        $missingMfa = $this->postJson($mfaUrl, ['user_ids' => [$missingId]])->assertOk();
 
         $this->assertSame($missingDelete->status(), $foreignDelete->status());
         $this->assertSame($missingDelete->json(), $foreignDelete->json());

@@ -193,7 +193,7 @@ class ForgedOrganizationFormsTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function it_rejects_a_migration_for_another_organization(): void
+    public function it_forbids_an_organization_owner_from_starting_a_migration_even_for_a_forged_organization(): void
     {
         Queue::fake();
 
