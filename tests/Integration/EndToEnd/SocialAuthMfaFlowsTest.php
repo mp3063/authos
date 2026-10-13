@@ -271,7 +271,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
             'name' => 'MFA Required Organization',
             'slug' => 'mfa-required-org',
             'settings' => [
-                'mfa_required' => true,
+                'require_mfa' => true,
                 'allow_registration' => true,
             ],
         ]);

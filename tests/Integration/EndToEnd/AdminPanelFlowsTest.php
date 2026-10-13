@@ -51,7 +51,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
             'name' => 'Admin Test Organization',
             'slug' => 'admin-test-org',
             'settings' => [
-                'mfa_required' => true,
+                'require_mfa' => true,
                 'session_timeout' => 480,
                 'allowed_domains' => ['admintest.com'],
             ],
@@ -155,7 +155,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         // Test organization with MFA requirement
         $this->testOrganization->update([
             'settings' => array_merge($this->testOrganization->settings, [
-                'mfa_required' => true,
+                'require_mfa' => true,
             ]),
         ]);
 
@@ -366,7 +366,7 @@ class AdminPanelFlowsTest extends EndToEndTestCase
             'slug' => 'new-test-org',
             'settings' => [
                 'allow_registration' => false,
-                'mfa_required' => true,
+                'require_mfa' => true,
                 'session_timeout' => 240,
             ],
         ];

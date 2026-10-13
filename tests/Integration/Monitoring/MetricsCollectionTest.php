@@ -332,6 +332,20 @@ class MetricsCollectionTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_counts_only_organizations_that_require_mfa(): void
+    {
+        $this->organization->update(['settings' => ['require_mfa' => false]]);
+        $this->createOrganization(['settings' => ['require_mfa' => true]]);
+        $this->createOrganization(['settings' => ['require_mfa' => false]]);
+
+        $response = $this->actingAsApiUserWithToken($this->user)
+            ->getJson('/api/v1/monitoring/metrics/organizations');
+
+        $response->assertOk();
+        $this->assertSame(1, $response->json('mfa_required_count'));
+    }
+
+    #[Test]
     public function mfa_metrics_show_adoption_rates(): void
     {
         // ARRANGE: Create users with and without MFA

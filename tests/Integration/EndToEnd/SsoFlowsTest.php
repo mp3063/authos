@@ -1122,7 +1122,7 @@ class SsoFlowsTest extends EndToEndTestCase
         // Enable MFA for organization
         $this->defaultOrganization->update([
             'settings' => array_merge($this->defaultOrganization->settings, [
-                'mfa_required' => true,
+                'require_mfa' => true,
             ]),
         ]);
 

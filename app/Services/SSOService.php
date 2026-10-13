@@ -94,7 +94,7 @@ class SSOService
         ];
 
         // Add MFA status if MFA is enabled for user/organization
-        $orgMfaRequired = $user->organization && is_array($user->organization->settings) && (($user->organization->settings['mfa_required'] ?? false));
+        $orgMfaRequired = $user->organization && is_array($user->organization->settings) && (($user->organization->settings['require_mfa'] ?? false));
 
         if ($user->mfa_enabled || $orgMfaRequired) {
             $metadata['mfa_verified'] = $user->mfa_enabled;

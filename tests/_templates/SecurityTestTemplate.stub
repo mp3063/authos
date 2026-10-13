@@ -48,7 +48,7 @@ class {{TEST_CLASS_NAME}} extends IntegrationTestCase
         $this->organization = $this->createOrganization([
             'settings' => [
                 'security_level' => 'high',
-                'mfa_required' => true,
+                'require_mfa' => true,
                 'lockout_enabled' => true,
             ],
         ]);

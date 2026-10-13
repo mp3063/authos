@@ -95,7 +95,7 @@ class ApiIntegrationFlowsTest extends EndToEndTestCase
             'settings' => [
                 'allow_registration' => true,
                 'require_email_verification' => false,
-                'mfa_required' => false,
+                'require_mfa' => false,
             ],
         ]);
     }

@@ -116,7 +116,7 @@ abstract class EndToEndTestCase extends TestCase
             'settings' => [
                 'allow_registration' => true,
                 'require_email_verification' => false,
-                'mfa_required' => false,
+                'require_mfa' => false,
                 'password_min_length' => 8,
                 'session_timeout' => 1440, // 24 hours
                 'allowed_domains' => ['example.com', 'test.com'],
@@ -130,7 +130,7 @@ abstract class EndToEndTestCase extends TestCase
             'settings' => [
                 'allow_registration' => false,
                 'require_email_verification' => true,
-                'mfa_required' => true,
+                'require_mfa' => true,
                 'password_min_length' => 12,
                 'session_timeout' => 480, // 8 hours
                 'allowed_domains' => ['enterprise.com'],
