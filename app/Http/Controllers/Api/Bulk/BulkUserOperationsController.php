@@ -356,10 +356,11 @@ class BulkUserOperationsController extends BaseController
 
             $customRole = CustomRole::where('id', $invitation['custom_role_id'])
                 ->where('organization_id', $organization->id)
-                ->active()
                 ->first();
 
-            if ($customRole && $this->userRoleService->exceedsPermissionsOf($caller, collect($customRole->permissions ?? []))) {
+            if ($customRole && ! $customRole->is_active) {
+                $errors["invitations.{$index}.custom_role_id"] = 'The selected custom role is not active.';
+            } elseif ($customRole && $this->userRoleService->exceedsPermissionsOf($caller, collect($customRole->permissions ?? []))) {
                 $errors["invitations.{$index}.custom_role_id"] = 'You cannot grant a role with permissions you do not have.';
             }
         }

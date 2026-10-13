@@ -41,10 +41,10 @@ class BulkInviteCustomRoleTest extends IntegrationTestCase
             'permissions' => ['users.read'],
         ]);
 
-        $response = $this->invite($owner, ['email' => 'invitee@example.com', 'custom_role_id' => $customRole->id]);
+        $this->invite($owner, ['email' => 'invitee@example.com', 'custom_role_id' => $customRole->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('invitations.0.custom_role_id');
 
-        $this->assertSame(0, $response->json('data.invited_count'));
-        $this->assertSame('invitee@example.com', $response->json('data.failed.0.email'));
         $this->assertDatabaseMissing('invitations', ['email' => 'invitee@example.com']);
     }
 
