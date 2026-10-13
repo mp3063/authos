@@ -27,7 +27,7 @@ class BulkInvitationService
             'already_exists' => [],
         ];
 
-        return DB::transaction(function () use ($organization, $invitations, $roleId, &$results) {
+        return DB::transaction(function () use ($organization, $invitations, $caller, $roleId, &$results) {
             foreach ($invitations as $invitationData) {
                 try {
                     // Ensure invitationData is properly formatted
@@ -38,14 +38,14 @@ class BulkInvitationService
                     }
 
                     // Validate invitation requirements
-                    $validationResult = $this->validateInvitationData($invitationData, $organization, $inviter);
+                    $validationResult = $this->validateInvitationData($invitationData, $organization, $caller);
                     if ($validationResult) {
                         $results[$validationResult['type']][] = $validationResult['data'];
 
                         continue;
                     }
 
-                    $invitation = $this->createInvitation($organization, $invitationData, $inviter);
+                    $invitation = $this->createInvitation($organization, $invitationData, $caller);
 
                     // Send an invitation email if requested
                     if ($invitationData['send_email'] ?? true) {

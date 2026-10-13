@@ -32,6 +32,25 @@ class BulkEndpointsAuthorizationTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_creates_bulk_invitations_attributed_to_the_calling_user(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $this->actingAsApiUserWithToken($owner);
+
+        $response = $this->postJson("/api/v1/organizations/{$owner->organization_id}/bulk/invite-users", [
+            'emails' => ['bulk-invitee@example.com'],
+        ]);
+
+        $response->assertCreated();
+        $this->assertCount(1, $response->json('data.successful'));
+        $this->assertDatabaseHas('invitations', [
+            'organization_id' => $owner->organization_id,
+            'email' => 'bulk-invitee@example.com',
+            'inviter_id' => $owner->id,
+        ]);
+    }
+
+    #[Test]
     public function it_no_longer_exposes_bulk_enable_mfa(): void
     {
         $owner = $this->createApiOrganizationOwner();
