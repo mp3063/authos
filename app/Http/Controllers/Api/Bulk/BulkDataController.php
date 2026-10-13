@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\User;
 use App\Services\BulkUserDataService;
+use App\Services\UserRoleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -19,7 +20,7 @@ class BulkDataController extends BaseController
 
     protected BulkUserDataService $bulkUserDataService;
 
-    public function __construct(BulkUserDataService $bulkUserDataService)
+    public function __construct(BulkUserDataService $bulkUserDataService, private readonly UserRoleService $userRoleService)
     {
         $this->bulkUserDataService = $bulkUserDataService;
         $this->middleware('auth:api');
@@ -92,17 +93,24 @@ class BulkDataController extends BaseController
         $organization = $this->findOrganizationWithOrgScope($organizationId);
         $this->authorize('create', User::class);
 
+        $updateExisting = $request->boolean('update_existing', $request->boolean('options.update_existing'));
+        if ($updateExisting) {
+            $this->authorize('updateAny', User::class);
+        }
+
+        $assignableRole = $this->userRoleService->assignableRoleRule($request->user(), $organization->id, 'name');
+
         $request->validate([
             'file' => 'required|file|mimes:csv,xlsx,json|max:10240',
             'format' => 'sometimes|string|in:csv,xlsx,json',
             'send_invitations' => 'sometimes|boolean',
-            'default_role' => 'sometimes|string|exists:roles,name',
+            'default_role' => ['sometimes', 'string', $assignableRole],
             'skip_duplicates' => 'sometimes|boolean',
             'update_existing' => 'sometimes|boolean',
             'invite_expires_in_days' => 'sometimes|integer|min:1|max:30',
             'options' => 'sometimes|array',
             'options.send_invitations' => 'sometimes|boolean',
-            'options.default_role' => 'sometimes|string|exists:roles,name',
+            'options.default_role' => ['sometimes', 'string', $assignableRole],
             'options.skip_duplicates' => 'sometimes|boolean',
             'options.update_existing' => 'sometimes|boolean',
             'mapping' => 'sometimes|array',
@@ -121,7 +129,7 @@ class BulkDataController extends BaseController
                 'send_invitations' => $request->boolean('send_invitations', $requestOptions['send_invitations'] ?? false),
                 'default_role' => $request->get('default_role', $requestOptions['default_role'] ?? 'user'),
                 'skip_duplicates' => $request->boolean('skip_duplicates', $requestOptions['skip_duplicates'] ?? false),
-                'update_existing' => $request->boolean('update_existing', $requestOptions['update_existing'] ?? false),
+                'update_existing' => $updateExisting,
                 'invite_expires_in_days' => $request->integer('invite_expires_in_days', 7),
             ];
 

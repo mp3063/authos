@@ -123,6 +123,8 @@ class UsersImport implements ToCollection, WithHeadingRow
         if ($existingUser) {
             if ($existingUser->organization_id !== $this->organization->id) {
                 $this->results['failed'][] = ['row' => $rowData, 'reason' => 'Email address is already in use'];
+            } elseif ($this->updateExisting && ! $this->currentUser->hasOrganizationPermission('users.update')) {
+                $this->results['failed'][] = ['row' => $rowData, 'reason' => 'You cannot update existing users'];
             } elseif ($this->updateExisting && $this->exceedsCaller($existingUser)) {
                 $this->results['failed'][] = [
                     'row' => $rowData,

@@ -3,15 +3,19 @@
 namespace App\Jobs;
 
 use App\Models\BulkImportJob;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
 use App\Services\BulkImport\DTOs\ImportOptions;
 use App\Services\BulkImport\ImportValidator;
+use App\Services\UserRoleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -227,11 +231,20 @@ class ProcessBulkImportJob implements ShouldQueue
         // Skip already processed records (for resume functionality)
         $recordsToProcess = array_slice($records, $validRecordsProcessed);
 
+        $defaultRole = $options->defaultRole !== null ? $this->grantableDefaultRole($options->defaultRole) : null;
+
         // Process in batches
         foreach (array_chunk($recordsToProcess, $batchSize) as $batch) {
             try {
                 // Create users directly for test compatibility
                 foreach ($batch as $record) {
+                    if ($options->defaultRole !== null && $defaultRole === null) {
+                        $this->importJob->addValidationError($record['row'] ?? 0, $record, ["You cannot grant the role '{$options->defaultRole}'"]);
+                        $failedCount++;
+
+                        continue;
+                    }
+
                     try {
                         $userData = [
                             'name' => $record['name'] ?? 'Unknown',
@@ -241,7 +254,13 @@ class ProcessBulkImportJob implements ShouldQueue
                             'email_verified_at' => now(),
                         ];
 
-                        User::create($userData);
+                        DB::transaction(function () use ($userData, $defaultRole): void {
+                            $user = User::create($userData);
+
+                            if ($defaultRole !== null) {
+                                app(UserRoleService::class)->syncRolesAs($this->importJob->createdBy, $user, collect([$defaultRole->id]));
+                            }
+                        });
                         $successfulCount++;
                     } catch (\Exception $e) {
                         $failedCount++;
@@ -277,6 +296,21 @@ class ProcessBulkImportJob implements ShouldQueue
                 ]);
             }
         }
+    }
+
+    private function grantableDefaultRole(string $name): ?Role
+    {
+        $creator = $this->importJob->createdBy;
+        if ($creator === null) {
+            return null;
+        }
+
+        $userRoles = app(UserRoleService::class);
+        $role = $userRoles->findAssignableRole($creator, $this->importJob->organization_id, $name);
+
+        return $role !== null && $userRoles->roleChangeDenial($creator, null, new EloquentCollection([$role])) === null
+            ? $role
+            : null;
     }
 
     /**

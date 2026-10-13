@@ -3,6 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\BulkImportJob;
+use App\Models\User;
+use App\Services\UserRoleService;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ImportUsersRequest extends FormRequest
@@ -12,7 +15,8 @@ class ImportUsersRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('create', BulkImportJob::class);
+        return $this->user()->can('create', BulkImportJob::class)
+            && (! $this->boolean('update_existing') || $this->user()->can('updateAny', User::class));
     }
 
     /**
@@ -49,10 +53,16 @@ class ImportUsersRequest extends FormRequest
                 'boolean',
             ],
             'default_role' => [
+                'bail',
                 'sometimes',
                 'nullable',
                 'string',
-                'exists:roles,name',
+                app(UserRoleService::class)->assignableRoleRule($this->user(), $this->user()->organization_id, 'name'),
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! app(UserRoleService::class)->canGrantRoleNamed($this->user(), $this->user()->organization_id, $value)) {
+                        $fail('You cannot grant the specified default role');
+                    }
+                },
             ],
             'batch_size' => [
                 'sometimes',
