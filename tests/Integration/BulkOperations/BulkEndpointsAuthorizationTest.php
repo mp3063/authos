@@ -26,11 +26,23 @@ class BulkEndpointsAuthorizationTest extends IntegrationTestCase
         $this->postJson("{$base}/assign-roles", $payload + ['role' => 'User'])->assertNotFound();
         $this->postJson("{$base}/export-users", [])->assertNotFound();
         $this->postJson("{$base}/import-users", [])->assertNotFound();
-        $this->postJson("{$base}/enable-mfa", $payload)->assertNotFound();
         $this->deleteJson("{$base}/delete-users", $payload)->assertNotFound();
 
-        $this->assertNull($foreign->fresh()->mfa_required_at);
         $this->assertModelExists($foreign);
+    }
+
+    #[Test]
+    public function it_no_longer_exposes_bulk_enable_mfa(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $member = User::factory()->create(['organization_id' => $owner->organization_id]);
+        $this->actingAsApiUserWithToken($owner);
+
+        $response = $this->postJson("/api/v1/organizations/{$owner->organization_id}/bulk/enable-mfa", [
+            'user_ids' => [$member->id],
+        ]);
+
+        $this->assertContains($response->status(), [404, 405]);
     }
 
     #[Test]

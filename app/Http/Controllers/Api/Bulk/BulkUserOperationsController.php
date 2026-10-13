@@ -283,58 +283,6 @@ class BulkUserOperationsController extends BaseController
     }
 
     /**
-     * Bulk enable MFA for users
-     */
-    public function bulkEnableMfa(Request $request, string $organizationId): JsonResponse
-    {
-        $organization = $this->findOrganizationWithOrgScope($organizationId);
-        $this->authorize('updateAny', User::class);
-
-        $request->validate([
-            'user_ids' => 'required|array|min:1|max:100',
-            'user_ids.*' => 'required|integer',
-            'grace_period_days' => 'sometimes|integer|min:0|max:90',
-        ]);
-
-        $userIds = $request->input('user_ids');
-        $gracePeriodDays = $request->input('grace_period_days', 7);
-
-        $users = User::with(['permissions', 'roles.permissions'])
-            ->whereIn('id', $userIds)
-            ->where('organization_id', $organization->id)
-            ->get();
-
-        try {
-            $caller = $request->user();
-            $enabledCount = 0;
-            $notificationSentCount = 0;
-
-            foreach ($users as $user) {
-                if (! $caller->can('update', $user)) {
-                    continue;
-                }
-
-                // Mark MFA as required
-                $user->update([
-                    'mfa_required_at' => now()->addDays($gracePeriodDays),
-                ]);
-                $enabledCount++;
-
-                // In production, would send notification email
-                $notificationSentCount++;
-            }
-
-            return $this->successResponse([
-                'enabled_count' => $enabledCount,
-                'notification_sent_count' => $notificationSentCount,
-                'grace_period_days' => $gracePeriodDays,
-            ], sprintf('MFA enabled for %d users with %d day grace period', $enabledCount, $gracePeriodDays));
-        } catch (Exception $e) {
-            return $this->serverErrorResponse('Failed to enable MFA: '.$e->getMessage());
-        }
-    }
-
-    /**
      * Bulk update organization settings (Super Admin only)
      */
     public function bulkUpdateSettings(Request $request): JsonResponse

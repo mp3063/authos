@@ -266,7 +266,6 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
         Route::post('/{id}/bulk/export-users', [BulkDataController::class, 'exportUsers']);
         Route::post('/{id}/bulk/import-users', [BulkDataController::class, 'importUsers']);
         Route::delete('/{id}/bulk/delete-users', [BulkUserOperationsController::class, 'bulkDeleteUsers']);
-        Route::post('/{id}/bulk/enable-mfa', [BulkUserOperationsController::class, 'bulkEnableMfa']);
 
         // Bulk settings update (Super Admin only - no specific org ID)
         Route::post('/bulk/update-settings', [BulkUserOperationsController::class, 'bulkUpdateSettings']);

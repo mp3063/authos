@@ -262,34 +262,6 @@ class OrganizationBulkOpsTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function test_can_bulk_enable_mfa(): void
-    {
-        // ARRANGE: Create users without MFA
-        $users = User::factory()->count(5)->create([
-            'organization_id' => $this->organization->id,
-        ]);
-
-        // ACT: Bulk enable MFA
-        $response = $this->actingAs($this->admin, 'api')
-            ->postJson("/api/v1/organizations/{$this->organization->id}/bulk/enable-mfa", [
-                'user_ids' => $users->pluck('id')->toArray(),
-                'grace_period_days' => 7,
-            ]);
-
-        // ASSERT: Verify response
-        $response->assertOk()
-            ->assertJsonStructure([
-                'data' => [
-                    'enabled_count',
-                    'notification_sent_count',
-                ],
-            ]);
-
-        $responseData = $response->json('data');
-        $this->assertEquals(5, $responseData['enabled_count']);
-    }
-
-    #[Test]
     public function test_bulk_operations_handle_errors_gracefully(): void
     {
         // ARRANGE: Create mix of valid and invalid user IDs
