@@ -3,18 +3,18 @@
 namespace App\Jobs;
 
 use App\Models\BulkImportJob;
-use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
 use App\Services\BulkImport\DTOs\ExportOptions;
-use App\Services\UserRoleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class ExportUsersJob implements ShouldQueue
@@ -70,8 +70,10 @@ class ExportUsersJob implements ShouldQueue
             $processedCount = 0;
 
             $query->chunk(100, function ($users) use (&$records, &$processedCount, $options) {
+                $rolesByUser = $this->roleNamesByUser($users->pluck('id')->all());
+
                 foreach ($users as $user) {
-                    $records[] = $this->formatUserRecord($user, $options);
+                    $records[] = $this->formatUserRecord($user, $options, $rolesByUser[$user->id] ?? '');
                     $processedCount++;
 
                     // Update progress every 100 records
@@ -92,7 +94,7 @@ class ExportUsersJob implements ShouldQueue
             // Update job with file information
             $this->exportJob->update([
                 'file_path' => $filePath,
-                'file_size' => filesize(storage_path('app/'.$filePath)),
+                'file_size' => Storage::disk('local')->size($filePath),
                 'processed_records' => $processedCount,
                 'valid_records' => $processedCount,
             ]);
@@ -168,7 +170,7 @@ class ExportUsersJob implements ShouldQueue
     /**
      * Format user record for export
      */
-    private function formatUserRecord(User $user, ExportOptions $options): array
+    private function formatUserRecord(User $user, ExportOptions $options, string $roles): array
     {
         $fields = $options->getDefaultFields();
         $record = [];
@@ -183,7 +185,7 @@ class ExportUsersJob implements ShouldQueue
                 'updated_at' => $user->updated_at->toDateTimeString(),
                 'organization_name' => $user->organization?->name ?? 'N/A',
                 'organization_id' => $user->organization_id,
-                'roles' => $this->roleNames($user),
+                'roles' => $roles,
                 'is_active' => $user->is_active ? 'Yes' : 'No',
                 'mfa_enabled' => $user->hasMfaEnabled() ? 'Yes' : 'No',
                 'provider' => $user->getProviderDisplayName(),
@@ -194,13 +196,24 @@ class ExportUsersJob implements ShouldQueue
         return $record;
     }
 
-    private function roleNames(User $user): string
+    /**
+     * @param  array<int, string>  $userIds
+     * @return Collection<string, string>
+     */
+    private function roleNamesByUser(array $userIds): Collection
     {
-        return Role::query()
-            ->whereIn('id', app(UserRoleService::class)->assignedRoleIds($user))
-            ->where(fn ($scoped) => $scoped->whereNull('organization_id')->orWhere('organization_id', $user->organization_id))
-            ->pluck('name')
-            ->implode(', ');
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->join('users', 'users.id', '=', 'model_has_roles.model_id')
+            ->where('model_has_roles.model_type', (new User)->getMorphClass())
+            ->whereIn('model_has_roles.model_id', $userIds)
+            ->where(fn ($scoped) => $scoped
+                ->whereNull('roles.organization_id')
+                ->orWhereColumn('roles.organization_id', 'users.organization_id'))
+            ->orderBy('roles.name')
+            ->get(['model_has_roles.model_id', 'roles.name'])
+            ->groupBy('model_id')
+            ->map(fn ($rows) => $rows->pluck('name')->unique()->implode(', '));
     }
 
     /**

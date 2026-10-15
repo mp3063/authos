@@ -222,14 +222,6 @@ class ExportUsersJobTest extends TestCase
                 // Create file in fake storage
                 Storage::put($filePath, 'mock csv content');
 
-                // ALSO create the file in real filesystem for filesize() check
-                $fullPath = storage_path('app/'.$filePath);
-                $directory = dirname($fullPath);
-                if (! is_dir($directory)) {
-                    mkdir($directory, 0755, true);
-                }
-                file_put_contents($fullPath, 'mock csv content');
-
                 return $filePath;
             });
 
@@ -242,17 +234,6 @@ class ExportUsersJobTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Clean up real filesystem files created by tests
-        $exportsPath = storage_path('app/exports');
-        if (is_dir($exportsPath)) {
-            $files = glob($exportsPath.'/*.csv');
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    @unlink($file);
-                }
-            }
-        }
-
         Mockery::close();
         parent::tearDown();
     }

@@ -10,9 +10,11 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\BulkImport\BulkImportService;
+use App\Services\BulkImport\Parsers\CsvParser;
 use App\Services\BulkUserDataService;
 use App\Services\UserRoleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Mockery;
@@ -51,13 +53,6 @@ class BulkExportRoleScopeTest extends TestCase
         $this->globalRoleHolder = User::factory()->create(['organization_id' => $this->organization->id]);
         $globalRole = Role::create(['name' => 'Platform Support', 'guard_name' => 'api', 'organization_id' => null]);
         $roles->assignRole($this->globalRoleHolder, (string) $globalRole->id);
-    }
-
-    protected function tearDown(): void
-    {
-        array_map('unlink', glob(storage_path('app/exports/users_export_*')) ?: []);
-
-        parent::tearDown();
     }
 
     private function roleNamed(string $name, int $organizationId): Role
@@ -126,9 +121,7 @@ class BulkExportRoleScopeTest extends TestCase
         $parser = Mockery::mock();
         $parser->shouldReceive('generate')->andReturnUsing(function (array $records, string $filename) use (&$captured) {
             $captured = $records;
-            $path = storage_path('app/exports/'.$filename);
-            @mkdir(dirname($path), 0755, true);
-            file_put_contents($path, 'x');
+            Storage::disk('local')->put('exports/'.$filename, 'x');
 
             return 'exports/'.$filename;
         });
@@ -158,9 +151,7 @@ class BulkExportRoleScopeTest extends TestCase
         $parser = Mockery::mock();
         $parser->shouldReceive('generate')->andReturnUsing(function (array $records, string $filename) use (&$captured) {
             $captured = $records;
-            $path = storage_path('app/exports/'.$filename);
-            @mkdir(dirname($path), 0755, true);
-            file_put_contents($path, 'x');
+            Storage::disk('local')->put('exports/'.$filename, 'x');
 
             return 'exports/'.$filename;
         });
@@ -176,5 +167,73 @@ class BulkExportRoleScopeTest extends TestCase
         );
         $this->assertSame('Auditor', $rolesByEmail[$this->ownAuditor->email]);
         $this->assertSame('Platform Support', $rolesByEmail[$this->globalRoleHolder->email]);
+    }
+
+    private function csvExportJob(): BulkImportJob
+    {
+        return BulkImportJob::factory()->create([
+            'organization_id' => $this->organization->id,
+            'type' => 'export',
+            'file_format' => 'csv',
+            'status' => BulkImportJob::STATUS_PENDING,
+            'options' => [
+                'organization_id' => $this->organization->id,
+                'fields' => ['email', 'roles'],
+            ],
+        ]);
+    }
+
+    private function csvService(): BulkImportService
+    {
+        $service = Mockery::mock(BulkImportService::class);
+        $service->shouldReceive('getParser')->andReturn(new CsvParser);
+
+        return $service;
+    }
+
+    #[Test]
+    public function it_exports_roles_with_a_constant_number_of_queries_per_chunk(): void
+    {
+        $roles = app(UserRoleService::class);
+        $auditor = (string) $this->roleNamed('Auditor', $this->organization->id)->id;
+        User::factory()->count(30)->create(['organization_id' => $this->organization->id])
+            ->each(fn (User $user) => $roles->assignRole($user, $auditor));
+        $exportJob = $this->csvExportJob();
+
+        DB::enableQueryLog();
+        (new ExportUsersJob($exportJob))->handle($this->csvService());
+        $roleQueries = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'model_has_roles'))->count();
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(2, $roleQueries);
+    }
+
+    #[Test]
+    public function it_lists_each_role_name_once(): void
+    {
+        $user = User::factory()->create(['organization_id' => $this->organization->id]);
+        $web = Role::create(['name' => 'Dual', 'guard_name' => 'web', 'organization_id' => null]);
+        $api = Role::create(['name' => 'Dual', 'guard_name' => 'api', 'organization_id' => null]);
+        $roles = app(UserRoleService::class);
+        $roles->assignRole($user, (string) $web->id);
+        $roles->assignRole($user, (string) $api->id);
+        $exportJob = $this->csvExportJob();
+
+        (new ExportUsersJob($exportJob))->handle($this->csvService());
+
+        $this->assertStringContainsString(',Dual'."\n", Storage::disk('local')->get($exportJob->fresh()->file_path));
+    }
+
+    #[Test]
+    public function it_writes_the_export_to_the_storage_disk(): void
+    {
+        $exportJob = $this->csvExportJob();
+
+        (new ExportUsersJob($exportJob))->handle($this->csvService());
+
+        $exportJob->refresh();
+        Storage::disk('local')->assertExists($exportJob->file_path);
+        $this->assertSame(Storage::disk('local')->size($exportJob->file_path), (int) $exportJob->file_size);
+        $this->assertSame([], glob(storage_path('app/exports/users_export_'.$exportJob->id.'_*')) ?: []);
     }
 }
