@@ -309,7 +309,7 @@ Security-relevant behavior worth knowing:
 - Role assignment through the API, invitations, bulk import and the admin panel goes through the same rule: assignable roles are limited to the caller's organization and permissions
 - API responses drop keys that look like secrets (`*_password`, `*_secret`, `*_private_key`, `*_api_key`)
 - Disabling MFA requires the password plus a TOTP or recovery code, and is refused while the organization requires MFA
-- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA; re-run it whenever an organization switches `require_mfa` on or users move into such an organization
+- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA; this is needed once, at deploy, since later switches of `require_mfa` on and moves into such an organization revoke them automatically
 - Exports are written to the private disk and served only through authorized download endpoints
 
 ## License

@@ -6,13 +6,14 @@ use App\Events\UserCreatedEvent;
 use App\Events\UserDeletedEvent;
 use App\Events\UserUpdatedEvent;
 use App\Models\User;
+use App\Services\Auth\MfaEnforcementRevoker;
 use App\Services\CacheInvalidationService;
 
 class UserObserver
 {
     protected CacheInvalidationService $cacheInvalidationService;
 
-    public function __construct(CacheInvalidationService $cacheInvalidationService)
+    public function __construct(CacheInvalidationService $cacheInvalidationService, private MfaEnforcementRevoker $mfaEnforcementRevoker)
     {
         $this->cacheInvalidationService = $cacheInvalidationService;
     }
@@ -48,6 +49,7 @@ class UserObserver
             }
             if ($user->organization_id) {
                 $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
+                $this->mfaEnforcementRevoker->revokeForUser($user->load('organization'));
             }
         }
 

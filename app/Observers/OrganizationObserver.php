@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Events\OrganizationUpdatedEvent;
+use App\Jobs\RevokeCredentialsForOrganizationMfaJob;
 use App\Models\Organization;
 use App\Services\CacheInvalidationService;
 
@@ -30,6 +31,10 @@ class OrganizationObserver
     {
         $this->cacheInvalidationService->invalidateOrganizationCaches($organization->id);
         $this->cacheInvalidationService->invalidateEndpointCaches('/api/organizations');
+
+        if ($organization->requiresMfa() && ! $organization->newInstance(['settings' => $organization->getOriginal('settings')])->requiresMfa()) {
+            RevokeCredentialsForOrganizationMfaJob::dispatch($organization)->afterCommit();
+        }
 
         OrganizationUpdatedEvent::dispatch($organization);
     }

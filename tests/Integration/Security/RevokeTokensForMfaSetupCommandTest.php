@@ -5,6 +5,7 @@ namespace Tests\Integration\Security;
 use App\Models\Organization;
 use App\Models\SSOSession;
 use App\Models\User;
+use App\Services\Auth\MfaEnforcementRevoker;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Client;
@@ -65,7 +66,7 @@ class RevokeTokensForMfaSetupCommandTest extends IntegrationTestCase
 
     private function enableRequirement(Organization $organization): void
     {
-        $organization->update(['settings' => array_merge($organization->settings ?? [], ['require_mfa' => true])]);
+        $organization->updateQuietly(['settings' => array_merge($organization->settings ?? [], ['require_mfa' => true])]);
     }
 
     private function memberOf(Organization $organization): User
@@ -157,5 +158,68 @@ class RevokeTokensForMfaSetupCommandTest extends IntegrationTestCase
         $this->assertFalse($personalToken->fresh()->revoked);
         $this->assertNull($session->fresh()->logged_out_at);
         $this->assertSame(0, DB::table('oauth_refresh_tokens')->where('revoked', true)->count());
+    }
+
+    #[Test]
+    public function it_revokes_credentials_of_a_soft_deleted_member(): void
+    {
+        $organization = $this->organization(false);
+        $member = $this->memberOf($organization);
+        $tokens = $this->mintPasswordGrantTokens($member);
+        $personalToken = $member->createToken('personal')->token;
+        $member->delete();
+        $this->enableRequirement($organization);
+
+        $this->artisan('auth:revoke-tokens-for-mfa-setup')->assertSuccessful();
+        $member->restore();
+
+        $this->assertTrue($personalToken->fresh()->revoked);
+        $this->refreshWith($tokens['refresh_token'])->assertStatus(400)->assertJson(['error' => 'invalid_grant']);
+    }
+
+    #[Test]
+    public function it_revokes_a_refresh_token_whose_access_token_was_already_revoked(): void
+    {
+        $organization = $this->organization(false);
+        $member = $this->memberOf($organization);
+        $tokens = $this->mintPasswordGrantTokens($member);
+        DB::table('oauth_access_tokens')->where('user_id', $member->id)->update(['revoked' => true]);
+        $this->enableRequirement($organization);
+
+        $this->artisan('auth:revoke-tokens-for-mfa-setup')->assertSuccessful();
+
+        $this->assertSame(0, DB::table('oauth_refresh_tokens')->where('revoked', false)->count());
+        $this->refreshWith($tokens['refresh_token'])->assertStatus(400)->assertJson(['error' => 'invalid_grant']);
+    }
+
+    #[Test]
+    public function it_revokes_members_across_more_than_one_chunk(): void
+    {
+        $this->app->instance(MfaEnforcementRevoker::class, new MfaEnforcementRevoker(chunkSize: 2));
+        $organization = $this->organization(false);
+        $personalTokens = collect(range(1, 5))->map(fn () => $this->memberOf($organization)->createToken('personal')->token);
+        $this->enableRequirement($organization);
+
+        $this->artisan('auth:revoke-tokens-for-mfa-setup')
+            ->expectsOutputToContain('Access tokens: 5')
+            ->assertSuccessful();
+
+        $personalTokens->each(fn ($token) => $this->assertTrue($token->fresh()->revoked));
+    }
+
+    #[Test]
+    public function it_loads_organizations_without_a_query_per_member(): void
+    {
+        $organization = $this->organization(false);
+        collect(range(1, 20))->each(fn () => $this->memberOf($organization));
+        $this->enableRequirement($organization);
+        $queries = 0;
+        DB::listen(function () use (&$queries) {
+            $queries++;
+        });
+
+        $this->artisan('auth:revoke-tokens-for-mfa-setup')->assertSuccessful();
+
+        $this->assertLessThan(12, $queries);
     }
 }
