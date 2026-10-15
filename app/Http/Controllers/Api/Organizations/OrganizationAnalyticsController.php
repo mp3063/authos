@@ -8,15 +8,14 @@ use App\Http\Controllers\Api\Traits\FindsOrgScopedOrganizations;
 use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
-use App\Models\Role;
 use App\Models\User;
 use App\Services\OrganizationAnalyticsService;
-use App\Services\UserRoleService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,7 +28,7 @@ class OrganizationAnalyticsController extends BaseController
 
     protected OrganizationAnalyticsService $analyticsService;
 
-    public function __construct(OrganizationAnalyticsService $analyticsService, protected UserRoleService $userRoleService)
+    public function __construct(OrganizationAnalyticsService $analyticsService)
     {
         $this->analyticsService = $analyticsService;
         $this->middleware('auth:api');
@@ -365,11 +364,15 @@ class OrganizationAnalyticsController extends BaseController
             ])
         );
 
-        $roleNames = Role::query()
-            ->where(fn ($scoped) => $scoped->whereNull('organization_id')->orWhere('organization_id', $organization->id))
-            ->pluck('name', 'id');
+        $rolesByUser = DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_type', (new User)->getMorphClass())
+            ->whereIn('model_has_roles.model_id', $users->pluck('id')->all())
+            ->where(fn ($scoped) => $scoped->whereNull('roles.organization_id')->orWhere('roles.organization_id', $organization->id))
+            ->get(['model_has_roles.model_id', 'roles.name'])
+            ->groupBy('model_id');
 
-        return $users->map(function (User $user) use ($roleNames): array {
+        return $users->map(function (User $user) use ($rolesByUser): array {
             $lastLogin = $user->applications->max(fn ($application) => $application->pivot->last_login_at);
 
             return [
@@ -381,11 +384,7 @@ class OrganizationAnalyticsController extends BaseController
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                 'created_at' => $user->created_at->toIso8601String(),
                 'last_login_at' => $lastLogin ? Carbon::parse($lastLogin)->toIso8601String() : null,
-                'roles' => $this->userRoleService->assignedRoleIds($user)
-                    ->map(fn (int $roleId) => $roleNames->get($roleId))
-                    ->filter()
-                    ->unique()
-                    ->implode(', '),
+                'roles' => ($rolesByUser[$user->id] ?? collect())->pluck('name')->unique()->implode(', '),
                 'applications' => $user->applications->pluck('name')->implode(', '),
             ];
         })->all();

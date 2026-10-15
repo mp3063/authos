@@ -96,4 +96,55 @@ class OrganizationUsersExportTest extends IntegrationTestCase
 
         $this->assertEqualsCanonicalizing(['Global Export Role', 'Org Export Role'], $roles);
     }
+
+    #[Test]
+    public function it_filters_the_users_export_by_creation_date(): void
+    {
+        $before = User::factory()->create(['organization_id' => $this->organization->id, 'created_at' => '2026-01-09 23:59:59']);
+        $first = User::factory()->create(['organization_id' => $this->organization->id, 'created_at' => '2026-01-10 00:00:00']);
+        $last = User::factory()->create(['organization_id' => $this->organization->id, 'created_at' => '2026-01-20 23:59:59']);
+        $after = User::factory()->create(['organization_id' => $this->organization->id, 'created_at' => '2026-01-21 00:00:00']);
+
+        $response = $this->actingAs($this->owner, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/export", [
+                'format' => 'json',
+                'data_type' => 'users',
+                'date_from' => '2026-01-10',
+                'date_to' => '2026-01-20',
+            ]);
+        $response->assertOk();
+        $filePath = AuditExport::findOrFail($response->json('data.export_id'))->file_path;
+        $emails = array_column(json_decode(Storage::disk('local')->get($filePath), true), 'email');
+
+        $this->assertEqualsCanonicalizing([$first->email, $last->email], $emails);
+        $this->assertNotContains($before->email, $emails);
+        $this->assertNotContains($after->email, $emails);
+    }
+
+    #[Test]
+    public function it_loads_export_roles_with_a_constant_number_of_queries(): void
+    {
+        $role = Role::create(['name' => 'Counted Role', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
+
+        $countQueries = function (int $users) use ($role): int {
+            User::query()->where('organization_id', $this->organization->id)->where('id', '!=', $this->owner->id)->delete();
+            foreach (User::factory()->count($users)->create(['organization_id' => $this->organization->id]) as $user) {
+                DB::table('model_has_roles')->insert([
+                    'role_id' => $role->id,
+                    'model_type' => $user->getMorphClass(),
+                    'model_id' => $user->id,
+                    'organization_id' => $this->organization->id,
+                ]);
+            }
+
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->exportedUsers();
+            DB::disableQueryLog();
+
+            return count(DB::getQueryLog());
+        };
+
+        $this->assertSame($countQueries(2), $countQueries(10));
+    }
 }

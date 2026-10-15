@@ -319,6 +319,14 @@ class OrganizationAnalyticsService extends BaseService implements OrganizationAn
         if (isset($filters['is_active'])) {
             $query->where('is_active', $filters['is_active']);
         }
+
+        if (! empty($filters['date_from'])) {
+            $query->where('users.created_at', '>=', Carbon::parse($filters['date_from'])->startOfDay());
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->where('users.created_at', '<=', Carbon::parse($filters['date_to'])->endOfDay());
+        }
     }
 
     /**
