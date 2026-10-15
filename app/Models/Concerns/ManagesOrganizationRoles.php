@@ -5,8 +5,10 @@ namespace App\Models\Concerns;
 use App\Models\CustomRole;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 trait ManagesOrganizationRoles
 {
@@ -115,48 +117,63 @@ trait ManagesOrganizationRoles
     public function setupDefaultRoles(): void
     {
         $defaultRoles = $this->getDefaultRoles();
+        $permissionNames = collect($defaultRoles)->flatten()->unique()->values();
+        $registrar = app(PermissionRegistrar::class);
 
-        // First, ensure all required permissions exist for this organization
-        $allRequiredPermissions = collect($defaultRoles)->flatten()->unique();
+        $now = now();
 
-        foreach ($allRequiredPermissions as $permissionName) {
-            // Create permission for web guard
-            Permission::firstOrCreate([
-                'name' => $permissionName,
-                'guard_name' => 'web',
+        foreach (['web', 'api'] as $guard) {
+            $existing = Permission::where('guard_name', $guard)
+                ->where('organization_id', $this->id)
+                ->whereIn('name', $permissionNames)
+                ->pluck('name');
+
+            Permission::insert($permissionNames->diff($existing)->map(fn (string $name): array => [
+                'name' => $name,
+                'guard_name' => $guard,
                 'organization_id' => $this->id,
-            ]);
-
-            // Also create permission for api guard for API authentication
-            Permission::firstOrCreate([
-                'name' => $permissionName,
-                'guard_name' => 'api',
-                'organization_id' => $this->id,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->values()->all());
         }
 
-        // Then create roles and assign permissions for both web and api guards
-        foreach ($defaultRoles as $roleName => $permissions) {
-            // Create role for web guard
-            $existingWebRole = Role::where('name', $roleName)
-                ->where('guard_name', 'web')
+        foreach (['web', 'api'] as $guard) {
+            $existingRoles = Role::where('guard_name', $guard)
                 ->where('organization_id', $this->id)
-                ->first();
+                ->whereIn('name', array_keys($defaultRoles))
+                ->pluck('name');
+            $missingRoles = collect($defaultRoles)->except($existingRoles->all());
 
-            if (! $existingWebRole) {
-                $this->createRole($roleName, $permissions, 'web');
+            if ($missingRoles->isEmpty()) {
+                continue;
             }
 
-            // Create role for api guard
-            $existingApiRole = Role::where('name', $roleName)
-                ->where('guard_name', 'api')
-                ->where('organization_id', $this->id)
-                ->first();
+            Role::insert($missingRoles->keys()->map(fn (string $name): array => [
+                'name' => $name,
+                'guard_name' => $guard,
+                'organization_id' => $this->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all());
 
-            if (! $existingApiRole) {
-                $this->createRole($roleName, $permissions, 'api');
-            }
+            $roleIds = Role::where('guard_name', $guard)
+                ->where('organization_id', $this->id)
+                ->whereIn('name', $missingRoles->keys())
+                ->pluck('id', 'name');
+            $permissionIds = Permission::where('guard_name', $guard)
+                ->where('organization_id', $this->id)
+                ->whereIn('name', $permissionNames)
+                ->pluck('id', 'name');
+
+            DB::table(config('permission.table_names.role_has_permissions'))->insert(
+                $missingRoles->flatMap(fn (array $names, string $roleName) => collect($names)
+                    ->map(fn (string $name): array => ['permission_id' => $permissionIds[$name], 'role_id' => $roleIds[$roleName]]))
+                    ->values()
+                    ->all()
+            );
         }
+
+        $registrar->forgetCachedPermissions();
     }
 
     /**

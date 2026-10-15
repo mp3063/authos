@@ -9,8 +9,6 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\InvitationService;
 use Illuminate\Support\Facades\Mail;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class EmailNotificationTest extends TestCase
@@ -29,13 +27,7 @@ class EmailNotificationTest extends TestCase
         $this->inviter = User::factory()->forOrganization($this->organization)->create();
         $this->invitationService = app(InvitationService::class);
 
-        Role::create(['name' => 'user', 'guard_name' => 'web']);
-        Role::create(['name' => 'organization admin', 'guard_name' => 'web']);
-        Role::query()->create(['name' => 'user', 'guard_name' => 'web', 'organization_id' => $this->organization->id]);
-        Role::query()->create(['name' => 'organization admin', 'guard_name' => 'web', 'organization_id' => $this->organization->id])
-            ->givePermissionTo(Permission::query()->create(['name' => 'users.create', 'guard_name' => 'web', 'organization_id' => $this->organization->id]));
-
-        $this->inviter->assignOrganizationRole('organization admin');
+        $this->inviter->assignOrganizationRole('Organization Owner');
 
         Mail::fake();
     }
@@ -43,7 +35,7 @@ class EmailNotificationTest extends TestCase
     public function test_invitation_email_is_sent_with_correct_data(): void
     {
         $email = 'newuser@example.com';
-        $role = 'user';
+        $role = 'User';
 
         $invitation = $this->invitationService->sendInvitation(
             $this->organization->id,
@@ -64,7 +56,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
-            ->withRole('user')
+            ->withRole('User')
             ->create();
 
         $mailable = new OrganizationInvitation($invitation);
@@ -81,7 +73,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
-            ->withRole('user')
+            ->withRole('User')
             ->create();
 
         $acceptedBy = User::factory()->forOrganization($this->organization)->create(['email' => $invitation->email]);
@@ -97,9 +89,9 @@ class EmailNotificationTest extends TestCase
     public function test_bulk_invitations_send_individual_emails(): void
     {
         $invitations = [
-            ['email' => 'user1@example.com', 'role' => 'user'],
-            ['email' => 'user2@example.com', 'role' => 'user'],
-            ['email' => 'user3@example.com', 'role' => 'organization admin'],
+            ['email' => 'user1@example.com', 'role' => 'User'],
+            ['email' => 'user2@example.com', 'role' => 'User'],
+            ['email' => 'user3@example.com', 'role' => 'Organization Admin'],
         ];
 
         $this->invitationService->bulkInvite(
@@ -133,7 +125,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($customOrganization)
             ->fromInviter($this->inviter)
-            ->withRole('user')
+            ->withRole('User')
             ->create();
 
         $mailable = new OrganizationInvitation($invitation);
@@ -183,7 +175,7 @@ class EmailNotificationTest extends TestCase
     {
         $largeInvitationBatch = [];
         for ($i = 0; $i < 50; $i++) {
-            $largeInvitationBatch[] = ['email' => "user{$i}@example.com", 'role' => 'user'];
+            $largeInvitationBatch[] = ['email' => "user{$i}@example.com", 'role' => 'User'];
         }
 
         $startTime = microtime(true);
@@ -210,7 +202,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($this->organization)
             ->fromInviter($this->inviter)
-            ->withRole('user')
+            ->withRole('User')
             ->create();
 
         $mailable = new OrganizationInvitation($invitation);
@@ -235,7 +227,7 @@ class EmailNotificationTest extends TestCase
         $invitation = Invitation::factory()
             ->forOrganization($organizationWithLogo)
             ->fromInviter($this->inviter)
-            ->withRole('user')
+            ->withRole('User')
             ->create();
 
         $mailable = new OrganizationInvitation($invitation);

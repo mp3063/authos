@@ -20,32 +20,25 @@ class RolePermissionTemplateTest extends IntegrationTestCase
     #[Test]
     public function it_ticks_the_permissions_of_the_chosen_default_role(): void
     {
-        $usersRead = Permission::findOrCreate('users.read', 'web');
-        $applicationsRead = Permission::findOrCreate('applications.read', 'web');
-        Permission::findOrCreate('users.delete', 'web');
-        Permission::findOrCreate('users.read', 'api');
-
         $state = Livewire::test(CreateRole::class)
             ->fillForm(['guard_name' => 'web', 'permission_template' => 'Organization Member'])
             ->get('data.permissions');
 
-        $this->assertEqualsCanonicalizing([(string) $usersRead->id, (string) $applicationsRead->id], $state);
+        $this->assertEqualsCanonicalizing(
+            $this->globalWebPermissionIds(['users.read', 'applications.read', 'organizations.read']),
+            $state,
+        );
     }
 
     #[Test]
     public function it_ticks_every_available_permission_for_the_super_admin_template(): void
     {
-        foreach (['users.read', 'users.delete', 'roles.read'] as $name) {
-            Permission::findOrCreate($name, 'web');
-        }
-        Permission::findOrCreate('users.read', 'api');
-
         $state = Livewire::test(CreateRole::class)
             ->fillForm(['guard_name' => 'web', 'permission_template' => 'Super Admin'])
             ->get('data.permissions');
 
         $this->assertEqualsCanonicalizing(
-            Permission::where('guard_name', 'web')->whereNull('organization_id')->pluck('id')->map(fn ($id): string => (string) $id)->all(),
+            $this->globalWebPermissionIds(),
             $state,
         );
     }
@@ -53,13 +46,25 @@ class RolePermissionTemplateTest extends IntegrationTestCase
     #[Test]
     public function it_saves_the_template_permissions_with_the_role(): void
     {
-        $usersRead = Permission::findOrCreate('users.read', 'web');
-
         Livewire::test(CreateRole::class)
             ->fillForm(['name' => 'Readers', 'guard_name' => 'web', 'permission_template' => 'Organization Member'])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $this->assertDatabaseHas('role_has_permissions', ['permission_id' => $usersRead->id]);
+        $this->assertDatabaseHas('role_has_permissions', ['permission_id' => $this->globalWebPermissionIds(['users.read'])[0]]);
+    }
+
+    /**
+     * @param  list<string>|null  $names
+     * @return list<string>
+     */
+    private function globalWebPermissionIds(?array $names = null): array
+    {
+        return Permission::where('guard_name', 'web')
+            ->whereNull('organization_id')
+            ->when($names !== null, fn ($query) => $query->whereIn('name', $names))
+            ->pluck('id')
+            ->map(fn ($id): string => (string) $id)
+            ->all();
     }
 }
