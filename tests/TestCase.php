@@ -16,6 +16,7 @@ use Laravel\Passport\Client;
 use Laravel\Passport\ClientRepository;
 use Laravel\Passport\Passport;
 use Laravel\Passport\Token;
+use PragmaRX\Google2FA\Google2FA;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -378,5 +379,10 @@ abstract class TestCase extends BaseTestCase
         $this->assertDatabaseMissing($model->getTable(), [
             $model->getKeyName() => $model->getKey(),
         ]);
+    }
+
+    protected function totpCodeFor(User $user): string
+    {
+        return (new Google2FA)->getCurrentOtp(decrypt($user->two_factor_secret));
     }
 }

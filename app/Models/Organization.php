@@ -38,6 +38,11 @@ class Organization extends Model
         ];
     }
 
+    public function requiresMfa(): bool
+    {
+        return filter_var($this->settings['require_mfa'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);

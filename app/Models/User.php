@@ -140,6 +140,16 @@ class User extends Authenticatable implements FilamentUser
         return ! empty($this->mfa_methods);
     }
 
+    public function requiresMfa(): bool
+    {
+        return $this->hasMfaEnabled() || ($this->organization?->requiresMfa() ?? false);
+    }
+
+    public function mustSetUpMfa(): bool
+    {
+        return ! $this->hasMfaEnabled() && ($this->organization?->requiresMfa() ?? false);
+    }
+
     public function getMfaMethods(): array
     {
         return $this->mfa_methods ?? [];
