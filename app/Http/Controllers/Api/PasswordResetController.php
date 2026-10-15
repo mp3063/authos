@@ -10,12 +10,13 @@ use App\Services\Auth\MfaChallengeStore;
 use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Laravel\Passport\Token;
+use Illuminate\Support\Str;
 
 class PasswordResetController extends BaseController
 {
@@ -40,6 +41,8 @@ class PasswordResetController extends BaseController
         // SECURITY: Always return success to prevent email enumeration
         // Don't reveal whether the email exists or not
         if (! $user) {
+            Hash::make($email);
+
             // Log failed password reset attempt
             $this->authLogService->logAuthenticationEvent(
                 new User(['email' => $email]),
@@ -85,39 +88,15 @@ class PasswordResetController extends BaseController
         $plainToken = $validated['token'];
         $newPassword = $validated['password'];
 
-        // Hash the provided token to compare with stored hash
-        $hashedToken = hash('sha256', $plainToken);
-
         // Find the reset token record
         $resetRecord = DB::table('password_reset_tokens')
             ->where('email', $email)
             ->first();
 
-        // SECURITY: Constant-time token validation to prevent timing attacks
-        // Always perform hash_equals() even when record doesn't exist to maintain constant time
-        $dummyToken = hash('sha256', 'dummy-token-for-timing-safety-'.config('app.key'));
-        $tokenToCompare = $resetRecord ? $resetRecord->token : $dummyToken;
-
-        // SECURITY: Always parse timestamp even for non-existent records to maintain constant timing
-        // This ensures both code paths perform the same Carbon operations
-        $dummyTimestamp = now()->subMinutes(30)->toDateTimeString();
-        $timestampToParse = $resetRecord ? $resetRecord->created_at : $dummyTimestamp;
-        $tokenCreatedAt = Carbon::parse($timestampToParse);
-
-        // Calculate token expiration time (always perform calculation for constant timing)
+        $tokenMatches = Hash::check($plainToken, $resetRecord->token ?? $this->dummyTokenHash());
+        $tokenCreatedAt = Carbon::parse($resetRecord->created_at ?? now()->subMinutes(30));
         $tokenExpiresAt = $tokenCreatedAt->copy()->addMinutes(60);
-
-        // SECURITY: Compute all checks upfront to prevent timing leaks from short-circuit evaluation
-        // Both valid and invalid code paths must execute the same operations
-        $recordExists = (bool) $resetRecord;
-        $legacyTokenMatches = hash_equals($tokenToCompare, $hashedToken);
-        $brokerTokenMatches = password_verify($plainToken, $tokenToCompare);
-        $tokenMatches = $legacyTokenMatches || $brokerTokenMatches;
-        $hasExpirationTime = true; // Always true since we always calculate expiration
-        $notExpired = now()->lt($tokenExpiresAt);
-
-        // Combine checks (all operations already executed, no short-circuit timing leak)
-        $isValid = $recordExists && $tokenMatches && $hasExpirationTime && $notExpired;
+        $isValid = $resetRecord && $tokenMatches && now()->lt($tokenExpiresAt);
 
         // SECURITY: Add random delay (50-150ms) to normalize timing across all responses
         // This prevents attackers from distinguishing between different failure modes
@@ -162,21 +141,13 @@ class PasswordResetController extends BaseController
             ], 422);
         }
 
-        // Update user password
-        $user->update([
-            'password' => Hash::make($newPassword),
-            'password_changed_at' => now(),
-        ]);
+        $user->update(['password' => Hash::make($newPassword)]);
+        event(new PasswordReset($user));
 
         // SECURITY: Delete token immediately after use (single-use)
         DB::table('password_reset_tokens')
             ->where('email', $email)
             ->delete();
-
-        // SECURITY: Revoke all existing access tokens
-        Token::where('user_id', $user->id)
-            ->where('revoked', false)
-            ->update(['revoked' => true]);
 
         // Log password reset success
         $this->authLogService->logAuthenticationEvent(
@@ -224,5 +195,12 @@ class PasswordResetController extends BaseController
                 'expires_at' => $token->expires_at,
             ],
         ]);
+    }
+
+    private function dummyTokenHash(): string
+    {
+        static $hash = null;
+
+        return $hash ??= Hash::make(Str::random(64));
     }
 }

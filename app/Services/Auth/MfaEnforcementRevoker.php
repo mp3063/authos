@@ -64,6 +64,14 @@ class MfaEnforcementRevoker
     }
 
     /**
+     * @return array{access: int, refresh: int, sso: int}
+     */
+    public function revokeAllForUser(User $user): array
+    {
+        return $this->revoke([$user->getKey()], false);
+    }
+
+    /**
      * @param  array<int, int|string>  $userIds
      * @return array{access: int, refresh: int, sso: int}
      */

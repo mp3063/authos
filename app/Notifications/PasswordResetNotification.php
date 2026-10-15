@@ -36,7 +36,10 @@ class PasswordResetNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $resetUrl = Filament::getPanel('admin')->getResetPasswordUrl($this->token, $notifiable);
+        $panel = Filament::getPanel('admin');
+        $resetUrl = $notifiable->canAccessPanel($panel)
+            ? $panel->getResetPasswordUrl($this->token, $notifiable)
+            : config('auth.password_reset_url').'?'.http_build_query(['token' => $this->token, 'email' => $notifiable->email]);
 
         return (new MailMessage)
             ->subject('Password Reset Request')

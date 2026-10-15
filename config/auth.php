@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\User;
+
 return [
 
     /*
@@ -68,7 +70,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model' => env('AUTH_MODEL', User::class),
         ],
 
         // 'users' => [
@@ -95,6 +97,8 @@ return [
     | quickly generating a very large amount of password reset tokens.
     |
     */
+
+    'password_reset_url' => env('PASSWORD_RESET_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/reset-password'),
 
     'passwords' => [
         'users' => [

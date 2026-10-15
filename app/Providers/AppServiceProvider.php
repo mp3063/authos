@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\Fortify;
 use Laravel\Passkeys\Passkeys;
 use Laravel\Passport\Contracts\AuthorizationViewResponse;
@@ -60,6 +61,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventLazyLoading(! app()->isProduction());
+
+        Password::defaults(fn () => Password::min(8)->mixedCase()->numbers()->symbols()
+            ->when(! app()->environment('testing'), fn (Password $rule) => $rule->uncompromised()));
 
         // Register model observers for cache invalidation
         User::observe(UserObserver::class);

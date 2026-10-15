@@ -5,8 +5,10 @@ namespace Tests\Unit\Security;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -33,7 +35,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
         // Disable rate limiting middleware to accurately measure timing
         // Timing attack tests verify constant-time comparison logic, not rate limiting
-        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $this->withoutMiddleware(ThrottleRequests::class);
 
         $this->organization = Organization::factory()->create();
         $this->user = User::factory()->create([
@@ -67,7 +69,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $response = $this->postJson('/api/v1/auth/password/reset', [
                 'email' => 'nonexistent@example.com',
-                'token' => \Illuminate\Support\Str::random(64),
+                'token' => Str::random(64),
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -96,8 +98,8 @@ class PasswordResetTimingAttackTest extends TestCase
     public function it_uses_constant_time_comparison_even_when_record_does_not_exist()
     {
         // Create a valid token for comparison
-        $plainToken = \Illuminate\Support\Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $plainToken = Str::random(60);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')->insert([
             'email' => $this->user->email,
@@ -115,7 +117,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => $this->user->email,
-                'token' => \Illuminate\Support\Str::random(64), // Wrong token
+                'token' => Str::random(64), // Wrong token
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -130,7 +132,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => 'nonexistent@example.com',
-                'token' => \Illuminate\Support\Str::random(64),
+                'token' => Str::random(64),
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -161,8 +163,8 @@ class PasswordResetTimingAttackTest extends TestCase
         // Test with expired token (increased iterations for statistical stability)
         for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
-            $plainToken = \Illuminate\Support\Str::random(64);
-            $hashedToken = hash('sha256', $plainToken);
+            $plainToken = Str::random(64);
+            $hashedToken = Hash::make($plainToken);
 
             DB::table('password_reset_tokens')->insert([
                 'email' => $this->user->email,
@@ -188,8 +190,8 @@ class PasswordResetTimingAttackTest extends TestCase
         // Test with invalid token (wrong token) - increased iterations for statistical stability
         for ($i = 0; $i < 15; $i++) {
             $password = $this->generateUniquePassword();
-            $plainToken = \Illuminate\Support\Str::random(64);
-            $hashedToken = hash('sha256', $plainToken);
+            $plainToken = Str::random(64);
+            $hashedToken = Hash::make($plainToken);
 
             DB::table('password_reset_tokens')->insert([
                 'email' => $this->user->email,
@@ -201,7 +203,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => $this->user->email,
-                'token' => \Illuminate\Support\Str::random(64), // Wrong token
+                'token' => Str::random(64), // Wrong token
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -233,14 +235,14 @@ class PasswordResetTimingAttackTest extends TestCase
         // Test 1: Non-existent email
         $response1 = $this->postJson('/api/v1/auth/password/reset', [
             'email' => 'nonexistent@example.com',
-            'token' => \Illuminate\Support\Str::random(64),
+            'token' => Str::random(64),
             'password' => $password,
             'password_confirmation' => $password,
         ]);
 
         // Test 2: Wrong token
-        $plainToken = \Illuminate\Support\Str::random(64);
-        $hashedToken = hash('sha256', $plainToken);
+        $plainToken = Str::random(64);
+        $hashedToken = Hash::make($plainToken);
         DB::table('password_reset_tokens')->insert([
             'email' => $this->user->email,
             'token' => $hashedToken,
@@ -249,7 +251,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
         $response2 = $this->postJson('/api/v1/auth/password/reset', [
             'email' => $this->user->email,
-            'token' => \Illuminate\Support\Str::random(64), // Wrong token
+            'token' => Str::random(64), // Wrong token
             'password' => $password,
             'password_confirmation' => $password,
         ]);
@@ -302,7 +304,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => 'test@example.com',
-                'token' => \Illuminate\Support\Str::random(64),
+                'token' => Str::random(64),
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -349,7 +351,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => 'nonexistent@example.com',
-                'token' => \Illuminate\Support\Str::random(64),
+                'token' => Str::random(64),
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);
@@ -358,8 +360,8 @@ class PasswordResetTimingAttackTest extends TestCase
         }
 
         // Test with existing record but wrong token
-        $plainToken = \Illuminate\Support\Str::random(64);
-        $hashedToken = hash('sha256', $plainToken);
+        $plainToken = Str::random(64);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')->insert([
             'email' => $this->user->email,
@@ -373,7 +375,7 @@ class PasswordResetTimingAttackTest extends TestCase
 
             $this->postJson('/api/v1/auth/password/reset', [
                 'email' => $this->user->email,
-                'token' => \Illuminate\Support\Str::random(64), // Wrong token
+                'token' => Str::random(64), // Wrong token
                 'password' => $password,
                 'password_confirmation' => $password,
             ]);

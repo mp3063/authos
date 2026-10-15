@@ -109,7 +109,7 @@ class PasswordResetFlowTest extends TestCase
         // For testing, we need to simulate having the plain token
         // We'll generate a new token and hash to simulate the flow
         $plainToken = Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $hashedToken = Hash::make($plainToken);
 
         // Update the database with our test token
         DB::table('password_reset_tokens')
@@ -161,7 +161,7 @@ class PasswordResetFlowTest extends TestCase
 
         // Simulate having the plain token
         $plainToken = Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')
             ->where('email', $this->user->email)
@@ -197,7 +197,7 @@ class PasswordResetFlowTest extends TestCase
     {
         // Create an expired token (older than 60 minutes)
         $plainToken = Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')->insert([
             'email' => $this->user->email,
@@ -234,7 +234,7 @@ class PasswordResetFlowTest extends TestCase
         ]);
 
         $plainToken = Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')
             ->where('email', $this->user->email)
@@ -284,7 +284,7 @@ class PasswordResetFlowTest extends TestCase
 
         // Reset password
         $plainToken = Str::random(60);
-        $hashedToken = hash('sha256', $plainToken);
+        $hashedToken = Hash::make($plainToken);
 
         DB::table('password_reset_tokens')->insert([
             'email' => $this->user->email,
@@ -394,7 +394,7 @@ class PasswordResetFlowTest extends TestCase
     {
         DB::table('password_reset_tokens')->insert([
             'email' => $user->email,
-            'token' => hash('sha256', 'plain-reset-token'),
+            'token' => Hash::make('plain-reset-token'),
             'created_at' => now(),
         ]);
 

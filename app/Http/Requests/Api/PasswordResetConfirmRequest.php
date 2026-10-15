@@ -22,19 +22,6 @@ class PasswordResetConfirmRequest extends FormRequest
      */
     public function rules(): array
     {
-        // Build password validation rules
-        $passwordRules = Password::min(8)
-            ->mixedCase()
-            ->numbers()
-            ->symbols();
-
-        // Skip API-based password breach check in testing to prevent timing variance
-        // The uncompromised() check makes HTTP calls to haveibeenpwned.com API
-        // which adds unpredictable 50-200ms variance that interferes with timing attack tests
-        if (! app()->environment('testing')) {
-            $passwordRules->uncompromised();
-        }
-
         return [
             'email' => [
                 'required',
@@ -50,7 +37,7 @@ class PasswordResetConfirmRequest extends FormRequest
                 'required',
                 'string',
                 'confirmed',
-                $passwordRules,
+                Password::defaults(),
             ],
         ];
     }

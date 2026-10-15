@@ -80,7 +80,7 @@ class OrganizationImporter
         $base = Str::slug($name) ?: 'organization';
         $slug = $base;
 
-        for ($suffix = 2; Organization::where('slug', $slug)->exists(); $suffix++) {
+        for ($suffix = 2; Organization::withTrashed()->where('slug', $slug)->exists(); $suffix++) {
             $slug = $base.'-'.$suffix;
         }
 
