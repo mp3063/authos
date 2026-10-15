@@ -720,4 +720,35 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         $this->assertSame($unknown->status(), $foreignResponse->status());
         $this->assertSame($unknown->json(), $foreignResponse->json());
     }
+
+    #[Test]
+    public function a_user_manager_cannot_invite_someone_as_organization_owner(): void
+    {
+        $userManager = $this->createUser(['organization_id' => $this->organization->id], 'User Manager', 'api');
+
+        $this->actingAs($userManager, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/invitations", [
+                'email' => 'newowner@example.com',
+                'role' => 'Organization Owner',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+
+        $this->assertDatabaseMissing('invitations', ['email' => 'newowner@example.com']);
+    }
+
+    #[Test]
+    public function a_user_manager_can_resend_but_an_auditor_cannot(): void
+    {
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create(['inviter_id' => $this->admin->id]);
+        $token = $invitation->token;
+        $url = "/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}/resend";
+        $auditor = $this->createUser(['organization_id' => $this->organization->id], 'Auditor', 'api');
+        $userManager = $this->createUser(['organization_id' => $this->organization->id], 'User Manager', 'api');
+
+        $this->actingAs($auditor, 'api')->postJson($url)->assertForbidden();
+        $this->assertSame($token, $invitation->fresh()->token);
+
+        $this->actingAs($userManager, 'api')->postJson($url)->assertSuccessful();
+    }
 }

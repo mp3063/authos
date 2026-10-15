@@ -368,4 +368,22 @@ class UserRoleAssignmentTest extends IntegrationTestCase
             ->where('guard_name', 'api')
             ->firstOrFail();
     }
+
+    #[Test]
+    public function assigning_a_global_role_writes_a_null_team_in_the_pivot(): void
+    {
+        $superAdmin = $this->createApiSuperAdmin();
+        $superAdminRole = Role::where('name', 'Super Admin')->whereNull('organization_id')->firstOrFail();
+        $member = $this->createApiUser();
+
+        $this->actingAsApiUserWithToken($superAdmin)
+            ->postJson("/api/v1/users/{$member->id}/roles", ['role_id' => $superAdminRole->id])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('model_has_roles', [
+            'model_id' => $member->id,
+            'role_id' => $superAdminRole->id,
+            'organization_id' => null,
+        ]);
+    }
 }

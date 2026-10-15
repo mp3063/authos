@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\Invitations\Pages\ListInvitations;
+use App\Models\Invitation;
 use App\Models\Organization;
 use App\Services\InvitationService;
 use Filament\Notifications\Notification;
@@ -63,5 +64,29 @@ class InvitationBulkInviteTest extends IntegrationTestCase
             );
 
         Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'SQLSTATE secret detail');
+    }
+
+    #[Test]
+    public function it_authorizes_bulk_delete_per_record(): void
+    {
+        $own = Invitation::factory()->forOrganization($this->organization)->create();
+        $foreign = Invitation::factory()->forOrganization($this->createOrganization())->create();
+
+        Livewire::test(ListInvitations::class)
+            ->callTableBulkAction('delete', [$own, $foreign]);
+
+        $this->assertModelMissing($own);
+        $this->assertModelExists($foreign);
+    }
+
+    #[Test]
+    public function it_refuses_the_invitations_list_to_a_role_without_users_create(): void
+    {
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create();
+        $this->actingAs($this->createUser(['organization_id' => $this->organization->id], 'Auditor', 'web'));
+
+        Livewire::test(ListInvitations::class)->assertForbidden();
+
+        $this->assertModelExists($invitation);
     }
 }

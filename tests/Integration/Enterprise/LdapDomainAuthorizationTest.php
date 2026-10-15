@@ -184,4 +184,49 @@ class LdapDomainAuthorizationTest extends IntegrationTestCase
 
         $this->assertSame('Corporate AD', $existing->fresh()->name);
     }
+
+    #[Test]
+    public function it_returns_404_for_ldap_sync_and_users_when_no_configuration_exists(): void
+    {
+        $owner = $this->createApiOrganizationOwner();
+        $this->actingAsApiUserWithToken($owner);
+
+        $this->postJson('/api/v1/enterprise/ldap/sync')->assertNotFound();
+        $this->getJson('/api/v1/enterprise/ldap/users')->assertNotFound();
+    }
+
+    #[Test]
+    public function it_refuses_an_auditor_the_ldap_users_with_a_configuration(): void
+    {
+        $auditor = $this->createUser([], 'Auditor', 'api');
+        LdapConfiguration::factory()->create(['organization_id' => $auditor->organization_id, 'is_active' => true]);
+        $this->actingAsApiUserWithToken($auditor);
+
+        $this->getJson('/api/v1/enterprise/ldap/users')->assertForbidden();
+        $this->postJson('/api/v1/enterprise/ldap/sync')->assertForbidden();
+    }
+
+    #[Test]
+    public function it_refuses_listing_domains_to_a_user_without_an_organization(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        CustomDomain::factory()->create(['organization_id' => $admin->organization_id]);
+        $admin->forceFill(['organization_id' => null])->save();
+        $this->actingAsApiUserWithToken($admin->fresh());
+
+        $this->getJson('/api/v1/enterprise/domains')->assertForbidden();
+    }
+
+    #[Test]
+    public function it_lists_every_organizations_domains_for_a_super_admin(): void
+    {
+        $superAdmin = $this->createApiSuperAdmin();
+        $first = CustomDomain::factory()->create();
+        $second = CustomDomain::factory()->create();
+        $this->actingAsApiUserWithToken($superAdmin);
+
+        $ids = collect($this->getJson('/api/v1/enterprise/domains')->assertOk()->json('data'))->pluck('id')->all();
+
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $ids);
+    }
 }

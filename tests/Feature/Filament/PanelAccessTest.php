@@ -6,6 +6,7 @@ use App\Models\CustomRole;
 use App\Services\SocialAuthService;
 use Laravel\Socialite\Two\User as SocialiteTwoUser;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Integration\IntegrationTestCase;
@@ -66,5 +67,29 @@ class PanelAccessTest extends IntegrationTestCase
         auth()->logout();
         $this->get('/auth/social/google/callback')->assertRedirect('/admin/login?error=insufficient_privileges');
         $this->assertGuest();
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function rolesWithoutPanelAccess(): array
+    {
+        return [
+            'Organization Member' => ['Organization Member'],
+            'Application Manager' => ['Application Manager'],
+            'User Manager' => ['User Manager'],
+            'Auditor' => ['Auditor'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('rolesWithoutPanelAccess')]
+    public function it_denies_roles_without_admin_access_the_panel(string $role): void
+    {
+        $user = $this->createUser([], $role, 'web');
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $user->unsetRelation('roles')->unsetRelation('permissions');
+
+        $this->actingAs($user)->get('/admin')->assertForbidden();
     }
 }

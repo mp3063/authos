@@ -389,4 +389,16 @@ class OrganizationEndpointsAuthorizationTest extends IntegrationTestCase
             ['id' => $this->organization->id, 'exportId' => $export->id]
         );
     }
+
+    #[Test]
+    public function an_authorized_organization_update_with_a_taken_slug_returns_422(): void
+    {
+        $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api');
+        $this->foreign->update(['slug' => 'taken-slug']);
+        Passport::actingAs($owner);
+
+        $this->putJson("/api/v1/organizations/{$this->organization->id}", ['slug' => 'taken-slug'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['slug']);
+    }
 }
