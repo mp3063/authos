@@ -38,7 +38,7 @@ AuthOS is an authentication and authorization service that provides:
 
 ### Authentication
 - Password-based authentication with progressive lockout
-- Multi-factor authentication (TOTP)
+- Multi-factor authentication (TOTP); an organization's `require_mfa` is enforced on API, social, SSO and panel sign-in, and members without MFA can only enroll, using a setup-only token (scope `mfa.setup`, 15 minutes)
 - Social authentication (5 providers)
 - Single Sign-On (OIDC, SAML 2.0)
 - LDAP/Active Directory integration
@@ -309,7 +309,8 @@ Security-relevant behavior worth knowing:
 - SSO redirect URIs must use https (plain http only for localhost in local/testing) and match the configuration's allowed domains or registered URIs
 - Role assignment through the API, invitations, bulk import and the admin panel goes through the same rule: assignable roles are limited to the caller's organization and permissions
 - API responses drop keys that look like secrets (`*_password`, `*_secret`, `*_private_key`, `*_api_key`)
-- Disabling MFA requires the password plus a TOTP or recovery code
+- Disabling MFA requires the password plus a TOTP or recovery code, and is refused while the organization requires MFA
+- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA
 - Exports are written to the private disk and served only through authorized download endpoints
 
 ## License

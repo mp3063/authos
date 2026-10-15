@@ -259,7 +259,7 @@ RATE_LIMIT_AUTH=10
 ## Features Overview
 
 ### Authentication & Authorization
-- Multi-factor authentication (TOTP)
+- Multi-factor authentication (TOTP); organization `require_mfa` is enforced on API, social, SSO and panel sign-in, with enrollment by a setup-only token (`mfa.setup`); deploy with `herd php artisan auth:revoke-tokens-for-mfa-setup --dry-run`, then without `--dry-run`
 - Social login (5 providers)
 - SSO (OIDC, SAML 2.0)
 - LDAP/Active Directory integration

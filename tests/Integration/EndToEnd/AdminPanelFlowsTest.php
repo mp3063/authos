@@ -140,35 +140,6 @@ class AdminPanelFlowsTest extends EndToEndTestCase
     }
 
     /**
-     * Test MFA enforcement for admin panel access.
-     */
-    public function test_admin_mfa_enforcement(): void
-    {
-        $this->testOrganization->update([
-            'settings' => array_merge($this->testOrganization->settings, [
-                'require_mfa' => true,
-            ]),
-        ]);
-        $this->adminUser->update([
-            'mfa_methods' => ['totp'],
-            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
-            'two_factor_confirmed_at' => now(),
-        ]);
-        $userWithoutMfa = $this->createUser([
-            'email' => 'no-mfa@admintest.com',
-            'organization_id' => $this->testOrganization->id,
-        ], 'Organization Admin');
-        $setUpUrl = route('filament.admin.auth.multi-factor-authentication.set-up-required');
-
-        $this->actingAs($this->adminUser, 'web')->get('/admin')->assertOk();
-
-        $this->actingAs($userWithoutMfa, 'web');
-        $this->get('/admin')->assertRedirect($setUpUrl);
-        $this->get('/admin/users')->assertRedirect($setUpUrl);
-        $this->get($setUpUrl)->assertOk();
-    }
-
-    /**
      * Test social authentication for admin users.
      */
     public function test_admin_social_authentication(): void

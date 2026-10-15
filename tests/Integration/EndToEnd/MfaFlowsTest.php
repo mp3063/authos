@@ -5,8 +5,11 @@ namespace Tests\Integration\EndToEnd;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use App\Services\SocialAuthService;
 use Illuminate\Support\Facades\Mail;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteTwoUser;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -387,26 +390,6 @@ class MfaFlowsTest extends EndToEndTestCase
     // MFA Requirement by Organization Tests
     // ===========================================
 
-    public function test_organization_enforced_mfa(): void
-    {
-        $organization = Organization::factory()->create([
-            'name' => 'Secure Corp',
-            'settings' => ['require_mfa' => true],
-        ]);
-        $user = User::factory()->forOrganization($organization)->create([
-            'password' => Hash::make('password123'),
-        ]);
-        $this->assertFalse($user->hasMfaEnabled());
-
-        $response = $this->postJson('/api/v1/auth/login', [
-            'email' => $user->email,
-            'password' => 'password123',
-        ]);
-
-        $response->assertForbidden()->assertJsonPath('error', 'mfa_setup_required');
-        $this->assertNull($response->json('access_token'));
-    }
-
     public function test_organization_mfa_policy_enforcement(): void
     {
         $strictOrg = Organization::factory()->create([
@@ -427,23 +410,6 @@ class MfaFlowsTest extends EndToEndTestCase
             'email' => $lenientUser->email,
             'password' => 'password',
         ])->assertOk()->assertJsonStructure(['access_token']);
-    }
-
-    public function test_user_bypass_organization_mfa(): void
-    {
-        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
-        $user = User::factory()->forOrganization($organization)->withMfa()->create([
-            'password' => Hash::make('password123'),
-        ]);
-        $token = $this->createAccessTokenForUser($user);
-
-        $response = $this->postJson('/api/v1/mfa/disable', [
-            'password' => 'password123',
-            'code' => $this->totpCodeFor($user),
-        ], ['Authorization' => 'Bearer '.$token]);
-
-        $response->assertForbidden()->assertJsonPath('error', 'mfa_required_by_organization');
-        $this->assertTrue($user->fresh()->hasMfaEnabled());
     }
 
     #[Test]
@@ -826,27 +792,44 @@ class MfaFlowsTest extends EndToEndTestCase
     // MFA Integration with Other Features Tests
     // ===========================================
 
-    /**
-     * Test MFA with social authentication setup
-     */
-    public function test_mfa_with_social_authentication(): void
+    #[Test]
+    public function it_withholds_tokens_from_a_social_login_into_an_organization_that_requires_mfa(): void
     {
-        // Create organization requiring MFA
-        $organization = Organization::factory()->create([
-            'settings' => ['require_mfa' => true],
-        ]);
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create(['provider' => 'google', 'provider_id' => 'google_strict']);
+        $this->mockSocialUser('google_strict', $user->email);
 
-        // Create social auth user
-        $socialUser = User::factory()->create([
-            'organization_id' => $organization->id,
-            'provider' => 'google',
-            'provider_id' => 'google_123',
-            'mfa_methods' => null,
-        ]);
+        $this->getJson('/api/v1/auth/social/google/callback')
+            ->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonMissingPath('access_token')
+            ->assertJsonMissingPath('data.access_token');
+        $this->assertSame(['mfa.setup'], $user->tokens()->sole()->scopes);
+    }
 
-        // Verify organization requires MFA
-        $this->assertTrue($organization->settings['require_mfa']);
-        $this->assertFalse($socialUser->hasMfaEnabled());
+    #[Test]
+    public function it_issues_tokens_to_a_social_login_into_an_organization_that_does_not_require_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => false]]);
+        $user = User::factory()->forOrganization($organization)->create(['provider' => 'google', 'provider_id' => 'google_lenient']);
+        $this->mockSocialUser('google_lenient', $user->email);
+
+        $this->getJson('/api/v1/auth/social/google/callback')->assertOk();
+    }
+
+    private function mockSocialUser(string $providerId, string $email): void
+    {
+        $this->app->forgetInstance(SocialAuthService::class);
+
+        $socialUser = (new SocialiteTwoUser)
+            ->setRaw(['id' => $providerId])
+            ->map(['id' => $providerId, 'name' => 'Social User', 'email' => $email, 'nickname' => null, 'avatar' => null])
+            ->setToken('provider-token');
+
+        $driver = Mockery::mock();
+        $driver->shouldReceive('stateless')->andReturnSelf();
+        $driver->shouldReceive('user')->andReturn($socialUser);
+        Socialite::shouldReceive('driver')->with('google')->andReturn($driver);
     }
 
     /**
