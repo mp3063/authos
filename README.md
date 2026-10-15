@@ -45,7 +45,7 @@ AuthOS is an authentication and authorization service that provides:
 - Session management with device tracking
 
 ### Authorization
-- OAuth 2.0 authorization server (authorization code, client credentials, password, device code, refresh token)
+- OAuth 2.0 authorization server (authorization code, client credentials, password, refresh token); the password grant refuses users who require MFA
 - PKCE support (S256 + plain)
 - Refresh token rotation and token revocation
 - Scope-based permissions
@@ -148,7 +148,6 @@ open https://authos.test
 | `GET /oauth/authorize` | Authorization endpoint |
 | `POST /oauth/token` | Token endpoint |
 | `POST /oauth/token/refresh` | Refresh tokens |
-| `POST /oauth/device/code` | Device authorization (device code grant) |
 | `POST /api/v1/auth/revoke` | Revoke tokens |
 
 ### OpenID Connect Endpoints
@@ -163,7 +162,7 @@ open https://authos.test
 
 AuthOS provides 220+ API endpoints under `/api/v1` across these categories:
 
-- **Authentication** - Login, register, MFA, social auth
+- **Authentication** - Login, register, MFA, social auth. Login, register, social, SSO and password reset answer a user who requires MFA with 202 `mfa_required` and a `challenge_token`, or with 403 `mfa_setup_required` and a setup-only `setup_token` when the organization requires MFA and the member has none
 - **Users** - CRUD, sessions, roles, applications
 - **Organizations** - Multi-tenant management
 - **Applications** - OAuth client management
@@ -310,7 +309,7 @@ Security-relevant behavior worth knowing:
 - Role assignment through the API, invitations, bulk import and the admin panel goes through the same rule: assignable roles are limited to the caller's organization and permissions
 - API responses drop keys that look like secrets (`*_password`, `*_secret`, `*_private_key`, `*_api_key`)
 - Disabling MFA requires the password plus a TOTP or recovery code, and is refused while the organization requires MFA
-- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA
+- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA; re-run it whenever an organization switches `require_mfa` on or users move into such an organization
 - Exports are written to the private disk and served only through authorized download endpoints
 
 ## License
