@@ -97,6 +97,19 @@ class RevokeTokensForMfaSetupCommandTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_deletes_pending_sso_rows_when_it_ends_all_of_a_users_sessions(): void
+    {
+        $user = User::factory()->create();
+        $pending = SSOSession::factory()->withSSOState()->create(['user_id' => $user->id]);
+        $otherPending = SSOSession::factory()->withSSOState()->create();
+
+        app(MfaEnforcementRevoker::class)->revokeAllForUser($user);
+
+        $this->assertModelMissing($pending);
+        $this->assertModelExists($otherPending);
+    }
+
+    #[Test]
     public function it_rejects_a_refresh_token_issued_before_the_organization_required_mfa(): void
     {
         $organization = $this->organization(false);

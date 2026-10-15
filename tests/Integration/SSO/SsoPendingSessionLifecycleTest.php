@@ -166,6 +166,18 @@ class SsoPendingSessionLifecycleTest extends IntegrationTestCase
         $this->assertLiveSessionUntouched($live);
     }
 
+    #[Test]
+    public function it_gives_the_pending_row_a_ten_minute_lifetime(): void
+    {
+        $user = User::factory()->create();
+        $configuration = $this->createOidcConfiguration($user);
+
+        $state = $this->initiate($user, $configuration, self::OIDC_CALLBACK_URL)->json('state');
+
+        $pending = SSOSession::where('external_session_id', $state)->sole();
+        $this->assertTrue($pending->expires_at->between(now()->addMinutes(9), now()->addMinutes(10)->addSecond()));
+    }
+
     private function assertLiveSessionUntouched(SSOSession $live): void
     {
         $after = $live->fresh();

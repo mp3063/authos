@@ -95,6 +95,7 @@ class MfaEnforcementRevoker
             $refreshTokens->update(['revoked' => true]);
             $accessTokens->update(['revoked' => true]);
             $sessions->get()->each->logout();
+            SSOSession::query()->whereIn('user_id', $userIds)->pending()->delete();
         }
 
         return $counts;

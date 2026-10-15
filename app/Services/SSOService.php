@@ -90,7 +90,7 @@ class SSOService
             'external_session_id' => $state,
             'ip_address' => request()->ip() ?? '127.0.0.1',
             'user_agent' => request()->userAgent() ?? 'test',
-            'expires_at' => now()->addSeconds($ssoConfig->getSessionLifetimeInSeconds()),
+            'expires_at' => now()->addMinutes(10),
             'metadata' => [
                 'pending' => true,
                 'state' => $state,
