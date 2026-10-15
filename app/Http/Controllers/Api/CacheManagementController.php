@@ -169,7 +169,7 @@ class CacheManagementController extends BaseController
 
                 $patterns = [
                     $prefix."user_data:{$userId}:%",
-                    $prefix."api_cache:%user_id%{$userId}%",
+                    $prefix."api_cache:%:{$userId}:".str_repeat('_', 32),
                 ];
 
                 foreach ($patterns as $pattern) {
@@ -185,7 +185,7 @@ class CacheManagementController extends BaseController
                 $redis = Redis::connection($connection);
                 $patterns = [
                     $prefix."user_data:{$userId}:*",
-                    $prefix."api_cache:*user*{$userId}*",
+                    $prefix."api_cache:*:{$userId}:".str_repeat('?', 32),
                 ];
 
                 foreach ($patterns as $pattern) {
