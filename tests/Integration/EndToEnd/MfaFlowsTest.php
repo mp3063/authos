@@ -533,6 +533,50 @@ class MfaFlowsTest extends EndToEndTestCase
         ])->assertOk()->assertJsonStructure(['access_token']);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function registrationPayload(string $slug): array
+    {
+        return [
+            'name' => 'New Member',
+            'email' => 'new.member@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'terms_accepted' => true,
+            'organization_slug' => $slug,
+        ];
+    }
+
+    #[Test]
+    public function it_returns_a_setup_token_when_registering_into_an_organization_that_requires_mfa(): void
+    {
+        Mail::fake();
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+
+        $response = $this->postJson('/api/v1/auth/register', $this->registrationPayload($organization->slug));
+
+        $response->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonStructure(['setup_token'])
+            ->assertJsonMissingPath('access_token')
+            ->assertJsonMissingPath('token');
+        $user = User::where('email', 'new.member@example.com')->sole();
+        $this->assertSame(['mfa.setup'], $user->tokens()->sole()->scopes);
+        $this->assertAuditLogExists($user, 'mfa_setup_required');
+    }
+
+    #[Test]
+    public function it_still_issues_an_access_token_when_registering_into_an_organization_without_the_requirement(): void
+    {
+        Mail::fake();
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => false]]);
+
+        $response = $this->postJson('/api/v1/auth/register', $this->registrationPayload($organization->slug));
+
+        $response->assertCreated()->assertJsonStructure(['token' => ['access_token']]);
+    }
+
     #[Test]
     public function it_does_not_block_a_member_of_an_organization_that_does_not_require_mfa(): void
     {

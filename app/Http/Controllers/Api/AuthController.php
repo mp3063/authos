@@ -118,6 +118,10 @@ class AuthController extends Controller
         // Send welcome email
         Mail::to($user)->send(new WelcomeEmail($user));
 
+        if ($user->mustSetUpMfa()) {
+            return $this->mfaSetupRequiredResponse($user, $request);
+        }
+
         // Generate access token using Laravel Passport
         $tokenResult = $user->createToken('API Access Token', ['openid', 'profile', 'email']);
         $token = $tokenResult->token;
@@ -235,18 +239,7 @@ class AuthController extends Controller
 
         // PHASE 4: Check if MFA is required
         if ($user->mustSetUpMfa()) {
-            $this->authLogService->logAuthenticationEvent(
-                $user,
-                'mfa_setup_required',
-                ['client_id' => $request->input('client_id')],
-                $request
-            );
-
-            return response()->json([
-                'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
-                'error' => 'mfa_setup_required',
-                ...$this->mfaSetupTokens->issue($user),
-            ], 403);
+            return $this->mfaSetupRequiredResponse($user, $request);
         }
 
         if ($user->requiresMfa()) {
@@ -494,5 +487,21 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token revoked successfully',
         ]);
+    }
+
+    private function mfaSetupRequiredResponse(User $user, Request $request): JsonResponse
+    {
+        $this->authLogService->logAuthenticationEvent(
+            $user,
+            'mfa_setup_required',
+            ['client_id' => $request->input('client_id')],
+            $request
+        );
+
+        return response()->json([
+            'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
+            'error' => 'mfa_setup_required',
+            ...$this->mfaSetupTokens->issue($user),
+        ], 403);
     }
 }
