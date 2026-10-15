@@ -57,7 +57,7 @@ class AuthController extends Controller
             $organizationId = $organization?->id;
 
             // Check organization registration settings
-            if ($organization && isset($organization->settings['allow_registration']) && ! $organization->settings['allow_registration']) {
+            if ($organization && ! $organization->allowsRegistration()) {
                 return response()->json([
                     'message' => 'Registration is not allowed for this organization',
                     'error' => 'registration_disabled',

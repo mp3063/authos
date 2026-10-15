@@ -244,9 +244,9 @@ class SocialAuthController extends BaseController
                 return redirect('/admin/login?error=provider_not_configured');
             }
 
-            $user = $this->socialAuthService->resolveUser($provider, linkAccountsRequiringMfa: false);
+            [$user, $socialUser] = $this->socialAuthService->findPanelUser($provider);
 
-            if ($user->requiresMfa()) {
+            if ($user?->requiresMfa()) {
                 Notification::make()
                     ->title('Sign in with your email, password and authenticator code.')
                     ->body('Social sign-in is not available for accounts that use multi-factor authentication.')
@@ -258,9 +258,11 @@ class SocialAuthController extends BaseController
             }
 
             // Check if user has admin access
-            if (! $user->canAccessPanel(Filament::getPanel('admin'))) {
+            if (! $user?->canAccessPanel(Filament::getPanel('admin'))) {
                 return redirect('/admin/login?error=insufficient_privileges');
             }
+
+            $this->socialAuthService->connectProvider($user, $provider, $socialUser);
 
             // Log the user in
             auth()->login($user);

@@ -43,6 +43,11 @@ class Organization extends Model
         return filter_var($this->settings['require_mfa'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
+    public function allowsRegistration(): bool
+    {
+        return ! isset($this->settings['allow_registration']) || (bool) $this->settings['allow_registration'];
+    }
+
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);

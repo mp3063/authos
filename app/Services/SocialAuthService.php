@@ -153,26 +153,18 @@ class SocialAuthService
         return [
             'user' => $user,
             'access_token' => $tokenResult->accessToken,
-            'refresh_token' => null, // Passport handles refresh tokens separately
+            'refresh_token' => null,
             'expires_in' => 3600,
             'token_type' => 'Bearer',
         ];
     }
 
-    public function resolveUser(string $provider, ?string $organizationSlug = null, bool $linkAccountsRequiringMfa = true): User
+    public function resolveUser(string $provider, ?string $organizationSlug = null): User
     {
         try {
-            // Validate OAuth state parameter for CSRF protection
-            $state = request()->query('state');
-            if ($state) {
-                $stateData = $this->validateState($state);
-                // Use organization from state if not provided
-                $organizationSlug = $organizationSlug ?? $stateData['organization_slug'] ?? null;
-            }
+            [$socialUser, $stateOrganizationSlug] = $this->receiveProviderUser($provider);
 
-            $socialUser = Socialite::driver($provider)->stateless()->user();
-
-            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug, $linkAccountsRequiringMfa));
+            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug ?? $stateOrganizationSlug));
         } catch (Exception $e) {
             Log::error('Social authentication failed', [
                 'provider' => $provider,
@@ -185,34 +177,57 @@ class SocialAuthService
     }
 
     /**
-     * Find or create user from social provider data
+     * @return array{?User, SocialiteUser}
      */
-    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug = null, bool $linkAccountsRequiringMfa = true): User
+    public function findPanelUser(string $provider): array
     {
-        // First, try to find user by provider and provider ID
-        $user = User::findBySocialProvider($provider, $socialUser->getId());
+        [$socialUser] = $this->receiveProviderUser($provider);
 
-        if ($user) {
-            // Update existing social user data
-            $user = $this->updateUserFromSocial($user, $socialUser);
+        return [$this->findExistingUser($provider, $socialUser), $socialUser];
+    }
 
+    public function connectProvider(User $user, string $provider, SocialiteUser $socialUser): User
+    {
+        return DB::transaction(fn (): User => $this->isLinkedTo($user, $provider, $socialUser)
+            ? $this->updateUserFromSocial($user, $socialUser)
+            : $this->linkSocialAccount($user, $provider, $socialUser));
+    }
+
+    /**
+     * @return array{SocialiteUser, ?string}
+     */
+    private function receiveProviderUser(string $provider): array
+    {
+        $state = request()->query('state');
+        $stateData = $state ? $this->validateState($state) : [];
+
+        return [Socialite::driver($provider)->stateless()->user(), $stateData['organization_slug'] ?? null];
+    }
+
+    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug): User
+    {
+        $user = $this->findExistingUser($provider, $socialUser);
+
+        if ($user === null) {
+            return $this->createUserFromSocial($provider, $socialUser, $organizationSlug);
+        }
+
+        if (! $this->isLinkedTo($user, $provider, $socialUser) && $user->requiresMfa()) {
             return $user;
         }
 
-        // Check if user exists with same email (account linking)
-        $existingUser = User::where('email', $socialUser->getEmail())->first();
+        return $this->connectProvider($user, $provider, $socialUser);
+    }
 
-        if ($existingUser) {
-            if (! $linkAccountsRequiringMfa && $existingUser->requiresMfa()) {
-                return $existingUser;
-            }
+    private function findExistingUser(string $provider, SocialiteUser $socialUser): ?User
+    {
+        return User::findBySocialProvider($provider, $socialUser->getId())
+            ?? User::where('email', $socialUser->getEmail())->first();
+    }
 
-            // Link social account to existing user
-            return $this->linkSocialAccount($existingUser, $provider, $socialUser);
-        }
-
-        // Create new user
-        return $this->createUserFromSocial($provider, $socialUser, $organizationSlug);
+    private function isLinkedTo(User $user, string $provider, SocialiteUser $socialUser): bool
+    {
+        return $user->provider === $provider && (string) $user->provider_id === (string) $socialUser->getId();
     }
 
     /**
@@ -228,14 +243,9 @@ class SocialAuthService
                 throw new Exception('Organization not found');
             }
 
-            // Check if organization allows registration
-            $settings = $organization->settings ?? [];
-            if (isset($settings['allow_registration']) && ! $settings['allow_registration']) {
+            if (! $organization->allowsRegistration()) {
                 throw new Exception('Organization does not allow registration');
             }
-        } else {
-            // Use default organization or create one
-            $organization = Organization::where('is_active', true)->first();
         }
 
         $userData = [

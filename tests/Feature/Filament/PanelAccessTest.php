@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Models\CustomRole;
 use App\Services\SocialAuthService;
+use Laravel\Socialite\Two\User as SocialiteTwoUser;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
@@ -53,7 +54,9 @@ class PanelAccessTest extends IntegrationTestCase
         $socialAuth = Mockery::mock(SocialAuthService::class);
         $socialAuth->shouldReceive('isProviderSupported')->andReturnTrue();
         $socialAuth->shouldReceive('isProviderEnabled')->andReturnTrue();
-        $socialAuth->shouldReceive('resolveUser')->andReturn($owner->fresh(), $member->fresh());
+        $socialUser = new SocialiteTwoUser;
+        $socialAuth->shouldReceive('findPanelUser')->andReturn([$owner->fresh(), $socialUser], [$member->fresh(), $socialUser]);
+        $socialAuth->shouldReceive('connectProvider')->once();
         $socialAuth->shouldReceive('logAuthentication');
         $this->app->instance(SocialAuthService::class, $socialAuth);
 
