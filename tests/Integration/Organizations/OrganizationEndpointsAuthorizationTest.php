@@ -10,7 +10,6 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\OrganizationBranding;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
@@ -19,12 +18,10 @@ use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
-use Tests\TestCase;
+use Tests\Integration\IntegrationTestCase;
 
-class OrganizationEndpointsAuthorizationTest extends TestCase
+class OrganizationEndpointsAuthorizationTest extends IntegrationTestCase
 {
-    use RefreshDatabase;
-
     private Organization $organization;
 
     private Organization $foreign;
@@ -271,6 +268,105 @@ class OrganizationEndpointsAuthorizationTest extends TestCase
 
         $this->getJson("/api/v1/organizations/{$this->organization->id}/exports/{$export->id}")->assertOk();
         $this->get($this->downloadUrl($export))->assertOk();
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function applicationAccessRoles(): array
+    {
+        return [
+            'Organization Owner' => ['Organization Owner', 201],
+            'Organization Admin' => ['Organization Admin', 201],
+            'Application Manager' => ['Application Manager', 403],
+            'Organization Member' => ['Organization Member', 403],
+            'User Manager' => ['User Manager', 403],
+            'Auditor' => ['Auditor', 403],
+            'User' => ['User', 403],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('applicationAccessRoles')]
+    public function granting_application_access_follows_the_applications_update_permission(string $role, int $expected): void
+    {
+        $actor = $this->createUser(['organization_id' => $this->organization->id], $role, 'api');
+        $target = User::factory()->create(['organization_id' => $this->organization->id]);
+        $application = Application::factory()->create(['organization_id' => $this->organization->id]);
+        Passport::actingAs($actor);
+
+        $response = $this->postJson("/api/v1/organizations/{$this->organization->id}/users", [
+            'user_id' => $target->id,
+            'application_id' => $application->id,
+        ]);
+
+        $response->assertStatus($expected);
+        $this->assertSame($expected === 201, $target->applications()->where('application_id', $application->id)->exists());
+    }
+
+    #[Test]
+    #[DataProvider('applicationAccessRoles')]
+    public function revoking_application_access_follows_the_applications_update_permission(string $role, int $expected): void
+    {
+        $actor = $this->createUser(['organization_id' => $this->organization->id], $role, 'api');
+        $target = User::factory()->create(['organization_id' => $this->organization->id]);
+        $application = Application::factory()->create(['organization_id' => $this->organization->id]);
+        $target->applications()->attach($application->id);
+        Passport::actingAs($actor);
+
+        $response = $this->deleteJson("/api/v1/organizations/{$this->organization->id}/users/{$target->id}/applications/{$application->id}");
+
+        $response->assertStatus($expected === 201 ? 200 : 403);
+        $this->assertSame($expected !== 201, $target->applications()->where('application_id', $application->id)->exists());
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function reportScheduleRoles(): array
+    {
+        return [
+            'Organization Owner' => ['Organization Owner', 200],
+            'Organization Admin' => ['Organization Admin', 403],
+            'Application Manager' => ['Application Manager', 403],
+            'Organization Member' => ['Organization Member', 403],
+            'User Manager' => ['User Manager', 403],
+            'Auditor' => ['Auditor', 403],
+            'User' => ['User', 403],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('reportScheduleRoles')]
+    public function the_report_schedule_endpoints_follow_the_organizations_update_permission(string $role, int $expected): void
+    {
+        $actor = $this->createUser(['organization_id' => $this->organization->id], $role, 'api');
+        Passport::actingAs($actor);
+        $base = "/api/v1/organizations/{$this->organization->id}/reports/schedule";
+        $payload = [
+            'report_type' => 'user_activity',
+            'frequency' => 'weekly',
+            'delivery_method' => 'email',
+            'recipients' => ['reports@example.com'],
+        ];
+
+        $this->postJson($base, $payload)->assertStatus($expected === 200 ? 201 : 403);
+        $this->putJson("{$base}/schedule_1", ['frequency' => 'daily'])->assertStatus($expected);
+        $this->deleteJson("{$base}/schedule_1")->assertStatus($expected);
+    }
+
+    #[Test]
+    public function the_grant_revoke_and_schedule_endpoints_do_not_reach_another_organization(): void
+    {
+        $owner = $this->createUser(['organization_id' => $this->organization->id], 'Organization Owner', 'api');
+        Passport::actingAs($owner);
+        $base = "/api/v1/organizations/{$this->foreign->id}";
+
+        $this->postJson("{$base}/users", ['user_id' => 1, 'application_id' => 1])->assertNotFound();
+        $this->deleteJson("{$base}/users/1/applications/1")->assertNotFound();
+        $this->postJson("{$base}/reports/schedule", [])->assertNotFound();
+        $this->putJson("{$base}/reports/schedule/schedule_1", [])->assertNotFound();
+        $this->deleteJson("{$base}/reports/schedule/schedule_1")->assertNotFound();
     }
 
     private function completedExport(array $filters): AuditExport
