@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use Filament\Facades\Filament;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -35,8 +36,7 @@ class PasswordResetNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        // Generate reset URL with token
-        $resetUrl = url(config('app.url').'/reset-password?token='.$this->token.'&email='.urlencode($notifiable->email));
+        $resetUrl = Filament::getPanel('admin')->getResetPasswordUrl($this->token, $notifiable);
 
         return (new MailMessage)
             ->subject('Password Reset Request')

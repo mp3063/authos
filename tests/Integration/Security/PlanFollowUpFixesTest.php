@@ -7,11 +7,15 @@ use App\Imports\UsersImport;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\PasswordResetNotification;
 use App\Services\Auth0\DTOs\Auth0OrganizationDTO;
 use App\Services\Auth0\Migration\Importers\OrganizationImporter;
 use App\Services\InvitationService;
 use App\Services\UserRoleService;
+use Filament\Auth\Pages\PasswordReset\ResetPassword;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
@@ -72,5 +76,32 @@ class PlanFollowUpFixesTest extends IntegrationTestCase
             ->filterTable('requires_mfa', true)
             ->assertCanSeeTableRecords($required)
             ->assertCanNotSeeTableRecords($notRequired);
+    }
+
+    #[Test]
+    public function it_emails_a_reset_link_that_completes_the_reset_in_the_panel(): void
+    {
+        Notification::fake();
+        $user = $this->createUser(['email' => 'reset-me@example.com', 'organization_id' => $this->createOrganization()->id], 'Organization Owner');
+
+        $this->postJson('/api/v1/auth/password/email', ['email' => $user->email])->assertOk();
+
+        $url = '';
+        Notification::assertSentTo($user, PasswordResetNotification::class, function ($notification) use ($user, &$url) {
+            $url = $notification->toMail($user)->actionUrl;
+
+            return true;
+        });
+        $this->assertStringContainsString('/admin/password-reset/reset', $url);
+        $this->get($url)->assertOk();
+
+        parse_str(parse_url($url, PHP_URL_QUERY), $query);
+        Livewire::withQueryParams($query)
+            ->test(ResetPassword::class)
+            ->fillForm(['password' => 'Brand-New-Passw0rd!', 'passwordConfirmation' => 'Brand-New-Passw0rd!'])
+            ->call('resetPassword')
+            ->assertHasNoErrors();
+
+        $this->assertTrue(Hash::check('Brand-New-Passw0rd!', $user->fresh()->password));
     }
 }

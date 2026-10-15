@@ -14,7 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
 use Laravel\Passport\Token;
 
 class PasswordResetController extends BaseController
@@ -53,39 +53,7 @@ class PasswordResetController extends BaseController
             ]);
         }
 
-        // Generate cryptographically secure random token (64 characters)
-        // SECURITY: Use random_bytes() instead of Str::random() for cryptographic security
-        // random_bytes() uses OS-level CSPRNG (Linux: /dev/urandom, Windows: CryptGenRandom)
-        try {
-            $token = bin2hex(random_bytes(32)); // 32 bytes = 64 hex characters
-        } catch (\Exception $e) {
-            // Fallback should never happen on modern PHP installations
-            // Log critical error and fail securely
-            \Log::critical('Failed to generate cryptographically secure random token', [
-                'error' => $e->getMessage(),
-                'email' => $email,
-            ]);
-
-            return response()->json([
-                'message' => 'Unable to process password reset request. Please try again later.',
-                'error' => 'token_generation_failed',
-            ], 500);
-        }
-
-        // Hash the token before storing (NEVER store plain tokens)
-        $hashedToken = hash('sha256', $token);
-
-        // Delete any existing tokens for this email
-        DB::table('password_reset_tokens')
-            ->where('email', $email)
-            ->delete();
-
-        // Store hashed token with creation timestamp
-        DB::table('password_reset_tokens')->insert([
-            'email' => $email,
-            'token' => $hashedToken,
-            'created_at' => now(),
-        ]);
+        $token = Password::broker()->createToken($user);
 
         // Send email notification with plain token (only sent once)
         $user->notify(new PasswordResetNotification($token));
@@ -142,7 +110,9 @@ class PasswordResetController extends BaseController
         // SECURITY: Compute all checks upfront to prevent timing leaks from short-circuit evaluation
         // Both valid and invalid code paths must execute the same operations
         $recordExists = (bool) $resetRecord;
-        $tokenMatches = hash_equals($tokenToCompare, $hashedToken);
+        $legacyTokenMatches = hash_equals($tokenToCompare, $hashedToken);
+        $brokerTokenMatches = password_verify($plainToken, $tokenToCompare);
+        $tokenMatches = $legacyTokenMatches || $brokerTokenMatches;
         $hasExpirationTime = true; // Always true since we always calculate expiration
         $notExpired = now()->lt($tokenExpiresAt);
 
