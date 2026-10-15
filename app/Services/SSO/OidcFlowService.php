@@ -60,7 +60,7 @@ class OidcFlowService
         if ($exchange === null) {
             return [
                 'success' => false,
-                'error' => 'Token exchange failed',
+                'error' => 'SSO authentication failed',
             ];
         }
 
@@ -82,9 +82,12 @@ class OidcFlowService
             return $this->issuer->challenge($user, $ssoConfig, $attributes);
         }
 
-        $this->logLoginResult($session, $exchange['successful']);
+        $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_login_success', true, [
+            'provider' => 'oidc',
+            'session_id' => $session->id,
+        ]);
 
-        return $this->buildCallbackResult($this->issuer->issue($user, $ssoConfig, $attributes), $exchange['successful']);
+        return $this->issuer->issue($user, $ssoConfig, $attributes);
     }
 
     /**
@@ -109,41 +112,30 @@ class OidcFlowService
 
         $application = $session->application;
 
-        // Make request to token endpoint for refresh
         try {
-            // For test scenarios, use mocked response
-            if (app()->environment('testing')) {
-                $newAccessToken = 'new-access-token-123';
-                $newRefreshToken = 'new-refresh-token-123';
-            } else {
-                $ssoConfig = $application->ssoConfiguration;
+            $ssoConfig = $application->ssoConfiguration;
 
-                if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
-                    throw new Exception('Token endpoint not configured');
-                }
-
-                $response = Http::connectTimeout(10)->timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
-                    'grant_type' => 'refresh_token',
-                    'refresh_token' => $session->refresh_token,
-                    'client_id' => $ssoConfig->configuration['client_id'] ?? '',
-                    'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
-                ]);
-
-                if (! $response->successful()) {
-                    throw new Exception('Token refresh failed');
-                }
-
-                $tokenData = $response->json();
-                $newAccessToken = $tokenData['access_token'];
-                $newRefreshToken = $tokenData['refresh_token'] ?? $session->refresh_token;
+            if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
+                throw new Exception('Token endpoint not configured');
             }
+
+            $response = Http::connectTimeout(10)->timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $session->refresh_token,
+                'client_id' => $ssoConfig->configuration['client_id'] ?? '',
+                'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
+            ]);
+
+            $tokenData = $response->successful() ? $response->json() : null;
+            $newAccessToken = $tokenData['access_token'] ?? null;
+
+            if (! is_string($newAccessToken) || $newAccessToken === '') {
+                throw new Exception('Token refresh failed');
+            }
+
+            $newRefreshToken = $tokenData['refresh_token'] ?? $session->refresh_token;
         } catch (Exception) {
-            if (! app()->environment('testing')) {
-                throw new Exception('Invalid or expired refresh token');
-            }
-            // In testing, continue with mock tokens
-            $newAccessToken = 'new-access-token-123';
-            $newRefreshToken = 'new-refresh-token-123';
+            throw new Exception('Invalid or expired refresh token');
         }
 
         // Update attributes separately to avoid guarded attribute issues
@@ -215,9 +207,9 @@ class OidcFlowService
     }
 
     /**
-     * Exchange the auth code for tokens; null means the flow must abort with a failed exchange.
+     * Exchange the auth code for tokens and the IdP identity; null means the flow must abort.
      *
-     * @return array{successful: bool, access_token: mixed, id_token: mixed, refresh_token: mixed, user_info: mixed}|null
+     * @return array{access_token: string, id_token: mixed, refresh_token: mixed, user_info: array<string, mixed>}|null
      */
     private function exchangeAuthorizationCode(SSOSession $session, SSOConfiguration $ssoConfig, string $authCode): ?array
     {
@@ -230,110 +222,82 @@ class OidcFlowService
                 'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
             ]);
 
-            if (! $tokenResponse->successful()) {
+            $tokenData = $tokenResponse->successful() ? $tokenResponse->json() : null;
+            $accessToken = $tokenData['access_token'] ?? null;
+
+            if (! is_string($accessToken) || $accessToken === '') {
                 $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_token_exchange_failed', false, [
-                    'error' => 'Token exchange failed',
+                    'error' => $tokenResponse->successful() ? 'Token response has no access_token' : 'Token exchange failed',
                     'http_status' => $tokenResponse->status(),
                 ]);
 
-                // In test environment, continue with fallback instead of failing
-                if (! app()->environment('testing')) {
-                    return null;
-                }
-
-                return $this->fallbackExchange($session, false);
+                return null;
             }
 
-            $tokenData = $tokenResponse->json();
-            $accessToken = $tokenData['access_token'] ?? 'access-token-123';
-
-            return [
-                'successful' => true,
-                'access_token' => $accessToken,
-                'id_token' => $tokenData['id_token'] ?? 'id-token-123',
-                'refresh_token' => $tokenData['refresh_token'] ?? 'refresh-token-123',
-                'user_info' => $this->fetchUserInfo($session, $ssoConfig, $accessToken),
-            ];
+            $userInfo = $this->fetchUserInfo($ssoConfig, $accessToken);
         } catch (ConnectionException $e) {
-            $successful = app()->environment('testing'); // Succeed in test environment
-            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_connection_timeout', $successful, [
+            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_connection_timeout', false, [
                 'error' => 'Connection timeout: '.$e->getMessage(),
             ]);
 
-            return $this->fallbackExchange($session, $successful);
+            return null;
         } catch (Exception $e) {
-            $successful = app()->environment('testing'); // Succeed in test environment
-            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_http_error', $successful, [
+            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_http_error', false, [
                 'error' => 'HTTP request failed: '.$e->getMessage(),
             ]);
 
-            return $this->fallbackExchange($session, $successful);
+            return null;
         }
+
+        if ($userInfo === null) {
+            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_userinfo_failed', false, [
+                'error' => 'Userinfo request failed',
+            ]);
+
+            return null;
+        }
+
+        if (! $this->identityMatchesSessionUser($userInfo, $session)) {
+            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_identity_mismatch', false, [
+                'error' => 'IdP email does not match the session user',
+            ]);
+
+            return null;
+        }
+
+        return [
+            'access_token' => $accessToken,
+            'id_token' => $tokenData['id_token'] ?? null,
+            'refresh_token' => $tokenData['refresh_token'] ?? null,
+            'user_info' => $userInfo,
+        ];
     }
 
-    private function fetchUserInfo(SSOSession $session, SSOConfiguration $ssoConfig, mixed $accessToken): mixed
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function fetchUserInfo(SSOConfiguration $ssoConfig, string $accessToken): ?array
     {
         try {
             $userInfoResponse = Http::connectTimeout(10)->timeout(30)->withToken($accessToken)
                 ->get($ssoConfig->configuration['userinfo_endpoint'] ?? '');
-
-            return $userInfoResponse->successful() ? $userInfoResponse->json() : $this->fallbackUserInfo($session);
         } catch (ConnectionException) {
-            return $this->fallbackUserInfo($session);
+            return null;
         }
+
+        $userInfo = $userInfoResponse->successful() ? $userInfoResponse->json() : null;
+
+        return is_array($userInfo) ? $userInfo : null;
     }
 
     /**
-     * @return array{successful: bool, access_token: string, id_token: string, refresh_token: string, user_info: array}
+     * @param  array<string, mixed>  $userInfo
      */
-    private function fallbackExchange(SSOSession $session, bool $successful): array
+    private function identityMatchesSessionUser(array $userInfo, SSOSession $session): bool
     {
-        return [
-            'successful' => $successful,
-            'access_token' => 'access-token-123',
-            'id_token' => 'id-token-123',
-            'refresh_token' => 'refresh-token-123',
-            'user_info' => $this->fallbackUserInfo($session),
-        ];
-    }
+        $email = $userInfo['email'] ?? null;
 
-    private function fallbackUserInfo(SSOSession $session): array
-    {
-        return [
-            'sub' => 'user-123',
-            'email' => $session->user->email,
-            'name' => $session->user->name,
-            'email_verified' => true,
-        ];
-    }
-
-    private function logLoginResult(SSOSession $session, bool $successful): void
-    {
-        if ($successful) {
-            $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_login_success', true, [
-                'provider' => 'oidc',
-                'session_id' => $session->id,
-            ]);
-
-            return;
-        }
-
-        $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_login_fallback', false, [
-            'provider' => 'oidc',
-            'session_id' => $session->id,
-            'note' => 'Authentication failed but using fallback values in test environment',
-        ]);
-    }
-
-    private function buildCallbackResult(array $result, bool $successful): array
-    {
-        $result['success'] = $successful;
-
-        if (! $successful) {
-            $result['error'] = 'Token exchange failed';
-        }
-
-        return $result;
+        return is_string($email) && mb_strtolower($email) === mb_strtolower($session->user->email);
     }
 
     /**

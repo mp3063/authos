@@ -8,6 +8,7 @@ use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\SSOService;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -146,7 +147,7 @@ class SsoFlowsTest extends EndToEndTestCase
             'https://idp.example.com/userinfo' => Http::response([
                 'sub' => 'oidc_user_123',
                 'name' => 'John Doe',
-                'email' => 'john.doe@example.com',
+                'email' => $this->regularUser->email,
                 'email_verified' => true,
                 'picture' => 'https://example.com/avatar.jpg',
             ], 200),
@@ -504,6 +505,8 @@ class SsoFlowsTest extends EndToEndTestCase
         $refreshResponse->assertStatus(200);
         $refreshData = $refreshResponse->json();
         $this->assertTrue($refreshData['success']);
+        $this->assertSame('oidc_access_token_123', $refreshData['access_token']);
+        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['grant_type'] === 'refresh_token');
 
         // Test individual session logout
         $logoutResponse = $this->postJson('/api/v1/sso/sessions/'.$sessions[0]->session_token.'/logout');
@@ -726,6 +729,12 @@ class SsoFlowsTest extends EndToEndTestCase
             $this->regularUser->applications()->attach($app->id);
             $apps[] = $app;
         }
+        SSOConfiguration::factory()->create([
+            'application_id' => $apps[0]->id,
+            'provider' => 'oidc',
+            'configuration' => $this->oidcConfiguration->configuration,
+            'is_active' => true,
+        ]);
 
         // Create SSO session with shared token
         $sharedToken = 'shared_sso_token_'.Str::random(32);
@@ -756,6 +765,7 @@ class SsoFlowsTest extends EndToEndTestCase
         // Test token refresh propagates to all apps
         $refreshResponse = $this->postJson('/api/v1/sso/sessions/'.$sharedToken.'/refresh');
         $refreshResponse->assertStatus(200);
+        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['grant_type'] === 'refresh_token');
 
         // Verify master session was updated
         $masterSession = $masterSession->fresh(); // Use fresh() instead of refresh() to reload from DB
@@ -1002,7 +1012,7 @@ class SsoFlowsTest extends EndToEndTestCase
      */
     public function test_sso_provider_error_handling(): void
     {
-        // Mock IdP returning error
+        Http::swap(new HttpFactory);
         Http::fake([
             'https://idp.example.com/token' => Http::response([
                 'error' => 'invalid_grant',
@@ -1022,11 +1032,11 @@ class SsoFlowsTest extends EndToEndTestCase
             'state' => 'error_test_state',
         ]);
 
-        $callbackResponse->assertStatus(200); // Fallback to mock in test environment
-        $callbackData = $callbackResponse->json();
-
-        // Verify fallback behavior worked
-        $this->assertTrue($callbackData['success']);
+        $callbackResponse->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonMissingPath('session');
+        $this->assertEquals($session->expires_at, $session->fresh()->expires_at);
+        $this->assertSSOAuditLog($this->regularUser, 'sso_token_exchange_failed', ['success' => false]);
     }
 
     /**
@@ -1034,7 +1044,7 @@ class SsoFlowsTest extends EndToEndTestCase
      */
     public function test_sso_network_timeout_handling(): void
     {
-        // Mock network timeout
+        Http::swap(new HttpFactory);
         Http::fake([
             'https://idp.example.com/token' => function () {
                 throw new ConnectionException('Connection timeout');
@@ -1053,10 +1063,11 @@ class SsoFlowsTest extends EndToEndTestCase
             'state' => 'timeout_test_state',
         ]);
 
-        // Should fallback gracefully in test environment
-        $callbackResponse->assertStatus(200);
-        $callbackData = $callbackResponse->json();
-        $this->assertTrue($callbackData['success']);
+        $callbackResponse->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonMissingPath('session');
+        $this->assertEquals($session->expires_at, $session->fresh()->expires_at);
+        $this->assertSSOAuditLog($this->regularUser, 'sso_connection_timeout', ['success' => false]);
     }
 
     /**
@@ -1251,7 +1262,7 @@ class SsoFlowsTest extends EndToEndTestCase
         // The user_info should contain OIDC provider information (from HTTP mocks)
         $userInfo = $freshSession->metadata['user_info'];
         $this->assertEquals('oidc_user_123', $userInfo['sub']);
-        $this->assertEquals('john.doe@example.com', $userInfo['email']);
+        $this->assertEquals($this->regularUser->email, $userInfo['email']);
         $this->assertEquals('John Doe', $userInfo['name']);
     }
 

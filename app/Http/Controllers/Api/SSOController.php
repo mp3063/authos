@@ -120,6 +120,13 @@ class SSOController extends Controller
                 return $challengeResponse;
             }
 
+            if (($result['success'] ?? false) !== true) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $result['error'] ?? 'SSO authentication failed',
+                ], 400);
+            }
+
             return response()->json([
                 'success' => $result['success'],
                 'user' => $result['user'],
