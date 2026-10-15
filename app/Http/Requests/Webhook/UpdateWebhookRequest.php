@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Webhook;
 
+use App\Models\Webhook;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Override;
@@ -13,7 +14,14 @@ class UpdateWebhookRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $webhook = Webhook::query()
+            ->when(! $user->isSuperAdmin(), fn ($query) => $query
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $user->organization_id))
+            ->find($this->route('id'));
+
+        return $user->can('update', $webhook ?? new Webhook(['organization_id' => $user->organization_id]));
     }
 
     /**

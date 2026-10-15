@@ -70,7 +70,7 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
     }
 
     #[Test]
-    public function it_hides_another_organizations_configuration_from_update_with_404(): void
+    public function it_refuses_another_organizations_configuration_on_update_with_403(): void
     {
         $config = $this->createSsoConfiguration($this->createApiOrganizationAdmin());
         $otherAdmin = $this->createApiOrganizationAdmin();
@@ -78,7 +78,7 @@ class SsoConfigurationManagementTest extends IntegrationTestCase
         $response = $this->actingAsApiUserWithToken($otherAdmin, ['sso'])
             ->putJson("/api/v1/sso/configurations/{$config->id}", ['callback_url' => 'https://attacker.example.com/callback']);
 
-        $response->assertNotFound();
+        $response->assertForbidden();
         $this->assertSame(self::CALLBACK_URL, $config->fresh()->callback_url);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Enterprise;
 
 use App\Http\Controllers\Api\Traits\ApiControllerHelpers;
 use App\Models\Organization;
+use App\Models\OrganizationBranding;
 use App\Services\BrandingService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -138,9 +139,15 @@ class BrandingController extends BaseController
 
     private function findOrganizationForBranding(int $organizationId, string $ability): Organization
     {
-        $organization = Organization::findOrFail($organizationId);
+        $organization = Organization::find($organizationId);
 
-        $this->authorize($ability, $organization->branding()->firstOrNew());
+        $this->authorize(
+            $ability,
+            $organization?->branding()->firstOrNew()
+                ?? new OrganizationBranding(['organization_id' => $organizationId])
+        );
+
+        abort_if($organization === null, 404);
 
         return $organization;
     }

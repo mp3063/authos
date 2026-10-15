@@ -21,7 +21,9 @@ class SsoConfigurationController extends Controller
     public function getSSOConfiguration(Request $request, int $organizationId): JsonResponse
     {
         $this->authorize('viewAny', SSOConfiguration::class);
-        $this->authorize('view', Organization::findOrFail($organizationId));
+        $organization = Organization::find($organizationId);
+        $this->authorize('view', $organization ?? (new Organization)->forceFill(['id' => $organizationId]));
+        abort_if($organization === null, 404);
 
         try {
 
@@ -56,7 +58,7 @@ class SsoConfigurationController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'SSO configuration could not be processed',
             ], 404);
         }
     }
@@ -104,7 +106,7 @@ class SsoConfigurationController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'SSO configuration could not be created',
             ], 400);
         }
     }
@@ -143,7 +145,7 @@ class SsoConfigurationController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'SSO configuration could not be processed',
             ], 404);
         }
     }
@@ -164,7 +166,7 @@ class SsoConfigurationController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'SSO configuration could not be processed',
             ], 404);
         }
     }

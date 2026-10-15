@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Traits;
 
+use App\Models\Application;
 use App\Models\SSOConfiguration;
 use App\Models\User;
 
@@ -16,10 +17,20 @@ trait FindsOrgScopedSsoConfigurations
                     ->whereNotNull('organization_id')
                     ->where('organization_id', $user->organization_id)
             ))
-            ->findOrFail($configId);
+            ->find($configId);
 
-        $this->authorize($ability, $ssoConfig);
+        $this->authorize($ability, $ssoConfig ?? $this->blankSsoConfigurationFor($user));
+
+        abort_if($ssoConfig === null, 404);
 
         return $ssoConfig;
+    }
+
+    private function blankSsoConfigurationFor(User $user): SSOConfiguration
+    {
+        return (new SSOConfiguration)->setRelation(
+            'application',
+            (new Application)->forceFill(['organization_id' => $user->organization_id])
+        );
     }
 }

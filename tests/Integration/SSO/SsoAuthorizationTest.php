@@ -136,7 +136,7 @@ class SsoAuthorizationTest extends IntegrationTestCase
 
         $this->actingAsApiUserWithToken($owner->fresh(), ['sso'])
             ->putJson("/api/v1/sso/configurations/{$global->id}", ['callback_url' => 'https://attacker.example.com/cb'])
-            ->assertNotFound();
+            ->assertForbidden();
 
         $this->assertSame(self::CALLBACK_URL, $global->fresh()->callback_url);
     }

@@ -115,9 +115,7 @@ class DomainController extends BaseController
                 ->where('organization_id', $user->organization_id))
             ->find($domainId);
 
-        if ($domain) {
-            $this->authorize($ability, $domain);
-        }
+        $this->authorize($ability, $domain ?? new CustomDomain(['organization_id' => $user->organization_id]));
 
         return $domain;
     }
