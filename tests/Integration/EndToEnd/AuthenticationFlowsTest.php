@@ -920,7 +920,7 @@ class AuthenticationFlowsTest extends EndToEndTestCase
             'password' => 'Password123!',
         ]);
 
-        $org2LoginResponse->assertStatus(200);
+        $org2LoginResponse->assertForbidden()->assertJsonPath('error', 'mfa_setup_required');
 
         // Verify org2 user can only see their organization data
         $this->actingAsApiUser($org2User);

@@ -6,6 +6,8 @@ use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 
 /**
@@ -385,105 +387,162 @@ class MfaFlowsTest extends EndToEndTestCase
     // MFA Requirement by Organization Tests
     // ===========================================
 
-    /**
-     * Test organization-enforced MFA requirements
-     */
     public function test_organization_enforced_mfa(): void
     {
-        // Create organization with MFA requirement
         $organization = Organization::factory()->create([
             'name' => 'Secure Corp',
-            'settings' => [
-                'require_mfa' => true,
-                'mfa_grace_period_days' => 0,
-            ],
+            'settings' => ['require_mfa' => true],
         ]);
-
-        $user = User::factory()->create([
-            'organization_id' => $organization->id,
+        $user = User::factory()->forOrganization($organization)->create([
             'password' => Hash::make('password123'),
         ]);
-
-        // Test shouldRequireMfa logic with organization requirement
         $this->assertFalse($user->hasMfaEnabled());
 
-        // Organization requires MFA but user doesn't have it enabled
-        // The AuthController logic should handle this case
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertForbidden()->assertJsonPath('error', 'mfa_setup_required');
+        $this->assertNull($response->json('access_token'));
+    }
+
+    public function test_organization_mfa_policy_enforcement(): void
+    {
+        $strictOrg = Organization::factory()->create([
+            'settings' => ['require_mfa' => true, 'allowed_mfa_methods' => ['totp']],
+        ]);
+        $lenientOrg = Organization::factory()->create([
+            'settings' => ['require_mfa' => false],
+        ]);
+        $strictUser = User::factory()->forOrganization($strictOrg)->create();
+        $lenientUser = User::factory()->forOrganization($lenientOrg)->create();
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $strictUser->email,
+            'password' => 'password',
+        ])->assertForbidden()->assertJsonPath('error', 'mfa_setup_required');
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $lenientUser->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonStructure(['access_token']);
+    }
+
+    public function test_user_bypass_organization_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->withMfa()->create([
+            'password' => Hash::make('password123'),
+        ]);
+        $token = $this->createAccessTokenForUser($user);
+
+        $response = $this->postJson('/api/v1/mfa/disable', [
+            'password' => 'password123',
+            'code' => $this->totpCodeFor($user),
+        ], ['Authorization' => 'Bearer '.$token]);
+
+        $response->assertForbidden()->assertJsonPath('error', 'mfa_required_by_organization');
+        $this->assertTrue($user->fresh()->hasMfaEnabled());
+    }
+
+    #[Test]
+    public function it_returns_a_setup_token_instead_of_tokens_when_the_organization_requires_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create();
+
+        $response = $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
-        // Current implementation allows login even without MFA if user doesn't have it enabled
-        // This test documents expected behavior when organization policy is fully implemented
-        $this->assertNotNull($loginResponse);
+        $response->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonPath('token_type', 'Bearer')
+            ->assertJsonPath('expires_in', 900)
+            ->assertJsonStructure(['setup_token'])
+            ->assertJsonMissingPath('access_token');
+        $this->assertSame(1, $user->tokens()->count());
+        $this->assertSame(['mfa.setup'], $user->tokens()->sole()->scopes);
+        $this->assertAuditLogExists($user, 'mfa_setup_required');
     }
 
-    /**
-     * Test different MFA policies per organization
-     */
-    public function test_organization_mfa_policy_enforcement(): void
+    #[Test]
+    public function it_challenges_a_member_with_mfa_in_an_organization_that_requires_it(): void
     {
-        // Create organizations with different MFA policies
-        $strictOrg = Organization::factory()->create([
-            'settings' => [
-                'require_mfa' => true,
-                'mfa_grace_period_days' => 0,
-                'allowed_mfa_methods' => ['totp'],
-            ],
-        ]);
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->withMfa()->create();
 
-        $lenientOrg = Organization::factory()->create([
-            'settings' => [
-                'require_mfa' => false,
-                'mfa_grace_period_days' => 30,
-            ],
-        ]);
-
-        $strictUser = User::factory()->create([
-            'organization_id' => $strictOrg->id,
-            'password' => Hash::make('password123'),
-        ]);
-
-        $lenientUser = User::factory()->create([
-            'organization_id' => $lenientOrg->id,
-            'password' => Hash::make('password123'),
-        ]);
-
-        // Both users should be able to login currently since they don't have MFA
-        $strictResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $strictUser->email,
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
             'password' => 'password',
         ]);
 
-        $lenientResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $lenientUser->email,
+        $response->assertStatus(202)->assertJsonStructure(['challenge_token'])->assertJsonMissingPath('access_token');
+        $this->assertSame(0, $user->tokens()->count());
+
+        $verified = $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $response->json('challenge_token'),
+            'totp_code' => $this->totpCodeFor($user),
+        ]);
+
+        $verified->assertOk()->assertJsonStructure(['access_token']);
+    }
+
+    #[Test]
+    public function it_still_challenges_a_user_with_mfa_in_an_organization_that_does_not_require_it(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => false]]);
+        $user = User::factory()->forOrganization($organization)->withMfa()->create();
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
             'password' => 'password',
         ]);
 
-        // Document current behavior
-        $this->assertNotNull($strictResponse);
-        $this->assertNotNull($lenientResponse);
+        $response->assertStatus(202)->assertJsonStructure(['challenge_token']);
     }
 
-    /**
-     * Test organization settings exist
-     */
-    public function test_user_bypass_organization_mfa(): void
+    #[Test]
+    public function it_walks_a_member_through_enrollment_and_then_a_normal_mfa_login(): void
     {
-        $organization = Organization::factory()->create([
-            'settings' => ['require_mfa' => true],
-        ]);
+        Mail::fake();
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create();
+        $credentials = ['email' => $user->email, 'password' => 'password'];
 
-        $user = User::factory()->create([
-            'organization_id' => $organization->id,
-            'password' => Hash::make('password123'),
-            'mfa_methods' => null, // User attempts to disable MFA
-        ]);
+        $setupToken = $this->postJson('/api/v1/auth/login', $credentials)->assertForbidden()->json('setup_token');
 
-        // Verify organization settings are accessible
-        $this->assertTrue($organization->settings['require_mfa']);
-        $this->assertFalse($user->hasMfaEnabled());
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$setupToken)
+            ->postJson('/api/v1/mfa/setup')
+            ->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$setupToken)
+            ->postJson('/api/v1/mfa/enable', ['code' => $this->totpCodeFor($user->fresh())])
+            ->assertOk();
+
+        $this->flushHeaders();
+        $this->app['auth']->forgetGuards();
+        $challenge = $this->postJson('/api/v1/auth/login', $credentials)->assertStatus(202);
+
+        $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $challenge->json('challenge_token'),
+            'totp_code' => $this->totpCodeFor($user->fresh()),
+        ])->assertOk()->assertJsonStructure(['access_token']);
+    }
+
+    #[Test]
+    public function it_does_not_block_a_member_of_an_organization_that_does_not_require_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => false]]);
+        $user = User::factory()->forOrganization($organization)->create();
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonStructure(['access_token']);
     }
 
     /**

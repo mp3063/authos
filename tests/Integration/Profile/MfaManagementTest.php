@@ -555,6 +555,25 @@ class MfaManagementTest extends IntegrationTestCase
     }
 
     #[Test]
+    #[DataProvider('disableEndpoints')]
+    public function it_refuses_to_disable_mfa_while_the_organization_requires_it(string $endpoint): void
+    {
+        $this->user->organization->update(['settings' => ['require_mfa' => true]]);
+        $this->enableMfaForUser();
+        $methodsBefore = $this->user->fresh()->mfa_methods;
+
+        $response = $this->actingAs($this->user, 'api')
+            ->postJson($endpoint, [
+                'password' => 'password123',
+                'code' => $this->totpCodeFor($this->user->fresh()),
+            ]);
+
+        $response->assertForbidden()->assertJsonPath('error', 'mfa_required_by_organization');
+        $this->assertSame($methodsBefore, $this->user->fresh()->mfa_methods);
+        $this->assertNotNull($this->user->fresh()->two_factor_secret);
+    }
+
+    #[Test]
     public function mfa_can_be_disabled_with_a_recovery_code(): void
     {
         $this->enableMfaForUser(['ABCD1234', 'EFGH5678']);

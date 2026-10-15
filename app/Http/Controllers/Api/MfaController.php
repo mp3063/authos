@@ -103,10 +103,7 @@ class MfaController extends BaseController
             ], 404);
         }
 
-        $google2fa = new Google2FA;
-        $secretKey = decrypt($user->two_factor_secret);
-
-        if (! $google2fa->verifyKey($secretKey, $request->code)) {
+        if (! $this->mfaCodeVerifier->verifyTotpCode($user, $request->code)) {
             return response()->json([
                 'error' => 'authentication_failed',
                 'error_description' => 'Invalid TOTP code.',
@@ -149,6 +146,10 @@ class MfaController extends BaseController
     public function disableTotp(Request $request): JsonResponse
     {
         $user = Auth::user();
+
+        if ($user->organization?->requiresMfa()) {
+            return $this->mfaRequiredByOrganizationResponse();
+        }
 
         $request->validate([
             'password' => 'required|string',
@@ -288,10 +289,7 @@ class MfaController extends BaseController
             ], 404);
         }
 
-        $google2fa = new Google2FA;
-        $secretKey = decrypt($user->two_factor_secret);
-
-        if (! $google2fa->verifyKey($secretKey, $request->code)) {
+        if (! $this->mfaCodeVerifier->verifyTotpCode($user, $request->code)) {
             return response()->json([
                 'success' => false,
                 'error' => 'authentication_failed',
@@ -304,7 +302,7 @@ class MfaController extends BaseController
 
         // Enable MFA
         $user->update([
-            'mfa_secret' => encrypt($secretKey), // Store encrypted secret for compatibility
+            'mfa_secret' => encrypt(decrypt($user->two_factor_secret)), // Store encrypted secret for compatibility
             'mfa_methods' => ['totp'],
             'mfa_backup_codes' => $backupCodes, // Mutator handles JSON encoding to two_factor_recovery_codes
             'two_factor_confirmed_at' => now(),
@@ -342,6 +340,10 @@ class MfaController extends BaseController
     public function disableMfa(Request $request): JsonResponse
     {
         $user = Auth::user();
+
+        if ($user->organization?->requiresMfa()) {
+            return $this->mfaRequiredByOrganizationResponse();
+        }
 
         $request->validate([
             'password' => 'required|string',
@@ -402,6 +404,14 @@ class MfaController extends BaseController
 
         return $this->mfaCodeVerifier->verifyTotpCode($user, $code)
             || $this->mfaCodeVerifier->verifyAndConsumeRecoveryCode($user, $code);
+    }
+
+    private function mfaRequiredByOrganizationResponse(): JsonResponse
+    {
+        return response()->json([
+            'error' => 'mfa_required_by_organization',
+            'error_description' => 'Your organization requires multi-factor authentication, so it cannot be disabled.',
+        ], 403);
     }
 
     private function invalidSecondFactorResponse(): JsonResponse

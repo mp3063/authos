@@ -14,6 +14,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Models\UserConsent;
 use App\Services\Auth\MfaChallengeStore;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use App\Services\Compliance\ConsentTrackingService;
 use Carbon\Carbon;
@@ -32,6 +33,7 @@ class AuthController extends Controller
     public function __construct(
         protected AuthenticationLogService $authLogService,
         protected MfaChallengeStore $mfaChallenges,
+        protected MfaSetupTokenIssuer $mfaSetupTokens,
     ) {}
 
     /**
@@ -232,7 +234,22 @@ class AuthController extends Controller
         }
 
         // PHASE 4: Check if MFA is required
-        if ($this->shouldRequireMfa($user)) {
+        if ($user->mustSetUpMfa()) {
+            $this->authLogService->logAuthenticationEvent(
+                $user,
+                'mfa_setup_required',
+                ['client_id' => $request->input('client_id')],
+                $request
+            );
+
+            return response()->json([
+                'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
+                'error' => 'mfa_setup_required',
+                ...$this->mfaSetupTokens->issue($user),
+            ], 403);
+        }
+
+        if ($user->requiresMfa()) {
             $this->authLogService->logAuthenticationEvent(
                 $user,
                 'mfa_required',
@@ -477,24 +494,5 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token revoked successfully',
         ]);
-    }
-
-    /**
-     * Check if MFA should be required for the user
-     */
-    protected function shouldRequireMfa(User $user): bool
-    {
-        // Check if user has MFA enabled
-        if (! $user->hasMfaEnabled()) {
-            return false;
-        }
-
-        // Check if organization requires MFA
-        if ($user->organization && isset($user->organization->settings['require_mfa']) && $user->organization->settings['require_mfa']) {
-            return true;
-        }
-
-        // If user has MFA enabled but organization doesn't require it, still require it
-        return $user->hasMfaEnabled();
     }
 }

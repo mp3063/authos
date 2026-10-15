@@ -25,7 +25,7 @@ class OrganizationFactory extends Factory
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1000, 9999),
             'is_active' => true,
             'settings' => [
-                'require_mfa' => fake()->boolean(30),
+                'require_mfa' => false,
                 'password_policy' => [
                     'min_length' => fake()->numberBetween(8, 12),
                     'require_uppercase' => fake()->boolean(80),
