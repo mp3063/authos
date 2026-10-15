@@ -151,7 +151,6 @@ class CustomRole extends Model
             'applications.read',
             'applications.update',
             'applications.delete',
-            'applications.regenerate_credentials',
 
             // Organization Management
             'organizations.read',

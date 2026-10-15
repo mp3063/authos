@@ -64,7 +64,6 @@ trait ManagesOrganizationRoles
             'Organization Owner' => [
                 'users.create', 'users.read', 'users.update', 'users.delete',
                 'applications.create', 'applications.read', 'applications.update', 'applications.delete',
-                'applications.regenerate_credentials',
                 'organizations.read', 'organizations.update',
                 'roles.create', 'roles.read', 'roles.update', 'roles.delete', 'roles.assign',
                 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
@@ -89,7 +88,6 @@ trait ManagesOrganizationRoles
             ],
             'Application Manager' => [
                 'applications.create', 'applications.read', 'applications.update',
-                'applications.regenerate_credentials',
                 'users.read',
             ],
             'User Manager' => [
