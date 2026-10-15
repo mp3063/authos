@@ -178,12 +178,31 @@ class OidcCallbackFailureTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_stores_no_id_or_refresh_token_that_is_not_a_non_empty_string(): void
+    {
+        Http::fake([
+            self::TOKEN_ENDPOINT => Http::response(['access_token' => 'idp-access-token', 'id_token' => ['forged'], 'refresh_token' => 42]),
+            self::USERINFO_ENDPOINT => Http::response(['sub' => 'idp-user', 'email' => $this->user->email]),
+        ]);
+        $state = $this->initiate();
+
+        $response = $this->postCallback($state);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $metadata = SSOSession::where('session_token', $response->json('session.session_token'))->sole()->metadata;
+        $this->assertSame('idp-access-token', $metadata['access_token']);
+        $this->assertNull($metadata['id_token']);
+        $this->assertNull($metadata['refresh_token']);
+    }
+
+    #[Test]
     public function it_refreshes_through_the_token_endpoint(): void
     {
         Http::fake([
             self::TOKEN_ENDPOINT => Http::response(['access_token' => 'idp-refreshed-access-token', 'refresh_token' => 'idp-rotated-refresh-token']),
         ]);
-        $session = SSOSession::factory()->forUser($this->user)->create(['application_id' => $this->application->id]);
+        $session = $this->sessionWithIdpRefreshToken('idp-refresh-token');
+        $localRefreshToken = $session->refresh_token;
 
         $response = $this->postJson("/api/v1/sso/sessions/{$session->session_token}/refresh");
 
@@ -192,10 +211,44 @@ class OidcCallbackFailureTest extends IntegrationTestCase
             ->assertJsonPath('access_token', 'idp-refreshed-access-token');
         Http::assertSent(fn (Request $request) => $request->url() === self::TOKEN_ENDPOINT
             && $request['grant_type'] === 'refresh_token'
+            && $request['refresh_token'] === 'idp-refresh-token'
             && $request['client_id'] === 'client');
         $session = $session->fresh();
         $this->assertSame('idp-refreshed-access-token', $session->metadata['access_token']);
-        $this->assertSame('idp-rotated-refresh-token', $session->refresh_token);
+        $this->assertSame('idp-rotated-refresh-token', $session->metadata['refresh_token']);
+        $this->assertSame($localRefreshToken, $session->refresh_token);
+    }
+
+    #[Test]
+    public function it_keeps_the_idp_refresh_token_when_the_refresh_response_has_no_string_refresh_token(): void
+    {
+        Http::fake([
+            self::TOKEN_ENDPOINT => Http::response(['access_token' => 'idp-refreshed-access-token', 'refresh_token' => ['forged']]),
+        ]);
+        $session = $this->sessionWithIdpRefreshToken('idp-refresh-token');
+        $localRefreshToken = $session->refresh_token;
+
+        $response = $this->postJson("/api/v1/sso/sessions/{$session->session_token}/refresh");
+
+        $response->assertOk()->assertJsonPath('access_token', 'idp-refreshed-access-token');
+        $session = $session->fresh();
+        $this->assertSame('idp-refresh-token', $session->metadata['refresh_token']);
+        $this->assertSame($localRefreshToken, $session->refresh_token);
+    }
+
+    #[Test]
+    public function it_fails_a_refresh_when_the_session_has_no_idp_refresh_token(): void
+    {
+        Http::fake();
+        $session = SSOSession::factory()->forUser($this->user)->create(['application_id' => $this->application->id]);
+
+        $response = $this->postJson("/api/v1/sso/sessions/{$session->session_token}/refresh");
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid or expired refresh token');
+        Http::assertNothingSent();
+        $this->assertArrayNotHasKey('token_updated_at', $session->fresh()->metadata ?? []);
     }
 
     #[Test]
@@ -204,7 +257,7 @@ class OidcCallbackFailureTest extends IntegrationTestCase
         Http::fake([
             self::TOKEN_ENDPOINT => Http::response(['error' => 'invalid_grant'], 400),
         ]);
-        $session = SSOSession::factory()->forUser($this->user)->create(['application_id' => $this->application->id]);
+        $session = $this->sessionWithIdpRefreshToken('idp-refresh-token');
         $refreshToken = $session->refresh_token;
 
         $response = $this->postJson("/api/v1/sso/sessions/{$session->session_token}/refresh");
@@ -213,7 +266,16 @@ class OidcCallbackFailureTest extends IntegrationTestCase
         Http::assertSentCount(1);
         $session = $session->fresh();
         $this->assertSame($refreshToken, $session->refresh_token);
+        $this->assertSame('idp-refresh-token', $session->metadata['refresh_token']);
         $this->assertArrayNotHasKey('token_updated_at', $session->metadata ?? []);
+    }
+
+    private function sessionWithIdpRefreshToken(string $idpRefreshToken): SSOSession
+    {
+        return SSOSession::factory()->forUser($this->user)->create([
+            'application_id' => $this->application->id,
+            'metadata' => ['refresh_token' => $idpRefreshToken],
+        ]);
     }
 
     private function initiate(): string

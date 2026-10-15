@@ -487,6 +487,7 @@ class SsoFlowsTest extends EndToEndTestCase
                 'application_id' => $this->oidcApplication->id,
                 'ip_address' => '192.168.1.'.(100 + $i),
                 'user_agent' => "Test Browser {$i}",
+                'metadata' => ['refresh_token' => 'idp_refresh_token_'.$i],
             ]);
         }
 
@@ -506,7 +507,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $refreshData = $refreshResponse->json();
         $this->assertTrue($refreshData['success']);
         $this->assertSame('oidc_access_token_123', $refreshData['access_token']);
-        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['grant_type'] === 'refresh_token');
+        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['refresh_token'] === 'idp_refresh_token_0');
 
         // Test individual session logout
         $logoutResponse = $this->postJson('/api/v1/sso/sessions/'.$sessions[0]->session_token.'/logout');
@@ -744,6 +745,7 @@ class SsoFlowsTest extends EndToEndTestCase
             'session_token' => $sharedToken,
             'metadata' => [
                 'shared_access_token' => 'shared_access_123',
+                'refresh_token' => 'idp_shared_refresh_token',
                 'token_scope' => 'openid profile email',
                 'shared_apps' => array_map(fn ($app) => $app->id, $apps),
             ],
@@ -765,7 +767,7 @@ class SsoFlowsTest extends EndToEndTestCase
         // Test token refresh propagates to all apps
         $refreshResponse = $this->postJson('/api/v1/sso/sessions/'.$sharedToken.'/refresh');
         $refreshResponse->assertStatus(200);
-        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['grant_type'] === 'refresh_token');
+        Http::assertSent(fn ($request) => $request->url() === 'https://idp.example.com/token' && $request['refresh_token'] === 'idp_shared_refresh_token');
 
         // Verify master session was updated
         $masterSession = $masterSession->fresh(); // Use fresh() instead of refresh() to reload from DB

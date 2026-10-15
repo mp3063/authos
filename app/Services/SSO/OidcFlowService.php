@@ -97,7 +97,6 @@ class OidcFlowService
      */
     public function refreshSSOToken(string $sessionToken, ?int $applicationId = null): array
     {
-        // The test passes session_token, not refresh_token, so we need to find by session_token
         $query = SSOSession::where('session_token', $sessionToken)->active();
 
         if ($applicationId !== null) {
@@ -111,9 +110,14 @@ class OidcFlowService
         }
 
         $application = $session->application;
+        $idpRefreshToken = $this->nonEmptyString($session->metadata['refresh_token'] ?? null);
 
         try {
             $ssoConfig = $application->ssoConfiguration;
+
+            if ($idpRefreshToken === null) {
+                throw new Exception('Session has no IdP refresh token');
+            }
 
             if (! $ssoConfig || empty($ssoConfig->configuration['token_endpoint'])) {
                 throw new Exception('Token endpoint not configured');
@@ -121,25 +125,23 @@ class OidcFlowService
 
             $response = Http::connectTimeout(10)->timeout(30)->post($ssoConfig->configuration['token_endpoint'], [
                 'grant_type' => 'refresh_token',
-                'refresh_token' => $session->refresh_token,
+                'refresh_token' => $idpRefreshToken,
                 'client_id' => $ssoConfig->configuration['client_id'] ?? '',
                 'client_secret' => $ssoConfig->configuration['client_secret'] ?? '',
             ]);
 
             $tokenData = $response->successful() ? $response->json() : null;
-            $newAccessToken = $tokenData['access_token'] ?? null;
+            $newAccessToken = $this->nonEmptyString($tokenData['access_token'] ?? null);
 
-            if (! is_string($newAccessToken) || $newAccessToken === '') {
+            if ($newAccessToken === null) {
                 throw new Exception('Token refresh failed');
             }
 
-            $newRefreshToken = $tokenData['refresh_token'] ?? $session->refresh_token;
+            $newRefreshToken = $this->nonEmptyString($tokenData['refresh_token'] ?? null) ?? $idpRefreshToken;
         } catch (Exception) {
             throw new Exception('Invalid or expired refresh token');
         }
 
-        // Update attributes separately to avoid guarded attribute issues
-        $session->refresh_token = $newRefreshToken;
         $this->sessions->updateSessionMetadata($session, [
             'access_token' => $newAccessToken,
             'refresh_token' => $newRefreshToken,
@@ -209,7 +211,7 @@ class OidcFlowService
     /**
      * Exchange the auth code for tokens and the IdP identity; null means the flow must abort.
      *
-     * @return array{access_token: string, id_token: mixed, refresh_token: mixed, user_info: array<string, mixed>}|null
+     * @return array{access_token: string, id_token: ?string, refresh_token: ?string, user_info: array<string, mixed>}|null
      */
     private function exchangeAuthorizationCode(SSOSession $session, SSOConfiguration $ssoConfig, string $authCode): ?array
     {
@@ -223,9 +225,9 @@ class OidcFlowService
             ]);
 
             $tokenData = $tokenResponse->successful() ? $tokenResponse->json() : null;
-            $accessToken = $tokenData['access_token'] ?? null;
+            $accessToken = $this->nonEmptyString($tokenData['access_token'] ?? null);
 
-            if (! is_string($accessToken) || $accessToken === '') {
+            if ($accessToken === null) {
                 $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_token_exchange_failed', false, [
                     'error' => $tokenResponse->successful() ? 'Token response has no access_token' : 'Token exchange failed',
                     'http_status' => $tokenResponse->status(),
@@ -267,8 +269,8 @@ class OidcFlowService
 
         return [
             'access_token' => $accessToken,
-            'id_token' => $tokenData['id_token'] ?? null,
-            'refresh_token' => $tokenData['refresh_token'] ?? null,
+            'id_token' => $this->nonEmptyString($tokenData['id_token'] ?? null),
+            'refresh_token' => $this->nonEmptyString($tokenData['refresh_token'] ?? null),
             'user_info' => $userInfo,
         ];
     }
@@ -298,6 +300,11 @@ class OidcFlowService
         $email = $userInfo['email'] ?? null;
 
         return is_string($email) && mb_strtolower($email) === mb_strtolower($session->user->email);
+    }
+
+    private function nonEmptyString(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**
