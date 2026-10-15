@@ -68,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
 
         $resetPermissionTeam = fn () => app(PermissionRegistrar::class)->setPermissionsTeamId(null);
         $this->app->terminating($resetPermissionTeam);
+        Queue::before($resetPermissionTeam);
         Queue::after($resetPermissionTeam);
         Queue::failing($resetPermissionTeam);
 
