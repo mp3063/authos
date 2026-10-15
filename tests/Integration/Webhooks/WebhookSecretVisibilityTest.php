@@ -27,6 +27,22 @@ class WebhookSecretVisibilityTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_does_not_return_the_webhook_secret_to_a_read_only_caller(): void
+    {
+        $reader = $this->createUser([], 'User', 'api');
+        CustomRole::factory()->forOrganization($reader->organization)
+            ->create(['permissions' => ['webhooks.read']])
+            ->assignToUser($reader);
+        $webhook = Webhook::factory()->create(['organization_id' => $reader->organization_id]);
+        $this->actingAsApiUserWithToken($reader);
+
+        $this->getJson("/api/v1/webhooks/{$webhook->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $webhook->id)
+            ->assertJsonMissingPath('data.secret');
+    }
+
+    #[Test]
     public function it_shows_webhook_secrets_to_callers_who_can_update_them(): void
     {
         $admin = $this->createApiOrganizationAdmin();

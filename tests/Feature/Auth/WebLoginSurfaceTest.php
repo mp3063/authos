@@ -14,7 +14,7 @@ class WebLoginSurfaceTest extends IntegrationTestCase
         foreach (['/login', '/register', '/two-factor-challenge', '/passkeys/login'] as $uri) {
             $status = $this->post($uri)->getStatusCode();
 
-            $this->assertContains($status, [404, 405], "POST {$uri} returned {$status}");
+            $this->assertSame(404, $status, "POST {$uri} returned {$status}");
         }
     }
 

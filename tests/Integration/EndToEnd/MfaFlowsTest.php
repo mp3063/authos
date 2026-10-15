@@ -5,11 +5,7 @@ namespace Tests\Integration\EndToEnd;
 use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\SocialAuthService;
 use Illuminate\Support\Facades\Mail;
-use Laravel\Socialite\Facades\Socialite;
-use Laravel\Socialite\Two\User as SocialiteTwoUser;
-use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -198,23 +194,18 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        // The current implementation returns 202 for MFA challenge
-        if ($loginResponse->status() === 202) {
-            $this->assertTrue($loginResponse->json('mfa_required'));
-            $this->assertArrayHasKey('challenge_token', $loginResponse->json());
-            $this->assertArrayHasKey('available_methods', $loginResponse->json());
-            $this->assertContains('totp', $loginResponse->json('available_methods'));
-        } else {
-            // Verify at least the user has MFA enabled
-            $this->assertTrue($user->hasMfaEnabled());
-        }
+        $loginResponse->assertStatus(202)
+            ->assertJsonPath('mfa_required', true)
+            ->assertJsonStructure(['challenge_token'])
+            ->assertJsonPath('available_methods', ['totp'])
+            ->assertJsonMissingPath('access_token');
 
         // Verify audit logs exist
         $this->assertAuditLogExists($user, 'mfa_required');
     }
 
     /**
-     * Test MFA login behavior documentation
+     * Test MFA login with an invalid TOTP code
      */
     public function test_mfa_login_with_invalid_totp(): void
     {
@@ -227,15 +218,12 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        // If MFA challenge is implemented
-        if ($loginResponse->status() === 202) {
-            $this->assertTrue($loginResponse->json('mfa_required'));
-            // Note: The actual MFA verification endpoint /auth/mfa/verify doesn't exist yet
-            // This test documents the expected behavior
-        } else {
-            // Just verify the user has MFA enabled
-            $this->assertTrue($user->hasMfaEnabled());
-        }
+        $loginResponse->assertStatus(202)->assertJsonPath('mfa_required', true);
+
+        $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $loginResponse->json('challenge_token'),
+            'totp_code' => '12345a',
+        ])->assertStatus(401)->assertJsonPath('error', 'invalid_grant')->assertJsonMissingPath('access_token');
     }
 
     /**
@@ -252,10 +240,7 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        if ($user->hasMfaEnabled()) {
-            // Should trigger MFA challenge
-            $this->assertEquals(202, $loginResponse->status());
-        }
+        $loginResponse->assertStatus(202);
     }
 
     /**
@@ -275,9 +260,7 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        if ($loginResponse->status() === 202) {
-            $this->assertTrue($loginResponse->json('mfa_required'));
-        }
+        $loginResponse->assertStatus(202)->assertJsonPath('mfa_required', true);
     }
 
     // ===========================================
@@ -702,13 +685,7 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        if ($loginResponse->status() === 202) {
-            // MFA challenge triggered
-            $this->assertTrue($loginResponse->json('mfa_required'));
-        } else {
-            // Regular login
-            $this->assertTrue($user->hasMfaEnabled());
-        }
+        $loginResponse->assertStatus(202)->assertJsonPath('mfa_required', true);
     }
 
     /**
@@ -796,7 +773,7 @@ class MfaFlowsTest extends EndToEndTestCase
     {
         $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
         $user = User::factory()->forOrganization($organization)->create(['provider' => 'google', 'provider_id' => 'google_strict']);
-        $this->mockSocialUser('google_strict', $user->email);
+        $this->signInThroughFakedSocialiteAs('google', 'google_strict', $user->email);
 
         $this->getJson('/api/v1/auth/social/google/callback')
             ->assertForbidden()
@@ -811,24 +788,9 @@ class MfaFlowsTest extends EndToEndTestCase
     {
         $organization = Organization::factory()->create(['settings' => ['require_mfa' => false]]);
         $user = User::factory()->forOrganization($organization)->create(['provider' => 'google', 'provider_id' => 'google_lenient']);
-        $this->mockSocialUser('google_lenient', $user->email);
+        $this->signInThroughFakedSocialiteAs('google', 'google_lenient', $user->email);
 
         $this->getJson('/api/v1/auth/social/google/callback')->assertOk();
-    }
-
-    private function mockSocialUser(string $providerId, string $email): void
-    {
-        $this->app->forgetInstance(SocialAuthService::class);
-
-        $socialUser = (new SocialiteTwoUser)
-            ->setRaw(['id' => $providerId])
-            ->map(['id' => $providerId, 'name' => 'Social User', 'email' => $email, 'nickname' => null, 'avatar' => null])
-            ->setToken('provider-token');
-
-        $driver = Mockery::mock();
-        $driver->shouldReceive('stateless')->andReturnSelf();
-        $driver->shouldReceive('user')->andReturn($socialUser);
-        Socialite::shouldReceive('driver')->with('google')->andReturn($driver);
     }
 
     /**

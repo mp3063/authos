@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Queue;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 use Mockery;
+use Tests\Integration\FakesSocialiteUsers;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,8 @@ use Tests\TestCase;
  */
 abstract class EndToEndTestCase extends TestCase
 {
+    use FakesSocialiteUsers;
+
     /**
      * PKCE code verifier for tests (RFC 7636 requires 43-128 characters)
      */
@@ -601,64 +604,6 @@ abstract class EndToEndTestCase extends TestCase
                 $this->assertEquals($organization->id, $appData['organization_id']);
             }
         }
-    }
-
-    /**
-     * Mock a successful social authentication flow
-     */
-    protected function mockSuccessfulSocialAuth(string $provider, ?User $user = null): User
-    {
-        if (! $user) {
-            $user = $this->createSocialUser([], $provider);
-        }
-
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderSupported')
-            ->with($provider)
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderEnabled')
-            ->with($provider)
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('getRedirectUrl')
-            ->with($provider, Mockery::any())
-            ->andReturn("https://accounts.{$provider}.com/oauth/authorize?test=true");
-
-        $this->mockSocialAuthService
-            ->shouldReceive('handleCallback')
-            ->with($provider, Mockery::any())
-            ->andReturn([
-                'user' => $user,
-                'access_token' => 'test_jwt_token_'.uniqid(),
-                'refresh_token' => 'test_refresh_token_'.uniqid(),
-                'expires_in' => 3600,
-                'token_type' => 'Bearer',
-            ]);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('getAvailableProviders')
-            ->andReturn([
-                'google' => [
-                    'name' => 'Google',
-                    'enabled' => true,
-                    'icon' => 'google',
-                ],
-                'github' => [
-                    'name' => 'GitHub',
-                    'enabled' => true,
-                    'icon' => 'github',
-                ],
-                'facebook' => [
-                    'name' => 'Facebook',
-                    'enabled' => false,
-                    'icon' => 'facebook',
-                ],
-            ]);
-
-        return $user;
     }
 
     /**

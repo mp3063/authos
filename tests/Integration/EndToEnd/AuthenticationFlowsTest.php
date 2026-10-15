@@ -635,7 +635,6 @@ class AuthenticationFlowsTest extends EndToEndTestCase
 
         // Step 4: Verify the email verification process
         // For testing purposes, we'll directly mark the email as verified
-        // In a real scenario, this would be handled by the verification route
         $user->markEmailAsVerified();
 
         // Step 5: Verify email was marked as verified

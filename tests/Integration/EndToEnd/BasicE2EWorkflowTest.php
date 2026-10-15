@@ -78,39 +78,23 @@ class BasicE2EWorkflowTest extends EndToEndTestCase
      */
     public function test_social_authentication_mocking(): void
     {
-        // Mock successful Google authentication
-        $socialUser = $this->mockSuccessfulSocialAuth('google');
+        $socialUser = $this->createSocialUser([], 'google');
+        $this->useRealSocialAuthService();
 
-        // Verify mock was set up correctly
-        $this->assertEquals('google', $socialUser->provider);
-        $this->assertNotNull($socialUser->provider_id);
+        $this->getJson('/api/v1/auth/social/providers')
+            ->assertOk()
+            ->assertJsonPath('data.providers.google.enabled', true);
 
-        // Test the providers endpoint (if implemented)
-        $providersResponse = $this->getJson('/api/v1/auth/social/providers');
-        if ($providersResponse->status() === 200) {
-            // Endpoint is working
-            $this->assertTrue(true, 'Social providers endpoint is working');
-        } else {
-            // Endpoint might not be fully configured - that's okay
-            $this->assertTrue(true, 'Social providers endpoint needs configuration');
-        }
+        $redirectResponse = $this->getJson('/api/v1/auth/social/google')->assertOk();
+        $this->assertStringStartsWith('https://accounts.google.com/', $redirectResponse->json('data.redirect_url'));
 
-        // Test redirect endpoint (if implemented)
-        $redirectResponse = $this->getJson('/api/v1/auth/social/google');
-        if ($redirectResponse->status() === 200) {
-            $redirectData = $redirectResponse->json();
-            if (isset($redirectData['success'])) {
-                // Unified format
-                $this->assertTrue($redirectData['success']);
-                $this->assertEquals('google', $redirectData['data']['provider']);
-            } else {
-                // Legacy format - just check it has redirect_url
-                $this->assertArrayHasKey('redirect_url', $redirectData);
-            }
-        } else {
-            // Endpoint might not be fully configured - that's okay for infrastructure testing
-            $this->assertTrue(true, 'Social redirect endpoint needs configuration');
-        }
+        $this->signInThroughFakedSocialiteAs('google', $socialUser->provider_id, $socialUser->email);
+
+        $this->getJson('/api/v1/auth/social/google/callback')
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $socialUser->id)
+            ->assertJsonPath('data.user.provider', 'google')
+            ->assertJsonStructure(['data' => ['access_token']]);
     }
 
     /**

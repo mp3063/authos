@@ -37,10 +37,17 @@ class UserRolePickerScopeTest extends IntegrationTestCase
     public function it_hides_roles_the_user_holds_in_other_organizations(): void
     {
         $this->actingAs($this->createUser(['organization_id' => $this->organizationA->id], 'Organization Owner'));
+        $offeredRoleIds = [
+            $this->webRole($this->organizationA, 'Organization Member')->id,
+            $this->webRole($this->organizationA, 'Organization Admin')->id,
+        ];
+        $globalRoleIds = Role::whereNull('organization_id')->pluck('id')->all();
 
         Livewire::test(EditUser::class, ['record' => $this->member->getRouteKey()])
             ->assertFormFieldExists('roles', fn (Select $field): bool => ! in_array($this->foreignRole->id, $field->getState())
-                && ! array_key_exists($this->foreignRole->id, $field->getOptions()));
+                && ! array_key_exists($this->foreignRole->id, $field->getOptions())
+                && array_diff($offeredRoleIds, array_keys($field->getOptions())) === []
+                && array_intersect($globalRoleIds, array_keys($field->getOptions())) === []);
     }
 
     #[Test]

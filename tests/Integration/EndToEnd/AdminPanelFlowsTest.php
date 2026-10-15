@@ -111,32 +111,18 @@ class AdminPanelFlowsTest extends EndToEndTestCase
         $loginPageResponse = $this->get('/admin/login');
         $loginPageResponse->assertOk();
 
-        // Test social login redirect (mock the redirect response)
-        $socialResponse = $this->get('/auth/social/google');
-        $socialResponse->assertRedirect();
+        $this->useRealSocialAuthService();
+        $this->get('/auth/social/google')->assertRedirectContains('https://accounts.google.com/');
 
-        // Check if the redirect contains error or if it's actual OAuth redirect
-        $location = $socialResponse->headers->get('Location');
-        if (str_contains($location, 'error=social_login_failed')) {
-            // If social login is not configured, that's expected in tests
-            $this->assertTrue(true);
-        } else {
-            $this->assertStringContainsString('accounts.google.com', $location);
-        }
+        $this->signInThroughFakedSocialiteAs('google', 'google-admin-panel', $this->adminUser->email);
 
-        // Simulate social login callback (only if social is configured)
-        if (! str_contains($location, 'error=social_login_failed')) {
-            $this->mockSuccessfulSocialAuth('google', $this->adminUser);
-
-            $callbackResponse = $this->get('/auth/social/google/callback?code=test_code&state=test_state');
-            $callbackResponse->assertRedirect('/admin');
-
-            // Verify audit log creation
-            $this->assertDatabaseHas('authentication_logs', [
-                'user_id' => $this->adminUser->id,
-                'event' => 'social_login_success',
-            ]);
-        }
+        $callbackResponse = $this->get('/auth/social/google/callback?code=test_code');
+        $callbackResponse->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($this->adminUser);
+        $this->assertDatabaseHas('authentication_logs', [
+            'user_id' => $this->adminUser->id,
+            'event' => 'social_login_success',
+        ]);
     }
 
     /**
@@ -144,43 +130,24 @@ class AdminPanelFlowsTest extends EndToEndTestCase
      */
     public function test_admin_social_authentication(): void
     {
-        // Test Google social authentication
-        $this->mockSuccessfulSocialAuth('google', $this->adminUser);
+        $this->useRealSocialAuthService();
+        $this->get('/auth/social/google')->assertRedirectContains('https://accounts.google.com/');
+        $this->get('/auth/social/github')->assertRedirectContains('https://github.com/login/oauth/authorize');
 
-        $response = $this->get('/auth/social/google');
-        $response->assertRedirect();
+        $this->signInThroughFakedSocialiteAs('google', 'google-admin', $this->adminUser->email);
+        $this->get('/auth/social/google/callback?code=test_auth_code')->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($this->adminUser);
+        $this->assertDatabaseHas('authentication_logs', [
+            'user_id' => $this->adminUser->id,
+            'event' => 'social_login_success',
+            'metadata->provider' => 'google',
+        ]);
 
-        // Check if social auth is configured properly
-        $location = $response->headers->get('Location');
-        if (str_contains($location, 'error=') || str_contains($location, 'login?')) {
-            // Social auth not configured in test environment, that's expected
-            $this->assertTrue(true, 'Social authentication redirect tested (not configured in test environment)');
-        } else {
-            $callbackResponse = $this->get('/auth/social/google/callback?code=test_auth_code');
-            // If we get to the callback, it should redirect somewhere
-            $callbackResponse->assertRedirect();
+        Auth::logout();
 
-            // Verify social authentication log only if login was successful
-            if ($callbackResponse->headers->get('Location') === url('/admin')) {
-                $this->assertDatabaseHas('authentication_logs', [
-                    'user_id' => $this->adminUser->id,
-                    'event' => 'social_login_success',
-                ]);
-            }
-        }
-
-        // Test GitHub social authentication
-        $this->mockSuccessfulSocialAuth('github', $this->adminUser);
-
-        $githubResponse = $this->get('/auth/social/github');
-        $githubResponse->assertRedirect();
-
-        // Same check for GitHub
-        $githubLocation = $githubResponse->headers->get('Location');
-        if (! str_contains($githubLocation, 'error=') && ! str_contains($githubLocation, 'login?')) {
-            $githubCallbackResponse = $this->get('/auth/social/github/callback?code=test_github_code');
-            $githubCallbackResponse->assertRedirect();
-        }
+        $this->signInThroughFakedSocialiteAs('github', 'github-admin', $this->adminUser->email);
+        $this->get('/auth/social/github/callback?code=test_github_code')->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($this->adminUser);
     }
 
     /**

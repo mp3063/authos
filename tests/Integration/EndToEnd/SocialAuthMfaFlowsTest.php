@@ -4,13 +4,11 @@ namespace Tests\Integration\EndToEnd;
 
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\SocialAuthService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
-use Laravel\Socialite\Two\User as SocialiteTwoUser;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
@@ -267,21 +265,6 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         // Note: Audit log verification skipped for mock implementation
     }
 
-    private function signInThroughRealSocialAuthAs(string $provider, string $providerId, string $email): void
-    {
-        $this->app->forgetInstance(SocialAuthService::class);
-
-        $socialUser = (new SocialiteTwoUser)
-            ->setRaw(['id' => $providerId])
-            ->map(['id' => $providerId, 'name' => 'Social User', 'email' => $email, 'nickname' => null, 'avatar' => null])
-            ->setToken('provider-token');
-
-        $driver = Mockery::mock();
-        $driver->shouldReceive('stateless')->andReturnSelf();
-        $driver->shouldReceive('user')->andReturn($socialUser);
-        Socialite::shouldReceive('driver')->with($provider)->andReturn($driver);
-    }
-
     private function panelOwner(array $attributes = []): User
     {
         $owner = $this->createUser(
@@ -298,7 +281,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
     public function it_challenges_a_social_login_for_a_user_with_mfa(): void
     {
         $user = User::factory()->withMfa()->forOrganization($this->defaultOrganization)->create();
-        $this->signInThroughRealSocialAuthAs('github', 'github-mfa-user', $user->email);
+        $this->signInThroughFakedSocialiteAs('github', 'github-mfa-user', $user->email);
 
         $callback = $this->getJson('/api/v1/auth/social/github/callback');
 
@@ -327,7 +310,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
             'slug' => 'mfa-required-org',
             'settings' => ['require_mfa' => true, 'allow_registration' => true],
         ]);
-        $this->signInThroughRealSocialAuthAs('github', 'github_987654321', 'social.mfa@example.com');
+        $this->signInThroughFakedSocialiteAs('github', 'github_987654321', 'social.mfa@example.com');
 
         $callback = $this->getJson('/api/v1/auth/social/github/callback?organization='.$organization->slug);
 
@@ -363,7 +346,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
             'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
         ]);
-        $this->signInThroughRealSocialAuthAs('google', 'google-mfa-owner', $owner->email);
+        $this->signInThroughFakedSocialiteAs('google', 'google-mfa-owner', $owner->email);
 
         $response = $this->get('/auth/social/google/callback');
 
@@ -382,7 +365,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
             'mfa_methods' => ['totp'],
         ]);
         $usersBefore = User::count();
-        $this->signInThroughRealSocialAuthAs('google', 'google-unlinked-mfa-owner', $owner->email);
+        $this->signInThroughFakedSocialiteAs('google', 'google-unlinked-mfa-owner', $owner->email);
 
         $response = $this->get('/auth/social/google/callback');
 
@@ -398,7 +381,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
     public function it_still_signs_in_a_social_web_user_without_any_mfa_requirement(): void
     {
         $owner = $this->panelOwner();
-        $this->signInThroughRealSocialAuthAs('google', 'google-plain-owner', $owner->email);
+        $this->signInThroughFakedSocialiteAs('google', 'google-plain-owner', $owner->email);
 
         $response = $this->get('/auth/social/google/callback');
 
@@ -425,39 +408,7 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         $this->actingAsApiUser($existingUser);
 
         // Step 2: User initiates social account linking
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderSupported')
-            ->with('google')
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderEnabled')
-            ->with('google')
-            ->andReturn(true);
-
-        // Mock the Socialite driver to return a social user
-        $mockSocialUser = Mockery::mock(SocialiteUser::class);
-        $mockSocialUser->shouldReceive('getId')->andReturn('google_link_123');
-        $mockSocialUser->shouldReceive('getName')->andReturn('Social User');
-        $mockSocialUser->shouldReceive('getEmail')->andReturn('social@example.com');
-
-        Socialite::shouldReceive('driver')
-            ->with('google')
-            ->andReturnSelf();
-        Socialite::shouldReceive('user')
-            ->andReturn($mockSocialUser);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('linkSocialAccount')
-            ->with($existingUser, 'google', Mockery::type('Laravel\Socialite\Contracts\User'))
-            ->andReturnUsing(function ($user, $provider, $socialUser) {
-                $user->update([
-                    'provider' => $provider,
-                    'provider_id' => $socialUser->getId(),
-                ]);
-
-                return $user;
-            });
+        $this->signInThroughFakedSocialiteAs('google', 'google_link_123', 'social@example.com');
 
         $linkResponse = $this->postJson('/api/v1/auth/social/link', [
             'provider' => 'google',
@@ -472,8 +423,6 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         $this->assertEquals('google_link_123', $existingUser->provider_id);
 
         // Step 4: User can now login via social auth
-        $this->mockSuccessfulSocialAuth('google', $existingUser);
-
         $socialLoginResponse = $this->getJson('/api/v1/auth/social/google/callback');
         $this->assertUnifiedApiResponse($socialLoginResponse, 200);
 

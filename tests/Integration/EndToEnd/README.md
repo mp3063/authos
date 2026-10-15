@@ -51,11 +51,11 @@ $this->createAuthorizationCode($user, $client, $scopes)
 #### 3. Social Authentication Mocking
 
 ```php
-// Mock successful social authentication
-$user = $this->mockSuccessfulSocialAuth('google');
-
 // Create social user with provider data
 $user = $this->createSocialUser([], 'github');
+
+// Fake the provider's Socialite driver; the real SocialAuthService handles the callback
+$this->signInThroughFakedSocialiteAs('github', $user->provider_id, $user->email);
 ```
 
 #### 4. Time Manipulation for Token Testing
@@ -181,8 +181,8 @@ public function test_oauth_authorization_flow(): void
 ```php
 public function test_social_authentication(): void
 {
-    // Mock successful social auth
-    $user = $this->mockSuccessfulSocialAuth('google');
+    $user = $this->createSocialUser([], 'google');
+    $this->signInThroughFakedSocialiteAs('google', $user->provider_id, $user->email);
 
     // Test the callback
     $response = $this->getJson('/api/v1/auth/social/google/callback');
@@ -401,7 +401,7 @@ The following components are fully functional and ready for use:
 3. **Helper Methods**:
    - `actingAsTestUser()` - Quick user authentication
    - `createSocialUser()` - Social provider user creation
-   - `mockSuccessfulSocialAuth()` - Social authentication mocking
+   - `signInThroughFakedSocialiteAs()` - Fakes the Socialite driver for the real social auth service
    - `assertValidApiResponse()` - Flexible response validation
    - `travelToFuture() / returnToPresent()` - Time manipulation
 

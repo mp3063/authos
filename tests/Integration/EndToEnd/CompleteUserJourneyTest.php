@@ -220,7 +220,8 @@ class CompleteUserJourneyTest extends EndToEndTestCase
      */
     public function test_complete_social_authentication_flow(): void
     {
-        $socialUser = $this->mockSuccessfulSocialAuth('google');
+        $socialUser = $this->createSocialUser([], 'google');
+        $this->useRealSocialAuthService();
 
         // Step 1: Client requests social authentication redirect
         $providersResponse = $this->getJson('/api/v1/auth/social/providers');
@@ -238,6 +239,7 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         ]);
 
         // Step 2: User completes OAuth flow with Google (mocked)
+        $this->signInThroughFakedSocialiteAs('google', $socialUser->provider_id, $socialUser->email);
         $callbackResponse = $this->getJson('/api/v1/auth/social/google/callback');
         $this->assertUnifiedApiResponse($callbackResponse, 200);
 
@@ -259,8 +261,8 @@ class CompleteUserJourneyTest extends EndToEndTestCase
             ],
         ]);
 
-        // Create authentication log for social login (simulating the service behavior)
-        $this->createAuthenticationLog($socialUser, 'social_login_success');
+        $callbackResponse->assertJsonPath('data.user.id', $socialUser->id);
+        $this->assertDatabaseHas('authentication_logs', ['user_id' => $socialUser->id, 'event' => 'social_login_success']);
 
         // Step 3: User accesses protected resources with social account
         $this->actingAsApiUser($socialUser);
