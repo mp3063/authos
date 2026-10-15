@@ -31,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        Passport::$deviceCodeGrantEnabled = false;
+
         // Register repositories
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(OrganizationRepositoryInterface::class, OrganizationRepository::class);

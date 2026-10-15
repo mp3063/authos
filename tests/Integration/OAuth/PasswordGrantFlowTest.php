@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\Client;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
@@ -59,7 +60,7 @@ class PasswordGrantFlowTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_basic_password_grant_flow(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -81,7 +82,7 @@ class PasswordGrantFlowTest extends TestCase
         $this->assertEquals('Bearer', $tokenData['token_type']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_invalid_credentials(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -96,7 +97,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_grant']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_nonexistent_user(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -111,7 +112,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_grant']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_inactive_account(): void
     {
         $this->user->update(['is_active' => false]);
@@ -128,7 +129,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertStatus(400);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_with_specific_scopes(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -152,7 +153,7 @@ class PasswordGrantFlowTest extends TestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_missing_username(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -166,7 +167,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_request']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_missing_password(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -180,7 +181,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_request']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_invalid_client(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -195,7 +196,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_client']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_wrong_client_secret(): void
     {
         $response = $this->postJson('/oauth/token', [
@@ -210,7 +211,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertJsonFragment(['error' => 'invalid_client']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_with_non_password_client(): void
     {
         // Create a regular OAuth client (not password grant enabled)
@@ -236,7 +237,7 @@ class PasswordGrantFlowTest extends TestCase
         $response->assertStatus(400);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_refresh_token_flow(): void
     {
         // Get initial tokens
@@ -266,7 +267,7 @@ class PasswordGrantFlowTest extends TestCase
         $this->assertNotEquals($initialTokens['access_token'], $newTokens['access_token']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_with_mfa_enabled_user(): void
     {
         // Enable MFA for user
@@ -284,13 +285,43 @@ class PasswordGrantFlowTest extends TestCase
             'password' => 'password123',
         ]);
 
-        // Password grant should still work, but in production
-        // might require additional MFA verification step
-        // For now, test that it either succeeds or requires MFA
-        $this->assertContains($response->getStatusCode(), [200, 202, 403]);
+        $response->assertStatus(400)->assertJson(['error' => 'invalid_grant']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
+    public function it_refuses_the_password_grant_for_a_member_of_an_organization_requiring_mfa(): void
+    {
+        $this->user->organization->update(['settings' => ['require_mfa' => true]]);
+
+        $response = $this->postJson('/oauth/token', [
+            'grant_type' => 'password',
+            'client_id' => $this->passwordClient->id,
+            'client_secret' => 'password-client-secret',
+            'username' => 'password@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(400)->assertJson(['error' => 'invalid_grant']);
+        $this->assertDatabaseCount('oauth_access_tokens', 0);
+    }
+
+    #[Test]
+    public function it_allows_the_password_grant_for_a_user_without_any_mfa_requirement(): void
+    {
+        $this->user->organization->update(['settings' => ['require_mfa' => false]]);
+
+        $response = $this->postJson('/oauth/token', [
+            'grant_type' => 'password',
+            'client_id' => $this->passwordClient->id,
+            'client_secret' => 'password-client-secret',
+            'username' => 'password@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk()->assertJsonStructure(['access_token']);
+    }
+
+    #[Test]
     public function test_password_grant_rate_limiting(): void
     {
         // Make multiple failed attempts
@@ -312,7 +343,7 @@ class PasswordGrantFlowTest extends TestCase
         }
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_multiple_concurrent_sessions(): void
     {
         // Create multiple tokens for same user
@@ -335,7 +366,7 @@ class PasswordGrantFlowTest extends TestCase
         $this->assertCount(3, array_unique($tokens));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function test_password_grant_token_includes_user_context(): void
     {
         $response = $this->postJson('/oauth/token', [

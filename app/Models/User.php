@@ -216,8 +216,11 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        // Verify password
-        return Hash::check($password, $this->password);
+        if (! Hash::check($password, $this->password)) {
+            return false;
+        }
+
+        return ! $this->requiresMfa();
     }
 
     /**
