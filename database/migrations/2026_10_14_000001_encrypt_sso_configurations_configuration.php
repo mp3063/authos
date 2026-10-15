@@ -27,19 +27,28 @@ return new class extends Migration
 
     public function down(): void
     {
+        $plain = [];
+
         foreach ($this->rows() as $row) {
             try {
-                $plain = Crypt::decryptString($row->configuration);
-            } catch (Throwable) {
-                continue;
+                $plain[$row->id] = Crypt::decryptString($row->configuration);
+            } catch (Throwable $e) {
+                throw new RuntimeException("sso_configurations row {$row->id} cannot be decrypted with the current APP_KEY; restore the key it was encrypted with before rolling back.", 0, $e);
             }
+        }
 
-            DB::table('sso_configurations')->where('id', $row->id)->update(['configuration' => $plain]);
+        foreach ($plain as $id => $json) {
+            DB::table('sso_configurations')->where('id', $id)->update(['configuration' => $json]);
         }
 
         Schema::table('sso_configurations', function (Blueprint $table) {
-            $table->json('configuration')->nullable()->change();
+            $this->restoreJsonColumn($table);
         });
+    }
+
+    public function restoreJsonColumn(Blueprint $table): void
+    {
+        $table->json('configuration')->nullable()->using('"configuration"::json')->change();
     }
 
     private function rows(): array

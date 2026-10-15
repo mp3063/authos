@@ -4,9 +4,13 @@ namespace Tests\Integration\SSO;
 
 use App\Models\SSOConfiguration;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Grammars\PostgresGrammar;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Fluent;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\Integration\IntegrationTestCase;
 
 class SsoConfigurationEncryptionTest extends IntegrationTestCase
@@ -75,6 +79,30 @@ class SsoConfigurationEncryptionTest extends IntegrationTestCase
         $this->assertNull(DB::table('sso_configurations')->where('id', $nullConfig->id)->value('configuration'));
 
         $migration->up();
+    }
+
+    #[Test]
+    public function it_refuses_to_roll_back_when_a_row_cannot_be_decrypted(): void
+    {
+        $config = SSOConfiguration::factory()->create(['configuration' => null]);
+        DB::table('sso_configurations')->where('id', $config->id)->update(['configuration' => 'not-decryptable']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("row {$config->id} cannot be decrypted");
+
+        $this->migration()->down();
+    }
+
+    #[Test]
+    public function it_casts_text_to_json_explicitly_when_rolling_back_on_postgresql(): void
+    {
+        $connection = DB::connection();
+        $blueprint = new Blueprint($connection, 'sso_configurations');
+        $this->migration()->restoreJsonColumn($blueprint);
+
+        $sql = (string) (new PostgresGrammar($connection))->compileChange($blueprint, new Fluent(['column' => $blueprint->getColumns()[0]]));
+
+        $this->assertStringContainsString('type json using "configuration"::json', $sql);
     }
 
     private function migration(): Migration
