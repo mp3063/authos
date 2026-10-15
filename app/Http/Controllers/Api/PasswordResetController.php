@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -199,8 +200,9 @@ class PasswordResetController extends BaseController
 
     private function dummyTokenHash(): string
     {
-        static $hash = null;
-
-        return $hash ??= Hash::make(Str::random(64));
+        return Cache::rememberForever(
+            'password_reset_dummy_hash:'.config('hashing.bcrypt.rounds'),
+            fn () => Hash::make(Str::random(64))
+        );
     }
 }

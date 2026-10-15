@@ -14,7 +14,9 @@ use App\Services\Auth0\Migration\Importers\OrganizationImporter;
 use App\Services\InvitationService;
 use App\Services\UserRoleService;
 use Filament\Auth\Pages\PasswordReset\ResetPassword;
+use Illuminate\Hashing\HashManager;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -176,5 +178,35 @@ class PlanFollowUpFixesTest extends IntegrationTestCase
         $this->assertTrue($accessToken->fresh()->revoked);
         $this->assertNotNull($session->fresh()->logged_out_at);
         $this->assertNotNull($user->fresh()->password_changed_at);
+    }
+
+    #[Test]
+    public function it_hashes_nothing_on_the_reset_path_when_no_token_record_exists(): void
+    {
+        $payload = [
+            'email' => 'nobody@example.com',
+            'token' => 'not-a-real-token',
+            'password' => 'Brand-New-Passw0rd!',
+            'password_confirmation' => 'Brand-New-Passw0rd!',
+        ];
+        Cache::forever('password_reset_dummy_hash:'.config('hashing.bcrypt.rounds'), Hash::make('warm-up'));
+
+        $hasher = new class($this->app) extends HashManager
+        {
+            public int $made = 0;
+
+            public function make($value, array $options = [])
+            {
+                $this->made++;
+
+                return parent::make($value, $options);
+            }
+        };
+        $this->app->instance('hash', $hasher);
+        Hash::clearResolvedInstance('hash');
+
+        $this->postJson('/api/v1/auth/password/reset', $payload)->assertUnprocessable();
+
+        $this->assertSame(0, $hasher->made);
     }
 }
