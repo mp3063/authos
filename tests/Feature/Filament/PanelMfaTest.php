@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Events\MfaEnabledEvent;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Resources\UserResource;
@@ -11,12 +12,17 @@ use App\Models\User;
 use App\Services\Auth\MfaCodeVerifier;
 use Filament\Auth\MultiFactor\Pages\SetUpRequiredMultiFactorAuthentication;
 use Filament\Auth\Pages\EditProfile;
+use Filament\Facades\Filament;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Testing\TestResponse;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Spatie\Permission\PermissionRegistrar;
+use stdClass;
 use Tests\Integration\IntegrationTestCase;
 
 class PanelMfaTest extends IntegrationTestCase
@@ -73,9 +79,14 @@ class PanelMfaTest extends IntegrationTestCase
             $this->get($panelUrl)->assertRedirect($setUpUrl);
         }
         $this->get($setUpUrl)->assertOk();
+        Event::fake([MfaEnabledEvent::class]);
 
-        [$secret, $recoveryCodes] = $this->completeAppAuthenticationSetUp();
+        [$secret, $recoveryCodes, $setUp] = $this->completeAppAuthenticationSetUp(SetUpRequiredMultiFactorAuthentication::class);
 
+        $setUp->assertRedirect(Filament::getLoginUrl());
+        $this->assertGuest();
+        Event::assertDispatched(MfaEnabledEvent::class, fn (MfaEnabledEvent $event): bool => $event->user->is($user));
+        $this->assertDatabaseHas('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_enabled']);
         $user->refresh();
         $this->assertSame(['totp'], $user->mfa_methods);
         $this->assertSame($secret, decrypt($user->two_factor_secret));
@@ -83,7 +94,90 @@ class PanelMfaTest extends IntegrationTestCase
         $this->assertSame($recoveryCodes, $user->two_factor_recovery_codes);
         $this->assertTrue(app(MfaCodeVerifier::class)->verifyTotpCode($user, $this->totpCodeFor($user)));
         $this->assertTrue(app(MfaCodeVerifier::class)->verifyAndConsumeRecoveryCode($user, $recoveryCodes[0]));
+        $this->get('/admin')->assertRedirect(Filament::getLoginUrl());
+    }
+
+    #[Test]
+    public function it_keeps_a_user_who_enrolls_voluntarily_signed_in(): void
+    {
+        $user = $this->panelUser(Organization::factory()->create());
+        $this->actingAs($user);
+        Event::fake([MfaEnabledEvent::class]);
+
+        [, , $profile] = $this->completeAppAuthenticationSetUp(EditProfile::class);
+
+        $profile->assertNoRedirect();
+        $this->assertAuthenticatedAs($user);
+        $this->assertTrue($user->fresh()->hasMfaEnabled());
+        Event::assertDispatched(MfaEnabledEvent::class);
+        $this->assertDatabaseHas('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_enabled']);
         $this->get('/admin')->assertOk();
+    }
+
+    #[Test]
+    public function it_fails_the_panel_challenge_for_a_user_whose_mfa_has_no_secret(): void
+    {
+        $user = $this->panelUser(Organization::factory()->create());
+        $user->forceFill(['mfa_methods' => ['totp'], 'two_factor_secret' => null])->save();
+
+        $this->submitLogin($user)
+            ->set('data.multiFactor.app.code', '123456')
+            ->call('authenticate')
+            ->assertHasErrors();
+
+        $this->assertGuest();
+    }
+
+    #[Test]
+    public function it_blocks_livewire_updates_once_the_organization_requires_mfa(): void
+    {
+        $organization = Organization::factory()->create();
+        $user = $this->panelUser($organization);
+        $this->actingAs($user);
+        $html = $this->get(UserResource::getUrl('index'))->assertOk()->getContent();
+        preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
+        $snapshot = htmlspecialchars_decode($matches[1], ENT_QUOTES);
+
+        $organization->update(['settings' => ['require_mfa' => true]]);
+        $this->actingAs($user->fresh());
+
+        $this->withHeaders(['X-Livewire' => '1'])
+            ->postJson(app(HandleRequests::class)->getUpdateUri(), [
+                'components' => [['snapshot' => $snapshot, 'updates' => new stdClass, 'calls' => []]],
+            ])
+            ->assertRedirect(route('filament.admin.auth.multi-factor-authentication.set-up-required'));
+    }
+
+    #[Test]
+    public function it_keeps_a_member_who_must_set_up_mfa_from_oauth_authorize_until_enrolled_and_signed_in_with_totp(): void
+    {
+        $organization = Organization::factory()->create();
+        $user = $this->panelUser($organization);
+        $application = Application::factory()->create();
+        $authorizeUrl = $this->authorizeUrl($application);
+        $setUpUrl = route('filament.admin.auth.multi-factor-authentication.set-up-required');
+        $this->submitLogin($user)->assertHasNoErrors();
+        $authToken = $this->authTokenFrom($this->get($authorizeUrl)->assertOk()->getContent());
+
+        $organization->update(['settings' => ['require_mfa' => true]]);
+        $this->actingAs($user->fresh());
+
+        $this->get($authorizeUrl)->assertRedirect($setUpUrl);
+        $this->assertSame($authorizeUrl, session('url.intended'));
+        $this->approve($application, $authToken)->assertRedirect($setUpUrl);
+        $this->assertDatabaseCount('oauth_auth_codes', 0);
+
+        $this->completeAppAuthenticationSetUp(SetUpRequiredMultiFactorAuthentication::class);
+        $this->assertGuest();
+        $this->assertSame($authorizeUrl, session('url.intended'));
+
+        $user->refresh();
+        $login = $this->submitLogin($user);
+        $this->assertGuest();
+        $login->set('data.multiFactor.app.code', $this->totpCodeFor($user))
+            ->call('authenticate')
+            ->assertRedirect($authorizeUrl);
+        $this->assertAuthenticatedAs($user);
     }
 
     #[Test]
@@ -118,6 +212,10 @@ class PanelMfaTest extends IntegrationTestCase
         $registrant = User::where('email', 'new-member@example.com')->sole();
         $this->assertAuthenticatedAs($registrant);
         $this->get('/admin')->assertForbidden();
+        $application = Application::factory()->create();
+        $this->get($this->authorizeUrl($application))->assertRedirect($setUpUrl);
+        $this->approve($application, 'any-token')->assertRedirect($setUpUrl);
+        $this->assertDatabaseCount('oauth_auth_codes', 0);
 
         $registrant->forceFill(['email_verified_at' => now()])->save();
         $this->setupRoleWithPermissions('Organization Admin', 'web', $organization->id);
@@ -150,13 +248,7 @@ class PanelMfaTest extends IntegrationTestCase
     {
         $user = $this->panelUser(Organization::factory()->create(), withMfa: true);
         $application = Application::factory()->create();
-        $authorizeUrl = url('/oauth/authorize?'.http_build_query([
-            'client_id' => $application->passport_client_id,
-            'redirect_uri' => $application->redirect_uris[0],
-            'response_type' => 'code',
-            'scope' => '',
-            'state' => 'abc123',
-        ]));
+        $authorizeUrl = $this->authorizeUrl($application);
 
         $this->get($authorizeUrl)->assertRedirect(route('filament.admin.auth.login'));
 
@@ -169,6 +261,33 @@ class PanelMfaTest extends IntegrationTestCase
         $this->assertAuthenticatedAs($user);
 
         $this->get($authorizeUrl)->assertOk()->assertSee('name="auth_token"', false);
+    }
+
+    private function authorizeUrl(Application $application): string
+    {
+        return url('/oauth/authorize?'.http_build_query([
+            'client_id' => $application->passport_client_id,
+            'redirect_uri' => $application->redirect_uris[0],
+            'response_type' => 'code',
+            'scope' => '',
+            'state' => 'abc123',
+        ]));
+    }
+
+    private function authTokenFrom(string $html): string
+    {
+        preg_match('/name="auth_token" value="([^"]+)"/', $html, $matches);
+
+        return $matches[1];
+    }
+
+    private function approve(Application $application, string $authToken): TestResponse
+    {
+        return $this->post('/oauth/authorize', [
+            'state' => 'abc123',
+            'client_id' => $application->passport_client_id,
+            'auth_token' => $authToken,
+        ]);
     }
 
     private function panelUser(Organization $organization, bool $withMfa = false): User
@@ -191,11 +310,12 @@ class PanelMfaTest extends IntegrationTestCase
     }
 
     /**
-     * @return array{0: string, 1: array<string>}
+     * @param  class-string  $page
+     * @return array{0: string, 1: array<string>, 2: Testable}
      */
-    private function completeAppAuthenticationSetUp(): array
+    private function completeAppAuthenticationSetUp(string $page): array
     {
-        $setUp = Livewire::test(SetUpRequiredMultiFactorAuthentication::class)
+        $setUp = Livewire::test($page)
             ->call('mountAction', 'setUpAppAuthentication', [], ['schemaComponent' => 'content.app']);
         $encrypted = decrypt($setUp->get('mountedActions.0.arguments.encrypted'));
 
@@ -204,6 +324,6 @@ class PanelMfaTest extends IntegrationTestCase
             ->call('callMountedAction')
             ->assertHasNoErrors();
 
-        return [$encrypted['secret'], $encrypted['recoveryCodes']];
+        return [$encrypted['secret'], $encrypted['recoveryCodes'], $setUp];
     }
 }

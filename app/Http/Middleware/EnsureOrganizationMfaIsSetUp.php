@@ -6,6 +6,7 @@ use App\Models\User;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureOrganizationMfaIsSetUp
@@ -15,12 +16,16 @@ class EnsureOrganizationMfaIsSetUp
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = Filament::auth()->user();
+        $user = Auth::guard('web')->user();
 
-        if ($user instanceof User && $user->mustSetUpMfa()) {
-            return redirect()->guest(Filament::getSetUpRequiredMultiFactorAuthenticationUrl());
+        if (! ($user instanceof User && $user->mustSetUpMfa())) {
+            return $next($request);
         }
 
-        return $next($request);
+        if ($request->isMethod('GET')) {
+            redirect()->setIntendedUrl($request->fullUrl());
+        }
+
+        return redirect()->to(Filament::getSetUpRequiredMultiFactorAuthenticationUrl());
     }
 }

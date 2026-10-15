@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureOrganizationMfaIsSetUp;
+
 return [
 
     /*
@@ -14,6 +16,10 @@ return [
     */
 
     'guard' => 'web',
+
+    'middleware' => [
+        EnsureOrganizationMfaIsSetUp::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------
