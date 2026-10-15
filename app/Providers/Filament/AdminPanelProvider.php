@@ -2,9 +2,11 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\ExistingTotpAuthentication;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\EnsureOrganizationMfaIsSetUp;
 use App\Http\Middleware\SetPermissionContext;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -36,6 +38,8 @@ class AdminPanelProvider extends PanelProvider
                 ->passwordReset()
                 ->profile()
                 ->emailVerification()
+                ->multiFactorAuthentication([ExistingTotpAuthentication::make()], isRequired: true)
+                ->multiFactorAuthenticationRequiredMiddlewareName(EnsureOrganizationMfaIsSetUp::class)
                 ->colors([
                     'primary' => Color::Blue,
                     'gray' => Color::Slate,
@@ -105,6 +109,7 @@ class AdminPanelProvider extends PanelProvider
                     Authenticate::class,
                     SetPermissionContext::class,
                 ], isPersistent: true)
+                ->persistentMiddleware([EnsureOrganizationMfaIsSetUp::class])
                 ->plugins([
                     // MFA and security plugins will be added here
                 ])

@@ -1179,22 +1179,16 @@ class OrganizationFlowsTest extends EndToEndTestCase
 
         $user = User::where('email', 'mfarequired@testorg.com')->first();
 
-        // Simulate login attempt without MFA setup
-        $this->actingAs($user, 'api');
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'mfarequired@testorg.com',
+            'password' => 'MfaTestPassword@2024!',
+        ]);
 
-        // Check MFA status
-        $response = $this->getJson('/api/v1/mfa/status');
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.mfa_enabled', false);
-
-        // Setup TOTP for compliance
-        $response = $this->postJson('/api/v1/mfa/setup/totp');
-        $response->assertStatus(200);
-
-        // The TOTP setup should return setup data (QR code, secret, etc.)
-        $this->assertArrayHasKey('data', $response->json());
-
-        // Note: Full MFA verification is tested in dedicated MFA test suites
+        $response->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonStructure(['setup_token'])
+            ->assertJsonMissingPath('access_token');
+        $this->assertSame(['mfa.setup'], $user->tokens()->sole()->scopes);
     }
 
     public function test_organization_password_policy(): void

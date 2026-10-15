@@ -51,7 +51,6 @@ class AdminPanelFlowsTest extends EndToEndTestCase
             'name' => 'Admin Test Organization',
             'slug' => 'admin-test-org',
             'settings' => [
-                'require_mfa' => true,
                 'session_timeout' => 480,
                 'allowed_domains' => ['admintest.com'],
             ],
@@ -145,40 +144,28 @@ class AdminPanelFlowsTest extends EndToEndTestCase
      */
     public function test_admin_mfa_enforcement(): void
     {
-        // Enable MFA for the user
-        $this->adminUser->update([
-            'mfa_methods' => ['totp'],
-            'two_factor_secret' => 'test_secret',
-            'two_factor_confirmed_at' => now(),
-        ]);
-
-        // Test organization with MFA requirement
         $this->testOrganization->update([
             'settings' => array_merge($this->testOrganization->settings, [
                 'require_mfa' => true,
             ]),
         ]);
-
-        // Test admin authentication with MFA enabled
-        $this->actingAs($this->adminUser, 'web');
-        $response = $this->get('/admin');
-
-        // Should be able to access admin panel since MFA is already setup
-        $response->assertOk();
-
-        // Test user without MFA in MFA-required organization
+        $this->adminUser->update([
+            'mfa_methods' => ['totp'],
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
         $userWithoutMfa = $this->createUser([
             'email' => 'no-mfa@admintest.com',
             'organization_id' => $this->testOrganization->id,
         ], 'Organization Admin');
+        $setUpUrl = route('filament.admin.auth.multi-factor-authentication.set-up-required');
 
-        // Test login for user without MFA
+        $this->actingAs($this->adminUser, 'web')->get('/admin')->assertOk();
+
         $this->actingAs($userWithoutMfa, 'web');
-        $noMfaResponse = $this->get('/admin');
-
-        // Should still allow access but user needs MFA setup
-        $noMfaResponse->assertOk();
-        $this->assertTrue(Auth::guard('web')->check());
+        $this->get('/admin')->assertRedirect($setUpUrl);
+        $this->get('/admin/users')->assertRedirect($setUpUrl);
+        $this->get($setUpUrl)->assertOk();
     }
 
     /**

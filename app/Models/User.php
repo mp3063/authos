@@ -6,6 +6,8 @@ use App\Models\Concerns\HasSocialLogin;
 use App\Models\Concerns\InteractsWithOrganizationRoles;
 use App\Models\Concerns\ResolvesOrganizationPermissions;
 use App\Traits\BelongsToOrganization;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -19,9 +21,10 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\HasApiTokens;
 use Override;
+use SensitiveParameter;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery
 {
     use BelongsToOrganization;
     use HasApiTokens;
@@ -153,6 +156,41 @@ class User extends Authenticatable implements FilamentUser
     public function getMfaMethods(): array
     {
         return $this->mfa_methods ?? [];
+    }
+
+    public function getAppAuthenticationSecret(): ?string
+    {
+        return $this->two_factor_secret ? decrypt($this->two_factor_secret) : null;
+    }
+
+    public function saveAppAuthenticationSecret(#[SensitiveParameter] ?string $secret): void
+    {
+        $this->forceFill([
+            'two_factor_secret' => $secret === null ? null : encrypt($secret),
+            'mfa_methods' => $secret === null ? null : ['totp'],
+            'two_factor_confirmed_at' => $secret === null ? null : now(),
+        ])->save();
+    }
+
+    public function getAppAuthenticationHolderName(): string
+    {
+        return $this->email;
+    }
+
+    /**
+     * @return ?array<string>
+     */
+    public function getAppAuthenticationRecoveryCodes(): ?array
+    {
+        return $this->two_factor_recovery_codes;
+    }
+
+    /**
+     * @param  ?array<string>  $codes
+     */
+    public function saveAppAuthenticationRecoveryCodes(#[SensitiveParameter] ?array $codes): void
+    {
+        $this->forceFill(['two_factor_recovery_codes' => $codes])->save();
     }
 
     /**
