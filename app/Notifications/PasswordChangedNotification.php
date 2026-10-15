@@ -28,7 +28,7 @@ class PasswordChangedNotification extends Notification implements ShouldQueue
             ->line('Your password was changed successfully.')
             ->line('IP Address: '.$this->ipAddress)
             ->line('If you did not make this change, please contact support immediately and reset your password.')
-            ->action('Login to Your Account', url('/login'))
+            ->action('Login to Your Account', route('filament.admin.auth.login'))
             ->salutation('Best regards, '.config('app.name'));
     }
 

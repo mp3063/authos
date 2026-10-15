@@ -32,7 +32,7 @@ class WelcomeEmail extends Mailable implements ShouldQueue
             markdown: 'emails.welcome',
             with: [
                 'userName' => $this->user->name,
-                'loginUrl' => url('/login'),
+                'loginUrl' => route('filament.admin.auth.login'),
                 'appName' => config('app.name'),
             ],
         );

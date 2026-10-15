@@ -47,7 +47,7 @@ class AccountUnlockedNotification extends Notification implements ShouldQueue
                 return $message->line("Unlocked At: {$this->lockout->unlocked_at->format('Y-m-d H:i:s')}");
             })
             ->line('If you did not expect this notification, please contact support immediately.')
-            ->action('Login to Your Account', url('/login'))
+            ->action('Login to Your Account', route('filament.admin.auth.login'))
             ->line('Thank you for using our service!');
     }
 

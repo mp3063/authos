@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Passkeys;
 use Laravel\Passport\Contracts\AuthorizationViewResponse;
 use Laravel\Passport\Passport;
 
@@ -32,6 +34,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         Passport::$deviceCodeGrantEnabled = false;
+        Fortify::ignoreRoutes();
+        Passkeys::ignoreRoutes();
 
         // Register repositories
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
