@@ -183,21 +183,21 @@ class CustomRole extends Model
         return [
             'User Management' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
-                'users.manage_roles', 'users.manage_sessions', 'users.view_activity',
             ],
             'Application Management' => [
                 'applications.read', 'applications.create', 'applications.update', 'applications.delete',
-                'applications.manage_users', 'applications.manage_tokens', 'applications.view_analytics',
             ],
             'Organization Management' => [
-                'organization.read', 'organization.update', 'organization.manage_settings',
-                'organization.manage_invitations', 'organization.view_analytics', 'organization.export_data',
+                'organizations.read', 'organizations.update',
             ],
             'Role Management' => [
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign',
             ],
-            'Security & Audit' => [
-                'security.view_logs', 'security.manage_mfa', 'security.manage_sessions', 'security.export_reports',
+            'Permission Management' => [
+                'permissions.read', 'permissions.create', 'permissions.update', 'permissions.delete',
+            ],
+            'Authentication Logs' => [
+                'auth_logs.read', 'auth_logs.export',
             ],
         ];
     }

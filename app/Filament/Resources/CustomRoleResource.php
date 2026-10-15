@@ -99,7 +99,7 @@ class CustomRoleResource extends Resource
                         ->default(false)
                         ->disabled(fn ($context, $record) => $context === 'edit' && $record?->is_system)
                         ->helperText('System roles cannot be deleted'),
-                ])->columns(2),
+                ])->columns(2)->columnSpanFull(),
 
             Section::make('Permissions')
                 ->schema([
@@ -119,12 +119,13 @@ class CustomRoleResource extends Resource
                         })
                         ->searchable()
                         ->bulkToggleable()
-                        ->columns(3)
+                        ->columns(['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4])
                         ->helperText('Select the permissions this role should have.')
                         ->columnSpanFull(),
                 ])
                 ->collapsible()
-                ->collapsed(fn ($context) => $context === 'edit'),
+                ->collapsed(fn ($context) => $context === 'edit')
+                ->columnSpanFull(),
         ]);
     }
 
@@ -354,9 +355,8 @@ class CustomRoleResource extends Resource
      */
     protected static function formatPermissionLabel(string $permission): string
     {
-        $parts = explode('.', $permission);
-        $action = end($parts);
+        [$resource, $action] = explode('.', $permission, 2);
 
-        return ucfirst(str_replace('_', ' ', $action));
+        return ucfirst(str_replace('_', ' ', $resource)).': '.ucfirst(str_replace('_', ' ', $action));
     }
 }

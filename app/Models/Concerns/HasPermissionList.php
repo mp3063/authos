@@ -93,7 +93,7 @@ trait HasPermissionList
      */
     public function isAdminRole(): bool
     {
-        $adminPermissions = ['users.delete', 'organization.manage_settings', 'roles.create', 'roles.delete'];
+        $adminPermissions = ['users.delete', 'roles.create', 'roles.delete'];
         $currentPermissions = $this->permissions ?? [];
 
         return ! empty(array_intersect($adminPermissions, $currentPermissions));
@@ -104,7 +104,7 @@ trait HasPermissionList
      */
     public function canManageUsers(): bool
     {
-        $userManagementPermissions = ['users.create', 'users.update', 'users.delete', 'users.manage_roles'];
+        $userManagementPermissions = ['users.create', 'users.update', 'users.delete'];
         $currentPermissions = $this->permissions ?? [];
 
         return ! empty(array_intersect($userManagementPermissions, $currentPermissions));
@@ -115,7 +115,7 @@ trait HasPermissionList
      */
     public function canManageApplications(): bool
     {
-        $appManagementPermissions = ['applications.create', 'applications.update', 'applications.delete', 'applications.manage_users'];
+        $appManagementPermissions = ['applications.create', 'applications.update', 'applications.delete'];
         $currentPermissions = $this->permissions ?? [];
 
         return ! empty(array_intersect($appManagementPermissions, $currentPermissions));
