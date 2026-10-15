@@ -6,15 +6,18 @@ use App\Events\MfaEnabledEvent;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Resources\UserResource;
+use App\Mail\MfaSetupConfirmation;
 use App\Models\Application;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Auth\MfaCodeVerifier;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use Filament\Auth\MultiFactor\Pages\SetUpRequiredMultiFactorAuthentication;
 use Filament\Auth\Pages\EditProfile;
 use Filament\Facades\Filament;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -135,6 +138,31 @@ class PanelMfaTest extends IntegrationTestCase
         Event::assertDispatched(MfaEnabledEvent::class);
         $this->assertDatabaseHas('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_enabled']);
         $this->get('/admin')->assertOk();
+    }
+
+    #[Test]
+    public function it_revokes_an_outstanding_setup_token_when_mfa_is_enrolled_in_the_panel(): void
+    {
+        $user = $this->panelUser(Organization::factory()->create());
+        $this->actingAs($user);
+        app(MfaSetupTokenIssuer::class)->issue($user);
+        $this->assertSame(1, $user->tokens()->where('revoked', false)->count());
+
+        $this->completeAppAuthenticationSetUp(EditProfile::class);
+
+        $this->assertSame(0, $user->tokens()->where('revoked', false)->count());
+    }
+
+    #[Test]
+    public function it_sends_the_setup_confirmation_after_panel_enrollment(): void
+    {
+        Mail::fake();
+        $user = $this->panelUser(Organization::factory()->create());
+        $this->actingAs($user);
+
+        $this->completeAppAuthenticationSetUp(EditProfile::class);
+
+        Mail::assertQueued(MfaSetupConfirmation::class, fn (MfaSetupConfirmation $mail): bool => $mail->hasTo($user->email));
     }
 
     #[Test]

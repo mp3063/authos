@@ -20,9 +20,7 @@ class MfaSetupTokenIssuer
      */
     public function issue(User $user): array
     {
-        $user->tokens()->where('revoked', false)->get()
-            ->filter(fn (Token $token): bool => $token->scopes === [self::SCOPE])
-            ->each(fn (Token $token): bool => $token->revoke());
+        $this->revokeOutstanding($user);
 
         $defaultLifetime = Passport::personalAccessTokensExpireIn();
         Passport::personalAccessTokensExpireIn(new DateInterval('PT'.self::LIFETIME_SECONDS.'S'));
@@ -38,6 +36,13 @@ class MfaSetupTokenIssuer
             'token_type' => 'Bearer',
             'expires_in' => self::LIFETIME_SECONDS,
         ];
+    }
+
+    public function revokeOutstanding(User $user): void
+    {
+        $user->tokens()->where('revoked', false)->get()
+            ->filter(fn (Token $token): bool => $token->scopes === [self::SCOPE])
+            ->each(fn (Token $token): bool => $token->revoke());
     }
 
     public function isSetupToken(?ScopeAuthorizable $token): bool

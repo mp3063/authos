@@ -4,6 +4,7 @@ namespace App\Services\Auth;
 
 use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -40,48 +41,46 @@ class MfaCodeVerifier
      */
     public function verifyAndConsumeRecoveryCode(User $user, string $code): bool
     {
-        if (! $user->two_factor_recovery_codes) {
-            return false;
-        }
-
         try {
-            $recoveryCodes = $user->mfa_backup_codes;
+            $consumed = DB::transaction(function () use ($user, $code): bool {
+                $locked = User::query()->lockForUpdate()->find($user->getKey());
 
-            if (! is_array($recoveryCodes) || empty($recoveryCodes)) {
-                return false;
-            }
-
-            // Normalize input code (uppercase, trim)
-            $normalizedCode = strtoupper(trim($code));
-
-            // Use timing-safe comparison to prevent timing attacks
-            $found = false;
-            $foundIndex = null;
-
-            foreach ($recoveryCodes as $index => $storedCode) {
-                // Normalize stored code for comparison (case-insensitive)
-                $normalizedStoredCode = strtoupper(trim($storedCode));
-                if (hash_equals($normalizedStoredCode, $normalizedCode)) {
-                    $found = true;
-                    $foundIndex = $index;
-                    break;
+                if (! $locked || ! $locked->two_factor_recovery_codes) {
+                    return false;
                 }
-            }
 
-            if (! $found) {
-                return false;
-            }
+                $recoveryCodes = $locked->mfa_backup_codes;
 
-            // Remove the used code (single-use enforcement)
-            unset($recoveryCodes[$foundIndex]);
-            $recoveryCodes = array_values($recoveryCodes); // Re-index array
+                if (! is_array($recoveryCodes) || empty($recoveryCodes)) {
+                    return false;
+                }
 
-            // Update user with remaining codes (User model mutator handles JSON encoding)
-            $user->update([
-                'two_factor_recovery_codes' => $recoveryCodes,
-            ]);
+                $normalizedCode = strtoupper(trim($code));
+                $foundIndex = null;
 
-            return true;
+                foreach ($recoveryCodes as $index => $storedCode) {
+                    if (hash_equals(strtoupper(trim($storedCode)), $normalizedCode)) {
+                        $foundIndex = $index;
+                        break;
+                    }
+                }
+
+                if ($foundIndex === null) {
+                    return false;
+                }
+
+                unset($recoveryCodes[$foundIndex]);
+
+                $locked->update([
+                    'two_factor_recovery_codes' => array_values($recoveryCodes),
+                ]);
+
+                return true;
+            });
+
+            $user->refresh();
+
+            return $consumed;
         } catch (Exception $e) {
             Log::error('MFA recovery code verification error', [
                 'user_id' => $user->id,

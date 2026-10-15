@@ -3,8 +3,10 @@
 namespace App\Filament\Auth;
 
 use App\Events\MfaEnabledEvent;
+use App\Mail\MfaSetupConfirmation;
 use App\Models\User;
 use App\Services\Auth\MfaCodeVerifier;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -12,6 +14,7 @@ use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Component;
 use SensitiveParameter;
 
@@ -86,6 +89,9 @@ class ExistingTotpAuthentication extends AppAuthentication
 
         MfaEnabledEvent::dispatch($user);
         app(AuthenticationLogService::class)->logAuthenticationEvent($user, 'mfa_enabled');
+
+        Mail::to($user)->send(new MfaSetupConfirmation($user, ['totp']));
+        app(MfaSetupTokenIssuer::class)->revokeOutstanding($user);
 
         if (! $user->organization?->requiresMfa()) {
             return;
