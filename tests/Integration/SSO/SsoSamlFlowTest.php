@@ -288,6 +288,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'expires_at' => now()->addHour(),
             'external_session_id' => $relayState,
             'metadata' => [
+                'pending' => true,
                 'saml_request_id' => $relayState,
                 'relay_state' => $relayState,
             ],
@@ -348,6 +349,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'expires_at' => now()->addHour(),
             'external_session_id' => 'default-request',
             'metadata' => [
+                'pending' => true,
                 'saml_request_id' => 'default-request',
             ],
         ]);
@@ -578,6 +580,7 @@ class SsoSamlFlowTest extends IntegrationTestCase
             'expires_at' => now()->addHour(),
             'external_session_id' => 'default-request',
             'metadata' => [
+                'pending' => true,
                 'saml_request_id' => 'default-request',
             ],
         ]);

@@ -53,11 +53,8 @@ class SamlController extends Controller
                 'success' => true,
                 'user' => $result['user'],
                 'session' => $result['session'],
-                'application' => $result['application'] ?? [
-                    'id' => $result['session']['application_id'] ?? null,
-                    'name' => $result['session']['application_name'] ?? 'Unknown Application',
-                ],
-                'tokens' => $result['tokens'] ?? [],
+                'application' => $result['application'],
+                'tokens' => $result['tokens'],
             ]);
 
         } catch (Exception $e) {

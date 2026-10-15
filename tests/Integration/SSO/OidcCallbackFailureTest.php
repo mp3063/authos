@@ -164,14 +164,16 @@ class OidcCallbackFailureTest extends IntegrationTestCase
             'application_id' => $this->application->id,
             'expires_at' => now()->addMinutes(30),
         ]);
-        $state = $this->initiate();
         $before = $existing->fresh();
+        $state = $this->initiate();
+        $this->assertNotSame($existing->id, SSOSession::where('external_session_id', $state)->sole()->id);
         $this->travel(5)->minutes();
 
         $response = $this->postCallback($state);
 
-        $this->assertFailedWithoutSession($response, $state, 'sso_token_exchange_failed');
+        $this->assertFailedWithoutSession($response, $state, 'sso_token_exchange_failed', 1);
         $after = $existing->fresh();
+        $this->assertTrue($after->isActive());
         $this->assertSame($before->session_token, $after->session_token);
         $this->assertEquals($before->expires_at, $after->expires_at);
         $this->assertArrayNotHasKey('access_token', $after->metadata ?? []);
@@ -292,7 +294,7 @@ class OidcCallbackFailureTest extends IntegrationTestCase
         return $this->postJson('/api/v1/sso/callback', ['code' => 'idp-code', 'state' => $state]);
     }
 
-    private function assertFailedWithoutSession(TestResponse $response, string $state, string $event): void
+    private function assertFailedWithoutSession(TestResponse $response, string $state, string $event, int $remainingSessions = 0): void
     {
         $response->assertStatus(400)
             ->assertJsonPath('success', false)
@@ -300,10 +302,8 @@ class OidcCallbackFailureTest extends IntegrationTestCase
             ->assertJsonMissingPath('session')
             ->assertJsonMissingPath('tokens');
 
-        $this->assertSame(1, SSOSession::where('user_id', $this->user->id)->where('application_id', $this->application->id)->count());
-        $pending = SSOSession::where('external_session_id', $state)->sole();
-        $this->assertArrayNotHasKey('access_token', $pending->metadata);
-        $this->assertArrayNotHasKey('user_info', $pending->metadata);
+        $this->assertSame($remainingSessions, SSOSession::where('user_id', $this->user->id)->where('application_id', $this->application->id)->count());
+        $this->assertDatabaseMissing('sso_sessions', ['external_session_id' => $state]);
 
         $this->assertDatabaseHas('authentication_logs', ['user_id' => $this->user->id, 'event' => $event, 'success' => false]);
         $this->assertDatabaseMissing('authentication_logs', ['user_id' => $this->user->id, 'success' => true, 'event' => $event]);

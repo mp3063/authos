@@ -81,7 +81,21 @@ class SSOSession extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('expires_at', '>', now())
-            ->whereNull('logged_out_at');
+            ->whereNull('logged_out_at')
+            ->whereNull('metadata->pending');
+    }
+
+    /**
+     * Scope: Sessions started by an SSO initiate and not yet issued by a callback
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->whereNotNull('metadata->pending');
+    }
+
+    public function isPending(): bool
+    {
+        return isset($this->metadata['pending']);
     }
 
     /**

@@ -82,7 +82,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $application = $this->createSamlApplication($user, $this->samlIdpCertificate());
         $pendingSession = SSOSession::factory()->forUser($user)->create([
             'application_id' => $application->id,
-            'metadata' => ['saml_request_id' => 'request-1'],
+            'metadata' => ['pending' => true, 'saml_request_id' => 'request-1'],
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
@@ -91,8 +91,8 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         ]);
 
         $response->assertBadRequest()->assertJsonPath('message', 'SAML response is not signed');
-        $this->assertDatabaseCount('sso_sessions', 1);
-        $this->assertSame($pendingSession->session_token, $pendingSession->fresh()->session_token);
+        $this->assertModelMissing($pendingSession);
+        $this->assertDatabaseCount('sso_sessions', 0);
     }
 
     #[Test]
@@ -134,7 +134,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $application = $this->createSamlApplication($initiator, $this->samlIdpCertificate());
         SSOSession::factory()->forUser($initiator)->create([
             'application_id' => $application->id,
-            'metadata' => ['saml_request_id' => 'request-1'],
+            'metadata' => ['pending' => true, 'saml_request_id' => 'request-1'],
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
@@ -153,7 +153,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $outsider = $this->createUser();
         SSOSession::factory()->forUser($initiator)->create([
             'application_id' => $application->id,
-            'metadata' => ['saml_request_id' => 'request-1'],
+            'metadata' => ['pending' => true, 'saml_request_id' => 'request-1'],
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [
@@ -245,7 +245,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $application = $this->createSamlApplication($user, $this->samlIdpCertificate());
         SSOSession::factory()->forUser($user)->create([
             'application_id' => $application->id,
-            'metadata' => ['saml_request_id' => 'request-1'],
+            'metadata' => ['pending' => true, 'saml_request_id' => 'request-1'],
         ]);
 
         $response = $this->postJson('/api/v1/sso/saml/callback', [

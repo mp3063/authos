@@ -118,6 +118,7 @@ class SSOSessionFactory extends Factory
             $ssoState = $state ?? Str::random(32);
 
             $metadata = array_merge($metadata, [
+                'pending' => true,
                 'state' => $ssoState,
                 'redirect_uri' => 'https://app-a.example.com/callback',
                 'scopes' => ['openid', 'profile', 'email'],

@@ -330,7 +330,7 @@ class SsoMfaEnforcementTest extends IntegrationTestCase
 
         SSOSession::factory()->forUser($initiator)->create([
             'application_id' => $application->id,
-            'metadata' => ['saml_request_id' => 'request-1'],
+            'metadata' => ['pending' => true, 'saml_request_id' => 'request-1'],
         ]);
     }
 

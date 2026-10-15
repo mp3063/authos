@@ -187,6 +187,10 @@ class SsoSessionManager
             throw new Exception('SSO session has been logged out');
         }
 
+        if ($session->isPending()) {
+            throw new Exception('Invalid SSO session token');
+        }
+
         $session->updateActivity();
 
         return $session;

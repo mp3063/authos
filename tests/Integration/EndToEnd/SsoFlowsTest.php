@@ -187,13 +187,13 @@ class SsoFlowsTest extends EndToEndTestCase
 
         $this->assertArrayHasKey('redirect_url', $initiateData);
         $this->assertArrayHasKey('state', $initiateData);
-        $this->assertArrayHasKey('session_token', $initiateData);
+        $this->assertArrayNotHasKey('session_token', $initiateData);
         $this->assertStringContainsString('https://idp.example.com/auth', $initiateData['redirect_url']);
         $this->assertStringContainsString('state='.$initiateData['state'], $initiateData['redirect_url']);
 
-        // Verify SSO session was created
-        $session = SSOSession::where('session_token', $initiateData['session_token'])->first();
+        $session = SSOSession::where('external_session_id', $initiateData['state'])->first();
         $this->assertNotNull($session);
+        $this->assertTrue($session->isPending());
         $this->assertEquals($this->regularUser->id, $session->user_id);
         $this->assertEquals($this->oidcApplication->id, $session->application_id);
 
@@ -338,6 +338,7 @@ class SsoFlowsTest extends EndToEndTestCase
             'application_id' => $this->samlApplication->id,
             'external_session_id' => $samlRequestId,
             'metadata' => [
+                'pending' => true,
                 'saml_request_id' => $samlRequestId,
                 'provider' => 'saml',
             ],
@@ -379,10 +380,9 @@ class SsoFlowsTest extends EndToEndTestCase
         $this->assertEquals($this->samlApplication->id, $callbackData['application']['id']);
         $this->assertArrayHasKey('tokens', $callbackData);
 
-        // Verify session was updated
-        $session->refresh();
-        $this->assertNotNull($session->session_token);
-        $this->assertTrue($session->isActive());
+        $this->assertModelMissing($session);
+        $issued = SSOSession::where('session_token', $callbackData['session']['session_token'])->firstOrFail();
+        $this->assertTrue($issued->isActive());
 
         // TODO: Verify audit logging - SSO service should create authentication logs
         // $this->assertDatabaseHas('authentication_logs', [
@@ -700,7 +700,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $initiateBData = $initiateBResponse->json();
 
         // Step 3: Verify session sharing works
-        $sessionB = SSOSession::where('session_token', $initiateBData['session_token'])->first();
+        $sessionB = SSOSession::where('external_session_id', $initiateBData['state'])->first();
         $this->assertEquals($this->regularUser->id, $sessionB->user_id);
         $this->assertEquals($appB->id, $sessionB->application_id);
 
@@ -1037,7 +1037,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $callbackResponse->assertStatus(400)
             ->assertJsonPath('success', false)
             ->assertJsonMissingPath('session');
-        $this->assertEquals($session->expires_at, $session->fresh()->expires_at);
+        $this->assertModelMissing($session);
         $this->assertSSOAuditLog($this->regularUser, 'sso_token_exchange_failed', ['success' => false]);
     }
 
@@ -1068,7 +1068,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $callbackResponse->assertStatus(400)
             ->assertJsonPath('success', false)
             ->assertJsonMissingPath('session');
-        $this->assertEquals($session->expires_at, $session->fresh()->expires_at);
+        $this->assertModelMissing($session);
         $this->assertSSOAuditLog($this->regularUser, 'sso_connection_timeout', ['success' => false]);
     }
 
@@ -1105,6 +1105,7 @@ class SsoFlowsTest extends EndToEndTestCase
             'application_id' => $this->oidcApplication->id,
             'external_session_id' => 'auth_failure_state',
             'metadata' => [
+                'pending' => true,
                 'state' => 'different_state_value', // Intentionally mismatched state
             ],
         ]);
@@ -1157,7 +1158,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $callbackResponse->assertStatus(202)
             ->assertJsonPath('mfa_required', true)
             ->assertJsonMissingPath('session');
-        $this->assertDatabaseMissing('sso_sessions', ['session_token' => $initiateData['session_token']]);
+        $this->assertDatabaseMissing('sso_sessions', ['external_session_id' => $initiateData['state']]);
 
         $verifyResponse = $this->postJson('/api/v1/auth/mfa/verify', [
             'challenge_token' => $callbackResponse->json('challenge_token'),
@@ -1242,6 +1243,7 @@ class SsoFlowsTest extends EndToEndTestCase
             'application_id' => $this->oidcApplication->id,
             'external_session_id' => 'provisioning_test_state',
             'metadata' => [
+                'pending' => true,
                 'state' => 'provisioning_test_state',
             ],
         ]);
@@ -1254,8 +1256,8 @@ class SsoFlowsTest extends EndToEndTestCase
         $callbackResponse->assertStatus(200);
         $callbackData = $callbackResponse->json();
 
-        // Verify session was updated with user info (retrieve fresh from DB)
-        $freshSession = SSOSession::find($session->id);
+        $this->assertModelMissing($session);
+        $freshSession = SSOSession::where('session_token', $callbackData['session']['session_token'])->firstOrFail();
 
         // The service should store user_info from the successful token exchange
         // Use fresh session since refresh() doesn't work correctly in this context
@@ -1316,7 +1318,7 @@ class SsoFlowsTest extends EndToEndTestCase
         $initiateData = $initiateResponse->json();
 
         // Get the session that was created by the initiate flow
-        $session = SSOSession::where('session_token', $initiateData['session_token'])->first();
+        $session = SSOSession::where('external_session_id', $initiateData['state'])->first();
         $this->assertNotNull($session);
 
         // Add auth_code to session metadata to match callback request

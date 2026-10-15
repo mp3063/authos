@@ -75,7 +75,6 @@ class SSOController extends Controller
             return response()->json([
                 'redirect_url' => $result['redirect_url'],
                 'state' => $result['state'],
-                'session_token' => $result['session_token'],
                 'expires_at' => $result['expires_at'],
             ]);
 
@@ -131,14 +130,10 @@ class SSOController extends Controller
                 'success' => $result['success'],
                 'user' => $result['user'],
                 'session' => [
-                    'session_token' => $result['session']['session_token'] ?? $result['session']['token'] ?? null,
+                    'session_token' => $result['session']['session_token'],
                     'expires_at' => $result['session']['expires_at'],
                 ],
-                'application' => $result['application'] ?? [
-                    'id' => $result['session']['application_id'] ?? null,
-                    'name' => $result['session']['application_name'] ?? 'Unknown Application',
-                    'redirect_uri' => $result['session']['redirect_uri'] ?? null,
-                ],
+                'application' => $result['application'],
             ]);
 
         } catch (Exception $e) {
@@ -319,7 +314,7 @@ class SSOController extends Controller
                     'id' => $metadata['organization']->id,
                 ],
                 'sso_configuration' => [
-                    'provider' => $metadata['sso_configuration']['provider'] ?? 'oidc',
+                    'provider' => $metadata['sso_configuration']['provider'],
                     'endpoints' => $metadata['endpoints'],
                 ],
                 'supported_flows' => ['authorization_code', 'oidc'],

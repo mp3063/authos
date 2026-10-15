@@ -7,6 +7,7 @@ use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -38,7 +39,21 @@ class OidcFlowService
             throw new InvalidArgumentException('State parameter is required');
         }
 
-        $session = $this->resolveCallbackSession($state, $authCode);
+        $session = $this->findPendingSession($state, $authCode);
+
+        try {
+            return $this->completeCallback($session, $state, $authCode);
+        } finally {
+            $session->delete();
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function completeCallback(SSOSession $session, string $state, string $authCode): array
+    {
+        $this->assertCallbackSessionUsable($session, $state, $authCode);
         $ssoConfig = $session->application->ssoConfiguration;
 
         if (! $ssoConfig) {
@@ -68,7 +83,7 @@ class OidcFlowService
         $attributes = [
             'ip_address' => $session->ip_address,
             'user_agent' => $session->user_agent,
-            'metadata' => array_merge($session->metadata ?? [], [
+            'metadata' => array_merge(Arr::except($session->metadata ?? [], ['pending']), [
                 'access_token' => $exchange['access_token'],
                 'id_token' => $exchange['id_token'],
                 'refresh_token' => $exchange['refresh_token'],
@@ -77,17 +92,17 @@ class OidcFlowService
         ];
 
         if ($user->requiresMfa()) {
-            $session->delete();
-
             return $this->issuer->challenge($user, $ssoConfig, $attributes);
         }
 
+        $result = $this->issuer->issue($user, $ssoConfig, $attributes);
+
         $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_login_success', true, [
             'provider' => 'oidc',
-            'session_id' => $session->id,
+            'session_id' => $result['session']['id'],
         ]);
 
-        return $this->issuer->issue($user, $ssoConfig, $attributes);
+        return $result;
     }
 
     /**
@@ -161,11 +176,9 @@ class OidcFlowService
     /**
      * @throws Exception
      */
-    private function resolveCallbackSession(string $state, string $authCode): SSOSession
+    private function findPendingSession(string $state, string $authCode): SSOSession
     {
-        // Find the session by external_session_id (state parameter)
-        $session = SSOSession::where('external_session_id', $state)
-            ->first(); // Remove active() constraint for testing
+        $session = SSOSession::pending()->where('external_session_id', $state)->first();
 
         if (! $session) {
             // Log authentication failure
@@ -177,6 +190,14 @@ class OidcFlowService
             throw new Exception('Invalid or expired authorization code');
         }
 
+        return $session;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function assertCallbackSessionUsable(SSOSession $session, string $state, string $authCode): void
+    {
         // Check for replay attack - validate state matches session metadata
         $sessionMetadata = $session->metadata ?? [];
         if (($sessionMetadata['state'] ?? null) !== $state) {
@@ -204,8 +225,6 @@ class OidcFlowService
             ]);
             throw new Exception('Session is not active');
         }
-
-        return $session;
     }
 
     /**

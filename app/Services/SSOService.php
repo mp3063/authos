@@ -65,9 +65,6 @@ class SSOService
             throw new Exception('User does not have access to this application');
         }
 
-        // Create or update session
-        $session = $this->sessions->createOrUpdateSession($user, $application, request()->ip() ?? '127.0.0.1', request()->userAgent() ?? 'test');
-
         // Generate state parameter for CSRF protection
         $state = Str::random(32);
 
@@ -87,20 +84,23 @@ class SSOService
             'state' => $state,
         ]);
 
-        // Store state in session metadata and external_session_id for callback lookup
-        $metadata = [
-            'state' => $state,
-            'redirect_uri' => $redirectUri ?? $ssoConfig->callback_url,
-            'scopes' => $allowedScopes,
-        ];
-
-        // Update external_session_id and metadata separately to avoid guarded attribute issues
-        $session->external_session_id = $state;
-        $this->sessions->updateSessionMetadata($session, $metadata);
+        $session = SSOSession::create([
+            'user_id' => $user->id,
+            'application_id' => $application->id,
+            'external_session_id' => $state,
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => request()->userAgent() ?? 'test',
+            'expires_at' => now()->addSeconds($ssoConfig->getSessionLifetimeInSeconds()),
+            'metadata' => [
+                'pending' => true,
+                'state' => $state,
+                'redirect_uri' => $redirectUri ?? $ssoConfig->callback_url,
+                'scopes' => $allowedScopes,
+            ],
+        ]);
 
         return [
             'redirect_url' => $redirectUrl,
-            'session_token' => $session->session_token,
             'state' => $state,
             'expires_at' => $session->expires_at->toISOString(),
         ];
@@ -298,15 +298,10 @@ class SSOService
     public function validateSAMLResponse(string $samlResponse, string|int $requestId, string $acsUrl): array
     {
         $expectedInResponseTo = null;
-        $session = null;
 
         // Find the SSO session by request ID in metadata or external_session_id if it's a string, otherwise treat as application ID
         if (is_string($requestId)) {
-            $session = SSOSession::whereJsonContains('metadata->saml_request_id', $requestId)->first() ??
-              SSOSession::where('external_session_id', $requestId)->first();
-            if (! $session) {
-                throw new Exception('SSO session not found');
-            }
+            $session = $this->findPendingSamlSession($requestId);
             $application = $session->application;
             $expectedInResponseTo = $session->metadata['saml_request_id'] ?? null;
         } else {
@@ -335,7 +330,6 @@ class SSOService
         return [
             'user_info' => $userInfo,
             'application_id' => $application->id,
-            'pending_session' => $session,
             'validated_at' => now(),
             'success' => true,
         ];
@@ -348,8 +342,36 @@ class SSOService
      */
     public function processSamlCallback(string $samlResponse, ?string $relayState, string $acsUrl): array
     {
-        // Use existing SAML validation method
-        $validationResult = $this->validateSAMLResponse($samlResponse, $relayState ?? 'default-request', $acsUrl);
+        $pendingSession = $this->findPendingSamlSession($relayState ?? 'default-request');
+
+        try {
+            return $this->completeSamlCallback($samlResponse, $relayState ?? 'default-request', $acsUrl);
+        } finally {
+            $pendingSession->delete();
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function findPendingSamlSession(string $requestId): SSOSession
+    {
+        $session = SSOSession::pending()->whereJsonContains('metadata->saml_request_id', $requestId)->first()
+            ?? SSOSession::pending()->where('external_session_id', $requestId)->first();
+
+        if (! $session) {
+            throw new Exception('SSO session not found');
+        }
+
+        return $session;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function completeSamlCallback(string $samlResponse, string $requestId, string $acsUrl): array
+    {
+        $validationResult = $this->validateSAMLResponse($samlResponse, $requestId, $acsUrl);
 
         // Create or find user based on SAML response
         $userInfo = $validationResult['user_info'];
@@ -377,8 +399,6 @@ class SSOService
         if (! $user->requiresMfa()) {
             return $this->sessionIssuer->issue($user, $application->ssoConfiguration, $attributes);
         }
-
-        $validationResult['pending_session']?->delete();
 
         return $this->sessionIssuer->challenge($user, $application->ssoConfiguration, $attributes);
     }
