@@ -159,7 +159,7 @@ class SocialAuthService
         ];
     }
 
-    public function resolveUser(string $provider, ?string $organizationSlug = null): User
+    public function resolveUser(string $provider, ?string $organizationSlug = null, bool $linkAccountsRequiringMfa = true): User
     {
         try {
             // Validate OAuth state parameter for CSRF protection
@@ -172,7 +172,7 @@ class SocialAuthService
 
             $socialUser = Socialite::driver($provider)->stateless()->user();
 
-            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug));
+            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug, $linkAccountsRequiringMfa));
         } catch (Exception $e) {
             Log::error('Social authentication failed', [
                 'provider' => $provider,
@@ -187,7 +187,7 @@ class SocialAuthService
     /**
      * Find or create user from social provider data
      */
-    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug = null): User
+    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug = null, bool $linkAccountsRequiringMfa = true): User
     {
         // First, try to find user by provider and provider ID
         $user = User::findBySocialProvider($provider, $socialUser->getId());
@@ -203,6 +203,10 @@ class SocialAuthService
         $existingUser = User::where('email', $socialUser->getEmail())->first();
 
         if ($existingUser) {
+            if (! $linkAccountsRequiringMfa && $existingUser->requiresMfa()) {
+                return $existingUser;
+            }
+
             // Link social account to existing user
             return $this->linkSocialAccount($existingUser, $provider, $socialUser);
         }

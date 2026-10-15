@@ -374,6 +374,27 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
     }
 
     #[Test]
+    public function it_does_not_link_a_provider_identity_to_an_mfa_account_when_refusing_a_social_web_login(): void
+    {
+        $owner = $this->panelOwner([
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
+        ]);
+        $usersBefore = User::count();
+        $this->signInThroughRealSocialAuthAs('google', 'google-unlinked-mfa-owner', $owner->email);
+
+        $response = $this->get('/auth/social/google/callback');
+
+        $response->assertRedirect('/admin/login');
+        $this->assertTrue(auth()->guest());
+        $this->assertDatabaseMissing('social_accounts', ['provider' => 'google', 'provider_id' => 'google-unlinked-mfa-owner']);
+        $this->assertDatabaseMissing('social_accounts', ['user_id' => $owner->id]);
+        $this->assertNull($owner->fresh()->provider_id);
+        $this->assertSame($usersBefore, User::count());
+    }
+
+    #[Test]
     public function it_still_signs_in_a_social_web_user_without_any_mfa_requirement(): void
     {
         $owner = $this->panelOwner();

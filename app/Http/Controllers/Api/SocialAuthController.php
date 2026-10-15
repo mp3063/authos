@@ -244,7 +244,7 @@ class SocialAuthController extends BaseController
                 return redirect('/admin/login?error=provider_not_configured');
             }
 
-            $user = $this->socialAuthService->resolveUser($provider);
+            $user = $this->socialAuthService->resolveUser($provider, linkAccountsRequiringMfa: false);
 
             if ($user->requiresMfa()) {
                 Notification::make()
