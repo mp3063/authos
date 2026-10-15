@@ -401,13 +401,10 @@ class WebhookResource extends Resource
                     ->action(function ($records) {
                         $webhookService = app(WebhookService::class);
                         $records->each(fn ($record) => $webhookService->enableWebhook($record));
-
-                        Notification::make()
-                            ->title('Webhooks enabled successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Webhooks enabled successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} webhooks enabled"),
                 BulkAction::make('disable')
                     ->authorizeIndividualRecords('update')
                     ->icon('heroicon-o-x-circle')
@@ -416,13 +413,10 @@ class WebhookResource extends Resource
                     ->action(function ($records) {
                         $webhookService = app(WebhookService::class);
                         $records->each(fn ($record) => $webhookService->disableWebhook($record));
-
-                        Notification::make()
-                            ->title('Webhooks disabled successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Webhooks disabled successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} webhooks disabled"),
                 DeleteBulkAction::make()
                     ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()

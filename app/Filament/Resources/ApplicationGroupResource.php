@@ -21,7 +21,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -176,13 +175,10 @@ class ApplicationGroupResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
                         $records->each(fn (ApplicationGroup $record) => $record->update(['is_active' => true]));
-
-                        Notification::make()
-                            ->title('Groups activated successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Groups activated successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} groups activated"),
 
                 BulkAction::make('deactivate')
                     ->authorizeIndividualRecords('update')
@@ -191,43 +187,30 @@ class ApplicationGroupResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
                         $records->each(fn (ApplicationGroup $record) => $record->update(['is_active' => false]));
-
-                        Notification::make()
-                            ->title('Groups deactivated successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Groups deactivated successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} groups deactivated"),
 
                 BulkAction::make('delete')
                     ->authorizeIndividualRecords('delete')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->action(function (Collection $records) {
-                        $deleted = 0;
-                        $skipped = 0;
-
+                    ->action(function (Collection $records, BulkAction $action) {
                         foreach ($records as $record) {
                             if ($record->hasChildren()) {
-                                $skipped++;
-                            } else {
-                                $record->delete();
-                                $deleted++;
+                                $action->reportBulkProcessingFailure('has_children', fn (int $count): string => "{$count} group(s) skipped (have children).");
+
+                                continue;
                             }
-                        }
 
-                        $message = "{$deleted} group(s) deleted.";
-                        if ($skipped > 0) {
-                            $message .= " {$skipped} group(s) skipped (have children).";
+                            $record->delete();
                         }
-
-                        Notification::make()
-                            ->title($message)
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Groups deleted successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} groups deleted"),
             ]),
         ])->defaultSort('created_at', 'desc');
     }

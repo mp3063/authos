@@ -237,13 +237,10 @@ class IpBlocklistResource extends Resource
                     ->requiresConfirmation()
                     ->action(function ($records) {
                         $records->each(fn (IpBlocklist $record) => $record->update(['is_active' => false]));
-
-                        Notification::make()
-                            ->title('Selected IPs unblocked successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Selected IPs unblocked successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} IPs unblocked"),
 
                 BulkAction::make('bulk_block')
                     ->authorizeIndividualRecords('update')
@@ -253,13 +250,10 @@ class IpBlocklistResource extends Resource
                     ->requiresConfirmation()
                     ->action(function ($records) {
                         $records->each(fn (IpBlocklist $record) => $record->update(['is_active' => true]));
-
-                        Notification::make()
-                            ->title('Selected IPs blocked successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Selected IPs blocked successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} IPs blocked"),
 
                 DeleteBulkAction::make()
                     ->authorizeIndividualRecords('delete')

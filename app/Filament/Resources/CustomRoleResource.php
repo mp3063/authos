@@ -292,13 +292,10 @@ class CustomRoleResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
                         $records->each(fn (CustomRole $record) => $record->update(['is_active' => true]));
-
-                        Notification::make()
-                            ->title('Roles activated successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Roles activated successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} roles activated"),
                 BulkAction::make('deactivate')
                     ->authorize('update')
                     ->authorizeIndividualRecords('update')
@@ -307,13 +304,10 @@ class CustomRoleResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
                         $records->each(fn (CustomRole $record) => $record->update(['is_active' => false]));
-
-                        Notification::make()
-                            ->title('Roles deactivated successfully')
-                            ->success()
-                            ->send();
                     })
-                    ->deselectRecordsAfterCompletion(),
+                    ->deselectRecordsAfterCompletion()
+                    ->successNotificationTitle('Roles deactivated successfully')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} roles deactivated"),
                 DeleteBulkAction::make()
                     ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()

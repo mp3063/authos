@@ -431,11 +431,9 @@ class PermissionResource extends Resource
                         foreach ($records as $record) {
                             $role->permissions()->syncWithoutDetaching([$record->id]);
                         }
-                        Notification::make()
-                            ->title('Permissions assigned to role')
-                            ->success()
-                            ->send();
-                    }),
+                    })
+                    ->successNotificationTitle('Permissions assigned to role')
+                    ->failureNotificationTitle(fn (int $successCount, int $totalCount): string => "{$successCount} of {$totalCount} permissions assigned to role"),
             ]),
         ];
     }
