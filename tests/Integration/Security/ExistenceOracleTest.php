@@ -43,6 +43,17 @@ class ExistenceOracleTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_answers_an_unknown_and_a_foreign_organization_alike_when_reading_sso_configuration_with_auth_logs_read(): void
+    {
+        $admin = $this->createApiOrganizationAdmin();
+        $foreign = $this->createOrganization();
+        $this->actingAsApiUserWithToken($admin, ['sso']);
+
+        $this->getJson("/api/v1/sso/configurations/{$foreign->id}")->assertForbidden();
+        $this->getJson('/api/v1/sso/configurations/999999')->assertForbidden();
+    }
+
+    #[Test]
     public function it_returns_not_found_for_an_unknown_sso_configuration_only_after_authorization(): void
     {
         $owner = $this->createApiOrganizationOwner();
