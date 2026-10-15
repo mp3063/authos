@@ -305,6 +305,7 @@ class UsersImport implements ToCollection, WithHeadingRow
     protected function findRole(string $role): ?Role
     {
         return Role::whereRaw('LOWER(name) = LOWER(?)', [$role])
+            ->where('guard_name', 'api')
             ->where(function ($query) {
                 $query->where('organization_id', $this->organization->id);
 
