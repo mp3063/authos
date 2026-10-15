@@ -25,7 +25,7 @@ class RestrictMfaSetupTokens
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $request->user()?->token();
+        $token = $request->user('api')?->token();
 
         if (! $this->issuer->isSetupToken($token)) {
             return $next($request);

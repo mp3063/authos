@@ -43,6 +43,29 @@ class MfaSetupTokenTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_mints_the_setup_token_itself_with_a_fifteen_minute_lifetime(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+
+        $token = $this->setupTokenFor($user);
+
+        $claims = json_decode(base64_decode(strtr(explode('.', $token)[1], '-_', '+/')), true);
+        $this->assertEqualsWithDelta(now()->addSeconds(900)->timestamp, $claims['exp'], 5);
+        $this->assertEqualsWithDelta(now()->addSeconds(900)->timestamp, $user->tokens()->sole()->expires_at->timestamp, 5);
+    }
+
+    #[Test]
+    public function it_leaves_the_lifetime_of_other_personal_access_tokens_alone(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $this->setupTokenFor($user);
+
+        $token = $user->createToken('Full Token', ['*'])->getToken();
+
+        $this->assertTrue($token->expires_at->greaterThan(now()->addMonths(5)));
+    }
+
+    #[Test]
     public function it_lets_a_setup_token_reach_the_mfa_enrollment_endpoints(): void
     {
         Mail::fake();
@@ -60,6 +83,44 @@ class MfaSetupTokenTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_lets_a_setup_token_log_out(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+
+        $logout = $this->withBearer($token)->postJson('/api/v1/auth/logout');
+        $status = $this->withBearer($token)->getJson('/api/v1/mfa/status');
+
+        $logout->assertOk();
+        $status->assertUnauthorized();
+    }
+
+    #[Test]
+    public function it_refuses_a_setup_token_on_the_public_mfa_verify_endpoint(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+
+        $response = $this->withBearer($token)->postJson('/api/v1/auth/mfa/verify', ['totp_code' => '123456']);
+
+        $response->assertForbidden();
+        $response->assertJsonPath('error', 'mfa_setup_required');
+    }
+
+    #[Test]
+    public function it_rejects_an_expired_setup_token_on_the_public_mfa_verify_endpoint(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+
+        $this->travel(16)->minutes();
+        $response = $this->withBearer($token)->postJson('/api/v1/auth/mfa/verify', ['totp_code' => '123456']);
+
+        $response->assertUnauthorized();
+        $response->assertJsonPath('error', 'setup_token_expired');
+    }
+
+    #[Test]
     public function it_refuses_a_setup_token_everywhere_else(): void
     {
         $user = $this->memberWhoMustSetUpMfa();
@@ -67,6 +128,32 @@ class MfaSetupTokenTest extends IntegrationTestCase
 
         foreach (['/api/v1/profile', '/api/v1/users', '/api/v1/oauth/userinfo', '/api/v1/enterprise/audit/exports'] as $uri) {
             $response = $this->withBearer($token)->getJson($uri);
+
+            $response->assertForbidden();
+            $response->assertJsonPath('error', 'mfa_setup_required');
+        }
+    }
+
+    #[Test]
+    public function it_accepts_a_setup_token_at_fourteen_minutes(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+
+        $this->travel(14)->minutes();
+        $response = $this->withBearer($token)->getJson('/api/v1/mfa/status');
+
+        $response->assertOk();
+    }
+
+    #[Test]
+    public function it_refuses_a_setup_token_on_the_mfa_routes_outside_enrollment(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+
+        foreach (['/api/v1/mfa/disable', '/api/v1/mfa/disable/totp', '/api/v1/mfa/recovery-codes', '/api/v1/mfa/recovery-codes/regenerate', '/api/v1/mfa/backup-codes/regenerate'] as $uri) {
+            $response = $this->withBearer($token)->postJson($uri, ['password' => 'password']);
 
             $response->assertForbidden();
             $response->assertJsonPath('error', 'mfa_setup_required');

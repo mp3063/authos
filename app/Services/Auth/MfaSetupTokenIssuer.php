@@ -3,8 +3,10 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use DateInterval;
 use Laravel\Passport\AccessToken;
 use Laravel\Passport\Contracts\ScopeAuthorizable;
+use Laravel\Passport\Passport;
 
 class MfaSetupTokenIssuer
 {
@@ -17,8 +19,17 @@ class MfaSetupTokenIssuer
      */
     public function issue(User $user): array
     {
+        $defaultLifetime = Passport::personalAccessTokensExpireIn();
+        Passport::personalAccessTokensExpireIn(new DateInterval('PT'.self::LIFETIME_SECONDS.'S'));
+
+        try {
+            $result = $user->createToken('MFA Setup Token', [self::SCOPE]);
+        } finally {
+            Passport::personalAccessTokensExpireIn($defaultLifetime);
+        }
+
         return [
-            'setup_token' => $user->createToken('MFA Setup Token', [self::SCOPE])->accessToken,
+            'setup_token' => $result->accessToken,
             'token_type' => 'Bearer',
             'expires_in' => self::LIFETIME_SECONDS,
         ];
