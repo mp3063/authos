@@ -43,6 +43,22 @@ class MfaSetupTokenTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_revokes_earlier_setup_tokens_when_issuing_a_new_one(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $otherToken = $user->createToken('Other Token', ['openid'])->token;
+        $this->setupTokenFor($user);
+        $this->setupTokenFor($user);
+
+        $latest = $this->setupTokenFor($user);
+
+        $this->assertSame(1, $user->tokens()->where('revoked', false)->where('name', 'MFA Setup Token')->count());
+        $this->assertSame(3, $user->tokens()->where('name', 'MFA Setup Token')->count());
+        $this->assertFalse($otherToken->fresh()->revoked);
+        $this->withBearer($latest)->getJson('/api/v1/mfa/status')->assertOk();
+    }
+
+    #[Test]
     public function it_mints_the_setup_token_itself_with_a_fifteen_minute_lifetime(): void
     {
         $user = $this->memberWhoMustSetUpMfa();

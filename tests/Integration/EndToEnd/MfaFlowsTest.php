@@ -568,8 +568,7 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        // Should be able to login (current implementation)
-        $this->assertTrue($loginResponse->status() === 200 || $loginResponse->status() === 202);
+        $loginResponse->assertOk()->assertJsonStructure(['access_token']);
     }
 
     // ===========================================
@@ -885,8 +884,10 @@ class MfaFlowsTest extends EndToEndTestCase
             'password' => 'password',
         ]);
 
-        // Should handle MFA-enabled admin login
-        $this->assertTrue($adminLoginResponse->status() === 200 || $adminLoginResponse->status() === 202);
+        $adminLoginResponse->assertStatus(202)
+            ->assertJsonPath('mfa_required', true)
+            ->assertJsonStructure(['challenge_token'])
+            ->assertJsonMissingPath('access_token');
     }
 
     // ===========================================

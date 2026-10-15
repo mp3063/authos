@@ -98,6 +98,29 @@ class PanelMfaTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_does_not_report_mfa_enabled_or_sign_out_when_the_set_up_action_saves_nothing(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = $this->panelUser($organization);
+        $this->actingAs($user);
+        Event::fake([MfaEnabledEvent::class]);
+        $setUp = Livewire::test(SetUpRequiredMultiFactorAuthentication::class)
+            ->call('mountAction', 'setUpAppAuthentication', [], ['schemaComponent' => 'content.app']);
+        $encrypted = decrypt($setUp->get('mountedActions.0.arguments.encrypted'));
+
+        $setUp->set('mountedActions.0.arguments.encrypted', encrypt([...$encrypted, 'userKey' => 'someone-else']))
+            ->set('mountedActions.0.data.code', (new Google2FA)->getCurrentOtp($encrypted['secret']))
+            ->set('mountedActions.0.data.password', 'password')
+            ->call('callMountedAction')
+            ->assertNoRedirect();
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertFalse($user->fresh()->hasMfaEnabled());
+        Event::assertNotDispatched(MfaEnabledEvent::class);
+        $this->assertDatabaseMissing('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_enabled']);
+    }
+
+    #[Test]
     public function it_keeps_a_user_who_enrolls_voluntarily_signed_in(): void
     {
         $user = $this->panelUser(Organization::factory()->create());

@@ -80,6 +80,10 @@ class ExistingTotpAuthentication extends AppAuthentication
 
     protected function afterSetUp(User $user, Component $livewire): void
     {
+        if (! $this->isEnabled($user)) {
+            return;
+        }
+
         MfaEnabledEvent::dispatch($user);
         app(AuthenticationLogService::class)->logAuthenticationEvent($user, 'mfa_enabled');
 

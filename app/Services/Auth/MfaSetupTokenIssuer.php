@@ -7,6 +7,7 @@ use DateInterval;
 use Laravel\Passport\AccessToken;
 use Laravel\Passport\Contracts\ScopeAuthorizable;
 use Laravel\Passport\Passport;
+use Laravel\Passport\Token;
 
 class MfaSetupTokenIssuer
 {
@@ -19,6 +20,10 @@ class MfaSetupTokenIssuer
      */
     public function issue(User $user): array
     {
+        $user->tokens()->where('revoked', false)->get()
+            ->filter(fn (Token $token): bool => $token->scopes === [self::SCOPE])
+            ->each(fn (Token $token): bool => $token->revoke());
+
         $defaultLifetime = Passport::personalAccessTokensExpireIn();
         Passport::personalAccessTokensExpireIn(new DateInterval('PT'.self::LIFETIME_SECONDS.'S'));
 

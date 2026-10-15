@@ -302,7 +302,6 @@ class MfaController extends BaseController
 
         // Enable MFA
         $user->update([
-            'mfa_secret' => encrypt(decrypt($user->two_factor_secret)), // Store encrypted secret for compatibility
             'mfa_methods' => ['totp'],
             'mfa_backup_codes' => $backupCodes, // Mutator handles JSON encoding to two_factor_recovery_codes
             'two_factor_confirmed_at' => now(),
