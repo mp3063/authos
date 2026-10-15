@@ -29,7 +29,8 @@ class DomainController extends BaseController
         try {
             $user = $this->getAuthenticatedUser();
 
-            $domains = CustomDomain::where('organization_id', $user->organization_id)
+            $domains = CustomDomain::query()
+                ->when(! $user->isSuperAdmin(), fn ($query) => $query->where('organization_id', $user->organization_id))
                 ->orderBy('created_at', 'desc')
                 ->paginate($request->input('per_page', 15));
 
