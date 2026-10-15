@@ -8,6 +8,7 @@ use App\Filament\Resources\RoleResource\Pages\ListRoles;
 use App\Filament\Resources\RoleResource\Pages\ViewRole;
 use App\Filament\Resources\RoleResource\RelationManagers\PermissionsRelationManager;
 use App\Filament\Resources\RoleResource\RelationManagers\UsersRelationManager;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use BackedEnum;
@@ -84,44 +85,106 @@ class RoleResource extends Resource
                     ->hidden(! ($user && $user->isSuperAdmin()))
                     ->reactive() // Update permissions when organization changes
                     ->helperText($user && $user->isSuperAdmin() ? 'Leave empty for global role' : 'Organization scope'),
-            ]),
+            ])->columns(3)->columnSpanFull(),
 
             Section::make('Permissions')->schema([
+                Select::make('permission_template')
+                    ->label('Start from template')
+                    ->options(self::permissionTemplateOptions())
+                    ->placeholder('None')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                    ->dehydrated(false)
+                    ->live()
+                    ->afterStateUpdated(fn ($state, $get, $set, $record) => self::applyPermissionTemplate($state, $get, $set, $record))
+                    ->helperText('Ticks the permissions of a default role; you can still adjust them below'),
+
                 CheckboxList::make('permissions')
                     ->disabled(fn (): bool => ! auth()->user()?->isSuperAdmin())
-                    ->relationship('permissions', 'name', function ($query, $get, $record) {
-                        // Get the role's guard_name (from form data or existing record)
-                        $guardName = $get('guard_name') ?? $record?->guard_name ?? 'web';
-
-                        // Get the role's organization_id (from form data or existing record)
-                        $organizationId = $get('organization_id') ?? $record?->organization_id;
-
-                        // CRITICAL FIX: Filter by guard_name to prevent showing duplicate permissions
-                        $query->where('guard_name', $guardName);
-
-                        // CRITICAL FIX: Deduplicate permissions - prioritize organization-specific over global
-                        // Use a subquery to find permission names that exist for this specific organization
-                        $orgSpecificNames = Permission::query()
-                            ->where('guard_name', $guardName)
-                            ->where('organization_id', $organizationId)
-                            ->pluck('name');
-
-                        // Show organization-specific permissions + global permissions not in organization scope
-                        $query->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
-                            $subQuery->where('organization_id', $organizationId)
-                                ->orWhere(function ($q2) use ($orgSpecificNames) {
-                                    $q2->whereNull('organization_id')
-                                        ->whereNotIn('name', $orgSpecificNames);
-                                });
-                        });
-                    })
-                    ->columns(3)
+                    ->relationship('permissions', 'name', fn ($query, $get, $record) => self::scopePermissionOptions(
+                        $query,
+                        $get('guard_name') ?? $record?->guard_name ?? 'web',
+                        $get('organization_id') ?? $record?->organization_id,
+                    ))
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4])
                     ->gridDirection('row')
                     ->bulkToggleable()
                     ->searchable()
                     ->helperText('Select permissions to assign to this role'),
-            ]),
+            ])->columnSpanFull(),
         ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function permissionTemplateOptions(): array
+    {
+        $roleNames = array_keys((new Organization)->getDefaultRoles());
+
+        return ['Super Admin' => 'Super Admin (all permissions)'] + array_combine($roleNames, $roleNames);
+    }
+
+    private static function applyPermissionTemplate(?string $template, $get, $set, ?Model $record): void
+    {
+        if (! $template) {
+            return;
+        }
+
+        $organizationId = $get('organization_id') ?? $record?->organization_id;
+        $options = self::scopePermissionOptions(
+            Permission::query(),
+            $get('guard_name') ?? $record?->guard_name ?? 'web',
+            $organizationId,
+        );
+
+        if ($template === 'Super Admin') {
+            $set('permissions', $options->pluck('id')->map(fn ($id): string => (string) $id)->all());
+
+            return;
+        }
+
+        $names = (new Organization)->getDefaultRoles()[$template] ?? [];
+        $permissions = $options->whereIn('name', $names)->pluck('name', 'id');
+
+        $set('permissions', $permissions->keys()->map(fn ($id): string => (string) $id)->all());
+
+        $missing = array_diff($names, $permissions->all());
+
+        if ($missing !== []) {
+            Notification::make()
+                ->warning()
+                ->title($organizationId === null
+                    ? 'Some template permissions exist only per organization'
+                    : 'Some template permissions are not available here')
+                ->body($organizationId === null
+                    ? 'Choose an organization to include: '.implode(', ', $missing)
+                    : implode(', ', $missing))
+                ->send();
+        }
+    }
+
+    private static function scopePermissionOptions(Builder $query, string $guardName, $organizationId): Builder
+    {
+        // CRITICAL FIX: Filter by guard_name to prevent showing duplicate permissions
+        $query->where('guard_name', $guardName);
+
+        // CRITICAL FIX: Deduplicate permissions - prioritize organization-specific over global
+        // Use a subquery to find permission names that exist for this specific organization
+        $orgSpecificNames = Permission::query()
+            ->where('guard_name', $guardName)
+            ->where('organization_id', $organizationId)
+            ->pluck('name');
+
+        // Show organization-specific permissions + global permissions not in organization scope
+        $query->where(function ($subQuery) use ($organizationId, $orgSpecificNames) {
+            $subQuery->where('organization_id', $organizationId)
+                ->orWhere(function ($q2) use ($orgSpecificNames) {
+                    $q2->whereNull('organization_id')
+                        ->whereNotIn('name', $orgSpecificNames);
+                });
+        });
+
+        return $query;
     }
 
     /**
