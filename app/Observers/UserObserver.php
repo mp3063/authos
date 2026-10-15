@@ -49,9 +49,10 @@ class UserObserver
             }
             if ($user->organization_id) {
                 $this->cacheInvalidationService->invalidateOrganizationCaches($user->organization_id);
-                $this->mfaEnforcementRevoker->revokeForUser($user->load('organization'));
             }
         }
+
+        $this->revokeIfMfaSetUpIsNowRequired($user);
 
         // If permissions-related fields changed, invalidate permission caches
         if ($user->wasChanged(['mfa_methods', 'is_active'])) {
@@ -59,6 +60,21 @@ class UserObserver
         }
 
         UserUpdatedEvent::dispatch($user);
+    }
+
+    private function revokeIfMfaSetUpIsNowRequired(User $user): void
+    {
+        $mfaWasRemoved = $user->wasChanged('mfa_methods') && ! empty($user->getOriginal('mfa_methods'));
+
+        if ($user->organization_id === null || $user->hasMfaEnabled() || ! ($mfaWasRemoved || $user->wasChanged('organization_id'))) {
+            return;
+        }
+
+        if ($user->wasChanged('organization_id')) {
+            $user->unsetRelation('organization');
+        }
+
+        $this->mfaEnforcementRevoker->revokeForUser($user->loadMissing('organization'));
     }
 
     /**

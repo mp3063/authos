@@ -2,14 +2,18 @@
 
 namespace Tests\Integration\Security;
 
+use App\Filament\Resources\UserResource\Pages\ViewUser;
+use App\Jobs\RevokeCredentialsForOrganizationMfaJob;
 use App\Models\Organization;
 use App\Models\SSOSession;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Client;
 use Laravel\Passport\Token;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -191,5 +195,52 @@ class MfaEnforcementRevocationTest extends IntegrationTestCase
         $user->update(['organization_id' => $this->organization(false)->id]);
 
         $this->assertKept($user, $credentials);
+    }
+
+    #[Test]
+    public function it_dispatches_the_organization_job_only_when_require_mfa_turns_on(): void
+    {
+        Bus::fake([RevokeCredentialsForOrganizationMfaJob::class]);
+        $organization = $this->organization(false);
+        $organization->update(['settings' => array_merge($organization->settings, ['session_timeout' => 30])]);
+
+        $this->setRequireMfa($organization, true);
+        $this->setRequireMfa($organization, true);
+        $organization->update(['settings' => array_merge($organization->settings, ['session_timeout' => 60])]);
+        $this->setRequireMfa($organization, false);
+        $organization->update(['settings' => array_merge($organization->settings, ['session_timeout' => 90])]);
+
+        Bus::assertDispatchedTimes(RevokeCredentialsForOrganizationMfaJob::class, 1);
+        Bus::assertDispatched(RevokeCredentialsForOrganizationMfaJob::class, fn ($job) => $job->organization->is($organization));
+    }
+
+    #[Test]
+    public function it_revokes_credentials_when_an_admin_resets_mfa_for_a_member_of_an_organization_requiring_mfa(): void
+    {
+        $organization = $this->organization(false);
+        $member = $this->memberOf($organization);
+        $credentials = $this->credentialsFor($member);
+        $this->enrollInMfa($member);
+        $this->setRequireMfa($organization, true);
+        $admin = $this->createUser(['organization_id' => $organization->id, 'mfa_methods' => ['totp']], 'Organization Owner');
+        $this->assertFalse($credentials['personal']->fresh()->revoked);
+        $this->actingAs($admin);
+
+        Livewire::test(ViewUser::class, ['record' => $member->getRouteKey()])->callAction('reset_mfa');
+
+        $this->assertTrue($member->fresh()->mustSetUpMfa());
+        $this->assertRevoked($member, $credentials);
+    }
+
+    #[Test]
+    public function it_keeps_credentials_when_mfa_fields_change_outside_an_organization_requiring_mfa(): void
+    {
+        $member = $this->memberOf($this->organization(false));
+        $credentials = $this->credentialsFor($member);
+        $this->enrollInMfa($member);
+
+        $member->update(['mfa_methods' => null, 'two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
+
+        $this->assertKept($member, $credentials);
     }
 }
