@@ -83,7 +83,7 @@ class ApplicationGroupResource extends Resource
 
             Section::make('Applications')->schema([
                 CheckboxList::make('applications')
-                    ->relationship('applications', 'name', fn (Builder $query) => static::scopeToOrganization($query))
+                    ->relationship('applications', 'name', fn (Builder $query) => static::scopeToOrganization($query)->select(['applications.id', 'applications.name']))
                     ->columns(2)
                     ->searchable()
                     ->bulkToggleable()
