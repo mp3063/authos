@@ -19,12 +19,14 @@ use App\Services\PerformanceMonitoringService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Fortify;
 use Laravel\Passkeys\Passkeys;
 use Laravel\Passport\Contracts\AuthorizationViewResponse;
 use Laravel\Passport\Passport;
+use Spatie\Permission\PermissionRegistrar;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -63,6 +65,11 @@ class AppServiceProvider extends ServiceProvider
         User::observe(UserObserver::class);
         Organization::observe(OrganizationObserver::class);
         Application::observe(ApplicationObserver::class);
+
+        $resetPermissionTeam = fn () => app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $this->app->terminating($resetPermissionTeam);
+        Queue::after($resetPermissionTeam);
+        Queue::failing($resetPermissionTeam);
 
         // Configure rate limiting
         RateLimiter::for('api', function (Request $request) {
