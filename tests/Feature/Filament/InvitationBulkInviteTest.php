@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Services\InvitationService;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
@@ -70,13 +71,14 @@ class InvitationBulkInviteTest extends IntegrationTestCase
     public function it_authorizes_bulk_delete_per_record(): void
     {
         $own = Invitation::factory()->forOrganization($this->organization)->create();
-        $foreign = Invitation::factory()->forOrganization($this->createOrganization())->create();
+        $refused = Invitation::factory()->forOrganization($this->organization)->create();
+        Gate::before(fn ($user, string $ability, array $arguments): ?bool => $ability === 'delete' && ($arguments[0] ?? null)?->is($refused) ? false : null);
 
         Livewire::test(ListInvitations::class)
-            ->callTableBulkAction('delete', [$own, $foreign]);
+            ->callTableBulkAction('delete', [$own, $refused]);
 
         $this->assertModelMissing($own);
-        $this->assertModelExists($foreign);
+        $this->assertModelExists($refused);
     }
 
     #[Test]
