@@ -6,6 +6,8 @@ use App\Http\Requests\Api\PasswordResetConfirmRequest;
 use App\Http\Requests\Api\PasswordResetRequest;
 use App\Models\User;
 use App\Notifications\PasswordResetNotification;
+use App\Services\Auth\MfaChallengeStore;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,12 +19,11 @@ use Laravel\Passport\Token;
 
 class PasswordResetController extends BaseController
 {
-    protected AuthenticationLogService $authLogService;
-
-    public function __construct(AuthenticationLogService $authLogService)
-    {
-        $this->authLogService = $authLogService;
-    }
+    public function __construct(
+        protected AuthenticationLogService $authLogService,
+        protected MfaChallengeStore $mfaChallenges,
+        protected MfaSetupTokenIssuer $mfaSetupTokens,
+    ) {}
 
     /**
      * Send password reset link to email
@@ -214,6 +215,27 @@ class PasswordResetController extends BaseController
             ['status' => 'success'],
             $request
         );
+
+        if ($user->mustSetUpMfa()) {
+            $this->authLogService->logAuthenticationEvent($user, 'mfa_setup_required', [], $request);
+
+            return response()->json([
+                'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
+                'error' => 'mfa_setup_required',
+                ...$this->mfaSetupTokens->issue($user),
+            ], 403);
+        }
+
+        if ($user->requiresMfa()) {
+            $this->authLogService->logAuthenticationEvent($user, 'mfa_required', [], $request);
+
+            return response()->json([
+                'message' => 'Multi-factor authentication is required',
+                'mfa_required' => true,
+                'challenge_token' => $this->mfaChallenges->create($user),
+                'available_methods' => $user->getMfaMethods(),
+            ], 202);
+        }
 
         // Generate new access token
         $tokenResult = $user->createToken('API Access Token', ['openid', 'profile', 'email']);

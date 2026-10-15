@@ -8,6 +8,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Token;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -106,7 +108,7 @@ class PasswordResetFlowTest extends TestCase
         // Note: In real implementation, the plain token would be in the email
         // For testing, we need to simulate having the plain token
         // We'll generate a new token and hash to simulate the flow
-        $plainToken = \Illuminate\Support\Str::random(60);
+        $plainToken = Str::random(60);
         $hashedToken = hash('sha256', $plainToken);
 
         // Update the database with our test token
@@ -158,7 +160,7 @@ class PasswordResetFlowTest extends TestCase
         ]);
 
         // Simulate having the plain token
-        $plainToken = \Illuminate\Support\Str::random(60);
+        $plainToken = Str::random(60);
         $hashedToken = hash('sha256', $plainToken);
 
         DB::table('password_reset_tokens')
@@ -194,7 +196,7 @@ class PasswordResetFlowTest extends TestCase
     public function it_validates_token_expiration()
     {
         // Create an expired token (older than 60 minutes)
-        $plainToken = \Illuminate\Support\Str::random(60);
+        $plainToken = Str::random(60);
         $hashedToken = hash('sha256', $plainToken);
 
         DB::table('password_reset_tokens')->insert([
@@ -231,7 +233,7 @@ class PasswordResetFlowTest extends TestCase
             'email' => $this->user->email,
         ]);
 
-        $plainToken = \Illuminate\Support\Str::random(60);
+        $plainToken = Str::random(60);
         $hashedToken = hash('sha256', $plainToken);
 
         DB::table('password_reset_tokens')
@@ -281,7 +283,7 @@ class PasswordResetFlowTest extends TestCase
         $this->assertFalse($token3->revoked);
 
         // Reset password
-        $plainToken = \Illuminate\Support\Str::random(60);
+        $plainToken = Str::random(60);
         $hashedToken = hash('sha256', $plainToken);
 
         DB::table('password_reset_tokens')->insert([
@@ -353,5 +355,54 @@ class PasswordResetFlowTest extends TestCase
         // Token should be different
         $secondToken = $tokens->first();
         $this->assertNotEquals($firstToken->created_at, $secondToken->created_at);
+    }
+
+    #[Test]
+    public function it_challenges_a_user_with_mfa_instead_of_signing_them_in_after_a_reset(): void
+    {
+        $user = User::factory()->withMfa()->create();
+
+        $response = $this->resetPasswordFor($user);
+
+        $response->assertStatus(202)
+            ->assertJsonPath('mfa_required', true)
+            ->assertJsonStructure(['message', 'challenge_token', 'available_methods'])
+            ->assertJsonMissingPath('token');
+        $this->assertTrue(Hash::check('Zx9!kP2#qL5@wN8&', $user->fresh()->password));
+        $this->assertSame(0, $user->tokens()->count());
+        $this->assertDatabaseHas('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_required']);
+    }
+
+    #[Test]
+    public function it_issues_only_a_setup_token_to_a_member_who_must_set_up_mfa_after_a_reset(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create();
+
+        $response = $this->resetPasswordFor($user);
+
+        $response->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonStructure(['message', 'setup_token', 'token_type', 'expires_in'])
+            ->assertJsonMissingPath('token');
+        $this->assertTrue(Hash::check('Zx9!kP2#qL5@wN8&', $user->fresh()->password));
+        $this->assertSame([['mfa.setup']], $user->tokens()->pluck('scopes')->all());
+        $this->assertDatabaseHas('authentication_logs', ['user_id' => $user->id, 'event' => 'mfa_setup_required']);
+    }
+
+    private function resetPasswordFor(User $user): TestResponse
+    {
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => hash('sha256', 'plain-reset-token'),
+            'created_at' => now(),
+        ]);
+
+        return $this->postJson('/api/v1/auth/password/reset', [
+            'email' => $user->email,
+            'token' => 'plain-reset-token',
+            'password' => 'Zx9!kP2#qL5@wN8&',
+            'password_confirmation' => 'Zx9!kP2#qL5@wN8&',
+        ]);
     }
 }
