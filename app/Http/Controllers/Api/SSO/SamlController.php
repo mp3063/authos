@@ -230,6 +230,7 @@ class SamlController extends Controller
             $attributes = [
                 'ip_address' => $request->ip() ?? '127.0.0.1',
                 'user_agent' => $request->userAgent() ?? 'SAML IdP-Initiated',
+                'new_session' => true,
                 'metadata' => [
                     'flow' => 'idp_initiated',
                     'issuer' => $userInfo['issuer'],

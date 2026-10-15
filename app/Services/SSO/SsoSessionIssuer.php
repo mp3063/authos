@@ -3,6 +3,7 @@
 namespace App\Services\SSO;
 
 use App\Models\SSOConfiguration;
+use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\Auth\MfaChallengeStore;
 use App\Services\Auth\MfaSetupTokenIssuer;
@@ -19,12 +20,22 @@ class SsoSessionIssuer
     ) {}
 
     /**
-     * @param  array{ip_address: string, user_agent: string, metadata?: array<string, mixed>}  $attributes
+     * @param  array{ip_address: string, user_agent: string, new_session?: bool, metadata?: array<string, mixed>}  $attributes
      */
     public function issue(User $user, SSOConfiguration $configuration, array $attributes): array
     {
         $application = $configuration->application->setRelation('ssoConfiguration', $configuration);
-        $session = $this->sessions->createOrUpdateSession($user, $application, $attributes['ip_address'], $attributes['user_agent']);
+        $expiresAt = now()->addSeconds($configuration->getSessionLifetimeInSeconds());
+        $session = ($attributes['new_session'] ?? false)
+            ? SSOSession::create([
+                'user_id' => $user->id,
+                'application_id' => $application->id,
+                'ip_address' => $attributes['ip_address'],
+                'user_agent' => $attributes['user_agent'],
+                'expires_at' => $expiresAt,
+            ])
+            : $this->sessions->createOrUpdateSession($user, $application, $attributes['ip_address'], $attributes['user_agent']);
+        $session->expires_at = $expiresAt;
         $this->sessions->updateSessionMetadata($session, $attributes['metadata'] ?? []);
 
         return [
@@ -53,7 +64,7 @@ class SsoSessionIssuer
     }
 
     /**
-     * @param  array{ip_address: string, user_agent: string, metadata?: array<string, mixed>}  $attributes
+     * @param  array{ip_address: string, user_agent: string, new_session?: bool, metadata?: array<string, mixed>}  $attributes
      */
     public function challenge(User $user, SSOConfiguration $configuration, array $attributes): array
     {

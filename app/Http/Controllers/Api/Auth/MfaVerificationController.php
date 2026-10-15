@@ -153,13 +153,14 @@ class MfaVerificationController extends Controller
         }
 
         $result = $this->ssoSessions->issue($user, $configuration, $context['attributes']);
+        $method = $this->verifiedMethod($request);
 
         $this->authLogService->logAuthenticationEvent(
             $user,
             'sso_login_success',
             [
                 'mfa_verified' => true,
-                'method' => $request->totp_code ? 'totp' : 'recovery_code',
+                'method' => $method,
                 'sso_configuration_id' => $configuration->id,
                 'session_id' => $result['session']['id'],
             ],
@@ -167,7 +168,24 @@ class MfaVerificationController extends Controller
             true
         );
 
-        return response()->json($result);
+        return response()->json($this->withRecoveryCodeWarning($result, $user, $method));
+    }
+
+    private function verifiedMethod(Request $request): string
+    {
+        return $request->totp_code ? 'totp' : 'recovery_code';
+    }
+
+    private function withRecoveryCodeWarning(array $response, User $user, string $method): array
+    {
+        if ($method === 'recovery_code') {
+            $remainingCodes = count($user->fresh()->two_factor_recovery_codes ?? []);
+            if ($remainingCodes <= 2) {
+                $response['warning'] = "Only {$remainingCodes} recovery codes remaining. Please regenerate new codes.";
+            }
+        }
+
+        return $response;
     }
 
     /**
@@ -259,7 +277,7 @@ class MfaVerificationController extends Controller
         $scopes = ['openid', 'profile', 'email'];
         $tokenResult = $user->createToken('API Access Token', $scopes);
         $token = $tokenResult->token;
-        $method = $request->totp_code ? 'totp' : 'recovery_code';
+        $method = $this->verifiedMethod($request);
 
         LoginSuccessful::dispatch(
             $user,
@@ -301,15 +319,7 @@ class MfaVerificationController extends Controller
             'scopes' => implode(' ', $scopes),
         ];
 
-        // Warn if recovery code was used and count is low
-        if ($method === 'recovery_code') {
-            $remainingCodes = count($user->fresh()->two_factor_recovery_codes ?? []);
-            if ($remainingCodes <= 2) {
-                $response['warning'] = "Only {$remainingCodes} recovery codes remaining. Please regenerate new codes.";
-            }
-        }
-
-        return response()->json($response);
+        return response()->json($this->withRecoveryCodeWarning($response, $user, $method));
     }
 
     private function invalidCodeResponse(Request $request, User $user): JsonResponse

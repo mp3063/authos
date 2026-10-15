@@ -298,6 +298,7 @@ class SSOService
     public function validateSAMLResponse(string $samlResponse, string|int $requestId, string $acsUrl): array
     {
         $expectedInResponseTo = null;
+        $session = null;
 
         // Find the SSO session by request ID in metadata or external_session_id if it's a string, otherwise treat as application ID
         if (is_string($requestId)) {
@@ -334,6 +335,7 @@ class SSOService
         return [
             'user_info' => $userInfo,
             'application_id' => $application->id,
+            'pending_session' => $session,
             'validated_at' => now(),
             'success' => true,
         ];
@@ -372,9 +374,13 @@ class SSOService
             'user_agent' => request()->userAgent() ?? 'SAML Client',
         ];
 
-        return $user->requiresMfa()
-            ? $this->sessionIssuer->challenge($user, $application->ssoConfiguration, $attributes)
-            : $this->sessionIssuer->issue($user, $application->ssoConfiguration, $attributes);
+        if (! $user->requiresMfa()) {
+            return $this->sessionIssuer->issue($user, $application->ssoConfiguration, $attributes);
+        }
+
+        $validationResult['pending_session']?->delete();
+
+        return $this->sessionIssuer->challenge($user, $application->ssoConfiguration, $attributes);
     }
 
     /**

@@ -77,7 +77,7 @@ class SsoMfaEnforcementTest extends IntegrationTestCase
             ->assertJsonMissingPath('session')
             ->assertJsonMissingPath('tokens');
         $this->assertNotEmpty($response->json('challenge_token'));
-        $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
+        $this->assertDatabaseCount('sso_sessions', 0);
     }
 
     #[Test]
@@ -93,11 +93,12 @@ class SsoMfaEnforcementTest extends IntegrationTestCase
         $response->assertOk()
             ->assertJsonPath('user.id', $user->id)
             ->assertJsonPath('application.id', $application->id);
-        $sessions = SSOSession::where('user_id', $user->id)->get();
-        $this->assertCount(1, $sessions);
-        $this->assertSame($sessions->first()->session_token, $response->json('session.session_token'));
+        $this->assertDatabaseCount('sso_sessions', 1);
+        $session = SSOSession::firstOrFail();
+        $this->assertSame($user->id, $session->user_id);
+        $this->assertSame($session->session_token, $response->json('session.session_token'));
         $this->verifyChallenge($challengeToken, $user)->assertUnauthorized();
-        $this->assertSame(1, SSOSession::where('user_id', $user->id)->count());
+        $this->assertDatabaseCount('sso_sessions', 1);
     }
 
     #[Test]
@@ -152,6 +153,37 @@ class SsoMfaEnforcementTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_refuses_the_sso_session_when_the_configuration_moved_to_another_organization_before_verification(): void
+    {
+        $user = User::factory()->withMfa()->create();
+        $application = $this->createSamlApplication($user);
+        $challengeToken = $this->postIdpInitiatedAssertion($user)->json('challenge_token');
+        $application->update(['organization_id' => Organization::factory()->create()->id]);
+
+        $response = $this->verifyChallenge($challengeToken, $user);
+
+        $response->assertUnauthorized()->assertJsonMissingPath('session');
+        $this->assertDatabaseCount('sso_sessions', 0);
+    }
+
+    #[Test]
+    public function it_warns_about_low_recovery_codes_when_a_recovery_code_verifies_the_sso_challenge(): void
+    {
+        $user = User::factory()->withMfa()->create(['two_factor_recovery_codes' => ['code-one-aaaa', 'code-two-bbbb']]);
+        $this->createSamlApplication($user);
+        $challengeToken = $this->postIdpInitiatedAssertion($user)->json('challenge_token');
+
+        $response = $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $challengeToken,
+            'recovery_code' => 'code-one-aaaa',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('warning', 'Only 1 recovery codes remaining. Please regenerate new codes.');
+        $this->assertNotEmpty($response->json('session.session_token'));
+    }
+
+    #[Test]
     public function it_returns_a_setup_token_for_sso_into_an_organization_that_requires_mfa(): void
     {
         $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
@@ -180,7 +212,50 @@ class SsoMfaEnforcementTest extends IntegrationTestCase
 
         $response->assertOk()->assertJsonPath('user.id', $user->id);
         $this->assertDatabaseCount('sso_sessions', 1);
-        $this->assertSame(SSOSession::firstOrFail()->session_token, $response->json('session.session_token'));
+        $session = SSOSession::firstOrFail();
+        $this->assertSame($session->session_token, $response->json('session.session_token'));
+        $this->assertExpiresAfterLifetime($session, 3600);
+    }
+
+    #[Test]
+    public function it_issues_a_fresh_sso_session_on_every_idp_initiated_login(): void
+    {
+        $user = User::factory()->create();
+        $application = $this->createSamlApplication($user);
+        $earlierSession = SSOSession::factory()->forUser($user)->create([
+            'application_id' => $application->id,
+            'expires_at' => now()->addMinutes(30),
+        ]);
+
+        $response = $this->postIdpInitiatedAssertion($user);
+
+        $response->assertOk();
+        $this->assertDatabaseCount('sso_sessions', 2);
+        $this->assertNotSame($earlierSession->session_token, $response->json('session.session_token'));
+        $this->assertEquals($earlierSession->expires_at, $earlierSession->fresh()->expires_at);
+        $this->assertExpiresAfterLifetime(SSOSession::where('session_token', $response->json('session.session_token'))->firstOrFail(), 3600);
+    }
+
+    #[Test]
+    public function it_issues_the_oidc_session_for_the_configured_lifetime_when_no_mfa_is_required(): void
+    {
+        $user = User::factory()->create();
+        $configuration = $this->createOidcConfiguration($user);
+        $configuration->update(['session_lifetime' => 300]);
+
+        $response = $this->completeOidcCallback($user, $configuration);
+
+        $response->assertOk();
+        $this->assertDatabaseCount('sso_sessions', 1);
+        $this->assertExpiresAfterLifetime(SSOSession::firstOrFail(), 300);
+    }
+
+    private function assertExpiresAfterLifetime(SSOSession $session, int $lifetimeSeconds): void
+    {
+        $this->assertTrue(
+            $session->expires_at->between(now()->addSeconds($lifetimeSeconds - 10), now()->addSeconds($lifetimeSeconds)),
+            "Session expires at {$session->expires_at}, expected about {$lifetimeSeconds}s from now"
+        );
     }
 
     private function createOidcConfiguration(User $user): SSOConfiguration
