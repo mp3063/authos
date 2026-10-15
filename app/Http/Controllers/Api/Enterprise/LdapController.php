@@ -51,7 +51,9 @@ class LdapController extends BaseController
                 'user_count' => $result['user_count'] ?? null,
             ], 'LDAP connection test completed');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('LDAP connection test failed', 500);
         }
     }
 
@@ -70,7 +72,9 @@ class LdapController extends BaseController
                 ],
             ], 'LDAP user sync completed');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('LDAP user sync failed', 500);
         }
     }
 
@@ -84,7 +88,9 @@ class LdapController extends BaseController
 
             return $this->successResponse($users, 'LDAP users retrieved successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve LDAP users', 500);
         }
     }
 
@@ -126,7 +132,9 @@ class LdapController extends BaseController
                 'ldap_config' => $config->makeHidden(['password']),
             ], 'LDAP configuration saved successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to save LDAP configuration', 500);
         }
     }
 

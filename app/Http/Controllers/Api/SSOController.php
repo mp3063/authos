@@ -137,19 +137,11 @@ class SSOController extends Controller
             ]);
 
         } catch (Exception $e) {
-            // Use 'error' field instead of 'message' for test compatibility
-            $errorMessage = $e->getMessage();
-
-            // Map specific error messages for consistency
-            if (str_contains($errorMessage, 'Invalid or expired authorization code')) {
-                $errorMessage = 'Invalid or expired SSO session';
-            } elseif (str_contains($errorMessage, 'Undefined array key "user"')) {
-                $errorMessage = 'Token exchange failed';
-            }
+            report($e);
 
             return response()->json([
                 'success' => false,
-                'error' => $errorMessage,
+                'error' => 'SSO authentication failed',
             ], 400);
         }
     }

@@ -111,7 +111,9 @@ class BrandingController extends BaseController
 
             return $this->successResponse(['logo_url' => $logoUrl], 'Logo uploaded successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Logo upload failed', 500);
         }
     }
 
@@ -133,7 +135,9 @@ class BrandingController extends BaseController
 
             return $this->successResponse(['background_url' => $backgroundUrl], 'Background uploaded successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Background upload failed', 500);
         }
     }
 
