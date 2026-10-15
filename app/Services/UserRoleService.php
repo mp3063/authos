@@ -146,6 +146,22 @@ class UserRoleService
     }
 
     /**
+     * Validation rule: the role is global or belongs to the organization; a super admin without a target organization is unscoped.
+     */
+    public function organizationRoleRule(User $caller, ?int $organizationId, string $column): Exists
+    {
+        $rule = Rule::exists('roles', $column);
+
+        if ($caller->isSuperAdmin() && $organizationId === null) {
+            return $rule;
+        }
+
+        return $rule->where(fn (QueryBuilder $query) => $query
+            ->whereNull('organization_id')
+            ->orWhere('organization_id', $organizationId));
+    }
+
+    /**
      * @param  list<string>  $names
      * @return EloquentCollection<int, Role>
      */

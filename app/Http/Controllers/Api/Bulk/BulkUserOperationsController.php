@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class BulkUserOperationsController extends BaseController
@@ -129,7 +130,7 @@ class BulkUserOperationsController extends BaseController
             'user_ids' => 'required|array|min:1|max:100',
             'user_ids.*' => 'required|integer', // Allow non-existent IDs for error handling
             'custom_roles' => 'sometimes|array|min:1',
-            'custom_roles.*' => 'exists:custom_roles,id',
+            'custom_roles.*' => [Rule::exists('custom_roles', 'id')->where('organization_id', $organization->id)],
             'role' => 'sometimes|string',
             'action' => 'sometimes|string|in:assign,revoke,remove',
         ]);

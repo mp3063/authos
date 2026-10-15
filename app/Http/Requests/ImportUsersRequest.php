@@ -84,7 +84,6 @@ class ImportUsersRequest extends FormRequest
             'file.mimes' => 'File must be in CSV, JSON, or Excel format',
             'format.required' => 'File format is required',
             'format.in' => 'Invalid file format. Allowed: csv, json, xlsx, xls',
-            'default_role.exists' => 'The specified default role does not exist',
         ];
     }
 

@@ -40,7 +40,11 @@ class UserController extends BaseController
         // Additional validation for user-specific filters
         $request->validate([
             'organization_id' => 'sometimes|integer|exists:organizations,id',
-            'role' => 'sometimes|string|exists:roles,name',
+            'role' => ['sometimes', 'string', $this->userRoleService->organizationRoleRule(
+                $request->user(),
+                $request->user()->isSuperAdmin() ? $request->integer('organization_id') ?: null : $request->user()->organization_id,
+                'name',
+            )],
             'mfa_enabled' => 'sometimes|boolean',
         ]);
 

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\BulkImportJob;
+use App\Services\UserRoleService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ExportUsersRequest extends FormRequest
@@ -40,7 +41,7 @@ class ExportUsersRequest extends FormRequest
             ],
             'roles.*' => [
                 'string',
-                'exists:roles,name',
+                app(UserRoleService::class)->organizationRoleRule($this->user(), $this->integer('organization_id') ?: null, 'name'),
             ],
             'date_from' => [
                 'sometimes',
