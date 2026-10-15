@@ -9,6 +9,7 @@ use App\Models\OrganizationBranding;
 use App\Services\Auth0\DTOs\Auth0OrganizationDTO;
 use App\Services\Auth0\Migration\ImportResult;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrganizationImporter
 {
@@ -57,6 +58,7 @@ class OrganizationImporter
             // Create organization
             $organization = Organization::create([
                 'name' => $auth0Org->name,
+                'slug' => $this->uniqueSlug($auth0Org->name),
                 'display_name' => $auth0Org->displayName,
                 'is_active' => true,
             ]);
@@ -71,6 +73,18 @@ class OrganizationImporter
 
             return $organization;
         });
+    }
+
+    private function uniqueSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'organization';
+        $slug = $base;
+
+        for ($suffix = 2; Organization::where('slug', $slug)->exists(); $suffix++) {
+            $slug = $base.'-'.$suffix;
+        }
+
+        return $slug;
     }
 
     /**
