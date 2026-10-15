@@ -1119,45 +1119,42 @@ class SsoFlowsTest extends EndToEndTestCase
      */
     public function test_sso_with_mfa_requirements(): void
     {
-        // Enable MFA for organization
         $this->defaultOrganization->update([
             'settings' => array_merge($this->defaultOrganization->settings, [
                 'require_mfa' => true,
             ]),
         ]);
-
-        // Setup MFA for user
         $this->regularUser->update([
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
             'mfa_methods' => ['totp'],
-            'mfa_secret' => 'test_mfa_secret',
         ]);
-
         Passport::actingAs($this->regularUser, ['sso']);
-
-        // Initiate SSO flow
-        $initiateResponse = $this->postJson('/api/v1/sso/initiate', [
+        $initiateData = $this->postJson('/api/v1/sso/initiate', [
             'application_id' => $this->oidcApplication->id,
             'sso_configuration_id' => $this->oidcConfiguration->id,
             'redirect_uri' => 'https://oidc-sso-test-app.example.com/callback',
-        ]);
+        ])->assertStatus(200)->json();
 
-        $initiateResponse->assertStatus(200);
-        $initiateData = $initiateResponse->json();
-
-        // Verify MFA context is included in SSO metadata
-        $session = SSOSession::where('session_token', $initiateData['session_token'])->first();
-
-        // Complete SSO callback
         $callbackResponse = $this->postJson('/api/v1/sso/callback', [
             'code' => 'mfa_test_code',
             'state' => $initiateData['state'],
         ]);
 
-        $callbackResponse->assertStatus(200);
+        $callbackResponse->assertStatus(202)
+            ->assertJsonPath('mfa_required', true)
+            ->assertJsonMissingPath('session');
+        $this->assertDatabaseMissing('sso_sessions', ['session_token' => $initiateData['session_token']]);
 
-        // Verify MFA status is preserved in session
-        $session->refresh();
-        $this->assertArrayHasKey('mfa_verified', $session->metadata);
+        $verifyResponse = $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $callbackResponse->json('challenge_token'),
+            'totp_code' => $this->totpCodeFor($this->regularUser->fresh()),
+        ]);
+
+        $verifyResponse->assertStatus(200)->assertJsonPath('user.id', $this->regularUser->id);
+        $session = SSOSession::where('session_token', $verifyResponse->json('session.session_token'))->firstOrFail();
+        $this->assertSame($this->oidcApplication->id, $session->application_id);
+        $this->assertTrue($session->isActive());
     }
 
     /**

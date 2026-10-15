@@ -13,7 +13,10 @@ use InvalidArgumentException;
 
 class OidcFlowService
 {
-    public function __construct(private readonly SsoSessionManager $sessions) {}
+    public function __construct(
+        private readonly SsoSessionManager $sessions,
+        private readonly SsoSessionIssuer $issuer,
+    ) {}
 
     /**
      * Handle OIDC callback processing
@@ -61,19 +64,27 @@ class OidcFlowService
             ];
         }
 
-        $this->sessions->updateSessionMetadata($session, [
-            'access_token' => $exchange['access_token'],
-            'id_token' => $exchange['id_token'],
-            'refresh_token' => $exchange['refresh_token'],
-            'user_info' => $exchange['user_info'],
-        ]);
+        $user = $session->user;
+        $attributes = [
+            'ip_address' => $session->ip_address,
+            'user_agent' => $session->user_agent,
+            'metadata' => array_merge($session->metadata ?? [], [
+                'access_token' => $exchange['access_token'],
+                'id_token' => $exchange['id_token'],
+                'refresh_token' => $exchange['refresh_token'],
+                'user_info' => $exchange['user_info'],
+            ]),
+        ];
+
+        if ($user->requiresMfa()) {
+            $session->delete();
+
+            return $this->issuer->challenge($user, $ssoConfig, $attributes);
+        }
 
         $this->logLoginResult($session, $exchange['successful']);
 
-        // Refresh session to make sure we have the latest data
-        $session->refresh();
-
-        return $this->buildCallbackResult($session, $exchange['successful']);
+        return $this->buildCallbackResult($this->issuer->issue($user, $ssoConfig, $attributes), $exchange['successful']);
     }
 
     /**
@@ -314,24 +325,10 @@ class OidcFlowService
         ]);
     }
 
-    private function buildCallbackResult(SSOSession $session, bool $successful): array
+    private function buildCallbackResult(array $result, bool $successful): array
     {
-        $result = [
-            'success' => $successful,
-            'user' => [
-                'id' => $session->user->id,
-                'name' => $session->user->name,
-                'email' => $session->user->email,
-            ],
-            'session' => [
-                'id' => $session->id,
-                'session_token' => $session->session_token,
-                'token' => $session->session_token,
-                'expires_at' => $session->expires_at->toISOString(),
-            ],
-        ];
+        $result['success'] = $successful;
 
-        // Add error message when authentication fails
         if (! $successful) {
             $result['error'] = 'Token exchange failed';
         }

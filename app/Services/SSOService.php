@@ -9,6 +9,7 @@ use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\Saml\SamlSignatureValidator;
 use App\Services\SSO\SsoAccessPolicy;
+use App\Services\SSO\SsoSessionIssuer;
 use App\Services\SSO\SsoSessionManager;
 use Exception;
 use Illuminate\Support\Str;
@@ -21,6 +22,7 @@ class SSOService
         protected SamlSignatureValidator $signatureValidator,
         protected SsoSessionManager $sessions,
         protected SsoAccessPolicy $accessPolicy,
+        protected SsoSessionIssuer $sessionIssuer,
     ) {}
 
     /**
@@ -86,19 +88,11 @@ class SSOService
         ]);
 
         // Store state in session metadata and external_session_id for callback lookup
-        // Include MFA status if required by organization
         $metadata = [
             'state' => $state,
             'redirect_uri' => $redirectUri ?? $ssoConfig->callback_url,
             'scopes' => $allowedScopes,
         ];
-
-        // Add MFA status if MFA is enabled for user/organization
-        $orgMfaRequired = $user->organization && is_array($user->organization->settings) && (($user->organization->settings['require_mfa'] ?? false));
-
-        if ($user->mfa_enabled || $orgMfaRequired) {
-            $metadata['mfa_verified'] = $user->mfa_enabled;
-        }
 
         // Update external_session_id and metadata separately to avoid guarded attribute issues
         $session->external_session_id = $state;
@@ -373,32 +367,14 @@ class SSOService
             throw new Exception('User not found: '.$userInfo['email']);
         }
 
-        // Create SSO session
-        $session = $this->sessions->createOrUpdateSession($user, $application, request()->ip() ?? '127.0.0.1', request()->userAgent() ?? 'SAML Client');
-
-        // Generate tokens for the response
-        $tokens = [
-            'access_token' => $session->session_token,
-            'token_type' => 'Bearer',
-            'expires_in' => $session->expires_at->timestamp - now()->timestamp,
+        $attributes = [
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => request()->userAgent() ?? 'SAML Client',
         ];
 
-        return [
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-            'session' => [
-                'id' => $session->id,
-                'expires_at' => $session->expires_at->toISOString(),
-            ],
-            'application' => [
-                'id' => $application->id,
-                'name' => $application->name,
-            ],
-            'tokens' => $tokens,
-        ];
+        return $user->requiresMfa()
+            ? $this->sessionIssuer->challenge($user, $application->ssoConfiguration, $attributes)
+            : $this->sessionIssuer->issue($user, $application->ssoConfiguration, $attributes);
     }
 
     /**

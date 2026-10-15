@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Events\Auth\LoginSuccessful;
 use App\Events\AuthLoginEvent;
 use App\Http\Controllers\Controller;
+use App\Models\SSOConfiguration;
 use App\Models\User;
 use App\Services\Auth\MfaChallengeStore;
 use App\Services\Auth\MfaCodeVerifier;
 use App\Services\AuthenticationLogService;
+use App\Services\SSO\SsoSessionIssuer;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ class MfaVerificationController extends Controller
         protected AuthenticationLogService $authLogService,
         protected MfaChallengeStore $challenges,
         protected MfaCodeVerifier $codeVerifier,
+        protected SsoSessionIssuer $ssoSessions,
     ) {}
 
     /**
@@ -120,7 +123,51 @@ class MfaVerificationController extends Controller
             $this->challenges->forget($request->challenge_token);
         }
 
+        if (($challengeData['context']['kind'] ?? null) === 'sso') {
+            return $this->issueSsoSession($request, $user, $challengeData['context']);
+        }
+
         return $this->issueTokens($request, $user);
+    }
+
+    /**
+     * @param  array{sso_configuration_id: int, attributes: array{ip_address: string, user_agent: string, metadata?: array<string, mixed>}}  $context
+     */
+    private function issueSsoSession(Request $request, User $user, array $context): JsonResponse
+    {
+        $configuration = SSOConfiguration::with('application')->find($context['sso_configuration_id']);
+
+        if (! $configuration?->is_active || $configuration->application?->organization_id !== $user->organization_id) {
+            $this->authLogService->logAuthenticationEvent(
+                $user,
+                'sso_login_failed',
+                ['reason' => 'sso_configuration_unavailable', 'sso_configuration_id' => $context['sso_configuration_id']],
+                $request,
+                false
+            );
+
+            return response()->json([
+                'error' => 'invalid_grant',
+                'error_description' => 'The SSO configuration is no longer available.',
+            ], 401);
+        }
+
+        $result = $this->ssoSessions->issue($user, $configuration, $context['attributes']);
+
+        $this->authLogService->logAuthenticationEvent(
+            $user,
+            'sso_login_success',
+            [
+                'mfa_verified' => true,
+                'method' => $request->totp_code ? 'totp' : 'recovery_code',
+                'sso_configuration_id' => $configuration->id,
+                'session_id' => $result['session']['id'],
+            ],
+            $request,
+            true
+        );
+
+        return response()->json($result);
     }
 
     /**

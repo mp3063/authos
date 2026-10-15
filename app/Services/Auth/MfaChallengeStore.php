@@ -9,7 +9,7 @@ class MfaChallengeStore
     /**
      * Generate cryptographically secure MFA challenge token
      */
-    public function create(User $user): string
+    public function create(User $user, array $context = []): string
     {
         // Generate cryptographically secure random token (64 characters)
         $token = bin2hex(random_bytes(32));
@@ -23,6 +23,7 @@ class MfaChallengeStore
                 'user_agent' => request()->userAgent(),
                 'created_at' => now()->toISOString(),
                 'attempts' => 0,
+                'context' => $context,
             ]),
             now()->addMinutes(5)
         );

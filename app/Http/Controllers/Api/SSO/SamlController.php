@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api\SSO;
 
 use App\Http\Controllers\Controller;
 use App\Models\SSOConfiguration;
-use App\Models\SSOSession;
 use App\Models\User;
 use App\Services\Saml\SamlMessageBuilder;
 use App\Services\Saml\SamlSignatureValidator;
 use App\Services\SamlService;
+use App\Services\SSO\SsoSessionIssuer;
 use App\Services\SSO\SsoSessionManager;
 use App\Services\SSOService;
 use Exception;
@@ -24,6 +24,7 @@ class SamlController extends Controller
         protected SamlSignatureValidator $signatureValidator,
         protected SamlMessageBuilder $messageBuilder,
         protected SsoSessionManager $sessions,
+        protected SsoSessionIssuer $sessionIssuer,
     ) {}
 
     /**
@@ -42,6 +43,11 @@ class SamlController extends Controller
                 $request->RelayState,
                 $request->url()
             );
+
+            $challengeResponse = $this->sessionIssuer->challengeResponse($result);
+            if ($challengeResponse) {
+                return $challengeResponse;
+            }
 
             return response()->json([
                 'success' => true,
@@ -221,43 +227,22 @@ class SamlController extends Controller
                 ], 404);
             }
 
-            // Create SSO session
-            $session = SSOSession::create([
-                'user_id' => $user->id,
-                'application_id' => $application->id,
+            $attributes = [
                 'ip_address' => $request->ip() ?? '127.0.0.1',
                 'user_agent' => $request->userAgent() ?? 'SAML IdP-Initiated',
-                'expires_at' => now()->addSeconds($ssoConfig->getSessionLifetimeInSeconds()),
                 'metadata' => [
                     'flow' => 'idp_initiated',
                     'issuer' => $userInfo['issuer'],
                     'session_index' => $userInfo['session_index'],
                     'name_id' => $userInfo['name_id'],
                 ],
-            ]);
+            ];
 
-            return response()->json([
-                'success' => true,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
-                'session' => [
-                    'id' => $session->id,
-                    'session_token' => $session->session_token,
-                    'expires_at' => $session->expires_at->toISOString(),
-                ],
-                'application' => [
-                    'id' => $application->id,
-                    'name' => $application->name,
-                ],
-                'tokens' => [
-                    'access_token' => $session->session_token,
-                    'token_type' => 'Bearer',
-                    'expires_in' => $session->expires_at->timestamp - now()->timestamp,
-                ],
-            ]);
+            $result = $user->requiresMfa()
+                ? $this->sessionIssuer->challenge($user, $ssoConfig, $attributes)
+                : $this->sessionIssuer->issue($user, $ssoConfig, $attributes);
+
+            return $this->sessionIssuer->challengeResponse($result) ?? response()->json($result);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,

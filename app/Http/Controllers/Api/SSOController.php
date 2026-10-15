@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\SSOConfiguration;
 use App\Services\SSO\OidcFlowService;
+use App\Services\SSO\SsoSessionIssuer;
 use App\Services\SSO\SsoSessionManager;
 use App\Services\SSOService;
 use Exception;
@@ -19,6 +20,7 @@ class SSOController extends Controller
         protected SSOService $ssoService,
         protected SsoSessionManager $sessions,
         protected OidcFlowService $oidcFlow,
+        protected SsoSessionIssuer $sessionIssuer,
     ) {}
 
     /**
@@ -112,6 +114,11 @@ class SSOController extends Controller
                 'code' => $request->code,
                 'state' => $request->state ?? 'default-state',
             ]);
+
+            $challengeResponse = $this->sessionIssuer->challengeResponse($result);
+            if ($challengeResponse) {
+                return $challengeResponse;
+            }
 
             return response()->json([
                 'success' => $result['success'],
