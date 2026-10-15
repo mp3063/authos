@@ -11,6 +11,8 @@ use App\Services\Security\AccountLockoutService;
 use App\Services\Security\SecurityIncidentService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class AccountLockoutServiceTest extends TestCase
@@ -22,12 +24,12 @@ class AccountLockoutServiceTest extends TestCase
         parent::setUp();
 
         // Mock the SecurityIncidentService dependency
-        $incidentService = $this->createMock(SecurityIncidentService::class);
+        $incidentService = $this->createStub(SecurityIncidentService::class);
         $this->service = new AccountLockoutService($incidentService);
         Notification::fake();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_applies_lockout_when_threshold_exceeded(): void
     {
         $email = 'test@example.com';
@@ -52,7 +54,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertNotNull($lockout->unlock_at);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_apply_lockout_below_threshold(): void
     {
         $email = 'test@example.com';
@@ -71,8 +73,8 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertNull($lockout);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    #[\PHPUnit\Framework\Attributes\DataProvider('lockoutDurationProvider')]
+    #[Test]
+    #[DataProvider('lockoutDurationProvider')]
     public function it_applies_progressive_lockout_durations(int $attempts, int $expectedDuration): void
     {
         $email = 'test@example.com';
@@ -107,7 +109,7 @@ class AccountLockoutServiceTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_locks_account_manually(): void
     {
         $email = 'test@example.com';
@@ -130,7 +132,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertNotNull($lockout->unlock_at);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_sends_notification_on_lockout(): void
     {
         $user = User::factory()->create(['email' => 'test@example.com']);
@@ -143,7 +145,7 @@ class AccountLockoutServiceTest extends TestCase
         Notification::assertSentTo($user, AccountLockedNotification::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_checks_if_account_is_locked(): void
     {
         $email = 'test@example.com';
@@ -159,7 +161,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_checks_account_not_locked_when_expired(): void
     {
         $email = 'test@example.com';
@@ -175,7 +177,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_checks_account_not_locked_when_unlocked(): void
     {
         $email = 'test@example.com';
@@ -191,7 +193,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_gets_active_lockout(): void
     {
         $email = 'test@example.com';
@@ -208,7 +210,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEquals($created->id, $lockout->id);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_unlocks_account(): void
     {
         $email = 'test@example.com';
@@ -233,7 +235,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEquals('auto', $lockout->unlock_method);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_sends_notification_on_unlock(): void
     {
         $user = User::factory()->create(['email' => 'test@example.com']);
@@ -253,7 +255,7 @@ class AccountLockoutServiceTest extends TestCase
         Notification::assertSentTo($user, AccountUnlockedNotification::class);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_false_when_unlocking_non_locked_account(): void
     {
         $email = 'nonexistent@example.com';
@@ -263,7 +265,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_unlocks_by_admin(): void
     {
         $user = User::factory()->create(['email' => 'test@example.com']);
@@ -287,7 +289,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEquals('admin', $lockout->unlock_method);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_auto_unlocks_expired_accounts(): void
     {
         $user1 = User::factory()->create(['email' => 'user1@example.com']);
@@ -328,7 +330,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertNull(AccountLockout::where('email', 'user3@example.com')->first()->unlocked_at);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calculates_remaining_lockout_time(): void
     {
         $email = 'test@example.com';
@@ -345,7 +347,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEqualsWithDelta(45, $remaining, 1);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_null_remaining_time_for_unlocked_account(): void
     {
         $email = 'test@example.com';
@@ -355,7 +357,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertNull($remaining);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_zero_for_expired_lockout(): void
     {
         $email = 'test@example.com';
@@ -371,7 +373,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEquals(0, $remaining);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_failed_attempts_after_successful_login(): void
     {
         $email = 'test@example.com';
@@ -393,7 +395,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertEquals(1, FailedLoginAttempt::where('email', $email)->count());
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_creates_permanent_lockout(): void
     {
         $email = 'test@example.com';
@@ -414,7 +416,7 @@ class AccountLockoutServiceTest extends TestCase
         $this->assertStringContainsString('permanently locked', $lockout->reason);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_lockout_without_user(): void
     {
         $email = 'nonexistent@example.com';

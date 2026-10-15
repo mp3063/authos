@@ -14,8 +14,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 class IntrusionDetectionServiceTest extends TestCase
 {
     private IntrusionDetectionService $service;
@@ -32,7 +36,7 @@ class IntrusionDetectionServiceTest extends TestCase
 
         $this->incidentService = $this->createMock(SecurityIncidentService::class);
         $this->ipBlocklistService = $this->createMock(IpBlocklistService::class);
-        $this->lockoutService = $this->createMock(AccountLockoutService::class);
+        $this->lockoutService = $this->createStub(AccountLockoutService::class);
 
         $this->service = new IntrusionDetectionService(
             $this->incidentService,
@@ -41,7 +45,7 @@ class IntrusionDetectionServiceTest extends TestCase
         );
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_brute_force_attack_by_email(): void
     {
         $email = 'test@example.com';
@@ -71,7 +75,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_brute_force_attack_by_ip(): void
     {
         $email = 'test@example.com';
@@ -97,7 +101,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_auto_blocks_ip_on_severe_brute_force(): void
     {
         $email = 'test@example.com';
@@ -123,7 +127,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->service->detectBruteForce($email, $ipAddress);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_detect_brute_force_below_threshold(): void
     {
         $email = 'test@example.com';
@@ -148,7 +152,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_credential_stuffing_attack(): void
     {
         $ipAddress = '192.168.1.1';
@@ -180,7 +184,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_detect_credential_stuffing_below_threshold(): void
     {
         $ipAddress = '192.168.1.1';
@@ -204,7 +208,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_anomalous_api_activity(): void
     {
         $ipAddress = '192.168.1.1';
@@ -233,7 +237,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_sql_injection_attempts(): void
     {
         $request = Request::create('/api/search', 'GET', [
@@ -252,8 +256,8 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    #[\PHPUnit\Framework\Attributes\DataProvider('sqlInjectionProvider')]
+    #[Test]
+    #[DataProvider('sqlInjectionProvider')]
     public function it_detects_various_sql_injection_patterns(string $maliciousInput): void
     {
         $request = Request::create('/api/test', 'GET', [
@@ -281,7 +285,7 @@ class IntrusionDetectionServiceTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_xss_attempts(): void
     {
         $request = Request::create('/api/comment', 'POST', [
@@ -299,8 +303,8 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
-    #[\PHPUnit\Framework\Attributes\DataProvider('xssProvider')]
+    #[Test]
+    #[DataProvider('xssProvider')]
     public function it_detects_various_xss_patterns(string $maliciousInput): void
     {
         $request = Request::create('/api/test', 'POST', [
@@ -328,7 +332,7 @@ class IntrusionDetectionServiceTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_detects_unusual_login_pattern_different_ip(): void
     {
         $user = User::factory()->create();
@@ -359,7 +363,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_detect_unusual_pattern_same_ip(): void
     {
         $user = User::factory()->create();
@@ -383,7 +387,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_records_failed_login_attempt(): void
     {
         $email = 'test@example.com';
@@ -403,7 +407,7 @@ class IntrusionDetectionServiceTest extends TestCase
         ]);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_checks_if_ip_is_blocked(): void
     {
         $ipAddress = '192.168.1.1';
@@ -419,7 +423,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_checks_ip_not_blocked_when_expired(): void
     {
         $ipAddress = '192.168.1.1';
@@ -435,7 +439,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calculates_ip_security_score(): void
     {
         $ipAddress = '192.168.1.1';
@@ -465,7 +469,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $score);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_perfect_score_for_clean_ip(): void
     {
         $ipAddress = '192.168.1.1';
@@ -475,7 +479,7 @@ class IntrusionDetectionServiceTest extends TestCase
         $this->assertEquals(100, $score);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_does_not_detect_safe_input(): void
     {
         $request = Request::create('/api/search', 'GET', [
