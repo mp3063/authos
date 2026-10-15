@@ -133,6 +133,8 @@ class MfaController extends BaseController
             $request
         );
 
+        $this->revokeSetupToken($user);
+
         return response()->json([
             'data' => [
                 'backup_codes' => $backupCodes,
@@ -321,9 +323,7 @@ class MfaController extends BaseController
         // Send MFA setup confirmation email
         Mail::to($user)->send(new MfaSetupConfirmation($user, ['totp']));
 
-        if ($this->setupTokenIssuer->isSetupToken($user->token())) {
-            $user->token()->revoke();
-        }
+        $this->revokeSetupToken($user);
 
         return response()->json([
             'success' => true,
@@ -385,6 +385,13 @@ class MfaController extends BaseController
             ],
             'message' => 'MFA disabled successfully',
         ]);
+    }
+
+    private function revokeSetupToken(User $user): void
+    {
+        if ($this->setupTokenIssuer->isSetupToken($user->token())) {
+            $user->token()->revoke();
+        }
     }
 
     private function verifySecondFactor(User $user, ?string $code): bool

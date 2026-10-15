@@ -101,6 +101,19 @@ class MfaSetupTokenTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_revokes_the_setup_token_when_verify_totp_enables_mfa(): void
+    {
+        $user = $this->memberWhoMustSetUpMfa();
+        $token = $this->setupTokenFor($user);
+        $this->withBearer($token)->postJson('/api/v1/mfa/setup/totp')->assertOk();
+
+        $this->withBearer($token)->postJson('/api/v1/mfa/verify/totp', ['code' => $this->totpCodeFor($user->fresh())])->assertOk();
+        $response = $this->withBearer($token)->getJson('/api/v1/mfa/status');
+
+        $response->assertUnauthorized();
+    }
+
+    #[Test]
     public function it_does_not_restrict_a_token_with_the_wildcard_scope(): void
     {
         $user = $this->memberWhoMustSetUpMfa();
