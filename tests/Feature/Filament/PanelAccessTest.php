@@ -53,7 +53,8 @@ class PanelAccessTest extends IntegrationTestCase
         $socialAuth = Mockery::mock(SocialAuthService::class);
         $socialAuth->shouldReceive('isProviderSupported')->andReturnTrue();
         $socialAuth->shouldReceive('isProviderEnabled')->andReturnTrue();
-        $socialAuth->shouldReceive('handleCallback')->andReturn(['user' => $owner->fresh()], ['user' => $member->fresh()]);
+        $socialAuth->shouldReceive('resolveUser')->andReturn($owner->fresh(), $member->fresh());
+        $socialAuth->shouldReceive('logAuthentication');
         $this->app->instance(SocialAuthService::class, $socialAuth);
 
         $this->get('/auth/social/google/callback')->assertRedirect('/admin');

@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Auth\MfaChallengeStore;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use App\Services\SocialAuthService;
 use App\Services\UserRoleService;
@@ -29,7 +31,11 @@ class SocialAuthServiceTest extends TestCase
         parent::setUp();
 
         $this->mockAuthLogService = Mockery::mock(AuthenticationLogService::class);
-        $this->socialAuthService = new SocialAuthService($this->mockAuthLogService);
+        $this->socialAuthService = new SocialAuthService(
+            $this->mockAuthLogService,
+            app(MfaChallengeStore::class),
+            app(MfaSetupTokenIssuer::class)
+        );
 
         $this->mockSocialiteUser = Mockery::mock(SocialiteUser::class);
 

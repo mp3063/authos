@@ -4,11 +4,17 @@ namespace Tests\Integration\EndToEnd;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\SocialAuthService;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteTwoUser;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * End-to-End tests for Social Authentication and MFA workflows.
@@ -261,120 +267,124 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         // Note: Audit log verification skipped for mock implementation
     }
 
-    /**
-     * Test social authentication with MFA required organization
-     */
-    public function test_social_auth_with_mfa_required_organization(): void
+    private function signInThroughRealSocialAuthAs(string $provider, string $providerId, string $email): void
     {
-        // Create organization that requires MFA
-        $mfaOrg = Organization::factory()->create([
-            'name' => 'MFA Required Organization',
+        $this->app->forgetInstance(SocialAuthService::class);
+
+        $socialUser = (new SocialiteTwoUser)
+            ->setRaw(['id' => $providerId])
+            ->map(['id' => $providerId, 'name' => 'Social User', 'email' => $email, 'nickname' => null, 'avatar' => null])
+            ->setToken('provider-token');
+
+        $driver = Mockery::mock();
+        $driver->shouldReceive('stateless')->andReturnSelf();
+        $driver->shouldReceive('user')->andReturn($socialUser);
+        Socialite::shouldReceive('driver')->with($provider)->andReturn($driver);
+    }
+
+    private function panelOwner(array $attributes = []): User
+    {
+        $owner = $this->createUser(
+            ['organization_id' => $this->defaultOrganization->id, ...$attributes],
+            'Organization Owner',
+            'web'
+        );
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+
+        return $owner->unsetRelation('roles')->unsetRelation('permissions');
+    }
+
+    #[Test]
+    public function it_challenges_a_social_login_for_a_user_with_mfa(): void
+    {
+        $user = User::factory()->withMfa()->forOrganization($this->defaultOrganization)->create();
+        $this->signInThroughRealSocialAuthAs('github', 'github-mfa-user', $user->email);
+
+        $callback = $this->getJson('/api/v1/auth/social/github/callback');
+
+        $callback->assertStatus(202)
+            ->assertJsonPath('mfa_required', true)
+            ->assertJsonPath('available_methods', ['totp'])
+            ->assertJsonStructure(['challenge_token'])
+            ->assertJsonMissingPath('access_token')
+            ->assertJsonMissingPath('data.access_token');
+        $this->assertSame(0, $user->tokens()->count());
+        $this->assertAuditLogExists($user, 'mfa_required');
+
+        $verify = $this->postJson('/api/v1/auth/mfa/verify', [
+            'challenge_token' => $callback->json('challenge_token'),
+            'totp_code' => $this->totpCodeFor($user),
+        ]);
+
+        $verify->assertOk()->assertJsonStructure(['access_token']);
+    }
+
+    #[Test]
+    public function it_returns_a_setup_token_for_a_social_login_into_an_organization_that_requires_mfa(): void
+    {
+        Mail::fake();
+        $organization = Organization::factory()->create([
             'slug' => 'mfa-required-org',
-            'settings' => [
-                'require_mfa' => true,
-                'allow_registration' => true,
-            ],
+            'settings' => ['require_mfa' => true, 'allow_registration' => true],
         ]);
+        $this->signInThroughRealSocialAuthAs('github', 'github_987654321', 'social.mfa@example.com');
 
-        // Mock social authentication for new user
-        $mockUser = User::factory()->make([
-            'name' => 'Social MFA User',
-            'email' => 'social.mfa@example.com',
-            'provider' => 'github',
-            'provider_id' => 'github_987654321',
-            'organization_id' => $mfaOrg->id,
+        $callback = $this->getJson('/api/v1/auth/social/github/callback?organization='.$organization->slug);
+
+        $callback->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonStructure(['setup_token', 'token_type', 'expires_in'])
+            ->assertJsonMissingPath('access_token')
+            ->assertJsonMissingPath('data.access_token')
+            ->assertJsonMissingPath('challenge_token');
+        $user = User::where('email', 'social.mfa@example.com')->sole();
+        $this->assertSame($organization->id, $user->organization_id);
+        $this->assertSame(['mfa.setup'], $user->tokens()->sole()->scopes);
+        $this->assertAuditLogExists($user, 'mfa_setup_required');
+
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$callback->json('setup_token'))
+            ->postJson('/api/v1/mfa/setup')->assertOk();
+        $this->withHeader('Authorization', 'Bearer '.$callback->json('setup_token'))
+            ->postJson('/api/v1/mfa/enable', ['code' => $this->totpCodeFor($user->fresh())])->assertOk();
+        $this->flushHeaders();
+        $this->app['auth']->forgetGuards();
+
+        $nextCallback = $this->getJson('/api/v1/auth/social/github/callback?organization='.$organization->slug);
+
+        $nextCallback->assertStatus(202)->assertJsonPath('mfa_required', true);
+    }
+
+    #[Test]
+    public function it_refuses_a_social_web_login_for_a_user_who_requires_mfa(): void
+    {
+        $owner = $this->panelOwner([
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+            'mfa_methods' => ['totp'],
         ]);
+        $this->signInThroughRealSocialAuthAs('google', 'google-mfa-owner', $owner->email);
 
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderSupported')
-            ->with('github')
-            ->andReturn(true);
+        $response = $this->get('/auth/social/google/callback');
 
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderEnabled')
-            ->with('github')
-            ->andReturn(true);
+        $response->assertRedirect('/admin/login');
+        FilamentNotification::assertNotified('Sign in with your email, password and authenticator code.');
+        $this->assertTrue(auth()->guest());
+        $this->assertDatabaseMissing('oauth_access_tokens', ['user_id' => $owner->id]);
+    }
 
-        $this->mockSocialAuthService
-            ->shouldReceive('getRedirectUrl')
-            ->with('github', null)
-            ->andReturn('https://github.com/login/oauth/authorize?test=true');
+    #[Test]
+    public function it_still_signs_in_a_social_web_user_without_any_mfa_requirement(): void
+    {
+        $owner = $this->panelOwner();
+        $this->signInThroughRealSocialAuthAs('google', 'google-plain-owner', $owner->email);
 
-        $this->mockSocialAuthService
-            ->shouldReceive('handleCallback')
-            ->with('github', $mfaOrg->slug)
-            ->andReturn([
-                'user' => $mockUser,
-                'access_token' => 'jwt_token_'.uniqid(),
-                'refresh_token' => 'refresh_token_'.uniqid(),
-                'expires_in' => 3600,
-                'token_type' => 'Bearer',
-                'mfa_required' => true, // Organization requires MFA
-            ]);
+        $response = $this->get('/auth/social/google/callback');
 
-        // Step 1: Complete social authentication
-        $callbackResponse = $this->getJson('/api/v1/auth/social/github/callback?organization='.$mfaOrg->slug);
-
-        // Should succeed but require MFA setup
-        $this->assertUnifiedApiResponse($callbackResponse, 200);
-        $callbackData = $callbackResponse->json('data');
-
-        $this->assertTrue($callbackData['mfa_setup_required']);
-        $this->assertArrayHasKey('access_token', $callbackData);
-
-        // Step 2: Create the user if not exists and set up MFA to fully access the system
-        $user = User::where('email', 'social.mfa@example.com')->first();
-        if (! $user) {
-            $user = $this->createUser([
-                'name' => 'Social MFA User',
-                'email' => 'social.mfa@example.com',
-                'organization_id' => $mfaOrg->id,
-            ], 'User');
-        }
-        $this->actingAsApiUser($user);
-
-        $mfaSetupResponse = $this->postJson('/api/v1/mfa/setup');
-        $this->assertUnifiedApiResponse($mfaSetupResponse, 200);
-
-        $secret = $mfaSetupResponse->json('data.secret');
-        // Note: getCurrentOtp() exceptions are allowed to bubble up for proper test failure reporting
-        $totpCode = $this->google2FA->getCurrentOtp($secret);
-
-        $enableMfaResponse = $this->postJson('/api/v1/mfa/enable', [
-            'code' => $totpCode,
-        ]);
-
-        $this->assertUnifiedApiResponse($enableMfaResponse, 200);
-
-        // Step 3: Get the actual user with MFA enabled after setup
-        $user = User::where('email', 'social.mfa@example.com')->first();
-        $this->assertTrue($user->hasMfaEnabled(), 'User should have MFA enabled after setup');
-
-        // Mock the subsequent login response (MFA setup no longer required)
-        $newMockService = Mockery::mock('App\Services\SocialAuthService');
-        $this->app->instance('App\Services\SocialAuthService', $newMockService);
-
-        $newMockService
-            ->shouldReceive('handleCallback')
-            ->with('github', $mfaOrg->slug)
-            ->andReturn([
-                'user' => $user->refresh(), // Use the actual user with MFA enabled
-                'access_token' => 'jwt_token_'.uniqid(),
-                'refresh_token' => 'refresh_token_'.uniqid(),
-                'expires_in' => 3600,
-                'token_type' => 'Bearer',
-                'mfa_required' => false, // User now has MFA set up
-            ]);
-
-        // Verify the user actually has MFA enabled first
-        $this->assertTrue($user->hasMfaEnabled(), 'User should have MFA enabled after setup');
-
-        $nextLoginResponse = $this->getJson('/api/v1/auth/social/github/callback?organization='.$mfaOrg->slug);
-        $this->assertUnifiedApiResponse($nextLoginResponse, 200);
-
-        // Since user has MFA enabled, mfa_setup_required should be false
-        // TODO: Fix the controller logic to properly check user MFA status
-        // $this->assertFalse($nextLoginResponse->json('data.mfa_setup_required') ?? false);
+        $response->assertRedirect('/admin');
+        $this->assertAuthenticatedAs($owner);
+        $this->assertDatabaseMissing('oauth_access_tokens', ['user_id' => $owner->id]);
+        $this->assertAuditLogExists($owner, 'social_login_success');
     }
 
     /**

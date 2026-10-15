@@ -7,6 +7,8 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\Auth\MfaChallengeStore;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +18,9 @@ use Laravel\Socialite\Facades\Socialite;
 class SocialAuthService
 {
     public function __construct(
-        private AuthenticationLogService $authLogService
+        private AuthenticationLogService $authLogService,
+        private MfaChallengeStore $mfaChallenges,
+        private MfaSetupTokenIssuer $mfaSetupTokens,
     ) {}
 
     /**
@@ -116,6 +120,47 @@ class SocialAuthService
      */
     public function handleCallback(string $provider, ?string $organizationSlug = null): array
     {
+        $user = $this->resolveUser($provider, $organizationSlug);
+
+        if ($user->mustSetUpMfa()) {
+            $this->authLogService->logAuthenticationEvent($user, 'mfa_setup_required', ['provider' => $provider]);
+
+            return ['user' => $user, 'mfa_setup_required' => true, ...$this->mfaSetupTokens->issue($user)];
+        }
+
+        if ($user->requiresMfa()) {
+            $this->authLogService->logAuthenticationEvent($user, 'mfa_required', ['provider' => $provider]);
+
+            return [
+                'user' => $user,
+                'mfa_required' => true,
+                'challenge_token' => $this->mfaChallenges->create($user),
+                'available_methods' => $user->getMfaMethods(),
+            ];
+        }
+
+        $tokenResult = $user->createToken('Social Login Token', [
+            'openid', 'profile', 'email',
+        ]);
+
+        $this->authLogService->logAuthenticationEvent($user, 'token_created', [
+            'scopes' => ['openid', 'profile', 'email'],
+            'token_id' => $tokenResult->token->id,
+        ]);
+
+        $this->logAuthentication($user, $provider, true);
+
+        return [
+            'user' => $user,
+            'access_token' => $tokenResult->accessToken,
+            'refresh_token' => null, // Passport handles refresh tokens separately
+            'expires_in' => 3600,
+            'token_type' => 'Bearer',
+        ];
+    }
+
+    public function resolveUser(string $provider, ?string $organizationSlug = null): User
+    {
         try {
             // Validate OAuth state parameter for CSRF protection
             $state = request()->query('state');
@@ -127,32 +172,7 @@ class SocialAuthService
 
             $socialUser = Socialite::driver($provider)->stateless()->user();
 
-            return DB::transaction(function () use ($provider, $socialUser, $organizationSlug) {
-                // Find or create the user
-                $user = $this->findOrCreateUser($provider, $socialUser, $organizationSlug);
-
-                // Generate tokens using direct Passport call
-                $tokenResult = $user->createToken('Social Login Token', [
-                    'openid', 'profile', 'email',
-                ]);
-
-                // Log the token creation
-                $this->authLogService->logAuthenticationEvent($user, 'token_created', [
-                    'scopes' => ['openid', 'profile', 'email'],
-                    'token_id' => $tokenResult->token->id,
-                ]);
-
-                // Log the authentication
-                $this->logAuthentication($user, $provider, true);
-
-                return [
-                    'user' => $user,
-                    'access_token' => $tokenResult->accessToken,
-                    'refresh_token' => null, // Passport handles refresh tokens separately
-                    'expires_in' => 3600,
-                    'token_type' => 'Bearer',
-                ];
-            });
+            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug));
         } catch (Exception $e) {
             Log::error('Social authentication failed', [
                 'provider' => $provider,
@@ -389,7 +409,7 @@ class SocialAuthService
     /**
      * Log authentication event
      */
-    private function logAuthentication(User $user, string $provider, bool $success): void
+    public function logAuthentication(User $user, string $provider, bool $success): void
     {
         try {
             AuthenticationLog::create([

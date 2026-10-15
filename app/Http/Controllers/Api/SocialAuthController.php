@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Services\SocialAuthService;
 use App\Services\UserRoleService;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -129,6 +130,25 @@ class SocialAuthController extends BaseController
             // Handle the callback
             $result = $this->socialAuthService->handleCallback($provider, $organizationSlug);
 
+            if ($result['mfa_setup_required'] ?? false) {
+                return response()->json([
+                    'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
+                    'error' => 'mfa_setup_required',
+                    'setup_token' => $result['setup_token'],
+                    'token_type' => $result['token_type'],
+                    'expires_in' => $result['expires_in'],
+                ], 403);
+            }
+
+            if ($result['mfa_required'] ?? false) {
+                return response()->json([
+                    'message' => 'Multi-factor authentication is required',
+                    'mfa_required' => true,
+                    'challenge_token' => $result['challenge_token'],
+                    'available_methods' => $result['available_methods'],
+                ], 202);
+            }
+
             $responseData = [
                 'access_token' => $result['access_token'],
                 'refresh_token' => $result['refresh_token'],
@@ -158,11 +178,6 @@ class SocialAuthController extends BaseController
                     'updated_at' => $result['user']->updated_at,
                 ],
             ];
-
-            // Add MFA setup requirement if present in service response
-            if (isset($result['mfa_required']) && $result['mfa_required']) {
-                $responseData['mfa_setup_required'] = true;
-            }
 
             return response()->json([
                 'success' => true,
@@ -229,16 +244,27 @@ class SocialAuthController extends BaseController
                 return redirect('/admin/login?error=provider_not_configured');
             }
 
-            // Handle the callback (no organization for admin panel)
-            $result = $this->socialAuthService->handleCallback($provider);
+            $user = $this->socialAuthService->resolveUser($provider);
+
+            if ($user->requiresMfa()) {
+                Notification::make()
+                    ->title('Sign in with your email, password and authenticator code.')
+                    ->body('Social sign-in is not available for accounts that use multi-factor authentication.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+
+                return redirect('/admin/login');
+            }
 
             // Check if user has admin access
-            if (! $result['user']->canAccessPanel(Filament::getPanel('admin'))) {
+            if (! $user->canAccessPanel(Filament::getPanel('admin'))) {
                 return redirect('/admin/login?error=insufficient_privileges');
             }
 
             // Log the user in
-            auth()->login($result['user']);
+            auth()->login($user);
+            $this->socialAuthService->logAuthentication($user, $provider, true);
 
             return redirect('/admin');
         } catch (\Exception $e) {
