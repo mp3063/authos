@@ -6,13 +6,11 @@ use App\Filament\Resources\FailedLoginAttemptResource\Pages\ListFailedLoginAttem
 use App\Filament\Resources\FailedLoginAttemptResource\Pages\ViewFailedLoginAttempt;
 use App\Models\FailedLoginAttempt;
 use BackedEnum;
-use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -168,19 +166,6 @@ class FailedLoginAttemptResource extends Resource
                     ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these failed login attempts? This action cannot be undone.'),
-
-                BulkAction::make('export')
-                    ->authorizeIndividualRecords('view')
-                    ->label('Export Selected')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->action(function () {
-                        Notification::make()
-                            ->title('Export started')
-                            ->body('Failed login attempts are being exported. You will receive a download link shortly.')
-                            ->info()
-                            ->send();
-                    }),
             ]),
         ])->defaultSort('attempted_at', 'desc')->poll('30s')->striped();
     }

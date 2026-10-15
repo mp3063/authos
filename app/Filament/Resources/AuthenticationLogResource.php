@@ -7,13 +7,11 @@ use App\Filament\Resources\AuthenticationLogResource\Pages\ListAuthenticationLog
 use App\Filament\Resources\AuthenticationLogResource\Pages\ViewAuthenticationLog;
 use App\Models\AuthenticationLog;
 use BackedEnum;
-use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -170,15 +168,6 @@ class AuthenticationLogResource extends Resource
                     ->authorizeIndividualRecords('delete')
                     ->requiresConfirmation()
                     ->modalDescription('Are you sure you want to delete these log entries? This action cannot be undone.'),
-
-                BulkAction::make('export')->authorizeIndividualRecords('view')->label('Export Selected')->icon('heroicon-o-arrow-down-tray')->color('gray')->action(function () {
-                    // Export functionality would be implemented here
-                    Notification::make()
-                        ->title('Export started')
-                        ->body('Log entries are being exported. You will receive a download link shortly.')
-                        ->info()
-                        ->send();
-                }),
             ]),
         ])->defaultSort('created_at', 'desc')->poll('30s')->striped();
     }

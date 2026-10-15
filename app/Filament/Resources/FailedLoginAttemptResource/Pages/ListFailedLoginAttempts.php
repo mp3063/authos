@@ -17,19 +17,6 @@ class ListFailedLoginAttempts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('export')
-                ->authorize('viewAny')
-                ->label('Export')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->action(function () {
-                    Notification::make()
-                        ->title('Export started')
-                        ->body('Failed login attempts are being exported.')
-                        ->info()
-                        ->send();
-                }),
-
             Actions\Action::make('clear_old_entries')
                 ->label('Clear Old Entries')
                 ->icon('heroicon-o-trash')

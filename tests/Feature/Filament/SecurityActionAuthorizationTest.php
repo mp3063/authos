@@ -216,4 +216,17 @@ class SecurityActionAuthorizationTest extends IntegrationTestCase
         $this->assertNull(AuthenticationLog::find($log->id));
         $this->assertNull(FailedLoginAttempt::find($attempt->id));
     }
+
+    #[Test]
+    public function it_offers_no_stub_export_actions(): void
+    {
+        $this->actingAs($this->createSuperAdmin());
+
+        Livewire::test(ListAuthenticationLogs::class)
+            ->assertActionDoesNotExist('export_logs')
+            ->assertTableBulkActionDoesNotExist('export');
+        Livewire::test(ListFailedLoginAttempts::class)
+            ->assertActionDoesNotExist('export')
+            ->assertTableBulkActionDoesNotExist('export');
+    }
 }

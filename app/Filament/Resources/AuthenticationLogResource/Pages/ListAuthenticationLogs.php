@@ -17,19 +17,6 @@ class ListAuthenticationLogs extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('export_logs')
-                ->authorize('viewAny')
-                ->label('Export Logs')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->action(function () {
-                    Notification::make()
-                        ->title('Export started')
-                        ->body('Authentication logs are being exported.')
-                        ->info()
-                        ->send();
-                }),
-
             Actions\Action::make('clear_old_logs')
                 ->label('Clear Old Logs')
                 ->icon('heroicon-o-trash')
