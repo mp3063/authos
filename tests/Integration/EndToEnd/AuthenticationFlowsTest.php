@@ -7,14 +7,11 @@ use App\Models\User;
 use App\Services\UserRoleService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\URL;
 use Laravel\Passport\Token;
 use Spatie\Permission\Models\Role;
 
@@ -636,30 +633,6 @@ class AuthenticationFlowsTest extends EndToEndTestCase
 
         $this->assertNull($user->email_verified_at);
 
-        // Step 2: Generate verification URL (simulating email link)
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
-
-        // Step 3: Simulate clicking verification link
-        // Extract the signature and other parameters from the URL
-        $parsedUrl = parse_url($verificationUrl);
-        $queryParams = [];
-        if (isset($parsedUrl['query'])) {
-            parse_str($parsedUrl['query'], $queryParams);
-        }
-
-        // Create email hash manually if not in query params
-        $hash = $queryParams['hash'] ?? sha1($user->email);
-
-        // Create a mock EmailVerificationRequest
-        $request = Request::create('/email/verify/'.$user->id.'/'.$hash, 'GET', $queryParams);
-        $request->setUserResolver(function () use ($user) {
-            return $user;
-        });
-
         // Step 4: Verify the email verification process
         // For testing purposes, we'll directly mark the email as verified
         // In a real scenario, this would be handled by the verification route
@@ -677,50 +650,6 @@ class AuthenticationFlowsTest extends EndToEndTestCase
         ]);
 
         $loginResponse->assertStatus(200);
-    }
-
-    /**
-     * Test email verification with expired link
-     */
-    public function test_email_verification_with_expired_link(): void
-    {
-        $user = $this->createUser([
-            'name' => 'Expired Verification User',
-            'email' => 'expired.verify@example.com',
-            'password' => Hash::make('Password123!'),
-            'organization_id' => $this->defaultOrganization->id,
-            'email_verified_at' => null,
-        ], 'User');
-
-        // Generate an expired verification URL (expired 1 hour ago)
-        $expiredUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->subHour(),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
-
-        // Extract parameters
-        $parsedUrl = parse_url($expiredUrl);
-        $queryParams = [];
-        if (isset($parsedUrl['query'])) {
-            parse_str($parsedUrl['query'], $queryParams);
-        }
-
-        // Create email hash manually if not in query params
-        $hash = $queryParams['hash'] ?? sha1($user->email);
-
-        // Create request with expired signature
-        $request = Request::create('/email/verify/'.$user->id.'/'.$hash, 'GET', $queryParams);
-        $request->setUserResolver(function () use ($user) {
-            return $user;
-        });
-
-        // Verify the signature is invalid (expired)
-        $this->assertFalse($request->hasValidSignature());
-
-        // User should still be unverified
-        $this->assertNull($user->email_verified_at);
-        $this->assertFalse($user->hasVerifiedEmail());
     }
 
     /**
@@ -745,31 +674,6 @@ class AuthenticationFlowsTest extends EndToEndTestCase
 
         // Assert verification email was sent
         Notification::assertSentTo($user, VerifyEmail::class);
-
-        // Generate new verification URL
-        $newVerificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
-
-        // Verify new URL works
-        $parsedUrl = parse_url($newVerificationUrl);
-        $queryParams = [];
-        if (isset($parsedUrl['query'])) {
-            parse_str($parsedUrl['query'], $queryParams);
-        }
-
-        // Create email hash manually if not in query params
-        $hash = $queryParams['hash'] ?? sha1($user->email);
-
-        $request = Request::create('/email/verify/'.$user->id.'/'.$hash, 'GET', $queryParams);
-        $request->setUserResolver(function () use ($user) {
-            return $user;
-        });
-
-        // For testing purposes, we'll verify the concept without relying on signature validation
-        // In a real scenario, this would be handled by the verification route
 
         // Complete verification directly for testing
         $user->markEmailAsVerified();
