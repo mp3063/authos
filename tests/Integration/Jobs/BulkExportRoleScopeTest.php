@@ -236,4 +236,18 @@ class BulkExportRoleScopeTest extends TestCase
         $this->assertSame(Storage::disk('local')->size($exportJob->file_path), (int) $exportJob->file_size);
         $this->assertSame([], glob(storage_path('app/exports/users_export_'.$exportJob->id.'_*')) ?: []);
     }
+
+    #[Test]
+    public function it_records_the_export_size_from_the_default_disk(): void
+    {
+        config(['filesystems.default' => 'exports-default']);
+        Storage::fake('exports-default');
+        $exportJob = $this->csvExportJob();
+
+        (new ExportUsersJob($exportJob))->handle($this->csvService());
+
+        $exportJob->refresh();
+        Storage::disk('exports-default')->assertExists($exportJob->file_path);
+        $this->assertSame(Storage::disk('exports-default')->size($exportJob->file_path), (int) $exportJob->file_size);
+    }
 }

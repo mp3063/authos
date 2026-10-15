@@ -94,7 +94,7 @@ class ExportUsersJob implements ShouldQueue
             // Update job with file information
             $this->exportJob->update([
                 'file_path' => $filePath,
-                'file_size' => Storage::disk('local')->size($filePath),
+                'file_size' => Storage::size($filePath),
                 'processed_records' => $processedCount,
                 'valid_records' => $processedCount,
             ]);
