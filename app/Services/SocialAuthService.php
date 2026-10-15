@@ -120,7 +120,16 @@ class SocialAuthService
      */
     public function handleCallback(string $provider, ?string $organizationSlug = null): array
     {
-        $user = $this->resolveUser($provider, $organizationSlug);
+        [$user, $linked] = $this->resolveUser($provider, $organizationSlug);
+
+        if (! $linked && $user->mustSetUpMfa()) {
+            Log::warning('Social sign-in refused for an unlinked account that must set up MFA', [
+                'provider' => $provider,
+                'user_id' => $user->id,
+            ]);
+
+            return ['user' => $user, 'mfa_setup_requires_password' => true];
+        }
 
         if ($user->mustSetUpMfa()) {
             $this->authLogService->logAuthenticationEvent($user, 'mfa_setup_required', ['provider' => $provider]);
@@ -159,12 +168,15 @@ class SocialAuthService
         ];
     }
 
-    public function resolveUser(string $provider, ?string $organizationSlug = null): User
+    /**
+     * @return array{User, bool}
+     */
+    public function resolveUser(string $provider, ?string $organizationSlug = null): array
     {
         try {
             [$socialUser, $stateOrganizationSlug] = $this->receiveProviderUser($provider);
 
-            return DB::transaction(fn (): User => $this->findOrCreateUser($provider, $socialUser, $organizationSlug ?? $stateOrganizationSlug));
+            return DB::transaction(fn (): array => $this->findOrCreateUser($provider, $socialUser, $organizationSlug ?? $stateOrganizationSlug));
         } catch (Exception $e) {
             Log::error('Social authentication failed', [
                 'provider' => $provider,
@@ -204,19 +216,22 @@ class SocialAuthService
         return [Socialite::driver($provider)->stateless()->user(), $stateData['organization_slug'] ?? null];
     }
 
-    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug): User
+    /**
+     * @return array{User, bool}
+     */
+    private function findOrCreateUser(string $provider, SocialiteUser $socialUser, ?string $organizationSlug): array
     {
         $user = $this->findExistingUser($provider, $socialUser);
 
         if ($user === null) {
-            return $this->createUserFromSocial($provider, $socialUser, $organizationSlug);
+            return [$this->createUserFromSocial($provider, $socialUser, $organizationSlug), true];
         }
 
         if (! $this->isLinkedTo($user, $provider, $socialUser) && $user->requiresMfa()) {
-            return $user;
+            return [$user, false];
         }
 
-        return $this->connectProvider($user, $provider, $socialUser);
+        return [$this->connectProvider($user, $provider, $socialUser), true];
     }
 
     private function findExistingUser(string $provider, SocialiteUser $socialUser): ?User

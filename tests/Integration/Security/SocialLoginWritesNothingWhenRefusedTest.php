@@ -57,6 +57,43 @@ class SocialLoginWritesNothingWhenRefusedTest extends IntegrationTestCase
     }
 
     #[Test]
+    public function it_refuses_an_unlinked_email_match_for_a_member_who_must_set_up_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create();
+        $this->signInThroughFakedSocialiteAs('github', 'github-attacker', $user->email);
+
+        $response = $this->getJson('/api/v1/auth/social/github/callback');
+
+        $response->assertForbidden()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error', 'mfa_setup_requires_password')
+            ->assertJsonMissingPath('setup_token');
+        $this->assertDatabaseMissing('oauth_access_tokens', ['user_id' => $user->id]);
+        $this->assertDatabaseMissing('social_accounts', ['provider' => 'github']);
+        $this->assertNull($user->fresh()->provider_id);
+    }
+
+    #[Test]
+    public function it_still_issues_a_setup_token_to_a_linked_member_who_must_set_up_mfa(): void
+    {
+        $organization = Organization::factory()->create(['settings' => ['require_mfa' => true]]);
+        $user = User::factory()->forOrganization($organization)->create([
+            'provider' => 'github',
+            'provider_id' => 'github-linked',
+        ]);
+        SocialAccount::create(['user_id' => $user->id, 'provider' => 'github', 'provider_id' => 'github-linked', 'email' => $user->email]);
+        $this->signInThroughFakedSocialiteAs('github', 'github-linked', $user->email);
+
+        $response = $this->getJson('/api/v1/auth/social/github/callback');
+
+        $response->assertForbidden()
+            ->assertJsonPath('error', 'mfa_setup_required')
+            ->assertJsonStructure(['setup_token', 'token_type', 'expires_in']);
+        $this->assertSame([['mfa.setup']], $user->tokens()->pluck('scopes')->all());
+    }
+
+    #[Test]
     public function it_does_not_create_a_user_when_the_web_path_refuses_an_unknown_email(): void
     {
         Organization::factory()->create(['is_active' => true]);

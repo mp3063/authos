@@ -130,6 +130,14 @@ class SocialAuthController extends BaseController
             // Handle the callback
             $result = $this->socialAuthService->handleCallback($provider, $organizationSlug);
 
+            if ($result['mfa_setup_requires_password'] ?? false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sign in with your email and password to set up multi-factor authentication before using social sign-in.',
+                    'error' => 'mfa_setup_requires_password',
+                ], 403);
+            }
+
             if ($result['mfa_setup_required'] ?? false) {
                 return response()->json([
                     'message' => 'Your organization requires multi-factor authentication. Set it up to continue.',
