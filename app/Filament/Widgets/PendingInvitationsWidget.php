@@ -198,6 +198,7 @@ class PendingInvitationsWidget extends BaseWidget
                 ->modalSubmitActionLabel('Extend'),
 
             Action::make('copy_link')
+                ->authorize('update')
                 ->icon('heroicon-o-link')
                 ->color('gray')
                 ->tooltip('Copy Invitation Link')

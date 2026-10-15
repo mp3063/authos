@@ -616,4 +616,31 @@ class OrganizationInvitationsTest extends IntegrationTestCase
 
         $this->assertDatabaseMissing('invitations', ['email' => 'invitee@example.com']);
     }
+
+    #[Test]
+    public function it_returns_403_when_a_caller_may_not_cancel_an_invitation(): void
+    {
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create(['inviter_id' => $this->admin->id]);
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $this->actingAs($member, 'api')
+            ->deleteJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}")
+            ->assertForbidden();
+
+        $this->assertSame('pending', $invitation->fresh()->status);
+    }
+
+    #[Test]
+    public function it_returns_403_when_a_caller_may_not_resend_an_invitation(): void
+    {
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create(['inviter_id' => $this->admin->id]);
+        $token = $invitation->token;
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+
+        $this->actingAs($member, 'api')
+            ->postJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}/resend")
+            ->assertForbidden();
+
+        $this->assertSame($token, $invitation->fresh()->token);
+    }
 }

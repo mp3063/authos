@@ -76,7 +76,7 @@ class PendingInvitationsWidgetAuthorizationTest extends IntegrationTestCase
         $before = $this->own->fresh()->only(['expires_at', 'metadata']);
 
         $component = Livewire::test(PendingInvitationsWidget::class);
-        foreach (['resend', 'extend', 'cancel'] as $action) {
+        foreach (['resend', 'extend', 'copy_link', 'cancel'] as $action) {
             $component->assertTableActionHidden($action, $this->own);
             $this->forceTableAction($component, $action, $this->own);
         }
@@ -93,5 +93,15 @@ class PendingInvitationsWidgetAuthorizationTest extends IntegrationTestCase
 
         $this->assertNull(Invitation::find($this->own->id));
         $this->assertNotNull(Invitation::find($this->foreign->id));
+    }
+
+    #[Test]
+    public function it_refuses_copy_link_to_a_caller_who_may_not_update_the_invitation(): void
+    {
+        $this->denyInvitationAbilities();
+
+        $component = Livewire::test(PendingInvitationsWidget::class);
+        $component->assertTableActionHidden('copy_link', $this->own);
+        $this->forceTableAction($component, 'copy_link', $this->own)->assertNotDispatched('copy-to-clipboard');
     }
 }

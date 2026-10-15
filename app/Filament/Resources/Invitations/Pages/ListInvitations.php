@@ -102,16 +102,18 @@ class ListInvitations extends ListRecords
                             auth()->user()
                         );
                     } catch (Throwable $exception) {
+                        report($exception);
+
                         Notification::make()
                             ->title('Bulk invite failed')
-                            ->body($exception->getMessage())
+                            ->body('The invitations could not be sent. Please try again or contact an administrator.')
                             ->danger()
                             ->send();
 
                         return;
                     }
 
-                    $successCount = count($result['success'] ?? []);
+                    $successCount = count($result['successful'] ?? []);
                     $failCount = count($result['failed'] ?? []);
 
                     Notification::make()

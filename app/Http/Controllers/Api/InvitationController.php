@@ -8,6 +8,7 @@ use App\Http\Resources\InvitationResource;
 use App\Models\Invitation;
 use App\Services\InvitationService;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,8 @@ class InvitationController extends BaseController
 
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return $this->errorResponse('Failed to send invitation: '.$e->getMessage());
         }
@@ -216,6 +219,8 @@ class InvitationController extends BaseController
             return response()->json([
                 'message' => 'Invitation not found',
             ], 404);
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to cancel invitation',
@@ -239,6 +244,8 @@ class InvitationController extends BaseController
                 'invitation' => (new InvitationResource($invitation->load(['organization', 'inviter'])))->resolve(),
             ]);
 
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Failed to resend invitation',
@@ -279,6 +286,8 @@ class InvitationController extends BaseController
 
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
+        } catch (AuthorizationException $e) {
+            throw $e;
         } catch (Exception $e) {
             return $this->errorResponse('Bulk invite failed: '.$e->getMessage());
         }

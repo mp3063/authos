@@ -7,6 +7,7 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ class InvitationService
 
         // Validate that the inviter has permission to invite to this organization
         if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
-            throw new Exception('User does not have permission to invite users to this organization');
+            throw new AuthorizationException('User does not have permission to invite users to this organization');
         }
 
         if (! $this->userRoles->canGrantRoleNamed($inviterUser, $organizationId, $role)) {
@@ -121,7 +122,7 @@ class InvitationService
 
         // Check if user has permission to cancel this invitation
         if (! $this->authorizer->canManageInvitation($canceller, $invitation)) {
-            throw new Exception('Not authorized to cancel this invitation');
+            throw new AuthorizationException('Not authorized to cancel this invitation');
         }
 
         return $invitation->markAsCancelled($canceller);
@@ -133,7 +134,7 @@ class InvitationService
 
         // Check if user has permission to resend this invitation
         if (! $this->authorizer->canManageInvitation($sender, $invitation)) {
-            throw new Exception('User does not have permission to resend this invitation');
+            throw new AuthorizationException('User does not have permission to resend this invitation');
         }
 
         // Only allow resending if invitation is pending or expired (but not accepted)
@@ -182,7 +183,7 @@ class InvitationService
         }
 
         if (! $this->authorizer->canInviteToOrganization($inviterUser, $organization)) {
-            throw new Exception('User does not have permission to invite users to this organization');
+            throw new AuthorizationException('User does not have permission to invite users to this organization');
         }
 
         foreach ($invitations as $inviteData) {
@@ -224,7 +225,7 @@ class InvitationService
         $organization = Organization::findOrFail($organizationId);
 
         if (! $this->authorizer->canViewInvitations($user, $organization)) {
-            throw new Exception('User does not have permission to view invitations for this organization');
+            throw new AuthorizationException('User does not have permission to view invitations for this organization');
         }
 
         $query = $organization->invitations()

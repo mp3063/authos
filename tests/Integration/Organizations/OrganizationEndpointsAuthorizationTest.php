@@ -200,8 +200,8 @@ class OrganizationEndpointsAuthorizationTest extends TestCase
         $token = $invitation->token;
         Passport::actingAs($exAdmin);
 
-        $this->postJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}/resend")->assertStatus(400);
-        $this->deleteJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}")->assertStatus(400);
+        $this->postJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}/resend")->assertForbidden();
+        $this->deleteJson("/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}")->assertForbidden();
 
         $this->assertSame($token, $invitation->fresh()->token);
         $this->assertSame('pending', $invitation->fresh()->status);
