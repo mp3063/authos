@@ -17,7 +17,6 @@ class PolicyAbilityNamesTest extends TestCase
             ->map(fn (string $file) => new ReflectionClass('App\\Policies\\'.basename($file, '.php')))
             ->filter(fn (ReflectionClass $class) => $class->isInstantiable())
             ->flatMap(fn (ReflectionClass $class) => collect($class->getMethods(ReflectionMethod::IS_PUBLIC))
-                ->filter(fn (ReflectionMethod $method) => $method->getDeclaringClass()->getName() === $class->getName())
                 ->reject(fn (ReflectionMethod $method) => $method->isConstructor() || $method->getName() === 'before')
                 ->map(fn (ReflectionMethod $method) => $method->getName()))
             ->unique()

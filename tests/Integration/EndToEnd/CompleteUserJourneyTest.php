@@ -5,7 +5,6 @@ namespace Tests\Integration\EndToEnd;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use App\Services\UserRoleService;
-use Laravel\Passport\Token;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -355,20 +354,10 @@ class CompleteUserJourneyTest extends EndToEndTestCase
         // Travel to future to expire token
         $this->travelToFuture(10); // 10 minutes in future
 
-        // Debug: Check token expiration details
-        $tokenRecord = Token::where('id', $token->token->id)->first();
-        dump('Token expires at:', $tokenRecord?->expires_at?->toDateTimeString());
-        dump('Current time:', now()->toDateTimeString());
-        dump('Token expired:', $tokenRecord?->expires_at?->isPast());
-
         // Verify token is now expired
         $response = $this->getJson('/api/v1/auth/user', [
             'Authorization' => 'Bearer '.$accessToken,
         ]);
-
-        if ($response->status() !== 401) {
-            dump('Unexpected response:', $response->json());
-        }
 
         $response->assertStatus(401);
 

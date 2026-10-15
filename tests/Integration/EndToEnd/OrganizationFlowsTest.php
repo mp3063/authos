@@ -421,9 +421,8 @@ class OrganizationFlowsTest extends EndToEndTestCase
             ->where('organization_id', $this->defaultOrganization->id)
             ->first();
 
-        if ($userRole) {
-            $this->assertTrue(app(UserRoleService::class)->assignedRoleIds($newUser)->contains($userRole->id));
-        }
+        $this->assertNotNull($userRole);
+        $this->assertTrue(app(UserRoleService::class)->assignedRoleIds($newUser)->contains($userRole->id));
 
         // Step 8: Verify user can access organization resources
         $response = $this->getJson('/api/v1/auth/user');

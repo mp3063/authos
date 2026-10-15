@@ -15,7 +15,7 @@ trait CallsHiddenActions
      */
     protected function forceTableAction(Testable $component, string $name, Model $record, array $data = []): Testable
     {
-        $component->call('mountTableAction', $name, $record->getKey());
+        $component->call('mountTableAction', $name, $record->getKey())->assertSet('mountedActions', []);
 
         foreach ($data as $key => $value) {
             $component->set("mountedActions.0.data.{$key}", $value);
@@ -36,6 +36,7 @@ trait CallsHiddenActions
     {
         return $component
             ->call('mountAction', $name)
+            ->assertSet('mountedActions', [])
             ->call('callMountedAction');
     }
 

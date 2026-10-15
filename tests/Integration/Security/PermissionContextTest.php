@@ -5,6 +5,8 @@ namespace Tests\Integration\Security;
 use App\Http\Middleware\SetPermissionContext;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\PermissionRegistrar;
@@ -35,6 +37,24 @@ class PermissionContextTest extends IntegrationTestCase
             array_search(SetPermissionContext::class, $middleware, true),
             array_search(Authenticate::class, $middleware, true)
         );
+    }
+
+    #[Test]
+    public function it_sets_the_permission_team_on_a_real_panel_request(): void
+    {
+        $captured = [];
+        FilamentView::registerRenderHook(PanelsRenderHook::BODY_START, function () use (&$captured) {
+            $captured[] = app(PermissionRegistrar::class)->getPermissionsTeamId();
+
+            return '';
+        });
+        $admin = $this->createOrganizationAdmin();
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+
+        $this->actingAs($admin)->get('/admin')->assertOk();
+
+        $this->assertNotEmpty($captured);
+        $this->assertSame([$admin->organization_id], array_values(array_unique($captured)));
     }
 
     #[Test]
