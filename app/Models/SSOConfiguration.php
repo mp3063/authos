@@ -30,7 +30,7 @@ class SSOConfiguration extends Model
         return [
             'allowed_domains' => 'array',
             'settings' => 'array',
-            'configuration' => 'array',
+            'configuration' => 'encrypted:array',
             'is_active' => 'boolean',
         ];
     }
