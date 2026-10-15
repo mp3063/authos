@@ -106,7 +106,7 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
         // Protected authentication routes
         Route::middleware('auth:api')->group(function () {
-            Route::post('/logout', [AuthController::class, 'logout']);
+            Route::post('/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
             Route::get('/user', [AuthController::class, 'user']);
             Route::post('/revoke', [AuthController::class, 'revoke']);
         });
@@ -210,12 +210,12 @@ Route::prefix('v1')->middleware(['api.version:v1', 'api.monitor'])->group(functi
 
     // MFA Management API
     Route::middleware(['auth:api', 'throttle:api'])->prefix('mfa')->group(function () {
-        Route::get('/status', [MfaController::class, 'mfaStatus']);
-        Route::post('/setup', [MfaController::class, 'setupTotp']); // Alias for /setup/totp
-        Route::post('/setup/totp', [MfaController::class, 'setupTotp']);
-        Route::post('/enable', [MfaController::class, 'enableMfa']); // New endpoint
+        Route::get('/status', [MfaController::class, 'mfaStatus'])->name('api.mfa.status');
+        Route::post('/setup', [MfaController::class, 'setupTotp'])->name('api.mfa.setup'); // Alias for /setup/totp
+        Route::post('/setup/totp', [MfaController::class, 'setupTotp'])->name('api.mfa.setup.totp');
+        Route::post('/enable', [MfaController::class, 'enableMfa'])->name('api.mfa.enable'); // New endpoint
         Route::post('/disable', [MfaController::class, 'disableMfa']); // New endpoint
-        Route::post('/verify/totp', [MfaController::class, 'verifyTotp']);
+        Route::post('/verify/totp', [MfaController::class, 'verifyTotp'])->name('api.mfa.verify.totp');
         Route::post('/disable/totp', [MfaController::class, 'disableTotp']); // Deprecated
         Route::post('/recovery-codes', [MfaController::class, 'getRecoveryCodes']);
         Route::post('/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes']);

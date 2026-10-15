@@ -106,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
             'organizations.manage' => 'Manage organizations',
             'sso' => 'Single Sign-On access',
             'roles.assign' => 'Assign roles to users',
+            'mfa.setup' => 'Set up multi-factor authentication',
         ]);
 
         Passport::defaultScopes(['openid']);

@@ -7,6 +7,7 @@ use App\Events\MfaEnabledEvent;
 use App\Mail\MfaSetupConfirmation;
 use App\Models\User;
 use App\Services\Auth\MfaCodeVerifier;
+use App\Services\Auth\MfaSetupTokenIssuer;
 use App\Services\AuthenticationLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ class MfaController extends BaseController
 {
     public function __construct(
         protected AuthenticationLogService $authLogService,
-        protected MfaCodeVerifier $mfaCodeVerifier
+        protected MfaCodeVerifier $mfaCodeVerifier,
+        protected MfaSetupTokenIssuer $setupTokenIssuer
     ) {
         $this->middleware('auth:api');
     }
@@ -318,6 +320,10 @@ class MfaController extends BaseController
 
         // Send MFA setup confirmation email
         Mail::to($user)->send(new MfaSetupConfirmation($user, ['totp']));
+
+        if ($this->setupTokenIssuer->isSetupToken($user->token())) {
+            $user->token()->revoke();
+        }
 
         return response()->json([
             'success' => true,

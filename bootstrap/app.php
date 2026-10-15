@@ -6,6 +6,7 @@ use App\Http\Middleware\ApiVersioning;
 use App\Http\Middleware\EnforceOrganizationBoundary;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\OAuthSecurity;
+use App\Http\Middleware\RestrictMfaSetupTokens;
 use App\Http\Middleware\SanitizeApiResponse;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPermissionContext;
@@ -61,9 +62,11 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
             SetPermissionContext::class,
             SanitizeApiResponse::class,
+            RestrictMfaSetupTokens::class,
         ]);
 
         $middleware->appendToPriorityList(AuthenticatesRequests::class, SetPermissionContext::class);
+        $middleware->appendToPriorityList(AuthenticatesRequests::class, RestrictMfaSetupTokens::class);
 
         $middleware->throttleApi();
 
