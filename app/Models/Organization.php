@@ -45,7 +45,7 @@ class Organization extends Model
 
     public function allowsRegistration(): bool
     {
-        return ! isset($this->settings['allow_registration']) || (bool) $this->settings['allow_registration'];
+        return filter_var($this->settings['allow_registration'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
     }
 
     public function applications(): HasMany
