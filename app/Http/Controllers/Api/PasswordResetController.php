@@ -94,7 +94,9 @@ class PasswordResetController extends BaseController
             ->where('email', $email)
             ->first();
 
-        $tokenMatches = Hash::check($plainToken, $resetRecord->token ?? $this->dummyTokenHash());
+        $storedHash = $resetRecord->token ?? null;
+        $storedHashIsBcrypt = is_string($storedHash) && Hash::info($storedHash)['algoName'] === 'bcrypt';
+        $tokenMatches = Hash::check($plainToken, $storedHashIsBcrypt ? $storedHash : $this->dummyTokenHash()) && $storedHashIsBcrypt;
         $tokenCreatedAt = Carbon::parse($resetRecord->created_at ?? now()->subMinutes(30));
         $tokenExpiresAt = $tokenCreatedAt->copy()->addMinutes(60);
         $isValid = $resetRecord && $tokenMatches && now()->lt($tokenExpiresAt);
