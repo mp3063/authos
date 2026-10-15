@@ -173,7 +173,11 @@ class OrganizationResource extends Resource
             Filter::make('has_applications')->query(fn (Builder $query): Builder => $query->has('applications'))->label('Has Applications'),
 
             Filter::make('requires_mfa')
-                ->query(fn (Builder $query): Builder => $query->whereJsonContains('settings->require_mfa', true))
+                ->query(fn (Builder $query): Builder => $query->where(function (Builder $query): void {
+                    foreach ([true, 1, '1', 'true', 'on', 'yes'] as $value) {
+                        $query->orWhereJsonContains('settings->require_mfa', $value);
+                    }
+                }))
                 ->label('Requires MFA'),
         ])->recordActions([
             ViewAction::make(),

@@ -2,6 +2,7 @@
 
 namespace Tests\Integration\Security;
 
+use App\Filament\Resources\OrganizationResource\Pages\ListOrganizations;
 use App\Imports\UsersImport;
 use App\Models\Organization;
 use App\Models\Role;
@@ -11,6 +12,7 @@ use App\Services\Auth0\Migration\Importers\OrganizationImporter;
 use App\Services\InvitationService;
 use App\Services\UserRoleService;
 use Illuminate\Support\Collection;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -54,5 +56,21 @@ class PlanFollowUpFixesTest extends IntegrationTestCase
 
         $user = User::where('email', 'new@example.com')->firstOrFail();
         $this->assertSame([$apiRole->id], $user->roles()->pluck('roles.id')->all());
+    }
+
+    #[Test]
+    public function it_filters_organizations_by_every_representation_that_requires_mfa(): void
+    {
+        $required = collect([true, 1, '1', 'true', 'on', 'yes'])
+            ->map(fn ($value) => $this->createOrganization(['settings' => ['require_mfa' => $value]]));
+        $notRequired = collect([false, 0, '0', 'false', 'off', 'no'])
+            ->map(fn ($value) => $this->createOrganization(['settings' => ['require_mfa' => $value]]))
+            ->push($this->createOrganization(['settings' => []]));
+        $this->actingAs($this->createSuperAdmin());
+
+        Livewire::test(ListOrganizations::class)
+            ->filterTable('requires_mfa', true)
+            ->assertCanSeeTableRecords($required)
+            ->assertCanNotSeeTableRecords($notRequired);
     }
 }
