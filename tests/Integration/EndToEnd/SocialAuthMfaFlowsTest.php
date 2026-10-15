@@ -35,98 +35,28 @@ class SocialAuthMfaFlowsTest extends EndToEndTestCase
         $this->google2FA = new Google2FA;
     }
 
-    /**
-     * Test complete social authentication registration flow
-     */
-    public function test_social_authentication_registration_flow(): void
+    #[Test]
+    public function it_signs_up_a_new_api_social_user_without_an_organization_and_lets_them_call_the_api(): void
     {
-        // Mock successful Google authentication
-        $mockUser = User::factory()->create([
-            'name' => 'John Doe',
-            'email' => 'john.doe@gmail.com',
-            'provider' => 'google',
-            'provider_id' => 'google_123456789',
-            'organization_id' => $this->defaultOrganization->id,
-        ]);
+        $this->signInThroughFakedSocialiteAs('google', 'google_123456789', 'john.doe@gmail.com');
 
-        // Step 1: Get available social providers
-        $this->mockSocialAuthService
-            ->shouldReceive('getAvailableProviders')
-            ->andReturn([
-                'google' => [
-                    'name' => 'Google',
-                    'enabled' => true,
-                    'icon' => 'fab fa-google',
-                    'color' => '#db4437',
-                ],
-            ]);
+        $callback = $this->getJson('/api/v1/auth/social/google/callback');
 
-        $providersResponse = $this->getJson('/api/v1/auth/social/providers');
-        $this->assertUnifiedApiResponse($providersResponse, 200);
+        $this->assertUnifiedApiResponse($callback, 200);
+        $callback->assertJsonPath('data.user.email', 'john.doe@gmail.com')
+            ->assertJsonPath('data.user.provider', 'google')
+            ->assertJsonPath('data.user.is_social_user', true)
+            ->assertJsonPath('data.user.organization', null);
+        $user = User::where('email', 'john.doe@gmail.com')->sole();
+        $this->assertNull($user->organization_id);
+        $this->assertDatabaseHas('social_accounts', ['user_id' => $user->id, 'provider' => 'google', 'provider_id' => 'google_123456789']);
+        $this->assertAuditLogExists($user, 'token_created');
 
-        // Step 2: Initiate social authentication
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderSupported')
-            ->with('google')
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderEnabled')
-            ->with('google')
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('getRedirectUrl')
-            ->with('google', null)
-            ->andReturn('https://accounts.google.com/oauth/authorize?client_id=test&redirect_uri=test');
-
-        $redirectResponse = $this->getJson('/api/v1/auth/social/google');
-        $this->assertUnifiedApiResponse($redirectResponse, 200);
-
-        $redirectData = $redirectResponse->json('data');
-        $this->assertEquals('google', $redirectData['provider']);
-        $this->assertStringStartsWith('https://accounts.google.com', $redirectData['redirect_url']);
-
-        // Step 3: Handle callback after user authorizes
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderSupported')
-            ->with('google')
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('isProviderEnabled')
-            ->with('google')
-            ->andReturn(true);
-
-        $this->mockSocialAuthService
-            ->shouldReceive('handleCallback')
-            ->with('google', $this->defaultOrganization->slug)
-            ->andReturn([
-                'user' => $mockUser,
-                'access_token' => 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiNDNjYjNiYzNhMWJkNzc5YjNkNzhjNmU2Njk4MDFhMzkxZDU0OTExZGZkOGQ3NzU3MWZhNDdhMTBiMzU3YWU4YWY2YjU0NzM2MTFmZjc1ODAiLCJpYXQiOjE3MjY2NzcyNTUsIm5iZiI6MTcyNjY3NzI1NSwiZXhwIjoxNzU4MjEzMjU1LCJzdWIiOiIxIiwic2NvcGVzIjpbIm9wZW5pZCIsInByb2ZpbGUiLCJlbWFpbCJdfQ.example_signature',
-                'refresh_token' => 'refresh_token_'.uniqid(),
-                'expires_in' => 3600,
-                'token_type' => 'Bearer',
-            ]);
-
-        $callbackResponse = $this->getJson('/api/v1/auth/social/google/callback?organization='.$this->defaultOrganization->slug);
-        $this->assertUnifiedApiResponse($callbackResponse, 200);
-
-        $callbackData = $callbackResponse->json('data');
-        $this->assertArrayHasKey('access_token', $callbackData);
-        $this->assertArrayHasKey('user', $callbackData);
-        $this->assertEquals('google', $callbackData['user']['provider']);
-        $this->assertTrue($callbackData['user']['is_social_user']);
-
-        // Step 4: Verify user can access protected endpoints
-        $this->actingAs($mockUser, 'api');
-        $userInfoResponse = $this->getJson('/api/v1/auth/user');
-
-        $this->assertUnifiedApiResponse($userInfoResponse, 200);
-        $userInfoData = $userInfoResponse->json();
-        $this->assertEquals('john.doe@gmail.com', $userInfoData['email']);
-
-        // Note: Audit log verification skipped in this test since we're mocking the service
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$callback->json('data.access_token'))
+            ->getJson('/api/v1/auth/user')
+            ->assertOk()
+            ->assertJsonPath('email', 'john.doe@gmail.com');
     }
 
     /**
