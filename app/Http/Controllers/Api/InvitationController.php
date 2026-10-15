@@ -202,7 +202,8 @@ class InvitationController extends BaseController
         try {
             $cancelled = $this->invitationService->cancelInvitation(
                 $request->route('invitationId'),
-                $request->user()
+                $request->user(),
+                (int) $request->route('id')
             );
 
             if ($cancelled) {
@@ -236,7 +237,8 @@ class InvitationController extends BaseController
         try {
             $invitation = $this->invitationService->resendInvitation(
                 $request->route('invitationId'),
-                $request->user()
+                $request->user(),
+                (int) $request->route('id')
             );
 
             return response()->json([

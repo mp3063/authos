@@ -109,33 +109,26 @@ class InvitationService
         return $this->acceptance->decline($token, $reason);
     }
 
-    public function cancelInvitation(int $invitationId, User $canceller): bool
+    public function cancelInvitation(int $invitationId, User $canceller, ?int $organizationId = null): bool
     {
-        // Find invitation that belongs to the user's organization
-        $invitation = Invitation::where('id', $invitationId)
-            ->where('organization_id', $canceller->organization_id)
-            ->first();
-
-        if (! $invitation) {
-            throw new ModelNotFoundException('Invitation not found');
-        }
-
-        // Check if user has permission to cancel this invitation
-        if (! $this->authorizer->canManageInvitation($canceller, $invitation)) {
-            throw new AuthorizationException('Not authorized to cancel this invitation');
-        }
+        $invitation = $this->findManageableInvitation(
+            $invitationId,
+            $canceller,
+            $organizationId,
+            'Not authorized to cancel this invitation'
+        );
 
         return $invitation->markAsCancelled($canceller);
     }
 
-    public function resendInvitation(int $invitationId, User $sender): Invitation
+    public function resendInvitation(int $invitationId, User $sender, ?int $organizationId = null): Invitation
     {
-        $invitation = Invitation::findOrFail($invitationId);
-
-        // Check if user has permission to resend this invitation
-        if (! $this->authorizer->canManageInvitation($sender, $invitation)) {
-            throw new AuthorizationException('User does not have permission to resend this invitation');
-        }
+        $invitation = $this->findManageableInvitation(
+            $invitationId,
+            $sender,
+            $organizationId,
+            'User does not have permission to resend this invitation'
+        );
 
         // Only allow resending if invitation is pending or expired (but not accepted)
         if ($invitation->status === 'accepted') {
@@ -217,14 +210,36 @@ class InvitationService
         ];
     }
 
+    private function findManageableInvitation(int $invitationId, User $user, ?int $organizationId, string $deniedMessage): Invitation
+    {
+        $invitation = Invitation::query()
+            ->when(! $user->isSuperAdmin(), fn ($query) => $query
+                ->whereNotNull('organization_id')
+                ->where('organization_id', $user->organization_id))
+            ->when($organizationId !== null, fn ($query) => $query->where('organization_id', $organizationId))
+            ->find($invitationId);
+
+        $subject = $invitation ?? new Invitation(['organization_id' => $user->organization_id]);
+
+        if (! $this->authorizer->canManageInvitation($user, $subject)) {
+            throw new AuthorizationException($deniedMessage);
+        }
+
+        if (! $invitation) {
+            throw new ModelNotFoundException('Invitation not found');
+        }
+
+        return $invitation;
+    }
+
     public function getOrganizationInvitations(
         int $organizationId,
         User $user,
         string $status = 'all'
     ): mixed {
-        $organization = Organization::findOrFail($organizationId);
+        $organization = Organization::find($organizationId);
 
-        if (! $this->authorizer->canViewInvitations($user, $organization)) {
+        if (! $organization || ! $this->authorizer->canViewInvitations($user, $organization)) {
             throw new AuthorizationException('User does not have permission to view invitations for this organization');
         }
 

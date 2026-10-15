@@ -643,4 +643,81 @@ class OrganizationInvitationsTest extends IntegrationTestCase
 
         $this->assertSame($token, $invitation->fresh()->token);
     }
+
+    #[Test]
+    public function it_answers_an_unknown_and_a_foreign_invitation_id_the_same_for_a_caller_without_the_ability(): void
+    {
+        $foreign = Invitation::factory()->forOrganization($this->createOrganization())->create();
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $base = "/api/v1/organizations/{$this->organization->id}/invitations";
+        $this->actingAs($member, 'api');
+
+        $this->postJson("{$base}/{$foreign->id}/resend")->assertForbidden();
+        $this->postJson("{$base}/999999/resend")->assertForbidden();
+        $this->deleteJson("{$base}/{$foreign->id}")->assertForbidden();
+        $this->deleteJson("{$base}/999999")->assertForbidden();
+    }
+
+    #[Test]
+    public function it_answers_an_unknown_and_a_foreign_invitation_id_the_same_for_a_caller_with_the_ability(): void
+    {
+        $foreign = Invitation::factory()->forOrganization($this->createOrganization())->create();
+        $base = "/api/v1/organizations/{$this->organization->id}/invitations";
+        $this->actingAs($this->admin, 'api');
+
+        $unknownResend = $this->postJson("{$base}/999999/resend");
+        $foreignResend = $this->postJson("{$base}/{$foreign->id}/resend");
+        $unknownCancel = $this->deleteJson("{$base}/999999");
+        $foreignCancel = $this->deleteJson("{$base}/{$foreign->id}");
+
+        $this->assertSame($unknownResend->status(), $foreignResend->status());
+        $this->assertSame($unknownCancel->status(), $foreignCancel->status());
+        $this->assertSame('pending', $foreign->fresh()->status);
+    }
+
+    #[Test]
+    public function it_does_not_act_on_an_invitation_through_another_organizations_url(): void
+    {
+        $other = $this->createOrganization();
+        $otherAdmin = $this->createApiOrganizationAdmin(['organization_id' => $other->id]);
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create();
+
+        $this->actingAs($otherAdmin, 'api')
+            ->deleteJson("/api/v1/organizations/{$other->id}/invitations/{$invitation->id}")
+            ->assertNotFound();
+        $this->assertSame('pending', $invitation->fresh()->status);
+
+        $superAdmin = $this->createApiSuperAdmin(['organization_id' => null]);
+        $this->actingAs($superAdmin, 'api')
+            ->deleteJson("/api/v1/organizations/{$other->id}/invitations/{$invitation->id}")
+            ->assertNotFound();
+        $this->assertSame('pending', $invitation->fresh()->status);
+    }
+
+    #[Test]
+    public function it_lets_a_super_admin_without_an_organization_resend_and_cancel_any_invitation(): void
+    {
+        $superAdmin = $this->createApiSuperAdmin(['organization_id' => null]);
+        $invitation = Invitation::factory()->forOrganization($this->organization)->create();
+        $base = "/api/v1/organizations/{$this->organization->id}/invitations/{$invitation->id}";
+        $this->actingAs($superAdmin, 'api');
+
+        $this->postJson("{$base}/resend")->assertOk();
+        $this->deleteJson($base)->assertOk();
+        $this->assertSame('cancelled', $invitation->fresh()->status);
+    }
+
+    #[Test]
+    public function it_answers_an_unknown_and_a_foreign_organization_the_same_when_listing_invitations(): void
+    {
+        $foreign = $this->createOrganization();
+        $member = $this->createApiUser(['organization_id' => $this->organization->id]);
+        $this->actingAs($member, 'api');
+
+        $unknown = $this->getJson('/api/v1/organizations/999999/invitations');
+        $foreignResponse = $this->getJson("/api/v1/organizations/{$foreign->id}/invitations");
+
+        $this->assertSame($unknown->status(), $foreignResponse->status());
+        $this->assertSame($unknown->json(), $foreignResponse->json());
+    }
 }
