@@ -109,7 +109,7 @@ class ExportUsersJob implements ShouldQueue
                 'exception' => $e,
             ]);
 
-            $this->exportJob->markAsFailed($e->getMessage());
+            $this->exportJob->markAsFailed('Export failed');
 
             // Re-throw to mark job as failed in queue
             throw $e;
@@ -225,6 +225,6 @@ class ExportUsersJob implements ShouldQueue
             'exception' => $exception,
         ]);
 
-        $this->exportJob->markAsFailed($exception->getMessage());
+        $this->exportJob->markAsFailed('Export failed');
     }
 }

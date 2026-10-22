@@ -67,9 +67,11 @@ class BulkInvitationService
                         'expires_at' => $invitation->expires_at,
                     ];
                 } catch (Exception $e) {
+                    report($e);
+
                     $results['failed'][] = [
                         'email' => $invitationData['email'],
-                        'reason' => 'Failed to create invitation: '.$e->getMessage(),
+                        'reason' => 'Failed to create invitation',
                     ];
                 }
             }

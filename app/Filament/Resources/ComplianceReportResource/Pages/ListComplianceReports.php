@@ -85,9 +85,11 @@ class ListComplianceReports extends ListRecords
                             ->success()
                             ->send();
                     } catch (Throwable $e) {
+                        report($e);
+
                         Notification::make()
                             ->title('Report generation failed')
-                            ->body($e->getMessage())
+                            ->body('The compliance report could not be generated. Please try again or contact an administrator.')
                             ->danger()
                             ->send();
                     }

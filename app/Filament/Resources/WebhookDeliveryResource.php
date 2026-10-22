@@ -262,9 +262,11 @@ class WebhookDeliveryResource extends Resource
                                 ->success()
                                 ->send();
                         } catch (Exception $e) {
+                            report($e);
+
                             Notification::make()
                                 ->title('Error queuing retry')
-                                ->body($e->getMessage())
+                                ->body('The delivery could not be queued for retry. Please try again or contact an administrator.')
                                 ->danger()
                                 ->send();
                         }

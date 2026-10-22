@@ -74,7 +74,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
 
                     $results['successful'][] = $this->formatUserResult($user);
                 } catch (Exception $e) {
-                    $results['failed'][] = $this->formatErrorResult($user, $e->getMessage());
+                    report($e);
+
+                    $results['failed'][] = $this->formatErrorResult($user, 'Failed to update roles for this user');
                 }
             }
 
@@ -120,7 +122,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
 
                     $results['successful'][] = $this->formatUserResult($user);
                 } catch (Exception $e) {
-                    $results['failed'][] = $this->formatErrorResult($user, $e->getMessage());
+                    report($e);
+
+                    $results['failed'][] = $this->formatErrorResult($user, 'Failed to revoke access for this user');
                 }
             }
 
@@ -312,7 +316,9 @@ class BulkOperationService extends BaseService implements BulkOperationServiceIn
 
                     $results['successful'][] = $this->formatUserResult($user, $operation);
                 } catch (Exception $e) {
-                    $results['failed'][] = $this->formatErrorResult($user, $e->getMessage());
+                    report($e);
+
+                    $results['failed'][] = $this->formatErrorResult($user, 'Failed to apply the operation to this user');
                 }
             }
 

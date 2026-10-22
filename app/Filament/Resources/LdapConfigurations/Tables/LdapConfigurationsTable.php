@@ -159,10 +159,12 @@ class LdapConfigurationsTable
                                 ->body("Found {$result['user_count']} users")
                                 ->send();
                         } catch (\Exception $e) {
+                            report($e);
+
                             Notification::make()
                                 ->danger()
                                 ->title('Connection Failed')
-                                ->body($e->getMessage())
+                                ->body('Could not connect to the LDAP server. Check the configuration, or contact an administrator.')
                                 ->send();
                         }
                     })

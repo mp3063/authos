@@ -146,7 +146,7 @@ class DomainVerificationService
             return [
                 'success' => false,
                 'verified' => false,
-                'message' => 'Verification failed: '.$e->getMessage(),
+                'message' => 'Verification failed',
             ];
         }
     }
@@ -275,7 +275,7 @@ class DomainVerificationService
 
             return [
                 'success' => false,
-                'message' => 'Certificate check failed: '.$e->getMessage(),
+                'message' => 'Certificate check failed',
             ];
         }
     }

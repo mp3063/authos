@@ -130,7 +130,7 @@ class ProcessBulkImportJob implements ShouldQueue
                 'exception' => $e,
             ]);
 
-            $this->importJob->markAsFailed($e->getMessage());
+            $this->importJob->markAsFailed('Import failed');
 
             // Re-throw to mark job as failed in queue
             throw $e;
@@ -319,6 +319,6 @@ class ProcessBulkImportJob implements ShouldQueue
             'exception' => $exception,
         ]);
 
-        $this->importJob->markAsFailed($exception->getMessage());
+        $this->importJob->markAsFailed('Import failed');
     }
 }

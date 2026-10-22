@@ -265,9 +265,11 @@ class CustomRoleResource extends Resource
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
+                            report($e);
+
                             Notification::make()
                                 ->title('Failed to clone role')
-                                ->body($e->getMessage())
+                                ->body('The role could not be cloned. Check that the new name is unique, or contact an administrator.')
                                 ->danger()
                                 ->send();
                         }

@@ -323,9 +323,11 @@ class WebhookResource extends Resource
                                     ->send();
                             }
                         } catch (\Exception $e) {
+                            report($e);
+
                             Notification::make()
                                 ->title('Error sending test webhook')
-                                ->body($e->getMessage())
+                                ->body('The test webhook could not be sent. Please try again or contact an administrator.')
                                 ->danger()
                                 ->send();
                         }
