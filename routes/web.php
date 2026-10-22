@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\SocialAuthController;
-use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -9,30 +8,6 @@ Route::get('/', function () {
 });
 
 Route::redirect('/docs', '/docs/index.html');
-
-Route::get('/test', function () {
-    return response()->json([
-        'message' => 'Laravel is working!',
-        'timestamp' => now(),
-        'user_count' => User::count(),
-    ]);
-});
-
-Route::get('/test-db', function () {
-    try {
-        $users = User::take(3)->get();
-
-        return response()->json([
-            'message' => 'Database connection working!',
-            'users_found' => $users->count(),
-            'users' => $users->pluck('email'),
-        ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'error' => 'Database error: '.$e->getMessage(),
-        ], 500);
-    }
-});
 
 // Social Authentication routes for web (Filament admin panel)
 Route::prefix('auth/social')->group(function () {
