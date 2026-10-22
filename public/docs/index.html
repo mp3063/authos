@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AuthOS API</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" />
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" integrity="sha384-h0W3Vqg5Snxbn56nHu/JCHYsKdSuoEcQneezEWEYGsAdajQJkgD+v9Qy8cuv/1bA" crossorigin="anonymous" />
     <link rel="icon" href="../favicon.ico" />
     <style>
         body {
@@ -20,7 +20,7 @@
 <body>
     <div id="swagger-ui"></div>
 
-    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js" charset="UTF-8"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js" integrity="sha384-jVJWQ0wtFEKcwLYTTe3ZTkA8DbVK3s5bLmxjc30v16evmnx8m4NYVsc52bA+qIUl" crossorigin="anonymous" charset="UTF-8"></script>
     <script>
         window.ui = SwaggerUIBundle({
             url: 'openapi.yaml',
@@ -31,7 +31,6 @@
             docExpansion: 'none',
             defaultModelsExpandDepth: -1,
             filter: true,
-            persistAuthorization: true,
             tryItOutEnabled: true,
         });
     </script>
