@@ -10,6 +10,7 @@ use App\Services\AuditExportService;
 use Exception;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ProcessAuditExportJobTest extends TestCase
@@ -42,7 +43,7 @@ class ProcessAuditExportJobTest extends TestCase
         parent::tearDown();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_can_be_dispatched_to_queue(): void
     {
         Queue::fake();
@@ -54,7 +55,7 @@ class ProcessAuditExportJobTest extends TestCase
         });
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_has_correct_configuration(): void
     {
         $job = new ProcessAuditExportJob($this->export);
@@ -63,7 +64,7 @@ class ProcessAuditExportJobTest extends TestCase
         $this->assertEquals(2, $job->tries);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calls_service_process_export(): void
     {
         $service = Mockery::mock(AuditExportService::class);
@@ -81,7 +82,7 @@ class ProcessAuditExportJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_processing_failure(): void
     {
         $service = Mockery::mock(AuditExportService::class);
@@ -97,7 +98,7 @@ class ProcessAuditExportJobTest extends TestCase
         $job->handle($service);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_updates_export_status_on_failure(): void
     {
         $service = Mockery::mock(AuditExportService::class);
@@ -115,10 +116,10 @@ class ProcessAuditExportJobTest extends TestCase
 
         $this->export->refresh();
         $this->assertEquals('failed', $this->export->status);
-        $this->assertEquals('Processing error', $this->export->error_message);
+        $this->assertEquals('Audit export failed', $this->export->error_message);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_calls_failed_method_on_permanent_failure(): void
     {
         $exception = new Exception('Permanent export failure');
@@ -128,6 +129,6 @@ class ProcessAuditExportJobTest extends TestCase
 
         $this->export->refresh();
         $this->assertEquals('failed', $this->export->status);
-        $this->assertEquals('Permanent export failure', $this->export->error_message);
+        $this->assertEquals('Audit export failed', $this->export->error_message);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\AuditExport;
 use App\Models\AuthenticationLog;
 use App\Models\User;
 use App\Services\AuditExportService;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -705,6 +706,7 @@ admin,admin@test.com,login');
     public function export_job_handles_failures_gracefully()
     {
         // ARRANGE: Create export with invalid type (will cause failure)
+        Exceptions::fake();
         $admin = $this->createApiOrganizationOwner();
 
         $export = AuditExport::factory()->create([
@@ -727,9 +729,10 @@ admin,admin@test.com,login');
         // ASSERT: Export status updated to failed
         $export->refresh();
         $this->assertEquals('failed', $export->status);
-        $this->assertNotNull($export->error_message);
+        $this->assertSame('Audit export failed', $export->error_message);
         $this->assertNotNull($export->completed_at);
         $this->assertNull($export->file_path);
+        Exceptions::assertReported(fn (\Exception $e) => $e->getMessage() === 'Invalid export type: invalid_type');
     }
 
     #[Test]

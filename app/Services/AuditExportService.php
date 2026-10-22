@@ -76,9 +76,11 @@ class AuditExportService
                 'completed_at' => now(),
             ]);
         } catch (Exception $e) {
+            report($e);
+
             $export->update([
                 'status' => 'failed',
-                'error_message' => $e->getMessage(),
+                'error_message' => 'Audit export failed',
                 'completed_at' => now(),
             ]);
         }

@@ -134,7 +134,11 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => $this->signSamlResponse($this->responseXml($outsider->email)),
         ]);
 
-        $response->assertNotFound();
+        $response->assertNotFound()->assertExactJson(['success' => false, 'message' => 'User not found for SAML assertion']);
+        $this->assertContainsEquals(
+            ['warning', 'SAML authentication rejected', ['reason' => 'User not found for SAML assertion', 'email' => $outsider->email]],
+            array_map(fn (MessageLogged $event) => [$event->level, $event->message, $event->context], $this->logged)
+        );
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $outsider->id]);
     }
 

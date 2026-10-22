@@ -123,7 +123,7 @@ class GenerateComplianceReportJob implements ShouldQueue
         } catch (Throwable $e) {
             $report->update([
                 'status' => ComplianceReport::STATUS_FAILED,
-                'error_message' => $e->getMessage(),
+                'error_message' => 'Report generation failed',
                 'generated_at' => now(),
             ]);
 

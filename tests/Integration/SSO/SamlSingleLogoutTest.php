@@ -79,8 +79,11 @@ class SamlSingleLogoutTest extends IntegrationTestCase
             'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email, 'https://unknown-idp.example.com')),
         ]);
 
-        $response->assertBadRequest()
-            ->assertJsonPath('message', 'No SAML configuration found for IdP: https://unknown-idp.example.com');
+        $response->assertBadRequest()->assertExactJson(['success' => false, 'message' => 'No SAML configuration found for IdP']);
+        $this->assertContainsEquals(
+            ['warning', 'SAML single logout rejected', ['reason' => 'No SAML configuration found for IdP', 'issuer' => 'https://unknown-idp.example.com']],
+            array_map(fn (MessageLogged $event) => [$event->level, $event->message, $event->context], $this->logged)
+        );
         $this->assertNull($session->fresh()->logged_out_at);
     }
 

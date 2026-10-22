@@ -123,9 +123,11 @@ class SamlController extends Controller
                     fn (?string $x509Cert) => $this->signatureValidator->validateLogoutRequest($samlRequest, $x509Cert)
                 );
                 if (! $ssoConfig) {
+                    Log::warning('SAML single logout rejected', ['reason' => 'No SAML configuration found for IdP', 'issuer' => $logoutData['issuer'] ?? null]);
+
                     return response()->json([
                         'success' => false,
-                        'message' => 'No SAML configuration found for IdP: '.($logoutData['issuer'] ?? 'unknown'),
+                        'message' => 'No SAML configuration found for IdP',
                     ], 400);
                 }
 
@@ -204,10 +206,11 @@ class SamlController extends Controller
             );
 
             if (! $ssoConfig) {
-                // Fall back to finding by application in RelayState
+                Log::warning('SAML authentication rejected', ['reason' => 'No SAML configuration found for IdP', 'issuer' => $userInfo['issuer'] ?? null]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'No SAML configuration found for IdP: '.($userInfo['issuer'] ?? 'unknown'),
+                    'message' => 'No SAML configuration found for IdP',
                 ], 400);
             }
 
@@ -223,9 +226,11 @@ class SamlController extends Controller
                 ->where('email', $userInfo['email'])
                 ->first();
             if (! $user) {
+                Log::warning('SAML authentication rejected', ['reason' => 'User not found for SAML assertion', 'email' => $userInfo['email']]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'User not found for SAML assertion email: '.$userInfo['email'],
+                    'message' => 'User not found for SAML assertion',
                 ], 404);
             }
 

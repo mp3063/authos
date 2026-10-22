@@ -44,7 +44,7 @@ class ProcessAuditExportJob implements ShouldQueue
 
             $this->export->update([
                 'status' => 'failed',
-                'error_message' => $e->getMessage(),
+                'error_message' => 'Audit export failed',
             ]);
 
             throw $e;
@@ -57,7 +57,7 @@ class ProcessAuditExportJob implements ShouldQueue
 
         $this->export->update([
             'status' => 'failed',
-            'error_message' => $exception->getMessage(),
+            'error_message' => 'Audit export failed',
         ]);
     }
 }

@@ -191,7 +191,7 @@ class GenerateComplianceReportJobTest extends TestCase
 
         $report = $this->latestReport();
         $this->assertSame(ComplianceReport::STATUS_FAILED, $report->status);
-        $this->assertSame('Data source unavailable', $report->error_message);
+        $this->assertSame('Report generation failed', $report->error_message);
         $this->assertNull($report->file_path_json);
         Mail::assertNothingSent();
     }
