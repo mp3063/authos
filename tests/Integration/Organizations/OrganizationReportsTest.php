@@ -7,6 +7,8 @@ use App\Models\AuthenticationLog;
 use App\Models\Organization;
 use App\Models\SecurityIncident;
 use App\Models\User;
+use App\Services\OrganizationReportingService;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -232,6 +234,24 @@ class OrganizationReportsTest extends IntegrationTestCase
         // ASSERT: Verify incident counts
         $summary = $response->json('data.summary');
         $this->assertEquals(10, $summary['total_incidents']); // 5 + 3 + 2
+    }
+
+    #[Test]
+    public function test_security_audit_counts_null_and_empty_mfa_methods_as_without_mfa(): void
+    {
+        $application = Application::factory()->create(['organization_id' => $this->organization->id]);
+        $nullMfa = User::factory()->create(['organization_id' => $this->organization->id, 'mfa_methods' => null]);
+        $emptyMfa = User::factory()->create(['organization_id' => $this->organization->id]);
+        $withMfa = User::factory()->create(['organization_id' => $this->organization->id, 'mfa_methods' => ['totp']]);
+        DB::table('users')->where('id', $emptyMfa->id)->update(['mfa_methods' => '[]']);
+        foreach ([$nullMfa, $emptyMfa, $withMfa] as $user) {
+            $user->applications()->attach($application->id, ['granted_at' => now()]);
+        }
+
+        $report = app(OrganizationReportingService::class)->generateSecurityAuditReport($this->organization->id);
+
+        $ids = collect($report['users_without_mfa'])->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$nullMfa->id, $emptyMfa->id], $ids);
     }
 
     #[Test]

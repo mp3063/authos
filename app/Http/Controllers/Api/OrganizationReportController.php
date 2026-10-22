@@ -94,9 +94,11 @@ class OrganizationReportController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate user activity report: '.$e->getMessage(),
+                'error_description' => 'Failed to generate user activity report',
             ], 500);
         }
     }
@@ -244,9 +246,11 @@ class OrganizationReportController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate application usage report: '.$e->getMessage(),
+                'error_description' => 'Failed to generate application usage report',
             ], 500);
         }
     }
@@ -326,9 +330,11 @@ class OrganizationReportController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'report_generation_failed',
-                'error_description' => 'Failed to generate security audit report: '.$e->getMessage(),
+                'error_description' => 'Failed to generate security audit report',
             ], 500);
         }
     }
@@ -409,9 +415,11 @@ class OrganizationReportController extends BaseController
             ], 201);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'schedule_creation_failed',
-                'error_description' => 'Failed to create report schedule: '.$e->getMessage(),
+                'error_description' => 'Failed to create report schedule',
             ], 500);
         }
     }
@@ -443,9 +451,11 @@ class OrganizationReportController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'schedule_update_failed',
-                'error_description' => 'Failed to update report schedule: '.$e->getMessage(),
+                'error_description' => 'Failed to update report schedule',
             ], 500);
         }
     }
@@ -464,9 +474,11 @@ class OrganizationReportController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'error' => 'schedule_deletion_failed',
-                'error_description' => 'Failed to delete report schedule: '.$e->getMessage(),
+                'error_description' => 'Failed to delete report schedule',
             ], 500);
         }
     }

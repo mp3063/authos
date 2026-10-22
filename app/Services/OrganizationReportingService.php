@@ -314,7 +314,7 @@ class OrganizationReportingService
             $subQuery->whereIn('application_id', $applicationIds);
         })
             ->where(function ($subQuery) {
-                $subQuery->whereNull('mfa_methods')->orWhere('mfa_methods', '[]');
+                $subQuery->whereNull('mfa_methods')->orWhereRaw("CAST(mfa_methods AS TEXT) = '[]'");
             })
             ->select('id', 'name', 'email', 'created_at')
             ->get();
