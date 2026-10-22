@@ -168,8 +168,7 @@ class ProcessAuth0MigrationJob implements ShouldQueue
 
             $errorLog = $this->migrationJob->error_log ?? [];
             $errorLog[] = [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'message' => 'Migration failed',
                 'timestamp' => now()->toDateTimeString(),
             ];
 

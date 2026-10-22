@@ -359,7 +359,8 @@ class ProcessAuth0MigrationJobTest extends TestCase
 
         $this->migrationJob->refresh();
         $this->assertEquals('failed', $this->migrationJob->status);
-        $this->assertNotEmpty($this->migrationJob->error_log);
+        $this->assertSame('Migration failed', $this->migrationJob->error_log[0]['message']);
+        $this->assertArrayNotHasKey('trace', $this->migrationJob->error_log[0]);
     }
 
     #[Test]

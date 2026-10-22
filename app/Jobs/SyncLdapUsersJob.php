@@ -50,7 +50,7 @@ class SyncLdapUsersJob implements ShouldQueue
 
             $this->ldapConfig->update([
                 'sync_status' => 'failed',
-                'last_sync_error' => $e->getMessage(),
+                'last_sync_error' => 'LDAP sync failed',
             ]);
 
             throw $e; // Re-throw to trigger retry
@@ -63,7 +63,7 @@ class SyncLdapUsersJob implements ShouldQueue
 
         $this->ldapConfig->update([
             'sync_status' => 'failed',
-            'last_sync_error' => $exception->getMessage(),
+            'last_sync_error' => 'LDAP sync failed',
         ]);
     }
 }

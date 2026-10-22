@@ -141,7 +141,7 @@ class ProcessOktaMigrationJob implements ShouldQueue
 
             $errorLog = $this->migrationJob->error_log ?? [];
             $errorLog[] = [
-                'message' => $e->getMessage(),
+                'message' => 'Migration failed',
                 'timestamp' => now()->toDateTimeString(),
             ];
 

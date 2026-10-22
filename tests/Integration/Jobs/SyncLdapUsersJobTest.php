@@ -199,7 +199,7 @@ class SyncLdapUsersJobTest extends TestCase
         // Verify error was recorded
         $this->ldapConfig->refresh();
         $this->assertEquals('failed', $this->ldapConfig->sync_status);
-        $this->assertEquals('LDAP connection failed', $this->ldapConfig->last_sync_error);
+        $this->assertEquals('LDAP sync failed', $this->ldapConfig->last_sync_error);
     }
 
     protected function tearDown(): void

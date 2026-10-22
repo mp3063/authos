@@ -257,14 +257,18 @@ class OidcFlowService
 
             $userInfo = $this->fetchUserInfo($ssoConfig, $accessToken);
         } catch (ConnectionException $e) {
+            report($e);
+
             $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_connection_timeout', false, [
-                'error' => 'Connection timeout: '.$e->getMessage(),
+                'error' => 'Connection timeout',
             ]);
 
             return null;
         } catch (Exception $e) {
+            report($e);
+
             $this->logAuthenticationEvent($session->user_id, $session->application_id, 'sso_http_error', false, [
-                'error' => 'HTTP request failed: '.$e->getMessage(),
+                'error' => 'HTTP request failed',
             ]);
 
             return null;

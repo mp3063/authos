@@ -120,7 +120,7 @@ class SyncLdapUsersJobTest extends TestCase
 
         $this->ldapConfig->refresh();
         $this->assertEquals('failed', $this->ldapConfig->sync_status);
-        $this->assertEquals('LDAP connection failed', $this->ldapConfig->last_sync_error);
+        $this->assertEquals('LDAP sync failed', $this->ldapConfig->last_sync_error);
     }
 
     #[Test]
@@ -133,7 +133,7 @@ class SyncLdapUsersJobTest extends TestCase
 
         $this->ldapConfig->refresh();
         $this->assertEquals('failed', $this->ldapConfig->sync_status);
-        $this->assertEquals('Permanent failure', $this->ldapConfig->last_sync_error);
+        $this->assertEquals('LDAP sync failed', $this->ldapConfig->last_sync_error);
     }
 
     #[Test]

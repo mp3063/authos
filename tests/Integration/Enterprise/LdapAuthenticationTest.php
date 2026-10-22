@@ -333,7 +333,7 @@ class LdapAuthenticationTest extends IntegrationTestCase
         // ASSERT: Status marked as failed
         $this->ldapConfig->refresh();
         $this->assertEquals('failed', $this->ldapConfig->sync_status);
-        $this->assertEquals('Test failure', $this->ldapConfig->last_sync_error);
+        $this->assertEquals('LDAP sync failed', $this->ldapConfig->last_sync_error);
     }
 
     // ============================================================

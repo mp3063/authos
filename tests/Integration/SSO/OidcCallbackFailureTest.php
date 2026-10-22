@@ -3,11 +3,13 @@
 namespace Tests\Integration\SSO;
 
 use App\Models\Application;
+use App\Models\AuthenticationLog;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
@@ -61,11 +63,15 @@ class OidcCallbackFailureTest extends IntegrationTestCase
         Http::fake([
             self::TOKEN_ENDPOINT => fn () => throw new ConnectionException('Connection timed out'),
         ]);
+        Exceptions::fake();
         $state = $this->initiate();
 
         $response = $this->postCallback($state);
 
         $this->assertFailedWithoutSession($response, $state, 'sso_connection_timeout');
+        $log = AuthenticationLog::where('user_id', $this->user->id)->where('event', 'sso_connection_timeout')->sole();
+        $this->assertSame('Connection timeout', $log->metadata['error']);
+        Exceptions::assertReported(fn (ConnectionException $e) => $e->getMessage() === 'Connection timed out');
     }
 
     #[Test]

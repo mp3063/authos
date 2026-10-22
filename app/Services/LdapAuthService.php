@@ -69,7 +69,7 @@ class LdapAuthService
         } catch (Exception $e) {
             $this->logAuthenticationEvent($config->organization_id, null, 'ldap_test_failed', false, [
                 'host' => $config->host,
-                'error' => $e->getMessage(),
+                'error' => 'LDAP connection test failed',
             ]);
 
             Log::error('LDAP connection test failed', [
@@ -147,7 +147,7 @@ class LdapAuthService
             return $stats;
         } catch (Exception $e) {
             $this->logAuthenticationEvent($organization->id, null, 'ldap_sync_failed', false, [
-                'error' => $e->getMessage(),
+                'error' => 'LDAP user sync failed',
             ]);
 
             Log::error('LDAP sync failed', [
@@ -270,7 +270,7 @@ class LdapAuthService
 
             $this->logAuthenticationEvent($config->organization_id, null, 'ldap_auth_error', false, [
                 'username' => $username,
-                'error' => $e->getMessage(),
+                'error' => 'LDAP authentication failed',
             ]);
 
             throw new Exception('LDAP authentication failed: '.$e->getMessage());
