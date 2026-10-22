@@ -96,7 +96,9 @@ class ComplianceController extends BaseController
                 'message' => 'Compliance report scheduled successfully',
             ], 201);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to schedule compliance report', 500);
         }
     }
 
@@ -123,7 +125,9 @@ class ComplianceController extends BaseController
                 'data' => ['schedules' => $schedules],
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve compliance report schedules', 500);
         }
     }
 
@@ -146,7 +150,9 @@ class ComplianceController extends BaseController
         } catch (AuthorizationException $e) {
             throw $e;
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to update compliance report schedule', 500);
         }
     }
 
@@ -174,7 +180,9 @@ class ComplianceController extends BaseController
         } catch (AuthorizationException $e) {
             throw $e;
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to cancel compliance report schedule', 500);
         }
     }
 
@@ -291,7 +299,9 @@ class ComplianceController extends BaseController
                 ],
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve compliance reports', 500);
         }
     }
 
@@ -376,7 +386,9 @@ class ComplianceController extends BaseController
         } catch (AuthorizationException $e) {
             throw $e;
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to download compliance report', 500);
         }
     }
 

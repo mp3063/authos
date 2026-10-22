@@ -840,7 +840,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         $callbackResponse->assertStatus(400);
 
         $this->assertFalse($callbackResponse->json('success'));
-        $this->assertStringContainsString('organization', $callbackResponse->json('error'));
+        $callbackResponse->assertExactJson(['success' => false, 'message' => 'Authentication failed']);
     }
 
     /**
@@ -1060,7 +1060,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         $suspiciousResponse = $this->getJson('/api/v1/auth/social/google/callback');
         $suspiciousResponse->assertStatus(400);
 
-        $this->assertStringContainsString('Suspicious', $suspiciousResponse->json('error'));
+        $suspiciousResponse->assertExactJson(['success' => false, 'message' => 'Authentication failed']);
     }
 
     /**
@@ -1088,7 +1088,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         $errorResponse->assertStatus(400);
 
         $this->assertFalse($errorResponse->json('success'));
-        $this->assertStringContainsString('Provider', $errorResponse->json('error'));
+        $errorResponse->assertExactJson(['success' => false, 'message' => 'Authentication failed']);
     }
 
     /**
@@ -1143,7 +1143,7 @@ class SocialAuthFlowsTest extends EndToEndTestCase
         $invalidResponse->assertStatus(400);
 
         $this->assertFalse($invalidResponse->json('success'));
-        $this->assertStringContainsString('Invalid response', $invalidResponse->json('error'));
+        $invalidResponse->assertExactJson(['success' => false, 'message' => 'Authentication failed']);
     }
 
     protected function tearDown(): void

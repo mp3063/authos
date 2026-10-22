@@ -67,8 +67,10 @@ class WebhookDeliveryController extends BaseController
                 'Webhook delivery retry initiated successfully'
             );
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to retry webhook delivery: '.$e->getMessage(),
+                'Failed to retry webhook delivery',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }

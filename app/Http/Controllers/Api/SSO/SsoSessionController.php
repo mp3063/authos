@@ -44,9 +44,11 @@ class SsoSessionController extends Controller
             ]);
 
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Failed to retrieve SSO sessions',
             ], 400);
         }
     }
@@ -68,9 +70,11 @@ class SsoSessionController extends Controller
             ]);
 
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Failed to revoke SSO sessions',
             ], 400);
         }
     }
@@ -117,7 +121,7 @@ class SsoSessionController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'valid' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Invalid or expired session token',
             ], 400);
         }
     }
@@ -155,7 +159,7 @@ class SsoSessionController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Unable to refresh session',
             ], 400);
         }
     }
@@ -195,7 +199,7 @@ class SsoSessionController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'Invalid or expired session token',
             ], 400);
         }
     }
@@ -214,8 +218,10 @@ class SsoSessionController extends Controller
             ]);
 
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'Failed to log out SSO sessions',
             ], 400);
         }
     }

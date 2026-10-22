@@ -48,7 +48,9 @@ class BrandingController extends BaseController
 
             return $this->successResponse($brandingData, 'Branding retrieved successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve branding', 500);
         }
     }
 
@@ -89,7 +91,9 @@ class BrandingController extends BaseController
 
             return $this->successResponse(['branding' => $brandingData], 'Branding updated successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to update branding', 500);
         }
     }
 

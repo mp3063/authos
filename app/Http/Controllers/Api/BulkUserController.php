@@ -284,7 +284,7 @@ class BulkUserController extends BaseController
         } catch (\RuntimeException $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Only failed jobs can be retried',
             ], 400);
         }
     }

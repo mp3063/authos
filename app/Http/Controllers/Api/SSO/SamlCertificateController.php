@@ -42,9 +42,11 @@ class SamlCertificateController extends Controller
                 'uploaded_at' => $configuration[$certKey.'_uploaded_at'],
             ]);
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Failed to update SAML certificate',
             ], 400);
         }
     }
@@ -84,9 +86,11 @@ class SamlCertificateController extends Controller
                 'certificates' => $certs,
             ]);
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Failed to read SAML certificate',
             ], 400);
         }
     }
@@ -125,9 +129,11 @@ class SamlCertificateController extends Controller
                 'has_previous' => ! empty($configuration[$certKey.'_previous']),
             ]);
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Failed to rotate SAML certificate',
             ], 400);
         }
     }

@@ -36,7 +36,9 @@ class DomainController extends BaseController
 
             return $this->paginatedResponse($domains, 'Domains retrieved successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve domains', 500);
         }
     }
 
@@ -60,10 +62,12 @@ class DomainController extends BaseController
             return $this->createdResponse($domainData, 'Domain added successfully');
         } catch (Exception $e) {
             if (str_contains($e->getMessage(), 'already exists')) {
-                return $this->validationErrorResponse($e->getMessage(), ['domain' => [$e->getMessage()]]);
+                return $this->validationErrorResponse(['domain' => ['Domain already exists']], 'Domain already exists');
             }
 
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to add domain', 500);
         }
     }
 
@@ -85,7 +89,9 @@ class DomainController extends BaseController
 
             return $this->successResponse($result, $result['message'] ?? 'Domain verification completed');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to verify domain', 500);
         }
     }
 
@@ -102,7 +108,9 @@ class DomainController extends BaseController
 
             return $this->deletedResponse('Domain deleted successfully');
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to delete domain', 500);
         }
     }
 

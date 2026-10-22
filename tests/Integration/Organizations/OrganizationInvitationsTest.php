@@ -333,7 +333,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         // ASSERT: Verify rejection
         $response->assertStatus(400)
             ->assertJson([
-                'error' => 'Invitation has expired',
+                'error' => 'Unable to accept invitation',
             ]);
 
         // ASSERT: Verify invitation status unchanged
@@ -359,7 +359,7 @@ class OrganizationInvitationsTest extends IntegrationTestCase
         // ASSERT: Verify rejection
         $response->assertStatus(400)
             ->assertJson([
-                'error' => 'Invitation already accepted',
+                'error' => 'Unable to accept invitation',
             ]);
     }
 

@@ -45,10 +45,11 @@ class SocialAuthController extends BaseController
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get social providers',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -95,10 +96,11 @@ class SocialAuthController extends BaseController
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate redirect URL',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -203,7 +205,6 @@ class SocialAuthController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Authentication failed',
-                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -352,7 +353,6 @@ class SocialAuthController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to link social account',
-                'error' => $e->getMessage(),
             ], 400);
         }
     }
@@ -393,10 +393,11 @@ class SocialAuthController extends BaseController
                 'error' => $e->getMessage(),
             ]);
 
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to unlink social account',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }

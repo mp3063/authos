@@ -114,7 +114,9 @@ class BulkUserOperationsController extends BaseController
                 'message' => $message,
             ], 201);
         } catch (Exception $e) {
-            return $this->serverErrorResponse('Failed to process bulk invitations: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to process bulk invitations');
         }
     }
 
@@ -245,7 +247,9 @@ class BulkUserOperationsController extends BaseController
                 ],
             ], $message);
         } catch (Exception $e) {
-            return $this->serverErrorResponse('Failed to process bulk role assignments: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to process bulk role assignments');
         }
     }
 
@@ -288,7 +292,9 @@ class BulkUserOperationsController extends BaseController
                 'reason' => $request->input('reason'),
             ], sprintf('Successfully deleted %d users', $deletedCount));
         } catch (Exception $e) {
-            return $this->serverErrorResponse('Failed to delete users: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to delete users');
         }
     }
 
@@ -339,7 +345,9 @@ class BulkUserOperationsController extends BaseController
                 'settings' => $settings,
             ], sprintf('Successfully updated settings for %d organizations', $updatedCount));
         } catch (Exception $e) {
-            return $this->serverErrorResponse('Failed to update organization settings: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to update organization settings');
         }
     }
 

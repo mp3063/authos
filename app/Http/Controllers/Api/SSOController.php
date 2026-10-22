@@ -93,7 +93,7 @@ class SSOController extends Controller
             ) ? 403 : 400;
 
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => $statusCode === 403 ? 'Access denied to this SSO configuration' : 'Unable to initiate SSO',
             ], $statusCode);
         }
     }
@@ -187,7 +187,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Invalid or expired session token',
             ], 400);
         }
     }
@@ -212,7 +212,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Invalid or expired refresh token',
             ], 400);
         }
     }
@@ -238,7 +238,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Invalid or expired session token',
             ], 400);
         }
     }
@@ -266,7 +266,7 @@ class SSOController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'SSO configuration not found',
             ], 404);
         }
     }
@@ -285,8 +285,10 @@ class SSOController extends Controller
             ]);
 
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
-                'message' => 'Cleanup failed: '.$e->getMessage(),
+                'message' => 'Cleanup failed',
             ], 500);
         }
     }
@@ -318,7 +320,7 @@ class SSOController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'SSO metadata not found',
             ], 404);
         }
     }

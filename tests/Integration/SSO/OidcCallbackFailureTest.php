@@ -248,7 +248,7 @@ class OidcCallbackFailureTest extends IntegrationTestCase
 
         $response->assertStatus(400)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Invalid or expired refresh token');
+            ->assertJsonPath('message', 'Unable to refresh session');
         Http::assertNothingSent();
         $this->assertArrayNotHasKey('token_updated_at', $session->fresh()->metadata ?? []);
     }

@@ -263,12 +263,14 @@ class OrganizationAnalyticsController extends BaseController
             if (isset($auditExport)) {
                 $auditExport->update([
                     'status' => 'failed',
-                    'error_message' => $e->getMessage(),
+                    'error_message' => 'Failed to export data',
                     'completed_at' => now(),
                 ]);
             }
 
-            return $this->errorResponse('Failed to export data: '.$e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to export data', 500);
         }
     }
 

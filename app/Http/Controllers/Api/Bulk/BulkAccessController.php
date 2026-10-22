@@ -121,7 +121,9 @@ class BulkAccessController extends BaseController
                 ],
             ], $message);
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to process bulk access revocations: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to process bulk access revocations');
         }
     }
 

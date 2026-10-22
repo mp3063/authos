@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class SamlController extends Controller
 {
@@ -58,9 +59,11 @@ class SamlController extends Controller
             ]);
 
         } catch (Exception $e) {
+            Log::warning('SAML authentication rejected', ['reason' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'SAML authentication failed',
             ], 400);
         }
     }
@@ -95,7 +98,7 @@ class SamlController extends Controller
                 'Cache-Control' => 'public, max-age=3600',
             ]);
         } catch (Exception $e) {
-            return response('<Error>'.$e->getMessage().'</Error>', 404, [
+            return response('<Error>SAML metadata not found</Error>', 404, [
                 'Content-Type' => 'application/xml',
             ]);
         }
@@ -170,9 +173,11 @@ class SamlController extends Controller
                 'message' => 'Missing SAMLRequest or SAMLResponse parameter',
             ], 400);
         } catch (Exception $e) {
+            Log::warning('SAML single logout rejected', ['reason' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Single logout failed',
             ], 400);
         }
     }
@@ -242,9 +247,11 @@ class SamlController extends Controller
 
             return $this->sessionIssuer->challengeResponse($result) ?? response()->json($result);
         } catch (Exception $e) {
+            Log::warning('SAML authentication rejected', ['reason' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'SAML authentication failed',
             ], 400);
         }
     }

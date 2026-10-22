@@ -53,7 +53,7 @@ class InvitationController extends BaseController
         } catch (AuthorizationException $e) {
             throw $e;
         } catch (Exception $e) {
-            return $this->errorResponse('Failed to send invitation: '.$e->getMessage());
+            return $this->errorResponse('Failed to send invitation');
         }
     }
 
@@ -87,7 +87,7 @@ class InvitationController extends BaseController
             );
 
         } catch (Exception $e) {
-            return $this->errorResponse('Failed to retrieve invitations: '.$e->getMessage(), 403);
+            return $this->errorResponse('Failed to retrieve invitations', 403);
         }
     }
 
@@ -157,7 +157,7 @@ class InvitationController extends BaseController
 
         } catch (Exception $e) {
             return response()->json([
-                'error' => $e->getMessage(),
+                'error' => 'Unable to accept invitation',
             ], 400);
         }
     }
@@ -291,7 +291,7 @@ class InvitationController extends BaseController
         } catch (AuthorizationException $e) {
             throw $e;
         } catch (Exception $e) {
-            return $this->errorResponse('Bulk invite failed: '.$e->getMessage());
+            return $this->errorResponse('Bulk invite failed');
         }
     }
 }

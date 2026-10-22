@@ -86,7 +86,9 @@ class AuditController extends BaseController
                 'message' => 'Audit export queued successfully',
             ], 201);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to create audit export', 500);
         }
     }
 
@@ -128,7 +130,9 @@ class AuditController extends BaseController
                 'message' => 'Exports retrieved successfully',
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve audit exports', 500);
         }
     }
 
@@ -200,7 +204,9 @@ class AuditController extends BaseController
                 'message' => 'Export not found',
             ], 404);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to download audit export', 500);
         }
     }
 }

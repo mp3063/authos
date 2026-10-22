@@ -6,6 +6,9 @@ use App\Models\Application;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -16,6 +19,15 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
     private const IDP_ENTITY_ID = 'https://idp.example.com';
 
     private const SP_ENTITY_ID = 'https://authos.example.com/saml/sp';
+
+    private array $logged = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Log::listen(fn (MessageLogged $event) => $this->logged[] = $event);
+    }
 
     #[Test]
     public function it_creates_a_session_for_an_assertion_signed_by_the_configured_idp(): void
@@ -43,7 +55,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => base64_encode($this->responseXml($user->email)),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML response is not signed');
+        $this->assertRejectedBecause($response, 'SAML response is not signed');
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
     }
 
@@ -71,7 +83,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email)),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'No IdP certificate configured for SAML signature validation');
+        $this->assertRejectedBecause($response, 'No IdP certificate configured for SAML signature validation');
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
     }
 
@@ -90,7 +102,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'RelayState' => 'request-1',
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML response is not signed');
+        $this->assertRejectedBecause($response, 'SAML response is not signed');
         $this->assertModelMissing($pendingSession);
         $this->assertDatabaseCount('sso_sessions', 0);
     }
@@ -161,7 +173,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'RelayState' => 'request-1',
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'User not found: '.$outsider->email);
+        $this->assertRejectedBecause($response, 'User not found: '.$outsider->email);
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $outsider->id]);
     }
 
@@ -192,7 +204,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['audience' => 'https://other-sp.example.com'])),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion audience does not match this service provider');
+        $this->assertRejectedBecause($response, 'SAML assertion audience does not match this service provider');
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
     }
 
@@ -206,7 +218,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['conditions' => false])),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion has no validity period');
+        $this->assertRejectedBecause($response, 'SAML assertion has no validity period');
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
     }
 
@@ -220,7 +232,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'SAMLResponse' => $this->signSamlResponse($this->responseXml($user->email, ['recipient' => 'https://other-sp.example.com/acs'])),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion recipient does not match this endpoint');
+        $this->assertRejectedBecause($response, 'SAML assertion recipient does not match this endpoint');
         $this->assertDatabaseMissing('sso_sessions', ['user_id' => $user->id]);
     }
 
@@ -234,7 +246,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
         $this->postJson('/api/v1/sso/saml/acs', ['SAMLResponse' => $samlResponse])->assertOk();
         $replay = $this->postJson('/api/v1/sso/saml/acs', ['SAMLResponse' => $samlResponse]);
 
-        $replay->assertBadRequest()->assertJsonPath('message', 'SAML assertion has already been used');
+        $this->assertRejectedBecause($replay, 'SAML assertion has already been used');
         $this->assertDatabaseCount('sso_sessions', 1);
     }
 
@@ -256,7 +268,7 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'RelayState' => 'request-1',
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML assertion does not answer the pending request');
+        $this->assertRejectedBecause($response, 'SAML assertion does not answer the pending request');
     }
 
     private function createSamlApplication(User $user, ?string $certificate): Application
@@ -318,5 +330,11 @@ class SamlIdpInitiatedSsoTest extends IntegrationTestCase
             'recipient' => url('/api/v1/sso/saml/callback'),
             'in_response_to' => 'request-1',
         ]);
+    }
+
+    private function assertRejectedBecause(TestResponse $response, string $reason): void
+    {
+        $response->assertBadRequest()->assertExactJson(['success' => false, 'message' => 'SAML authentication failed']);
+        $this->assertContainsEquals(['warning', 'SAML authentication rejected', ['reason' => $reason]], array_map(fn (MessageLogged $event) => [$event->level, $event->message, $event->context], $this->logged));
     }
 }

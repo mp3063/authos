@@ -123,8 +123,10 @@ class WebhookController extends BaseController
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to create webhook: '.$e->getMessage(),
+                'Failed to create webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -179,8 +181,10 @@ class WebhookController extends BaseController
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to update webhook: '.$e->getMessage(),
+                'Failed to update webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -204,8 +208,10 @@ class WebhookController extends BaseController
 
             return $this->noContentResponse();
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to delete webhook: '.$e->getMessage(),
+                'Failed to delete webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -239,8 +245,10 @@ class WebhookController extends BaseController
                 'Test webhook sent successfully'
             );
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to send test webhook: '.$e->getMessage(),
+                'Failed to send test webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -270,8 +278,10 @@ class WebhookController extends BaseController
                 'Webhook secret rotated successfully'
             );
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to rotate webhook secret: '.$e->getMessage(),
+                'Failed to rotate webhook secret',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -305,8 +315,10 @@ class WebhookController extends BaseController
                 'Webhook enabled successfully'
             );
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to enable webhook: '.$e->getMessage(),
+                'Failed to enable webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -340,8 +352,10 @@ class WebhookController extends BaseController
                 'Webhook disabled successfully'
             );
         } catch (\Exception $e) {
+            report($e);
+
             return $this->errorResponse(
-                'Failed to disable webhook: '.$e->getMessage(),
+                'Failed to disable webhook',
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }

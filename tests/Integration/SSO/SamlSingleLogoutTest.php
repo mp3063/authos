@@ -6,6 +6,9 @@ use App\Models\Application;
 use App\Models\SSOConfiguration;
 use App\Models\SSOSession;
 use App\Models\User;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Integration\IntegrationTestCase;
 
@@ -14,6 +17,15 @@ class SamlSingleLogoutTest extends IntegrationTestCase
     use SignsSamlResponses;
 
     private const IDP_ENTITY_ID = 'https://idp.example.com';
+
+    private array $logged = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Log::listen(fn (MessageLogged $event) => $this->logged[] = $event);
+    }
 
     #[Test]
     public function it_revokes_the_users_sessions_for_a_logout_request_signed_by_the_idp(): void
@@ -39,7 +51,7 @@ class SamlSingleLogoutTest extends IntegrationTestCase
             'SAMLRequest' => base64_encode($this->logoutRequestXml($user->email)),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML logout request is not signed');
+        $this->assertRejectedBecause($response, 'SAML logout request is not signed');
         $this->assertNull($session->fresh()->logged_out_at);
     }
 
@@ -116,7 +128,7 @@ class SamlSingleLogoutTest extends IntegrationTestCase
 
         $replay = $this->postJson('/api/v1/sso/saml/slo', ['SAMLRequest' => $samlRequest]);
 
-        $replay->assertBadRequest()->assertJsonPath('message', 'SAML logout request has already been used');
+        $this->assertRejectedBecause($replay, 'SAML logout request has already been used');
         $this->assertNull($laterSession->fresh()->logged_out_at);
     }
 
@@ -130,7 +142,7 @@ class SamlSingleLogoutTest extends IntegrationTestCase
             'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email, options: ['issue_instant' => time() - 3600])),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML logout request has expired');
+        $this->assertRejectedBecause($response, 'SAML logout request has expired');
         $this->assertNull($session->fresh()->logged_out_at);
     }
 
@@ -144,7 +156,7 @@ class SamlSingleLogoutTest extends IntegrationTestCase
             'SAMLRequest' => $this->signSamlLogoutRequest($this->logoutRequestXml($user->email, options: ['destination' => 'https://other-sp.example.com/slo'])),
         ]);
 
-        $response->assertBadRequest()->assertJsonPath('message', 'SAML logout request destination does not match this endpoint');
+        $this->assertRejectedBecause($response, 'SAML logout request destination does not match this endpoint');
         $this->assertNull($session->fresh()->logged_out_at);
     }
 
@@ -210,5 +222,11 @@ class SamlSingleLogoutTest extends IntegrationTestCase
             .'<saml:NameID>'.$email.'</saml:NameID>'
             .'<samlp:SessionIndex>session-1</samlp:SessionIndex>'
             .'</samlp:LogoutRequest>';
+    }
+
+    private function assertRejectedBecause(TestResponse $response, string $reason): void
+    {
+        $response->assertBadRequest()->assertExactJson(['success' => false, 'message' => 'Single logout failed']);
+        $this->assertContainsEquals(['warning', 'SAML single logout rejected', ['reason' => $reason]], array_map(fn (MessageLogged $event) => [$event->level, $event->message, $event->context], $this->logged));
     }
 }

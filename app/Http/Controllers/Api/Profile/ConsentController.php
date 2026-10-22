@@ -44,7 +44,9 @@ class ConsentController extends BaseController
                 'message' => 'Consent recorded',
             ], 201);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to record consent', 500);
         }
     }
 
@@ -66,7 +68,9 @@ class ConsentController extends BaseController
                 'message' => 'Consent withdrawn',
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to withdraw consent', 500);
         }
     }
 
@@ -94,7 +98,9 @@ class ConsentController extends BaseController
                 'data' => ['consents' => $consents],
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to retrieve consents', 500);
         }
     }
 
@@ -131,7 +137,9 @@ class ConsentController extends BaseController
                 'message' => 'Data subject request submitted',
             ], 201);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse('Failed to create data subject request', 500);
         }
     }
 }

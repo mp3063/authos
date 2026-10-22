@@ -136,8 +136,10 @@ class CacheManagementController extends BaseController
         } catch (Exception $e) {
             logger()->error('Failed to clear all caches: '.$e->getMessage());
 
+            report($e);
+
             return $this->errorResponse(
-                'Failed to clear caches: '.$e->getMessage(),
+                'Failed to clear caches',
                 500
             );
         }
@@ -208,8 +210,10 @@ class CacheManagementController extends BaseController
         } catch (Exception $e) {
             logger()->error("Failed to clear user cache for user {$userId}: ".$e->getMessage());
 
+            report($e);
+
             return $this->errorResponse(
-                'Failed to clear user caches: '.$e->getMessage(),
+                'Failed to clear user caches',
                 500
             );
         }

@@ -82,7 +82,9 @@ class BulkDataController extends BaseController
                 'expires_at' => $result['expires_at'],
             ], 'Export completed successfully');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to export users: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to export users');
         }
     }
 
@@ -180,7 +182,9 @@ class BulkDataController extends BaseController
                 'message' => 'Import completed successfully',
             ], 201);
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to import users: '.$e->getMessage());
+            report($e);
+
+            return $this->serverErrorResponse('Failed to import users');
         }
     }
 }
