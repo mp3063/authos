@@ -8,6 +8,8 @@ info:
 
     Request bodies and query parameters are taken from the validation rules in the code.
 
+    Download the [OpenAPI spec](openapi.yaml) or the [Postman collection](postman-collection.json).
+
     ## Authentication
     Send an access token as `Authorization: Bearer {access_token}`. Tokens come from `POST /api/v1/auth/login`,
     `POST /api/v1/auth/register` or the OAuth endpoints (`/oauth/authorize` and `/oauth/token`).

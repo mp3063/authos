@@ -115,16 +115,17 @@ herd link authos
 herd start
 
 # Access the application
-open https://authos.test
+open http://authos.test
 ```
 
 ### Default Credentials
 
-- **Admin Panel**: https://authos.test/admin
+- **Admin Panel**: http://authos.test/admin
   - Email: `admin@authservice.com`
   - Password: `password`
 
-- **API Base URL**: https://authos.test/api/v1
+- **API Base URL**: http://authos.test/api/v1
+- **API Docs (Swagger UI)**: http://authos.test/docs
 
 ## Technology Stack
 
@@ -142,6 +143,8 @@ open https://authos.test
 | Frontend | Tailwind CSS 4, Vite 8 |
 
 ## API Documentation
+
+The interactive reference at **http://authos.test/docs** (Swagger UI) covers every endpoint, with request bodies taken from the validation rules. The spec is [public/docs/openapi.yaml](public/docs/openapi.yaml) and a Postman collection is [public/docs/postman-collection.json](public/docs/postman-collection.json).
 
 ### OAuth 2.0 Endpoints
 
@@ -173,7 +176,7 @@ AuthOS provides 220+ API endpoints under `/api/v1` across these categories:
 - **SSO** - OIDC/SAML flows, sessions, SSO configurations, SAML certificates
 - **Enterprise** - LDAP, branding, domains, audit, compliance
 
-See [API Documentation](docs/api/) for complete details.
+See the [Swagger UI](http://authos.test/docs) for every endpoint, and [docs/api/](docs/api/) for integration guides.
 
 ## Admin Panel
 
@@ -237,7 +240,7 @@ herd composer test:coverage
 ```bash
 # Application
 APP_NAME=AuthOS
-APP_URL=https://authos.test
+APP_URL=http://authos.test
 
 # Reset page for users without panel access; must call POST /api/v1/auth/password/reset
 # (defaults to APP_URL/reset-password, which AuthOS itself does not serve)
