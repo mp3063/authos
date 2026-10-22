@@ -107,23 +107,23 @@
 <body>
     <div class="custom-header">
         <h1>🔐 AuthOS API Documentation</h1>
-        <p>Comprehensive Laravel 12 Authentication Service - An Auth0 Alternative</p>
+        <p>Laravel 13 Authentication Service - An Auth0 Alternative</p>
     </div>
 
     <div class="custom-links">
         <h3>📋 Quick Start Resources</h3>
-        <a href="../openapi.yaml" class="openapi" download>📄 Download OpenAPI Spec</a>
-        <a href="../postman-collection.json" class="postman" download>📮 Download Postman Collection</a>
+        <a href="openapi.yaml" class="openapi" download>📄 Download OpenAPI Spec</a>
+        <a href="postman-collection.json" class="postman" download>📮 Download Postman Collection</a>
         <a href="https://github.com/postmanlabs/postman-app-support/blob/main/docs/importing.md" target="_blank">📖 Import Guide</a>
         
         <h3>🚀 Getting Started</h3>
-        <p><strong>Base URL:</strong> <code>https://api.authos.dev/api/v1</code> (Production) | <code>http://authos.test/api/v1</code> (Development)</p>
+        <p><strong>Base URL:</strong> <code>http://authos.test/api/v1</code> (Laravel Herd); OAuth endpoints live at <code>/oauth</code></p>
         
         <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; margin: 1rem 0; border-left: 4px solid #3b82f6;">
             <h4 style="margin-top: 0;">🔑 Authentication Quick Start</h4>
-            <p>1. Register or login to get an access token</p>
+            <p>1. Register or log in to get an access token (users with MFA get a challenge to complete first)</p>
             <p>2. Include token in requests: <code>Authorization: Bearer {access_token}</code></p>
-            <p>3. Tokens support scopes: <code>openid</code>, <code>profile</code>, <code>email</code>, <code>read</code>, <code>write</code>, <code>admin</code></p>
+            <p>3. Click <strong>Authorize</strong> and paste the token to try endpoints here</p>
         </div>
 
         <div style="background: #fef3f2; padding: 1rem; border-radius: 6px; margin: 1rem 0; border-left: 4px solid #ef4444;">
@@ -132,7 +132,7 @@
             <ul style="margin: 0.5rem 0;">
                 <li><code>X-RateLimit-Limit</code>: Maximum requests allowed</li>
                 <li><code>X-RateLimit-Remaining</code>: Remaining requests in current window</li>
-                <li><code>X-RateLimit-Reset</code>: When rate limit resets</li>
+                <li><code>Retry-After</code>: Seconds to wait after a 429</li>
             </ul>
         </div>
     </div>
@@ -145,7 +145,7 @@
         window.onload = function() {
             // Begin Swagger UI call region
             const ui = SwaggerUIBundle({
-                url: '../openapi.yaml',
+                url: 'openapi.yaml',
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [
@@ -163,22 +163,12 @@
                 showExtensions: true,
                 showCommonExtensions: true,
                 tryItOutEnabled: true,
-                requestInterceptor: (request) => {
-                    // Auto-add Content-Type header for POST/PUT requests
-                    if (request.method === 'POST' || request.method === 'PUT') {
-                        if (!request.headers['Content-Type']) {
-                            request.headers['Content-Type'] = 'application/json';
-                        }
-                    }
-                    return request;
-                },
                 responseInterceptor: (response) => {
                     // Log rate limiting info if present
                     if (response.headers['x-ratelimit-limit']) {
                         console.log('Rate Limit Status:', {
                             limit: response.headers['x-ratelimit-limit'],
-                            remaining: response.headers['x-ratelimit-remaining'],
-                            reset: new Date(response.headers['x-ratelimit-reset'] * 1000)
+                            remaining: response.headers['x-ratelimit-remaining']
                         });
                     }
                     return response;
