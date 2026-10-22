@@ -25,8 +25,8 @@ class OAuthFlowMonitorWidget extends ChartWidget
         $data = [];
 
         foreach ($trend as $day) {
-            $labels[] = date('M d', strtotime($day->date));
-            $data[] = $day->tokens_created;
+            $labels[] = date('M d', strtotime($day['date']));
+            $data[] = $day['tokens_created'];
         }
 
         return [

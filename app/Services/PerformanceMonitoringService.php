@@ -235,7 +235,7 @@ class PerformanceMonitoringService
                 'result_size' => strlen(json_encode($result)).' bytes',
             ]);
 
-            return $result;
+            return json_decode(json_encode($result), true);
         });
     }
 
@@ -274,7 +274,7 @@ class PerformanceMonitoringService
         // Store in cache for aggregation (in production, this would go to a metrics database)
         $cacheKey = 'performance_metrics_'.date('Y-m-d-H');
         $existingMetrics = Cache::get($cacheKey, []);
-        $existingMetrics[] = $metrics;
+        $existingMetrics[] = json_decode(json_encode($metrics), true);
         Cache::put($cacheKey, $existingMetrics, 3600); // 1 hour TTL
     }
 

@@ -54,7 +54,7 @@
                                             <div class="flex flex-col items-center space-y-1">
                                                 <span class="truncate max-w-20" title="{{ $app->name }}">{{ Str::limit($app->name, 10) }}</span>
                                                 <span class="text-xs text-gray-400 dark:text-gray-500 font-normal">
-                                                    {{ $app->users->count() }} users
+                                                    {{ $app->users_count }} users
                                                 </span>
                                             </div>
                                         </th>

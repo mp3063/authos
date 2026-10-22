@@ -8,6 +8,7 @@ use App\Notifications\IpBlockedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
 class IpBlocklistService
 {
@@ -82,7 +83,7 @@ class IpBlocklistService
             foreach ($admins as $admin) {
                 $admin->notify(new IpBlockedNotification($block));
             }
-        } catch (\Spatie\Permission\Exceptions\RoleDoesNotExist $e) {
+        } catch (RoleDoesNotExist $e) {
             // Role may not exist in test environment
         }
 
@@ -128,14 +129,15 @@ class IpBlocklistService
      */
     public function getBlockedIps(): Collection
     {
-        return Cache::remember($this->cacheKey, $this->cacheTtl, function () {
+        return collect(Cache::remember($this->cacheKey, $this->cacheTtl, function () {
             return IpBlocklist::where('is_active', true)
                 ->where(function ($query) {
                     $query->whereNull('expires_at')
                         ->orWhere('expires_at', '>', now());
                 })
-                ->pluck('ip_address');
-        });
+                ->pluck('ip_address')
+                ->all();
+        }));
     }
 
     /**

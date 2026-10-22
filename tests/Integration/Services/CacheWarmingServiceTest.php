@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\Integration\IntegrationTestCase;
@@ -26,7 +27,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         Cache::flush();
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_all_caches(): void
     {
         Config::set('performance.cache.warming.enabled', true);
@@ -45,7 +46,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertArrayHasKey('statistics', $results);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_skips_warming_when_disabled(): void
     {
         Config::set('performance.cache.warming.enabled', false);
@@ -57,7 +58,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEmpty($results);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_organization_caches(): void
     {
         $org1 = Organization::factory()->create();
@@ -78,7 +79,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get("org:app_count:{$org1->id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_correct_organization_counts(): void
     {
         $org = Organization::factory()->create();
@@ -92,7 +93,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEquals(3, Cache::get("org:app_count:{$org->id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_permission_caches(): void
     {
         Permission::create(['name' => 'view-dashboard', 'guard_name' => 'web']);
@@ -113,7 +114,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get('roles:guard:web'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_permissions_by_guard(): void
     {
         Permission::create(['name' => 'web-permission', 'guard_name' => 'web']);
@@ -126,11 +127,11 @@ class CacheWarmingServiceTest extends IntegrationTestCase
 
         $this->assertCount(1, $webPerms);
         $this->assertCount(1, $apiPerms);
-        $this->assertEquals('web-permission', $webPerms->first()->name);
-        $this->assertEquals('api-permission', $apiPerms->first()->name);
+        $this->assertEquals('web-permission', $webPerms[0]['name']);
+        $this->assertEquals('api-permission', $apiPerms[0]['name']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_application_caches(): void
     {
         $app1 = Application::factory()->create();
@@ -145,7 +146,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get("app:client_id:{$app1->client_id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_application_configuration(): void
     {
         $app = Application::factory()->create([
@@ -163,7 +164,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEquals(['key' => 'value'], $cached['settings']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_statistics_caches(): void
     {
         // Create test data
@@ -202,7 +203,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertGreaterThanOrEqual(1, Cache::get('stats:auth_logs_today'));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_specific_organization(): void
     {
         $org = Organization::factory()->create([
@@ -229,7 +230,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get("org:roles:{$org->id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_false_for_non_existent_organization(): void
     {
         $result = $this->service->warmOrganization(99999);
@@ -237,7 +238,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_logs_error_when_organization_warming_fails(): void
     {
         // Create org then simulate cache failure by making cache throw exception
@@ -254,7 +255,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_warms_specific_user(): void
     {
         $org = Organization::factory()->create();
@@ -275,7 +276,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get("user:profile:{$user->id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_user_profile_correctly(): void
     {
         $user = User::factory()->create([
@@ -293,7 +294,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertTrue($profile['mfa_enabled']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_returns_false_for_non_existent_user(): void
     {
         $result = $this->service->warmUser(99999);
@@ -301,7 +302,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_logs_error_when_user_warming_fails(): void
     {
         // Create user then simulate cache failure
@@ -318,7 +319,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertFalse($result);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_clears_all_warmed_caches(): void
     {
         // Warm some caches
@@ -342,7 +343,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertTrue(true);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_respects_cache_ttl_configuration(): void
     {
         Config::set('performance.cache.ttl.organization_settings', 3600);
@@ -359,7 +360,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertNotNull(Cache::get("user:permissions:{$user->id}"));
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_large_number_of_organizations(): void
     {
         Organization::factory()->count(150)->create();
@@ -369,7 +370,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEquals(150, $count);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_large_number_of_applications(): void
     {
         Application::factory()->count(150)->create();
@@ -379,7 +380,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEquals(150, $count);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_organization_settings_as_array(): void
     {
         $org = Organization::factory()->create([
@@ -398,7 +399,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertTrue($cached['security']['mfa_required']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_handles_null_organization_settings(): void
     {
         $org = Organization::factory()->create(['settings' => null]);
@@ -410,7 +411,7 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $this->assertEquals([], $cached);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_roles_with_permissions(): void
     {
         $role = Role::create(['name' => 'admin', 'guard_name' => 'web']);
@@ -423,10 +424,10 @@ class CacheWarmingServiceTest extends IntegrationTestCase
 
         $this->assertNotNull($cached);
         $this->assertCount(1, $cached);
-        $this->assertTrue($cached->first()->permissions->isNotEmpty());
+        $this->assertNotEmpty($cached[0]['permissions']);
     }
 
-    #[\PHPUnit\Framework\Attributes\Test]
+    #[Test]
     public function it_caches_active_applications_only(): void
     {
         $org = Organization::factory()->create();
@@ -446,6 +447,6 @@ class CacheWarmingServiceTest extends IntegrationTestCase
         $activeApps = Cache::get("org:active_apps:{$org->id}");
 
         $this->assertCount(3, $activeApps);
-        $this->assertTrue($activeApps->every(fn ($app) => $app->is_active));
+        $this->assertTrue(collect($activeApps)->every(fn (array $app) => $app['is_active']));
     }
 }

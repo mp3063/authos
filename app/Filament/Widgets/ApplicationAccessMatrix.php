@@ -47,6 +47,7 @@ class ApplicationAccessMatrix extends Widget
             // Get organization applications
             $applications = Application::where('organization_id', $organizationId)
                 ->where('is_active', true)
+                ->withCount('users')
                 ->orderBy('name')
                 ->get();
 
@@ -67,23 +68,39 @@ class ApplicationAccessMatrix extends Widget
                 $accessMatrix[$user->id] = [];
                 foreach ($applications as $app) {
                     $userApp = $user->applications->firstWhere('id', $app->id);
+                    $lastLogin = $userApp?->pivot?->last_login_at;
+                    $grantedAt = $userApp?->pivot?->created_at;
                     $accessMatrix[$user->id][$app->id] = [
                         'hasAccess' => $userApp !== null,
-                        'lastLogin' => $userApp?->pivot?->last_login_at,
+                        'lastLogin' => $lastLogin === null ? null : (string) $lastLogin,
                         'loginCount' => $userApp?->pivot?->login_count ?? 0,
-                        'grantedAt' => $userApp?->pivot?->created_at,
+                        'grantedAt' => $grantedAt === null ? null : (string) $grantedAt,
                     ];
                 }
             }
 
             return [
-                'users' => $users,
-                'applications' => $applications,
+                'users' => $users->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                ])->all(),
+                'applications' => $applications->map(fn (Application $app) => [
+                    'id' => $app->id,
+                    'name' => $app->name,
+                    'users_count' => $app->users_count,
+                ])->all(),
                 'accessMatrix' => $accessMatrix,
             ];
         });
 
-        return array_merge($data, ['hasPermission' => true]);
+        return [
+            'users' => collect($data['users'])->map(fn (array $user) => (object) $user),
+            'applications' => collect($data['applications'])->map(fn (array $app) => (object) $app),
+            'accessMatrix' => $data['accessMatrix'],
+            'hasPermission' => true,
+        ];
     }
 
     public function grantAccess(int $userId, int $applicationId): void

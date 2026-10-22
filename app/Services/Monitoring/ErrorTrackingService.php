@@ -266,7 +266,7 @@ class ErrorTrackingService
             // Store in recent errors list
             $recentErrorsKey = 'recent_errors';
             $recentErrors = Cache::get($recentErrorsKey, []);
-            array_unshift($recentErrors, $errorData);
+            array_unshift($recentErrors, json_decode(json_encode($errorData), true));
 
             // Keep only last 100 errors
             $recentErrors = array_slice($recentErrors, 0, 100);

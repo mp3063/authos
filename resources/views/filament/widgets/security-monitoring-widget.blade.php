@@ -49,8 +49,8 @@
                             <tbody>
                                 @foreach(array_slice($suspicious_ips, 0, 5) as $ip)
                                     <tr class="border-b border-gray-200 dark:border-gray-700">
-                                        <td class="px-4 py-2 text-sm font-mono text-gray-950 dark:text-white">{{ $ip->ip_address }}</td>
-                                        <td class="px-4 py-2 text-sm font-semibold text-danger-600 dark:text-danger-400">{{ $ip->attempts }}</td>
+                                        <td class="px-4 py-2 text-sm font-mono text-gray-950 dark:text-white">{{ $ip['ip_address'] }}</td>
+                                        <td class="px-4 py-2 text-sm font-semibold text-danger-600 dark:text-danger-400">{{ $ip['attempts'] }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

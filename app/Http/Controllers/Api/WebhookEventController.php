@@ -62,13 +62,10 @@ class WebhookEventController extends BaseController
             // Order by category and name
             $query->orderBy('category')->orderBy('name');
 
-            return $query->get();
+            return WebhookEventResource::collection($query->get())->resolve($request);
         });
 
-        return $this->collectionResponse(
-            WebhookEventResource::collection($events),
-            null
-        );
+        return $this->successResponse($events);
     }
 
     /**
@@ -125,12 +122,12 @@ class WebhookEventController extends BaseController
             $events = $query->orderBy('category')->orderBy('name')->get();
 
             // Group by category
-            return $events->groupBy('category')->map(function ($categoryEvents, $category) {
+            return $events->groupBy('category')->map(function ($categoryEvents, $category) use ($request) {
                 return [
                     'category' => $category,
-                    'events' => WebhookEventResource::collection($categoryEvents),
+                    'events' => WebhookEventResource::collection($categoryEvents)->resolve($request),
                 ];
-            })->values();
+            })->values()->all();
         });
 
         return $this->successResponse($groupedEvents);

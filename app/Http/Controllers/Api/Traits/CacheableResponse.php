@@ -57,7 +57,7 @@ trait CacheableResponse
         $duration = $this->cacheDurations[$type] ?? 300;
         $cacheKey = $this->generateCacheKey($type, $params);
 
-        return Cache::remember($cacheKey, $duration, $callback);
+        return Cache::remember($cacheKey, $duration, fn () => $this->toCacheableData($callback()));
     }
 
     /**
@@ -68,7 +68,7 @@ trait CacheableResponse
         $duration = $this->cacheDurations['organization_data'] ?? 600;
         $cacheKey = "org_data:{$organizationId}:{$dataType}:".md5(Request::instance()->getQueryString() ?? '');
 
-        return Cache::remember($cacheKey, $duration, $callback);
+        return Cache::remember($cacheKey, $duration, fn () => $this->toCacheableData($callback()));
     }
 
     /**
@@ -79,7 +79,7 @@ trait CacheableResponse
         $duration = $this->cacheDurations['user_data'] ?? 300;
         $cacheKey = "user_data:{$userId}:{$dataType}:".md5(Request::instance()->getQueryString() ?? '');
 
-        return Cache::remember($cacheKey, $duration, $callback);
+        return Cache::remember($cacheKey, $duration, fn () => $this->toCacheableData($callback()));
     }
 
     /**
@@ -90,7 +90,15 @@ trait CacheableResponse
         $duration = $duration ?? $this->cacheDurations['analytics_data'];
         $cacheKey = "analytics:{$analyticsType}:".md5(serialize($params));
 
-        return Cache::remember($cacheKey, $duration, $callback);
+        return Cache::remember($cacheKey, $duration, fn () => $this->toCacheableData($callback()));
+    }
+
+    /**
+     * Convert a payload to plain arrays and scalars, the only values the cache unserializes
+     */
+    protected function toCacheableData(mixed $data): mixed
+    {
+        return json_decode(json_encode($data), true);
     }
 
     /**
@@ -110,7 +118,7 @@ trait CacheableResponse
                     Cache::forget($unprefixedKey);
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             logger()->warning('Failed to invalidate cache: '.$e->getMessage());
         }
     }

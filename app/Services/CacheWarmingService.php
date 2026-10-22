@@ -94,14 +94,14 @@ class CacheWarmingService
         Cache::remember(
             'permissions:all',
             $ttl,
-            fn () => Permission::all()
+            fn () => Permission::all()->toArray()
         );
 
         // Cache all roles with permissions
         Cache::remember(
             'roles:all',
             $ttl,
-            fn () => Role::with('permissions')->get()
+            fn () => Role::with('permissions')->get()->toArray()
         );
 
         // Cache permissions by guard
@@ -109,13 +109,13 @@ class CacheWarmingService
             Cache::remember(
                 "permissions:guard:{$guard}",
                 $ttl,
-                fn () => Permission::where('guard_name', $guard)->get()
+                fn () => Permission::where('guard_name', $guard)->get()->toArray()
             );
 
             Cache::remember(
                 "roles:guard:{$guard}",
                 $ttl,
-                fn () => Role::where('guard_name', $guard)->with('permissions')->get()
+                fn () => Role::where('guard_name', $guard)->with('permissions')->get()->toArray()
             );
 
             $count += 2;
@@ -152,7 +152,7 @@ class CacheWarmingService
                 Cache::remember(
                     "app:client_id:{$app->client_id}",
                     $ttl,
-                    fn () => $app
+                    fn () => $app->toArray()
                 );
 
                 $count++;
@@ -212,14 +212,14 @@ class CacheWarmingService
             // Active applications
             Cache::put(
                 "org:active_apps:{$organizationId}",
-                $org->applications()->where('is_active', true)->get(),
+                $org->applications()->where('is_active', true)->get()->toArray(),
                 $ttl
             );
 
             // Organization roles
             Cache::put(
                 "org:roles:{$organizationId}",
-                $org->roles()->with('permissions')->get(),
+                $org->roles()->with('permissions')->get()->toArray(),
                 $ttl
             );
 
@@ -250,14 +250,14 @@ class CacheWarmingService
             // User permissions
             Cache::put(
                 "user:permissions:{$userId}",
-                $user->getAllPermissions()->pluck('name'),
+                $user->getAllPermissions()->pluck('name')->all(),
                 $ttl
             );
 
             // User roles
             Cache::put(
                 "user:roles:{$userId}",
-                $user->roles->pluck('name'),
+                $user->roles->pluck('name')->all(),
                 $ttl
             );
 

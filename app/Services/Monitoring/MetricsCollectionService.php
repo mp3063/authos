@@ -86,7 +86,8 @@ class MetricsCollectionService
                 ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             // Trend data (last 7 days)
             $trend = DB::table('authentication_logs')
@@ -100,7 +101,8 @@ class MetricsCollectionService
                 ->groupBy('date')
                 ->orderBy('date')
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             return [
                 'today' => [
@@ -153,7 +155,8 @@ class MetricsCollectionService
                 ->orderByDesc('count')
                 ->limit(10)
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             // Refresh token usage
             $refreshTokens = DB::table('oauth_refresh_tokens')
@@ -177,7 +180,8 @@ class MetricsCollectionService
                 ->groupBy('date')
                 ->orderBy('date')
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             return [
                 'active_tokens' => $activeTokens,
@@ -371,7 +375,8 @@ class MetricsCollectionService
                 ->groupBy('date')
                 ->orderBy('date')
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             return [
                 'total_users' => $totalUsers,
@@ -446,7 +451,8 @@ class MetricsCollectionService
                 ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             return [
                 'total_organizations' => $totalOrgs,
@@ -514,7 +520,8 @@ class MetricsCollectionService
                 ->groupBy('date')
                 ->orderBy('date')
                 ->get()
-                ->toArray();
+                ->map(fn (object $row) => (array) $row)
+                ->all();
 
             return [
                 'enabled_users' => $mfaEnabledUsers,
