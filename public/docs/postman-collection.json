@@ -1050,7 +1050,10 @@
                                 "authorize"
                             ]
                         },
-                        "description": "Approve an OAuth 2.0 authorization request"
+                        "description": "Approve an OAuth 2.0 authorization request",
+                        "auth": {
+                            "type": "noauth"
+                        }
                     },
                     "response": []
                 },
@@ -1090,7 +1093,10 @@
                                 "authorize"
                             ]
                         },
-                        "description": "Deny an OAuth 2.0 authorization request"
+                        "description": "Deny an OAuth 2.0 authorization request",
+                        "auth": {
+                            "type": "noauth"
+                        }
                     },
                     "response": []
                 },
@@ -4434,9 +4440,6 @@
                 {
                     "name": "Logout Session Token",
                     "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
                         "method": "POST",
                         "header": [],
                         "url": {
@@ -4459,9 +4462,6 @@
                 {
                     "name": "Refresh Session Token",
                     "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
                         "method": "POST",
                         "header": [],
                         "url": {
@@ -4484,9 +4484,6 @@
                 {
                     "name": "Validate Session Token",
                     "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
                         "method": "GET",
                         "header": [],
                         "url": {
@@ -5885,9 +5882,6 @@
                 {
                     "name": "Detailed Health Check",
                     "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
                         "method": "GET",
                         "header": [],
                         "url": {
@@ -5950,9 +5944,6 @@
                 {
                     "name": "Component Health Check",
                     "request": {
-                        "auth": {
-                            "type": "noauth"
-                        },
                         "method": "GET",
                         "header": [],
                         "url": {
