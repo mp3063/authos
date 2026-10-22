@@ -114,6 +114,25 @@ class ComplianceReportTest extends IntegrationTestCase
      * to managing sensitive information.
      */
     #[Test]
+    public function a_super_admin_generates_a_compliance_report_for_the_requested_organization(): void
+    {
+        $organization = Organization::factory()->create(['name' => 'Requested Org']);
+        $superAdmin = $this->createApiSuperAdmin();
+        $superAdmin->forceFill(['organization_id' => null])->save();
+        $token = $this->createAccessToken($superAdmin, ['enterprise.compliance.read']);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/enterprise/compliance/soc2?organization_id={$organization->id}")
+            ->assertOk()
+            ->assertJsonPath('data.report.organization.name', 'Requested Org');
+
+        $this->withToken($token)
+            ->getJson('/api/v1/enterprise/compliance/soc2')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('organization_id');
+    }
+
+    #[Test]
     public function iso_27001_compliance_report_can_be_generated(): void
     {
         // ARRANGE: Create organization with compliance data

@@ -8,6 +8,7 @@ use App\Http\Requests\Enterprise\ScheduleComplianceReportRequest;
 use App\Http\Requests\Enterprise\UpdateScheduledComplianceReportRequest;
 use App\Jobs\GenerateComplianceReportJob;
 use App\Models\ComplianceReport;
+use App\Models\Organization;
 use App\Models\ScheduledComplianceReport;
 use App\Models\User;
 use App\Services\ComplianceReportService;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ComplianceController extends BaseController
@@ -31,27 +33,30 @@ class ComplianceController extends BaseController
         $this->middleware('auth:api');
     }
 
-    public function soc2(): JsonResponse
+    public function soc2(Request $request): JsonResponse
     {
         return $this->generateReport(
+            $request,
             'enterprise.compliance.read',
             'SOC2',
             fn ($org) => $this->complianceService->generateSOC2Report($org),
         );
     }
 
-    public function iso27001(): JsonResponse
+    public function iso27001(Request $request): JsonResponse
     {
         return $this->generateReport(
+            $request,
             'enterprise.compliance.read',
             'ISO 27001',
             fn ($org) => $this->complianceService->generateISO27001Report($org),
         );
     }
 
-    public function gdpr(): JsonResponse
+    public function gdpr(Request $request): JsonResponse
     {
         return $this->generateReport(
+            $request,
             'enterprise.compliance.read',
             'GDPR',
             fn ($org) => $this->complianceService->generateGDPRReport($org),
@@ -180,9 +185,13 @@ class ComplianceController extends BaseController
             ->findOrFail($id);
     }
 
-    private function generateReport(string $scope, string $label, \Closure $generate): JsonResponse
+    private function generateReport(Request $request, string $scope, string $label, \Closure $generate): JsonResponse
     {
         $this->authorize('create', ComplianceReport::class);
+
+        $request->validate([
+            'organization_id' => [Rule::excludeIf($request->user()->organization_id !== null), 'required', 'integer', 'exists:organizations,id'],
+        ]);
 
         try {
             $user = $this->getAuthenticatedUser();
@@ -191,12 +200,14 @@ class ComplianceController extends BaseController
                 return $this->forbiddenResponse('You do not have permission to generate compliance reports');
             }
 
-            $denied = $this->ensureFeatureEnabled($user->organization);
+            $organization = $user->organization ?? Organization::findOrFail($request->integer('organization_id'));
+
+            $denied = $this->ensureFeatureEnabled($organization);
             if ($denied) {
                 return $denied;
             }
 
-            $report = $generate($user->organization);
+            $report = $generate($organization);
 
             return response()->json([
                 'success' => true,
@@ -204,7 +215,9 @@ class ComplianceController extends BaseController
                 'message' => "{$label} report generated successfully",
             ]);
         } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            report($e);
+
+            return $this->errorResponse("Failed to generate {$label} report", 500);
         }
     }
 
