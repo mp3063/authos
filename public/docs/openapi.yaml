@@ -1247,7 +1247,28 @@ paths:
                       - email
                       - read
                       - write
-                      - admin
+                      - users.read
+                      - users.write
+                      - users.update
+                      - users.delete
+                      - users.manage
+                      - applications.read
+                      - applications.write
+                      - applications.update
+                      - applications.delete
+                      - applications.manage
+                      - organizations.read
+                      - organizations.write
+                      - organizations.update
+                      - organizations.manage
+                      - sso
+                      - roles.assign
+                      - mfa.setup
+                      - enterprise.audit.read
+                      - enterprise.audit.manage
+                      - enterprise.compliance.read
+                      - enterprise.compliance.manage
+                      - enterprise.branding.manage
                   example:
                     - openid
                     - profile
@@ -11152,6 +11173,11 @@ components:
             sso: 'Single Sign-On access'
             roles.assign: 'Assign roles to users'
             mfa.setup: 'Set up multi-factor authentication'
+            enterprise.audit.read: 'Read audit exports'
+            enterprise.audit.manage: 'Create audit exports'
+            enterprise.compliance.read: 'Read and generate compliance reports'
+            enterprise.compliance.manage: 'Manage compliance report schedules'
+            enterprise.branding.manage: 'Manage organization branding'
         clientCredentials:
           tokenUrl: /oauth/token
           scopes:
@@ -11178,6 +11204,11 @@ components:
             sso: 'Single Sign-On access'
             roles.assign: 'Assign roles to users'
             mfa.setup: 'Set up multi-factor authentication'
+            enterprise.audit.read: 'Read audit exports'
+            enterprise.audit.manage: 'Create audit exports'
+            enterprise.compliance.read: 'Read and generate compliance reports'
+            enterprise.compliance.manage: 'Manage compliance report schedules'
+            enterprise.branding.manage: 'Manage organization branding'
         password:
           tokenUrl: /oauth/token
           scopes:
@@ -11204,6 +11235,11 @@ components:
             sso: 'Single Sign-On access'
             roles.assign: 'Assign roles to users'
             mfa.setup: 'Set up multi-factor authentication'
+            enterprise.audit.read: 'Read audit exports'
+            enterprise.audit.manage: 'Create audit exports'
+            enterprise.compliance.read: 'Read and generate compliance reports'
+            enterprise.compliance.manage: 'Manage compliance report schedules'
+            enterprise.branding.manage: 'Manage organization branding'
   responses:
     Success:
       description: Success

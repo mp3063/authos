@@ -5,6 +5,7 @@ namespace App\Http\Requests\Auth;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class LoginRequest extends FormRequest
 {
@@ -26,7 +27,7 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
             'client_id' => ['sometimes', 'string'],
             'scopes' => ['sometimes', 'array'],
-            'scopes.*' => ['string', 'in:openid,profile,email,read,write,admin'],
+            'scopes.*' => ['string', Rule::in(array_diff(array_keys(config('passport.scopes')), ['*']))],
         ];
     }
 

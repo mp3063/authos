@@ -50,7 +50,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"email\": \"admin@authservice.com\",\n    \"password\": \"password\"\n}"
+                            "raw": "{\n    \"email\": \"admin@authservice.com\",\n    \"password\": \"password\",\n    \"scopes\": [\"openid\", \"profile\", \"email\", \"sso\", \"users.manage\", \"enterprise.audit.read\", \"enterprise.audit.manage\", \"enterprise.compliance.read\", \"enterprise.compliance.manage\", \"enterprise.branding.manage\"]\n}"
                         },
                         "url": {
                             "raw": "{{baseUrl}}/v1/auth/login",
@@ -4575,7 +4575,7 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/v1/enterprise/audit/exports",
+                            "raw": "{{baseUrl}}/v1/enterprise/audit/exports?organization_id={{organizationId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
@@ -4584,6 +4584,13 @@
                                 "enterprise",
                                 "audit",
                                 "exports"
+                            ],
+                            "query": [
+                                {
+                                    "key": "organization_id",
+                                    "value": "{{organizationId}}",
+                                    "description": "Required for a super admin, who has no organization"
+                                }
                             ]
                         },
                         "description": "List generated audit export files"
