@@ -10,14 +10,14 @@
   <img src="https://img.shields.io/badge/PHP-8.4-blue" alt="PHP 8.4">
   <img src="https://img.shields.io/badge/Laravel-13-red" alt="Laravel 13">
   <img src="https://img.shields.io/badge/Filament-5-orange" alt="Filament 5">
-  <img src="https://img.shields.io/badge/Tests-1680+-green" alt="1680+ Tests">
+  <img src="https://img.shields.io/badge/Tests-3300+-green" alt="3300+ Tests">
   <img src="https://img.shields.io/badge/Suite-passing-brightgreen" alt="Test suite passing">
   <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
 </p>
 
 ---
 
-> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. Core features are functional and the full test suite (1,750+ tests) passes. See the [Testing](#testing) section for details.
+> **:warning: NOT PRODUCTION READY**: This application is currently **in active development** and should **not be used in production environments**. Core features are functional and the full test suite (3,300+ tests) passes. See the [Testing](#testing) section for details.
 
 ---
 
@@ -38,6 +38,7 @@ AuthOS is an authentication and authorization service that provides:
 
 ### Authentication
 - Password-based authentication with progressive lockout
+- Password reset through the admin panel's signed reset page, or a client's own page (`PASSWORD_RESET_URL`) for users without panel access; a completed reset revokes the user's tokens and ends their SSO sessions
 - Multi-factor authentication (TOTP); an organization's `require_mfa` is enforced on API, social, SSO and panel sign-in, and members without MFA can only enroll, using a setup-only token (scope `mfa.setup`, 15 minutes)
 - Social authentication (5 providers)
 - Single Sign-On (OIDC, SAML 2.0)
@@ -50,6 +51,7 @@ AuthOS is an authentication and authorization service that provides:
 - Refresh token rotation and token revocation
 - Scope-based permissions
 - Role-based access control (RBAC): super admins define roles, permissions and custom roles; organization owners and admins assign roles of their own organization, never to themselves and never carrying permissions they don't hold
+- Every organization gets the default roles on creation (Organization Owner, Organization Admin, Organization Member, Application Manager, User Manager, Auditor, User); super admins can start a new role from any default role's permissions as a template
 
 ### Enterprise Features
 - Multi-tenant organizations
@@ -83,7 +85,7 @@ AuthOS is an authentication and authorization service that provides:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/authos.git
+git clone https://github.com/mp3063/authos.git
 cd authos
 
 # Install dependencies
@@ -182,7 +184,7 @@ The Filament-powered admin panel provides:
 - Applications, Application Groups
 - Roles, Custom Roles, Permissions
 - SSO Configurations, SSO Sessions, LDAP Configurations, Social Accounts, Custom Domains
-- Authentication Logs, Failed Login Attempts
+- Authentication Logs, Failed Login Attempts (read-only; exports go through Audit Exports)
 - Security Incidents, Account Lockouts, IP Blocklist
 - Webhooks, Webhook Events, Webhook Deliveries
 - Audit Exports, Compliance Reports, Scheduled Compliance Reports
@@ -198,7 +200,7 @@ The Filament-powered admin panel provides:
 
 ## Testing
 
-AuthOS has **1,750+ tests** in ~143 test files (unit, feature and integration). The full suite passes; a handful of tests are skipped or marked incomplete. Tests run against in-memory SQLite and in parallel via ParaTest.
+AuthOS has **3,300+ tests** in ~220 test files (unit, feature and integration). The full suite passes; a handful of tests are skipped or marked incomplete. Tests run against in-memory SQLite and in parallel via ParaTest.
 
 ```bash
 # Run all tests (parallel, with timeout protection)
@@ -216,6 +218,7 @@ herd composer test:coverage
 
 | Directory | Covers |
 |-----------|--------|
+| `Auth/` | Password reset across the API and the admin panel |
 | `Security/` | Intrusion detection, progressive lockout, IP blocking, security headers, tenant boundaries |
 | `SSO/` | OIDC and SAML flows, signature validation, single logout, SAML certificates, SSO configuration management |
 | `OAuth/` | Authorization code + PKCE, client credentials, password grant, token refresh/management, OIDC |
@@ -224,6 +227,7 @@ herd composer test:coverage
 | `Enterprise/` | LDAP, branding, domain verification, audit export, compliance reports |
 | `Webhooks/`, `Jobs/`, `BulkOperations/` | Webhook delivery/retry, background jobs, bulk import/export |
 | `Cache/`, `Monitoring/`, `Models/`, `Events/` | Caching, health/metrics, model lifecycle, event listener registration |
+| `Services/` | Authentication logging, cache warming, domain verification, MFA code verification |
 | `EndToEnd/` | Complete user journeys across auth, SSO, MFA, OAuth and the admin panel |
 
 ## Configuration
@@ -234,6 +238,10 @@ herd composer test:coverage
 # Application
 APP_NAME=AuthOS
 APP_URL=https://authos.test
+
+# Reset page for users without panel access; must call POST /api/v1/auth/password/reset
+# (defaults to APP_URL/reset-password, which AuthOS itself does not serve)
+PASSWORD_RESET_URL=
 
 # Database
 DB_CONNECTION=pgsql
@@ -274,11 +282,8 @@ Detailed documentation is available in the [docs/](docs/) directory:
 ### Code Quality
 
 ```bash
-# Run all quality checks
-herd composer quality
-
-# Individual checks
-herd composer cs:fix          # Code style (Pint)
+herd composer quality         # Code style check (Pint --test)
+herd composer cs:fix          # Fix code style (Pint)
 herd composer phpmd           # Mess detector (phpmd.xml ruleset)
 herd composer security:check  # Dependency security audit
 ```
@@ -302,15 +307,31 @@ Authorization follows one permission matrix, `ManagesOrganizationRoles::getDefau
 
 Security-relevant behavior worth knowing:
 
-- Organization isolation is enforced by the `org.boundary` middleware and org-scoped lookups; cross-organization IDs generally return 404 (Super Admin is unscoped)
+- Organization isolation is enforced by the `org.boundary` middleware and org-scoped lookups (Super Admin is unscoped); lookups authorize before revealing whether a record exists, so a caller without the ability gets 403 for unknown and foreign IDs alike, and 404 only after authorization passes
+- SSO configurations (including OIDC client secrets) are encrypted at rest with `APP_KEY`; rotating the key makes rows encrypted under the old key unreadable
+- Error responses never echo exception text; details go to the logs
 - SAML responses and logout requests must be signed by the configured IdP certificate; unsigned or unconfigured IdPs are rejected
 - SAML assertions are checked for audience, recipient, expiry, InResponseTo and replay; logout requests for IssueInstant, Destination and replay, and only end sessions of the matching application
 - SSO redirect URIs must use https (plain http only for localhost in local/testing) and match the configuration's allowed domains or registered URIs
 - Role assignment through the API, invitations, bulk import and the admin panel goes through the same rule: assignable roles are limited to the caller's organization and permissions
 - API responses drop keys that look like secrets (`*_password`, `*_secret`, `*_private_key`, `*_api_key`)
 - Disabling MFA requires the password plus a TOTP or recovery code, and is refused while the organization requires MFA
-- After enabling `require_mfa` enforcement, run `php artisan auth:revoke-tokens-for-mfa-setup --dry-run` (then without `--dry-run`) to revoke credentials of members who must set up MFA; this is needed once, at deploy, since later switches of `require_mfa` on and moves into such an organization revoke them automatically
+- Recovery codes are consumed atomically, so one code cannot be spent twice
+- Credentials are revoked automatically when an organization switches `require_mfa` on, a user moves into such an organization, or an admin resets the MFA of a member who must have it
 - Exports are written to the private disk and served only through authorized download endpoints
+
+### Upgrading an existing installation
+
+Run these once after deploying the current version:
+
+```bash
+herd php artisan migrate                                   # includes re-encrypting SSO configurations
+herd php artisan organizations:setup-default-roles         # backfill default roles for organizations missing them
+herd php artisan auth:revoke-tokens-for-mfa-setup --dry-run
+herd php artisan auth:revoke-tokens-for-mfa-setup          # revoke credentials of members who must set up MFA
+```
+
+Password reset links issued before the upgrade stop working and must be requested again.
 
 ## License
 
